@@ -2,25 +2,12 @@
 import { onMounted, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import { useAdminList } from '../../composables/useAdminList'
 
-const bookings = ref([])
-const loading = ref(true)
-const error = ref('')
+const { items: bookings, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/bookings/')
 const busyId = ref(null)
 
 const statusOptions = ['pending', 'confirmed', 'ongoing', 'completed', 'cancelled']
-
-async function loadBookings() {
-  loading.value = true
-  try {
-    const { data } = await apiClient.get('/admin/bookings/')
-    bookings.value = data.results ?? data
-  } catch (err) {
-    error.value = 'Could not load bookings.'
-  } finally {
-    loading.value = false
-  }
-}
 
 async function changeStatus(booking, newStatus) {
   if (newStatus === booking.status) return
@@ -35,7 +22,7 @@ async function changeStatus(booking, newStatus) {
   }
 }
 
-onMounted(loadBookings)
+onMounted(load)
 </script>
 
 <template>
@@ -85,6 +72,15 @@ onMounted(loadBookings)
         </tbody>
       </table>
       <p v-if="!bookings.length" class="p-6 text-center text-slate-400">No bookings yet.</p>
+      <div v-if="nextUrl" class="border-t border-navy-800 p-3 text-center">
+        <button
+          :disabled="loadingMore"
+          class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+          @click="loadMore"
+        >
+          {{ loadingMore ? 'Loading...' : 'Load More' }}
+        </button>
+      </div>
     </div>
   </div>
 </template>

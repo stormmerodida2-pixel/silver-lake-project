@@ -2,23 +2,10 @@
 import { onMounted, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import { useAdminList } from '../../composables/useAdminList'
 
-const users = ref([])
-const loading = ref(true)
-const error = ref('')
+const { items: users, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/users/')
 const busyId = ref(null)
-
-async function loadUsers() {
-  loading.value = true
-  try {
-    const { data } = await apiClient.get('/admin/users/')
-    users.value = data.results ?? data
-  } catch (err) {
-    error.value = 'Could not load users.'
-  } finally {
-    loading.value = false
-  }
-}
 
 async function toggleActive(user) {
   busyId.value = user.id
@@ -46,7 +33,7 @@ async function deleteUser(user) {
   }
 }
 
-onMounted(loadUsers)
+onMounted(load)
 </script>
 
 <template>
@@ -101,6 +88,15 @@ onMounted(loadUsers)
         </tbody>
       </table>
       <p v-if="!users.length" class="p-6 text-center text-slate-400">No customer accounts yet.</p>
+      <div v-if="nextUrl" class="border-t border-navy-800 p-3 text-center">
+        <button
+          :disabled="loadingMore"
+          class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+          @click="loadMore"
+        >
+          {{ loadingMore ? 'Loading...' : 'Load More' }}
+        </button>
+      </div>
     </div>
   </div>
 </template>

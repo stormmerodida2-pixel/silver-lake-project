@@ -2,31 +2,34 @@
 import { computed, onMounted, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import { useAdminList } from '../../composables/useAdminList'
 
-const drivers = ref([])
-const applications = ref([])
-const loading = ref(true)
-const error = ref('')
+const {
+  items: drivers,
+  nextUrl: driversNextUrl,
+  loading: driversLoading,
+  loadingMore: driversLoadingMore,
+  error: driversError,
+  load: loadDrivers,
+  loadMore: loadMoreDrivers,
+} = useAdminList('/admin/drivers/')
+
+const {
+  items: applications,
+  nextUrl: applicationsNextUrl,
+  loading: applicationsLoading,
+  loadingMore: applicationsLoadingMore,
+  error: applicationsError,
+  load: loadApplications,
+  loadMore: loadMoreApplications,
+} = useAdminList('/admin/driver-applications/')
+
 const busyId = ref(null)
+const loading = computed(() => driversLoading.value || applicationsLoading.value)
+const error = computed(() => driversError.value || applicationsError.value)
 
 const pendingApplications = computed(() => applications.value.filter((a) => a.status === 'pending'))
 const reviewedApplications = computed(() => applications.value.filter((a) => a.status !== 'pending'))
-
-async function loadAll() {
-  loading.value = true
-  try {
-    const [driversRes, applicationsRes] = await Promise.all([
-      apiClient.get('/admin/drivers/'),
-      apiClient.get('/admin/driver-applications/'),
-    ])
-    drivers.value = driversRes.data.results ?? driversRes.data
-    applications.value = applicationsRes.data.results ?? applicationsRes.data
-  } catch (err) {
-    error.value = 'Could not load drivers.'
-  } finally {
-    loading.value = false
-  }
-}
 
 async function toggleDriverActive(driver) {
   busyId.value = driver.id
@@ -35,7 +38,7 @@ async function toggleDriverActive(driver) {
     const { data } = await apiClient.post(`/admin/drivers/${driver.id}/${action}/`)
     Object.assign(driver, data)
   } catch (err) {
-    error.value = 'Could not update this driver.'
+    driversError.value = 'Could not update this driver.'
   } finally {
     busyId.value = null
   }
@@ -48,7 +51,7 @@ async function deleteDriver(driver) {
     await apiClient.delete(`/admin/drivers/${driver.id}/`)
     drivers.value = drivers.value.filter((d) => d.id !== driver.id)
   } catch (err) {
-    error.value = 'Could not delete this driver.'
+    driversError.value = 'Could not delete this driver.'
   } finally {
     busyId.value = null
   }
@@ -59,9 +62,9 @@ async function approveApplication(application) {
   try {
     const { data } = await apiClient.post(`/admin/driver-applications/${application.id}/approve/`)
     Object.assign(application, data)
-    await loadAll()
+    await loadDrivers()
   } catch (err) {
-    error.value = 'Could not approve this application.'
+    applicationsError.value = 'Could not approve this application.'
   } finally {
     busyId.value = null
   }
@@ -73,13 +76,16 @@ async function rejectApplication(application) {
     const { data } = await apiClient.post(`/admin/driver-applications/${application.id}/reject/`)
     Object.assign(application, data)
   } catch (err) {
-    error.value = 'Could not reject this application.'
+    applicationsError.value = 'Could not reject this application.'
   } finally {
     busyId.value = null
   }
 }
 
-onMounted(loadAll)
+onMounted(() => {
+  loadDrivers()
+  loadApplications()
+})
 </script>
 
 <template>
@@ -152,6 +158,15 @@ onMounted(loadAll)
             </div>
           </div>
           <p v-if="!pendingApplications.length" class="text-sm text-slate-400">No pending applications.</p>
+          <div v-if="applicationsNextUrl" class="text-center">
+            <button
+              :disabled="applicationsLoadingMore"
+              class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              @click="loadMoreApplications"
+            >
+              {{ applicationsLoadingMore ? 'Loading...' : 'Load More Applications' }}
+            </button>
+          </div>
         </div>
       </section>
 
@@ -200,6 +215,15 @@ onMounted(loadAll)
             </tbody>
           </table>
           <p v-if="!drivers.length" class="p-6 text-center text-slate-400">No drivers yet.</p>
+          <div v-if="driversNextUrl" class="border-t border-navy-800 p-3 text-center">
+            <button
+              :disabled="driversLoadingMore"
+              class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              @click="loadMoreDrivers"
+            >
+              {{ driversLoadingMore ? 'Loading...' : 'Load More' }}
+            </button>
+          </div>
         </div>
       </section>
 

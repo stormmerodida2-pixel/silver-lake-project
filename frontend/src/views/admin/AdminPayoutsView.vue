@@ -2,10 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import { useAdminList } from '../../composables/useAdminList'
 
-const payouts = ref([])
-const loading = ref(true)
-const error = ref('')
+const { items: payouts, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/payouts/')
 const busyId = ref(null)
 const filter = ref('pending') // 'pending' | 'paid' | 'all'
 
@@ -13,22 +12,6 @@ const filteredPayouts = computed(() => {
   if (filter.value === 'all') return payouts.value
   return payouts.value.filter((p) => (filter.value === 'paid' ? p.is_paid : !p.is_paid))
 })
-
-const totalOwed = computed(() =>
-  payouts.value.filter((p) => !p.is_paid).reduce((sum, p) => sum + Number(p.amount), 0)
-)
-
-async function loadPayouts() {
-  loading.value = true
-  try {
-    const { data } = await apiClient.get('/admin/payouts/')
-    payouts.value = data.results ?? data
-  } catch (err) {
-    error.value = 'Could not load payouts.'
-  } finally {
-    loading.value = false
-  }
-}
 
 async function markPaid(payout) {
   const reference = window.prompt('M-Pesa/bank reference for this payout (optional):', '')
@@ -46,22 +29,22 @@ async function markPaid(payout) {
   }
 }
 
-onMounted(loadPayouts)
+onMounted(load)
 </script>
 
 <template>
   <div>
-    <h1 class="font-[Georgia] text-2xl font-bold text-white">Driver Payouts</h1>
+    <div class="flex items-center justify-between">
+      <h1 class="font-[Georgia] text-2xl font-bold text-white">Driver Payouts</h1>
+      <RouterLink to="/admin" class="text-sm font-semibold text-gold-400 hover:text-gold-300">
+        See totals on Dashboard &rarr;
+      </RouterLink>
+    </div>
 
     <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
     <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
 
     <template v-if="!loading">
-      <div class="mt-4 rounded-xl border border-gold-500/40 bg-navy-900 p-4">
-        <p class="text-sm text-slate-400">Total Owed to Drivers (unpaid)</p>
-        <p class="mt-1 text-2xl font-bold text-red-400">KES {{ totalOwed.toLocaleString() }}</p>
-      </div>
-
       <div class="mt-4 flex gap-2">
         <button
           v-for="option in ['pending', 'paid', 'all']"
@@ -118,6 +101,15 @@ onMounted(loadPayouts)
           </tbody>
         </table>
         <p v-if="!filteredPayouts.length" class="p-6 text-center text-slate-400">No payouts in this view.</p>
+        <div v-if="nextUrl" class="border-t border-navy-800 p-3 text-center">
+          <button
+            :disabled="loadingMore"
+            class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+            @click="loadMore"
+          >
+            {{ loadingMore ? 'Loading...' : 'Load More' }}
+          </button>
+        </div>
       </div>
     </template>
   </div>

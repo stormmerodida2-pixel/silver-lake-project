@@ -48,18 +48,26 @@ onMounted(async () => {
       </section>
 
       <section>
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Revenue Breakdown</h2>
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Revenue Breakdown</h2>
+          <RouterLink to="/admin/payouts" class="text-sm font-semibold text-gold-400 hover:text-gold-300">
+            Manage payouts &rarr;
+          </RouterLink>
+        </div>
         <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div class="rounded-xl border border-navy-800 bg-navy-900 p-5">
             <p class="text-sm text-slate-400">Platform Fees Earned</p>
             <p class="mt-1 text-2xl font-bold text-gold-400">{{ fmt(stats.revenue.platform_fees_earned) }}</p>
             <p class="mt-1 text-xs text-slate-500">SilverLake's cut of with-driver bookings</p>
           </div>
-          <div class="rounded-xl border border-navy-800 bg-navy-900 p-5">
+          <RouterLink
+            to="/admin/payouts"
+            class="rounded-xl border border-navy-800 bg-navy-900 p-5 transition hover:border-gold-400"
+          >
             <p class="text-sm text-slate-400">Driver Payouts Owed</p>
             <p class="mt-1 text-2xl font-bold text-red-400">{{ fmt(stats.revenue.driver_payouts_owed) }}</p>
             <p class="mt-1 text-xs text-slate-500">Not yet disbursed to drivers</p>
-          </div>
+          </RouterLink>
           <div class="rounded-xl border border-navy-800 bg-navy-900 p-5">
             <p class="text-sm text-slate-400">Driver Payouts Paid</p>
             <p class="mt-1 text-2xl font-bold text-white">{{ fmt(stats.revenue.driver_payouts_paid) }}</p>
