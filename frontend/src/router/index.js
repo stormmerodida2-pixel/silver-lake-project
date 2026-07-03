@@ -110,6 +110,12 @@ const routes = [
         component: () => import('../views/admin/AdminDriversView.vue'),
         meta: { title: 'Manage Drivers | SilverLake Car Rentals', pageTitle: 'Drivers' },
       },
+      {
+        path: 'payouts',
+        name: 'admin-payouts',
+        component: () => import('../views/admin/AdminPayoutsView.vue'),
+        meta: { title: 'Driver Payouts | SilverLake Car Rentals', pageTitle: 'Payouts' },
+      },
     ],
   },
 ]

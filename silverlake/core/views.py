@@ -167,7 +167,7 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
     serializer_class = AdminDriverPayoutSerializer
     permission_classes = [permissions.IsAdminUser]
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='mark-paid')
     def mark_paid(self, request, pk=None):
         payout = self.get_object()
         payout.mark_paid(reference=request.data.get('payout_reference', ''))
