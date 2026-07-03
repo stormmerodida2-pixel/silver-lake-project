@@ -1,0 +1,90 @@
+<script setup>
+import { onMounted, ref } from 'vue'
+
+import apiClient from '../../api/client'
+
+const bookings = ref([])
+const loading = ref(true)
+const error = ref('')
+const busyId = ref(null)
+
+const statusOptions = ['pending', 'confirmed', 'ongoing', 'completed', 'cancelled']
+
+async function loadBookings() {
+  loading.value = true
+  try {
+    const { data } = await apiClient.get('/admin/bookings/')
+    bookings.value = data.results ?? data
+  } catch (err) {
+    error.value = 'Could not load bookings.'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function changeStatus(booking, newStatus) {
+  if (newStatus === booking.status) return
+  busyId.value = booking.id
+  try {
+    const { data } = await apiClient.post(`/admin/bookings/${booking.id}/set-status/`, { status: newStatus })
+    Object.assign(booking, data)
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Could not update booking status.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+onMounted(loadBookings)
+</script>
+
+<template>
+  <div>
+    <h1 class="font-[Georgia] text-2xl font-bold text-white">Manage Bookings</h1>
+
+    <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
+    <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
+
+    <div v-if="!loading" class="mt-6 overflow-x-auto rounded-xl border border-navy-800">
+      <table class="w-full text-left text-sm">
+        <thead class="bg-navy-900 text-slate-400">
+          <tr>
+            <th class="px-4 py-3">Customer</th>
+            <th class="px-4 py-3">Vehicle</th>
+            <th class="px-4 py-3">Service</th>
+            <th class="px-4 py-3">Dates</th>
+            <th class="px-4 py-3">Total</th>
+            <th class="px-4 py-3">Paid</th>
+            <th class="px-4 py-3">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-navy-800 bg-navy-950">
+          <tr v-for="booking in bookings" :key="booking.id">
+            <td class="px-4 py-3 text-white">
+              {{ booking.customer_name }}
+              <div class="text-xs text-slate-500">{{ booking.customer_phone }}</div>
+            </td>
+            <td class="px-4 py-3 text-slate-300">#{{ booking.vehicle }}</td>
+            <td class="px-4 py-3 text-slate-300">{{ booking.service_type === 'with_driver' ? 'With Driver' : 'Self Drive' }}</td>
+            <td class="px-4 py-3 text-slate-400">{{ booking.start_date }} to {{ booking.end_date }}</td>
+            <td class="px-4 py-3 text-slate-300">KES {{ Number(booking.total_amount).toLocaleString() }}</td>
+            <td class="px-4 py-3 text-slate-300">KES {{ Number(booking.amount_paid).toLocaleString() }}</td>
+            <td class="px-4 py-3">
+              <select
+                :value="booking.status"
+                :disabled="busyId === booking.id"
+                class="rounded-md border border-navy-700 bg-navy-950 px-2 py-1 text-xs text-white focus:border-gold-400 focus:outline-none disabled:opacity-50"
+                @change="changeStatus(booking, $event.target.value)"
+              >
+                <option v-for="option in statusOptions" :key="option" :value="option">
+                  {{ option.charAt(0).toUpperCase() + option.slice(1) }}
+                </option>
+              </select>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-if="!bookings.length" class="p-6 text-center text-slate-400">No bookings yet.</p>
+    </div>
+  </div>
+</template>

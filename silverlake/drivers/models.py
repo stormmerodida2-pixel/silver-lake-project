@@ -1,0 +1,113 @@
+from django.core.validators import FileExtensionValidator
+from django.db import models
+from django.utils import timezone
+
+from fleet.models import VehicleCategory
+
+from .validators import validate_file_size
+
+DOCUMENT_EXTENSIONS = FileExtensionValidator(['pdf', 'jpg', 'jpeg', 'png'])
+
+
+class Driver(models.Model):
+    full_name = models.CharField(max_length=100)
+    photo = models.ImageField(upload_to='drivers/', blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True)
+    years_of_experience = models.PositiveSmallIntegerField(default=0)
+    bio = models.TextField(blank=True)
+    rating = models.DecimalField(max_digits=3, decimal_places=2, default=5.0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['full_name']
+
+    def __str__(self):
+        return self.full_name
+
+
+class ApplicationStatus(models.TextChoices):
+    PENDING = 'pending', 'Pending'
+    APPROVED = 'approved', 'Approved'
+    REJECTED = 'rejected', 'Rejected'
+
+
+class DriverApplication(models.Model):
+    """A public 'become a driver' submission - the driver and their car only go live once
+    an admin approves it, at which point real Driver/Vehicle records are created."""
+
+    # Applicant
+    full_name = models.CharField(max_length=100)
+    email = models.EmailField()
+    phone_number = models.CharField(max_length=20)
+    years_of_experience = models.PositiveSmallIntegerField(default=0)
+    bio = models.TextField(blank=True)
+    license_number = models.CharField(max_length=50)
+    license_document = models.FileField(
+        upload_to='driver_applications/licenses/',
+        validators=[DOCUMENT_EXTENSIONS, validate_file_size],
+        help_text='Photo or PDF of your driving license, max 5MB',
+    )
+
+    # The car they want enlisted alongside them
+    vehicle_name = models.CharField(max_length=100)
+    vehicle_category = models.CharField(max_length=20, choices=VehicleCategory.choices)
+    passenger_capacity = models.PositiveSmallIntegerField()
+    price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
+    vehicle_photo = models.ImageField(
+        upload_to='driver_applications/vehicles/', blank=True, null=True,
+        validators=[validate_file_size],
+    )
+    vehicle_logbook_document = models.FileField(
+        upload_to='driver_applications/logbooks/', blank=True, null=True,
+        validators=[DOCUMENT_EXTENSIONS, validate_file_size],
+        help_text='Proof of vehicle ownership/registration, max 5MB',
+    )
+
+    status = models.CharField(max_length=10, choices=ApplicationStatus.choices, default=ApplicationStatus.PENDING)
+    review_notes = models.TextField(blank=True)
+    created_driver = models.ForeignKey(Driver, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    created_vehicle = models.ForeignKey(
+        'fleet.Vehicle', null=True, blank=True, on_delete=models.SET_NULL, related_name='+'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.full_name} ({self.status})'
+
+    def approve(self):
+        from fleet.models import Vehicle
+
+        if self.status == ApplicationStatus.APPROVED:
+            return
+
+        self.created_driver = Driver.objects.create(
+            full_name=self.full_name,
+            phone_number=self.phone_number,
+            years_of_experience=self.years_of_experience,
+            bio=self.bio,
+            is_active=True,
+        )
+        self.created_vehicle = Vehicle.objects.create(
+            name=self.vehicle_name,
+            category=self.vehicle_category,
+            passenger_capacity=self.passenger_capacity,
+            price_per_day=self.price_per_day,
+            image=self.vehicle_photo or None,
+            is_available=True,
+        )
+        self.status = ApplicationStatus.APPROVED
+        self.reviewed_at = timezone.now()
+        self.save()
+
+    def reject(self, notes=''):
+        self.status = ApplicationStatus.REJECTED
+        if notes:
+            self.review_notes = notes
+        self.reviewed_at = timezone.now()
+        self.save()

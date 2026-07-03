@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy-950: #050d1f;
+  --color-navy-900: #0a1730;
+  --color-navy-800: #0f2142;
+  --color-navy-700: #16305c;
+  --color-gold-500: #c9a227;
+  --color-gold-400: #d9b94d;
+  --color-gold-300: #e8cf7d;
+
+  --font-display: Georgia, 'Times New Roman', serif;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-navy-950);
+  color: #f1f5f9;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Our form fields sit on dark navy backgrounds - without this, the browser renders the
+   native date/time picker icon in black and it disappears against the dark fill. */
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'] {
+  color-scheme: dark;
+}
