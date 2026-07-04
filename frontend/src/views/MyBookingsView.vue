@@ -11,11 +11,11 @@ const cancellingId = ref(null)
 const error = ref('')
 
 const statusStyles = {
-  pending: 'text-slate-300',
-  confirmed: 'text-gold-400',
-  ongoing: 'text-gold-400',
-  completed: 'text-slate-400',
-  cancelled: 'text-red-400',
+  pending: 'text-slate-500',
+  confirmed: 'text-brand-blue-600',
+  ongoing: 'text-brand-blue-600',
+  completed: 'text-slate-500',
+  cancelled: 'text-red-600',
 }
 
 function vehicleName(id) {
@@ -57,47 +57,49 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-    <h1 class="text-center font-[Georgia] text-3xl font-bold text-white">My Bookings</h1>
+  <div class="bg-white">
+    <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
+      <h1 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">My Bookings</h1>
 
-    <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
-    <p v-else-if="error" class="mt-10 text-center text-red-400">{{ error }}</p>
-    <p v-else-if="!bookings.length" class="mt-10 text-center text-slate-400">
-      You haven't made any bookings yet.
-      <RouterLink to="/fleet" class="font-semibold text-gold-400 hover:text-gold-300">Browse the fleet</RouterLink>
-    </p>
+      <p v-if="loading" class="mt-10 text-center text-slate-500">Loading...</p>
+      <p v-else-if="error" class="mt-10 text-center text-red-600">{{ error }}</p>
+      <p v-else-if="!bookings.length" class="mt-10 text-center text-slate-500">
+        You haven't made any bookings yet.
+        <RouterLink to="/fleet" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Browse the fleet</RouterLink>
+      </p>
 
-    <div v-else class="mt-10 space-y-4">
-      <div
-        v-for="booking in bookings"
-        :key="booking.id"
-        class="rounded-xl border border-navy-800 bg-navy-900 p-5"
-      >
-        <div class="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <h3 class="font-[Georgia] text-lg font-bold text-white">{{ vehicleName(booking.vehicle) }}</h3>
-            <p class="text-sm text-slate-400">{{ booking.start_date }} to {{ booking.end_date }}</p>
-            <p class="text-sm text-slate-400">{{ booking.pickup_location }}</p>
+      <div v-else class="mt-10 space-y-4">
+        <div
+          v-for="booking in bookings"
+          :key="booking.id"
+          class="rounded-xl border border-slate-200 bg-slate-50 p-5"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h3 class="font-[Georgia] text-lg font-bold text-navy-900">{{ vehicleName(booking.vehicle) }}</h3>
+              <p class="text-sm text-slate-500">{{ booking.start_date }} to {{ booking.end_date }}</p>
+              <p class="text-sm text-slate-500">{{ booking.pickup_location }}</p>
+            </div>
+            <span class="text-sm font-semibold uppercase" :class="statusStyles[booking.status]">
+              {{ booking.status }}
+            </span>
           </div>
-          <span class="text-sm font-semibold uppercase" :class="statusStyles[booking.status]">
-            {{ booking.status }}
-          </span>
-        </div>
 
-        <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-navy-800 pt-3">
-          <p class="text-sm text-slate-300">
-            Total KES {{ Number(booking.total_amount).toLocaleString() }} - Paid KES
-            {{ Number(booking.amount_paid).toLocaleString() }} - Balance KES
-            {{ Number(booking.balance_due).toLocaleString() }}
-          </p>
-          <button
-            v-if="canCancel(booking)"
-            :disabled="cancellingId === booking.id"
-            class="rounded-md border border-red-400 px-3 py-1.5 text-sm font-semibold text-red-400 transition hover:bg-red-400 hover:text-navy-950 disabled:opacity-60"
-            @click="cancelBooking(booking)"
-          >
-            {{ cancellingId === booking.id ? 'Cancelling...' : 'Cancel Booking' }}
-          </button>
+          <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3">
+            <p class="text-sm text-slate-600">
+              Total KES {{ Number(booking.total_amount).toLocaleString() }} - Paid KES
+              {{ Number(booking.amount_paid).toLocaleString() }} - Balance KES
+              {{ Number(booking.balance_due).toLocaleString() }}
+            </p>
+            <button
+              v-if="canCancel(booking)"
+              :disabled="cancellingId === booking.id"
+              class="rounded-md border border-red-400 px-3 py-1.5 text-sm font-semibold text-red-600 transition hover:bg-red-500 hover:text-white disabled:opacity-60"
+              @click="cancelBooking(booking)"
+            >
+              {{ cancellingId === booking.id ? 'Cancelling...' : 'Cancel Booking' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>

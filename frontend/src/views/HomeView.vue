@@ -73,19 +73,21 @@ const trustBadges = [
     </section>
 
     <!-- Fleet preview -->
-    <section class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <h2 class="text-center font-[Georgia] text-3xl font-bold text-white">
-        Our Fleet. <span class="text-gold-400">Comfort for every need.</span>
-      </h2>
+    <section class="bg-white">
+      <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <h2 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">
+          Our Fleet. <span class="text-brand-blue-600">Comfort for every need.</span>
+        </h2>
 
-      <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <VehicleCard v-for="vehicle in catalog.vehicles.slice(0, 4)" :key="vehicle.id" :vehicle="vehicle" />
-      </div>
+        <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <VehicleCard v-for="vehicle in catalog.vehicles.slice(0, 4)" :key="vehicle.id" :vehicle="vehicle" />
+        </div>
 
-      <div class="mt-8 text-center">
-        <RouterLink to="/fleet" class="font-semibold text-gold-400 hover:text-gold-300">
-          View full fleet &rarr;
-        </RouterLink>
+        <div class="mt-8 text-center">
+          <RouterLink to="/fleet" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">
+            View full fleet &rarr;
+          </RouterLink>
+        </div>
       </div>
     </section>
 
@@ -105,15 +107,17 @@ const trustBadges = [
     </section>
 
     <!-- Reviews preview -->
-    <section class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <h2 class="text-center font-[Georgia] text-3xl font-bold text-white">What our clients say</h2>
-      <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <ReviewCard v-for="review in catalog.reviews.slice(0, 3)" :key="review.id" :review="review" />
-      </div>
-      <div class="mt-8 text-center">
-        <RouterLink to="/reviews" class="font-semibold text-gold-400 hover:text-gold-300">
-          Read all reviews &rarr;
-        </RouterLink>
+    <section class="bg-white">
+      <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <h2 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">What our clients say</h2>
+        <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <ReviewCard v-for="review in catalog.reviews.slice(0, 3)" :key="review.id" :review="review" />
+        </div>
+        <div class="mt-8 text-center">
+          <RouterLink to="/reviews" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">
+            Read all reviews &rarr;
+          </RouterLink>
+        </div>
       </div>
     </section>
   </div>

@@ -26,69 +26,71 @@ async function submit() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-md px-4 py-16 sm:px-6">
-    <h1 class="text-center font-[Georgia] text-3xl font-bold text-white">Create Account</h1>
+  <div class="bg-white">
+    <div class="mx-auto max-w-md px-4 py-16 sm:px-6">
+      <h1 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">Create Account</h1>
 
-    <div v-if="submitted" class="mt-8 rounded-xl border border-navy-800 bg-navy-900 p-6 text-center">
-      <h2 class="font-[Georgia] text-xl font-bold text-gold-400">Check your email</h2>
-      <p class="mt-2 text-sm text-slate-300">
-        We've sent an activation link to {{ form.email }}. Click it to activate your account, then log in.
-      </p>
-      <RouterLink to="/login" class="mt-4 inline-block font-semibold text-gold-400 hover:text-gold-300">
-        Go to Log In
-      </RouterLink>
+      <div v-if="submitted" class="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
+        <h2 class="font-[Georgia] text-xl font-bold text-brand-blue-600">Check your email</h2>
+        <p class="mt-2 text-sm text-slate-600">
+          We've sent an activation link to {{ form.email }}. Click it to activate your account, then log in.
+        </p>
+        <RouterLink to="/login" class="mt-4 inline-block font-semibold text-brand-blue-600 hover:text-brand-blue-500">
+          Go to Log In
+        </RouterLink>
+      </div>
+
+      <form v-else class="mt-8 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-6" @submit.prevent="submit">
+        <div>
+          <label class="mb-1 block text-sm text-slate-600">Full name</label>
+          <input
+            v-model="form.fullName"
+            type="text"
+            required
+            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm text-slate-600">Email</label>
+          <input
+            v-model="form.email"
+            type="email"
+            required
+            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm text-slate-600">Phone (M-Pesa number)</label>
+          <input
+            v-model="form.phoneNumber"
+            type="tel"
+            placeholder="2547XXXXXXXX"
+            required
+            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm text-slate-600">Password</label>
+          <input
+            v-model="form.password"
+            type="password"
+            required
+            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+          />
+        </div>
+        <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+        <button
+          type="submit"
+          :disabled="submitting"
+          class="w-full rounded-md bg-gold-500 px-4 py-2 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+        >
+          {{ submitting ? 'Creating account...' : 'Sign Up' }}
+        </button>
+        <p class="text-center text-sm text-slate-500">
+          Already have an account?
+          <RouterLink to="/login" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Log in</RouterLink>
+        </p>
+      </form>
     </div>
-
-    <form v-else class="mt-8 space-y-4 rounded-xl border border-navy-800 bg-navy-900 p-6" @submit.prevent="submit">
-      <div>
-        <label class="mb-1 block text-sm text-slate-300">Full name</label>
-        <input
-          v-model="form.fullName"
-          type="text"
-          required
-          class="w-full rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-white focus:border-gold-400 focus:outline-none"
-        />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm text-slate-300">Email</label>
-        <input
-          v-model="form.email"
-          type="email"
-          required
-          class="w-full rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-white focus:border-gold-400 focus:outline-none"
-        />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm text-slate-300">Phone (M-Pesa number)</label>
-        <input
-          v-model="form.phoneNumber"
-          type="tel"
-          placeholder="2547XXXXXXXX"
-          required
-          class="w-full rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-white focus:border-gold-400 focus:outline-none"
-        />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm text-slate-300">Password</label>
-        <input
-          v-model="form.password"
-          type="password"
-          required
-          class="w-full rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-white focus:border-gold-400 focus:outline-none"
-        />
-      </div>
-      <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
-      <button
-        type="submit"
-        :disabled="submitting"
-        class="w-full rounded-md bg-gold-500 px-4 py-2 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
-      >
-        {{ submitting ? 'Creating account...' : 'Sign Up' }}
-      </button>
-      <p class="text-center text-sm text-slate-400">
-        Already have an account?
-        <RouterLink to="/login" class="font-semibold text-gold-400 hover:text-gold-300">Log in</RouterLink>
-      </p>
-    </form>
   </div>
 </template>
