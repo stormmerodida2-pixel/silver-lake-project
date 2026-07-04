@@ -156,6 +156,10 @@ class Booking(models.Model):
             self.status = BookingStatus.CONFIRMED
             self.save(update_fields=['status'])
             self._ensure_driver_payout()
+            if self.driver_id:
+                from .emails import send_driver_booking_notification
+
+                send_driver_booking_notification(self)
 
     def _ensure_driver_payout(self):
         """Records what's owed to the driver once their booking is confirmed. Doesn't pay them -

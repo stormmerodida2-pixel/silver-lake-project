@@ -1,0 +1,40 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ driver_name }},</p>
+<p style="margin:0 0 16px;">
+  You've been booked for a trip! Here are the details:
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px; border-collapse:collapse;">
+  <tr>
+    <td style="padding:6px 0; color:#64748b; width:140px;">Customer</td>
+    <td style="padding:6px 0; font-weight:bold;">{{ booking.customer_name }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Customer phone</td>
+    <td style="padding:6px 0;">{{ booking.customer_phone }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Vehicle</td>
+    <td style="padding:6px 0;">{{ vehicle_name }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Dates</td>
+    <td style="padding:6px 0;">{{ booking.start_date }} to {{ booking.end_date }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Pickup</td>
+    <td style="padding:6px 0;">{{ booking.pickup_location }}</td>
+  </tr>
+  {% if booking.dropoff_location %}
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Drop-off</td>
+    <td style="padding:6px 0;">{{ booking.dropoff_location }}</td>
+  </tr>
+  {% endif %}
+</table>
+
+<p style="margin:0; font-size:13px; color:#94a3b8;">
+  Please contact the customer ahead of time to confirm pickup details.
+</p>
+{% endblock %}

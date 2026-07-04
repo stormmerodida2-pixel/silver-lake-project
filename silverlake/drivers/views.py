@@ -1,5 +1,6 @@
 from rest_framework import generics, permissions, viewsets
 
+from .emails import send_new_driver_application_notification
 from .models import Driver, DriverApplication
 from .serializers import DriverApplicationSerializer, DriverSerializer
 
@@ -15,3 +16,7 @@ class DriverApplicationCreateView(generics.CreateAPIView):
     queryset = DriverApplication.objects.all()
     serializer_class = DriverApplicationSerializer
     permission_classes = [permissions.AllowAny]
+
+    def perform_create(self, serializer):
+        application = serializer.save()
+        send_new_driver_application_notification(application)

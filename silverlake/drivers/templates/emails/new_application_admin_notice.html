@@ -1,0 +1,32 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">A new driver-partner application has been submitted and is waiting for review.</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px; border-collapse:collapse;">
+  <tr>
+    <td style="padding:6px 0; color:#64748b; width:140px;">Applicant</td>
+    <td style="padding:6px 0; font-weight:bold;">{{ application.full_name }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Email</td>
+    <td style="padding:6px 0;">{{ application.email }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Phone</td>
+    <td style="padding:6px 0;">{{ application.phone_number }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Experience</td>
+    <td style="padding:6px 0;">{{ application.years_of_experience }} years</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b; vertical-align:top;">Vehicle</td>
+    <td style="padding:6px 0;">
+      {{ application.vehicle_name }} ({{ application.get_vehicle_category_display }}),
+      {{ application.passenger_capacity }} pax, KES {{ application.price_per_day|floatformat:0 }}/day
+    </td>
+  </tr>
+</table>
+
+{% include "emails/_button.html" with url=review_url label="Review Application" %}
+{% endblock %}
