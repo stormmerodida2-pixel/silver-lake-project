@@ -135,7 +135,16 @@ class AdminVehicleSerializer(serializers.ModelSerializer):
 
 
 class AdminReviewSerializer(serializers.ModelSerializer):
+    driver_name = serializers.SerializerMethodField()
+    booking_id = serializers.SerializerMethodField()
+
     class Meta:
         model = Review
-        fields = ['id', 'customer_name', 'rating', 'comment', 'is_approved', 'created_at']
+        fields = ['id', 'customer_name', 'rating', 'comment', 'driver_name', 'booking_id', 'is_approved', 'created_at']
         read_only_fields = ['created_at']
+
+    def get_driver_name(self, obj):
+        return obj.driver.full_name if obj.driver_id else None
+
+    def get_booking_id(self, obj):
+        return obj.booking_id

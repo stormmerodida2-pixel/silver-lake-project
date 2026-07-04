@@ -2,6 +2,9 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from reviews.models import Review
+from reviews.serializers import BookingReviewCreateSerializer
+
 from .models import Booking, BookingStatus
 from .serializers import BookingSerializer
 
@@ -33,6 +36,29 @@ class BookingViewSet(viewsets.ModelViewSet):
         booking.status = BookingStatus.CANCELLED
         booking.save(update_fields=['status'])
         return Response(BookingSerializer(booking).data)
+
+    @action(detail=True, methods=['post'])
+    def review(self, request, pk=None):
+        """Lets a customer leave a review (of the driver/service) for their own completed trip -
+        one review per booking, only once it's actually completed."""
+        booking = self.get_object()
+        if booking.status != BookingStatus.COMPLETED:
+            return Response(
+                {'detail': 'You can only review a trip once it has been completed.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if getattr(booking, 'review', None) is not None:
+            return Response({'detail': 'You have already reviewed this trip.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = BookingReviewCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        Review.objects.create(
+            booking=booking,
+            driver=booking.driver,
+            customer_name=booking.customer_name,
+            **serializer.validated_data,
+        )
+        return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
 
 
 from django.shortcuts import get_object_or_404

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../api/client'
 
@@ -7,6 +7,40 @@ const bookings = ref([])
 const loading = ref(true)
 const cancellingId = ref(null)
 const error = ref('')
+
+// ── Leave a review ───────────────────────────────────────────────────────────
+const reviewingId = ref(null)
+const reviewSaving = ref(false)
+const reviewError = ref('')
+const reviewForm = reactive({ rating: 5, comment: '' })
+
+function openReviewForm(booking) {
+  reviewingId.value = booking.id
+  reviewError.value = ''
+  Object.assign(reviewForm, { rating: 5, comment: '' })
+}
+
+async function submitReview(booking) {
+  reviewError.value = ''
+  if (!reviewForm.comment.trim()) {
+    reviewError.value = 'Please share a few words about your experience.'
+    return
+  }
+  reviewSaving.value = true
+  try {
+    const { data } = await apiClient.post(`/bookings/${booking.id}/review/`, {
+      rating: reviewForm.rating,
+      comment: reviewForm.comment.trim(),
+    })
+    const index = bookings.value.findIndex((b) => b.id === booking.id)
+    bookings.value[index] = data
+    reviewingId.value = null
+  } catch (err) {
+    reviewError.value = err.response?.data?.detail || 'Could not submit your review.'
+  } finally {
+    reviewSaving.value = false
+  }
+}
 
 const statusStyles = {
   pending: 'text-slate-500',
@@ -92,6 +126,63 @@ onMounted(() => {
             >
               {{ cancellingId === booking.id ? 'Cancelling...' : 'Cancel Booking' }}
             </button>
+            <button
+              v-if="booking.status === 'completed' && !booking.review && reviewingId !== booking.id"
+              class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+              @click="openReviewForm(booking)"
+            >
+              Leave a Review
+            </button>
+          </div>
+
+          <!-- Submitted review -->
+          <div v-if="booking.review" class="mt-3 rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-gold-500">
+              <span v-for="n in 5" :key="n">{{ n <= booking.review.rating ? '★' : '☆' }}</span>
+            </p>
+            <p class="mt-1 text-sm text-slate-600">&ldquo;{{ booking.review.comment }}&rdquo;</p>
+            <p class="mt-1 text-xs text-slate-400">Awaiting approval before it shows publicly.</p>
+          </div>
+
+          <!-- Review form -->
+          <div v-else-if="reviewingId === booking.id" class="mt-3 space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+            <div>
+              <label class="mb-1 block text-sm text-slate-600">
+                Rating{{ booking.driver_name ? ` for ${booking.driver_name}` : '' }}
+              </label>
+              <div class="flex gap-1 text-2xl text-gold-500">
+                <button
+                  v-for="n in 5" :key="n" type="button"
+                  class="leading-none"
+                  @click="reviewForm.rating = n"
+                >
+                  {{ n <= reviewForm.rating ? '★' : '☆' }}
+                </button>
+              </div>
+            </div>
+            <textarea
+              v-model="reviewForm.comment"
+              rows="3"
+              placeholder="How was your trip?"
+              class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            ></textarea>
+            <p v-if="reviewError" class="text-sm text-red-600">{{ reviewError }}</p>
+            <div class="flex gap-3">
+              <button
+                type="button"
+                class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:border-slate-400"
+                @click="reviewingId = null"
+              >
+                Cancel
+              </button>
+              <button
+                :disabled="reviewSaving"
+                class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+                @click="submitReview(booking)"
+              >
+                {{ reviewSaving ? 'Submitting...' : 'Submit Review' }}
+              </button>
+            </div>
           </div>
         </div>
       </div>

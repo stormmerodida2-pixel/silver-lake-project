@@ -3,6 +3,8 @@ from copy import copy
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from reviews.serializers import ReviewSerializer
+
 from .models import Booking
 
 # Fields Booking.clean() actually looks at - kept in sync with the validation logic there.
@@ -19,6 +21,7 @@ class BookingSerializer(serializers.ModelSerializer):
     is_deposit_paid = serializers.BooleanField(read_only=True)
     vehicle_name = serializers.SerializerMethodField()
     driver_name = serializers.SerializerMethodField()
+    review = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -28,7 +31,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'pickup_location', 'dropoff_location', 'start_date', 'end_date',
             'customer_license_number', 'customer_license_document', 'customer_id_document',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid',
-            'status', 'notes', 'created_at',
+            'status', 'notes', 'review', 'created_at',
         ]
         read_only_fields = ['status', 'total_amount', 'created_at']
 
@@ -37,6 +40,10 @@ class BookingSerializer(serializers.ModelSerializer):
 
     def get_driver_name(self, obj):
         return obj.driver.full_name if obj.driver else None
+
+    def get_review(self, obj):
+        review = getattr(obj, 'review', None)
+        return ReviewSerializer(review).data if review else None
 
 
     def validate(self, attrs):
