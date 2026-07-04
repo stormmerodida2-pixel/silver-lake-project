@@ -62,7 +62,7 @@ class AdminDriverSerializer(serializers.ModelSerializer):
     class Meta:
         model = Driver
         fields = [
-            'id', 'full_name', 'photo', 'phone_number',
+            'id', 'full_name', 'photo', 'email', 'phone_number',
             'years_of_experience', 'bio', 'rating', 'is_active', 'created_at',
         ]
         read_only_fields = ['created_at']

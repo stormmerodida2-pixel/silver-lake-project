@@ -12,6 +12,7 @@ DOCUMENT_EXTENSIONS = FileExtensionValidator(['pdf', 'jpg', 'jpeg', 'png'])
 class Driver(models.Model):
     full_name = models.CharField(max_length=100)
     photo = models.ImageField(upload_to='drivers/', blank=True, null=True)
+    email = models.EmailField(blank=True, help_text='Used to notify the driver when they get booked')
     phone_number = models.CharField(max_length=20, blank=True)
     years_of_experience = models.PositiveSmallIntegerField(default=0)
     bio = models.TextField(blank=True)
@@ -88,6 +89,7 @@ class DriverApplication(models.Model):
 
         self.created_driver = Driver.objects.create(
             full_name=self.full_name,
+            email=self.email,
             phone_number=self.phone_number,
             years_of_experience=self.years_of_experience,
             bio=self.bio,

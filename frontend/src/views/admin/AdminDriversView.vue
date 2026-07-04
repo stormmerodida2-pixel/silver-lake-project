@@ -39,13 +39,14 @@ const saving = ref(false)
 const formError = ref('')
 const form = reactive({
   full_name: '',
+  email: '',
   phone_number: '',
   years_of_experience: 0,
   bio: '',
 })
 
 function openModal() {
-  Object.assign(form, { full_name: '', phone_number: '', years_of_experience: 0, bio: '' })
+  Object.assign(form, { full_name: '', email: '', phone_number: '', years_of_experience: 0, bio: '' })
   formError.value = ''
   showModal.value = true
 }
@@ -60,6 +61,7 @@ async function createDriver() {
   try {
     const { data } = await apiClient.post('/admin/drivers/', {
       full_name: form.full_name,
+      email: form.email,
       phone_number: form.phone_number,
       years_of_experience: Number(form.years_of_experience),
       bio: form.bio,
@@ -240,6 +242,7 @@ onMounted(() => {
             <thead class="bg-navy-900 text-slate-400">
               <tr>
                 <th class="px-4 py-3">Name</th>
+                <th class="px-4 py-3">Email</th>
                 <th class="px-4 py-3">Phone</th>
                 <th class="px-4 py-3">Experience</th>
                 <th class="px-4 py-3">Rating</th>
@@ -250,6 +253,7 @@ onMounted(() => {
             <tbody class="divide-y divide-navy-800 bg-navy-950">
               <tr v-for="driver in drivers" :key="driver.id">
                 <td class="px-4 py-3 text-white">{{ driver.full_name }}</td>
+                <td class="px-4 py-3 text-slate-300">{{ driver.email || '-' }}</td>
                 <td class="px-4 py-3 text-slate-300">{{ driver.phone_number || '-' }}</td>
                 <td class="px-4 py-3 text-slate-300">{{ driver.years_of_experience }} yrs</td>
                 <td class="px-4 py-3 text-slate-300">{{ Number(driver.rating).toFixed(1) }}</td>
@@ -348,6 +352,17 @@ onMounted(() => {
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
                   required
                 />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Email</label>
+                <input
+                  id="new-driver-email"
+                  v-model="form.email"
+                  type="email"
+                  placeholder="john@example.com"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                />
+                <p class="mt-1 text-xs text-slate-500">Used to notify the driver when they're booked.</p>
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Phone Number</label>
