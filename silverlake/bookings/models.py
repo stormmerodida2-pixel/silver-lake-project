@@ -84,10 +84,16 @@ class Booking(models.Model):
             raise ValidationError('End date cannot be before start date.')
 
         if self.service_type == ServiceType.SELF_DRIVE:
+            if not self.vehicle.allow_self_drive:
+                raise ValidationError(f'{self.vehicle.name} does not allow self-drive bookings.')
             if not self.customer_license_document:
                 raise ValidationError('A driving license document is required for self-drive bookings.')
             if not self.customer_id_document:
                 raise ValidationError('A national ID or passport copy is required for self-drive bookings.')
+
+        if self.service_type == ServiceType.WITH_DRIVER:
+            if not self.vehicle.allow_with_driver:
+                raise ValidationError(f'{self.vehicle.name} does not allow bookings with a driver.')
 
         if not (self.vehicle_id and self.start_date and self.end_date):
             return

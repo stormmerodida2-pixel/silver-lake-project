@@ -124,7 +124,18 @@ async function submitBooking() {
     booking.value = data
     step.value = 'confirmed'
   } catch (err) {
-    error.value = err.response?.data?.non_field_errors?.[0] || 'Something went wrong. Please check the form and try again.'
+    const data = err.response?.data
+    if (data && typeof data === 'object') {
+      error.value = Object.entries(data)
+        .map(([key, messages]) => {
+          const field = key === 'non_field_errors' ? '' : `${key.replace('_', ' ')}: `
+          const msg = Array.isArray(messages) ? messages.join(' ') : messages
+          return `${field}${msg}`
+        })
+        .join(' | ')
+    } else {
+      error.value = 'Something went wrong. Please check the form and try again.'
+    }
   } finally {
     submitting.value = false
   }
