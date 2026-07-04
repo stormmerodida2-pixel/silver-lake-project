@@ -26,8 +26,52 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">2. Cancelling a Confirmed Booking</h2>
-          <p class="mt-3 leading-relaxed">If you cancel a confirmed booking through your account:</p>
+          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">2. Cancelling a With-Driver Booking</h2>
+          <p class="mt-3 leading-relaxed">
+            For with-driver bookings, how much of your deposit and service fee is refunded depends on who
+            cancels and when:
+          </p>
+          <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-navy-900">
+                <tr>
+                  <th class="px-4 py-3 font-semibold">Scenario</th>
+                  <th class="px-4 py-3 font-semibold">Deposit Refund</th>
+                  <th class="px-4 py-3 font-semibold">Service Fee</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200">
+                <tr>
+                  <td class="px-4 py-3">Driver doesn't show up</td>
+                  <td class="px-4 py-3 font-semibold text-brand-blue-600">100%</td>
+                  <td class="px-4 py-3 text-slate-500">Not refunded</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3">Driver cancels/can't make it</td>
+                  <td class="px-4 py-3 font-semibold text-brand-blue-600">100%</td>
+                  <td class="px-4 py-3 text-slate-500">Not refunded</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3">Client cancels after driver arrives</td>
+                  <td class="px-4 py-3 font-semibold text-brand-blue-600">50%</td>
+                  <td class="px-4 py-3 text-slate-500">Not refunded</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3">Client cancels before driver accepts (optional)</td>
+                  <td class="px-4 py-3 font-semibold text-brand-blue-600">100%</td>
+                  <td class="px-4 py-3 text-slate-500">Refunded or retained (SilverLake's choice)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-3 leading-relaxed text-sm text-slate-500">
+            "Service fee" refers to the platform/booking fee charged separately from the vehicle deposit.
+          </p>
+        </div>
+
+        <div>
+          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">3. Cancelling a Self-Drive Booking</h2>
+          <p class="mt-3 leading-relaxed">If you cancel a confirmed self-drive booking through your account:</p>
           <ul class="mt-3 list-disc space-y-2 pl-5 leading-relaxed">
             <li><strong>More than 48 hours before pickup:</strong> full refund of any amount paid.</li>
             <li><strong>24-48 hours before pickup:</strong> 50% of the deposit is refunded; the remainder covers vehicle-holding costs.</li>
@@ -39,7 +83,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">3. Cancellations by SilverLake</h2>
+          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">4. Cancellations by SilverLake</h2>
           <p class="mt-3 leading-relaxed">
             If we cancel your booking - for example, because a vehicle becomes unavailable due to a mechanical
             issue, lapsed insurance, or an inspection failure - you will receive a full refund of everything
@@ -48,7 +92,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">4. How Refunds Are Processed</h2>
+          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">5. How Refunds Are Processed</h2>
           <p class="mt-3 leading-relaxed">
             Approved refunds are sent back to the M-Pesa number used for payment (or the original payment
             method, once card payments are available) within 5-7 business days. Contact us if a refund
@@ -57,7 +101,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">5. Mid-Trip Issues</h2>
+          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">6. Mid-Trip Issues</h2>
           <p class="mt-3 leading-relaxed">
             If a vehicle breaks down or a driver is unable to continue a with-driver trip due to a fault on
             our side, we will arrange a replacement vehicle/driver where possible, or refund the unused
@@ -66,7 +110,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">6. Disputes</h2>
+          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">7. Disputes</h2>
           <p class="mt-3 leading-relaxed">
             If you believe a cancellation or refund was handled incorrectly, contact us and we'll review it
             manually - most refund questions are resolved within a few business days.
@@ -74,7 +118,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">7. Contact Us</h2>
+          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">8. Contact Us</h2>
           <p class="mt-3 leading-relaxed">
             For cancellations or refund questions, email
             <a href="mailto:info@silverlakecarrentals.co.ke" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">
