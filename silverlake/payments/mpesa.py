@@ -2,7 +2,8 @@
 Safaricom Daraja API client for M-Pesa STK Push.
 
 Requires these env vars (see .env.example) once you have Daraja app credentials:
-MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_SHORTCODE, MPESA_PASSKEY, MPESA_CALLBACK_URL
+MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_SHORTCODE, MPESA_PASSKEY,
+MPESA_CALLBACK_URL, MPESA_CALLBACK_SECRET
 Sandbox docs: https://developer.safaricom.co.ke/APIs/MpesaExpressSimulate
 """
 import base64
@@ -30,7 +31,11 @@ def get_access_token():
 def initiate_stk_push(phone_number, amount, account_reference, transaction_desc):
     shortcode = config('MPESA_SHORTCODE')
     passkey = config('MPESA_PASSKEY')
-    callback_url = config('MPESA_CALLBACK_URL')
+    # The secret is appended here rather than baked into MPESA_CALLBACK_URL directly, since
+    # .env files don't support variable interpolation - this keeps the two independently
+    # configurable while still landing on the same secret-guarded callback path.
+    callback_secret = config('MPESA_CALLBACK_SECRET', default='')
+    callback_url = f"{config('MPESA_CALLBACK_URL').rstrip('/')}/{callback_secret}/"
 
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     password = base64.b64encode(f'{shortcode}{passkey}{timestamp}'.encode()).decode()

@@ -1,3 +1,6 @@
+import hmac
+
+from decouple import config
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
@@ -65,8 +68,16 @@ def token_stk_push(request, token):
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
-def mpesa_callback(request):
-    """Daraja calls this URL with the STK Push result. Configure MPESA_CALLBACK_URL to point here."""
+def mpesa_callback(request, secret):
+    """Daraja calls this URL with the STK Push result. Configure MPESA_CALLBACK_URL to point here,
+    with the secret path segment included - Safaricom doesn't sign these callbacks, and the
+    CheckoutRequestID they're keyed on is also returned to the customer's own browser when the
+    STK push is initiated, so without this secret anyone could forge a "payment succeeded"
+    callback for a booking they never actually paid for."""
+    expected_secret = config('MPESA_CALLBACK_SECRET', default='')
+    if not expected_secret or not hmac.compare_digest(secret, expected_secret):
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
     body = request.data.get('Body', {}).get('stkCallback', {})
     checkout_request_id = body.get('CheckoutRequestID')
     result_code = body.get('ResultCode')
