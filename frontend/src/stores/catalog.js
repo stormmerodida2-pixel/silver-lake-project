@@ -8,17 +8,16 @@ export const useCatalogStore = defineStore('catalog', {
     drivers: [],
     reviews: [],
     loaded: {
-      vehicles: false,
       drivers: false,
       reviews: false,
     },
   }),
   actions: {
+    // Always refetched (unlike drivers/reviews) so vehicles an admin just added or
+    // changed show up immediately for users already browsing the site.
     async fetchVehicles() {
-      if (this.loaded.vehicles) return
       const { data } = await apiClient.get('/vehicles/')
       this.vehicles = data.results ?? data
-      this.loaded.vehicles = true
     },
     async fetchDrivers() {
       if (this.loaded.drivers) return

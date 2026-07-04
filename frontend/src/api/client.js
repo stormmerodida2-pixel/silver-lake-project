@@ -29,8 +29,9 @@ apiClient.interceptors.response.use(
   async (error) => {
     const original = error.config
     const status = error.response?.status
+    const isAuthRequest = original?.url?.includes('/auth/login/')
 
-    if (status === 401 && !original._retry) {
+    if (status === 401 && !original._retry && !isAuthRequest) {
       const refresh = localStorage.getItem('sl_refresh')
       if (!refresh) {
         // No refresh token — clear state and go to login
