@@ -221,27 +221,11 @@ class AdminBookingViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Trigger completion email/review invite
         if new_status == BookingStatus.COMPLETED:
-            self._send_completion_email(booking)
+            from bookings.emails import send_trip_completed_email
+            send_trip_completed_email(booking)
 
         return Response(BookingSerializer(booking).data)
 
-    def _send_completion_email(self, booking):
-        try:
-            from django.conf import settings
-            from core.email_utils import send_branded_email
-
-            send_branded_email(
-                subject=f'How was your ride with SilverLake? (Booking #{booking.pk})',
-                template_name='emails/trip_completed.html',
-                context={
-                    'first_name': booking.customer_name.split()[0],
-                    'vehicle_name': booking.vehicle.name,
-                    'review_url': f'{settings.FRONTEND_URL}/reviews',
-                },
-                recipient_list=[booking.customer_email] if booking.customer_email else [],
-            )
-        except Exception:
-            pass
 
 
 

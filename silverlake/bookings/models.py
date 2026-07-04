@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 
 from django.conf import settings
@@ -40,6 +41,7 @@ class Booking(models.Model):
     vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name='bookings')
     driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings')
     service_type = models.CharField(max_length=20, choices=ServiceType.choices)
+    driver_token = models.UUIDField(default=uuid.uuid4, editable=False, null=True)
 
     customer_name = models.CharField(max_length=100)
     customer_phone = models.CharField(max_length=20)
