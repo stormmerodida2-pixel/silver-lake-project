@@ -111,9 +111,10 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
         model = DriverPayout
         fields = [
             'id', 'driver', 'driver_name', 'booking_id', 'customer_name',
-            'amount', 'is_paid', 'paid_at', 'payout_reference', 'notes', 'created_at',
+            'amount', 'is_paid', 'paid_at', 'payout_reference', 'notes',
+            'needs_verification', 'is_verified', 'verified_at', 'created_at',
         ]
-        read_only_fields = ['driver', 'amount', 'paid_at', 'created_at']
+        read_only_fields = ['driver', 'amount', 'paid_at', 'needs_verification', 'is_verified', 'verified_at', 'created_at']
 
 
 class AdminVehicleSerializer(serializers.ModelSerializer):

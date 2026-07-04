@@ -41,7 +41,10 @@ def initiate_stk_push_payment(booking, phone_number, amount):
 def record_cash_payment(booking, amount, driver, note=''):
     """A driver reporting that a walk-up client paid in cash on the spot, instead of via M-Pesa.
     Recorded as successful immediately (there's no gateway to confirm against) - the
-    recorded_by_driver field keeps an audit trail of who vouched for it."""
+    recorded_by_driver field keeps an audit trail of who vouched for it, and the resulting
+    driver payout is flagged for admin verification before it can be paid out (see
+    Booking._ensure_driver_payout). The customer is emailed immediately as an independent
+    check, since they didn't initiate this payment themselves."""
     if amount > booking.balance_due:
         raise PaymentValidationError(f'Amount exceeds the outstanding balance of {booking.balance_due}.')
 
@@ -50,4 +53,9 @@ def record_cash_payment(booking, amount, driver, note=''):
         status=PaymentStatus.SUCCESSFUL, recorded_by_driver=driver, note=note,
     )
     booking.confirm_if_deposit_met()
+
+    from .emails import send_cash_payment_recorded_email
+
+    send_cash_payment_recorded_email(payment)
+
     return payment

@@ -58,6 +58,15 @@ class DriverPayout(models.Model):
     paid_at = models.DateTimeField(null=True, blank=True)
     payout_reference = models.CharField(max_length=100, blank=True, help_text='M-Pesa/bank reference used to pay the driver')
     notes = models.TextField(blank=True)
+
+    # Set when the booking was confirmed off the back of a self-reported cash payment (no
+    # independent gateway confirming it, unlike M-Pesa) - an admin must explicitly verify
+    # before this payout can be marked paid, so a fabricated cash claim can't sail straight
+    # through to a real payout.
+    needs_verification = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False)
+    verified_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -65,6 +74,11 @@ class DriverPayout(models.Model):
 
     def __str__(self):
         return f'{self.driver.full_name} - KES {self.amount} ({"paid" if self.is_paid else "pending"})'
+
+    def verify(self):
+        self.is_verified = True
+        self.verified_at = timezone.now()
+        self.save(update_fields=['is_verified', 'verified_at'])
 
     def mark_paid(self, reference=''):
         self.is_paid = True

@@ -2,6 +2,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -9,7 +10,7 @@ from rest_framework.test import APITestCase
 
 from drivers.models import Driver
 from fleet.models import Vehicle
-from payments.models import Payment, PaymentMethod, PaymentStatus
+from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus
 from reviews.models import Review
 
 from .models import Booking, BookingSource, BookingStatus, ServiceType
@@ -315,6 +316,50 @@ class DriverCashPaymentTests(APITestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_cash_payment_flags_its_payout_as_needing_verification(self):
+        self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/record-cash/',
+            {'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        payout = DriverPayout.objects.get(booking=self.booking)
+        self.assertTrue(payout.needs_verification)
+        self.assertFalse(payout.is_verified)
+
+    def test_mpesa_confirmed_payout_does_not_need_verification(self):
+        # Simulate a successful M-Pesa payment (as the callback would record it) instead of cash.
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA,
+            amount=self.booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        self.booking.confirm_if_deposit_met()
+        payout = DriverPayout.objects.get(booking=self.booking)
+        self.assertFalse(payout.needs_verification)
+
+    def test_cash_payment_emails_the_customer_as_an_independent_check(self):
+        self.booking.customer_email = 'client@example.com'
+        self.booking.save(update_fields=['customer_email'])
+
+        mail.outbox = []
+        self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/record-cash/',
+            {'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        # The deposit-confirmation email also fires alongside this one - both legitimately
+        # go to the customer, so just confirm the cash-payment notice is among them.
+        cash_emails = [m for m in mail.outbox if 'Cash payment recorded' in m.subject]
+        self.assertEqual(len(cash_emails), 1)
+        self.assertIn(self.booking.customer_email, cash_emails[0].to)
+
+    def test_no_email_attempted_without_a_customer_email_on_file(self):
+        self.assertEqual(self.booking.customer_email, '')
+        mail.outbox = []
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/record-cash/',
+            {'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
 
 
 class TokenPaymentPageTests(APITestCase):

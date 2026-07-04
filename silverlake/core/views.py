@@ -32,7 +32,7 @@ User = get_user_model()
 # Actions that delete records, move money, or change fleet composition/pricing -
 # restricted to superusers. Everything else (viewing, day-to-day moderation) just
 # needs regular staff (IsSupportStaff).
-SUPERADMIN_ONLY_ACTIONS = {'create', 'update', 'partial_update', 'destroy', 'mark_paid'}
+SUPERADMIN_ONLY_ACTIONS = {'create', 'update', 'partial_update', 'destroy', 'mark_paid', 'verify'}
 
 
 class AdminStatsView(APIView):
@@ -286,7 +286,20 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
     @action(detail=True, methods=['post'], url_path='mark-paid')
     def mark_paid(self, request, pk=None):
         payout = self.get_object()
+        if payout.needs_verification and not payout.is_verified:
+            return Response(
+                {'detail': 'This payout was confirmed via a self-reported cash payment and must be verified before it can be marked paid.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         payout.mark_paid(reference=request.data.get('payout_reference', ''))
+        return Response(AdminDriverPayoutSerializer(payout).data)
+
+    @action(detail=True, methods=['post'])
+    def verify(self, request, pk=None):
+        """Confirms a cash-sourced payout is legitimate (e.g. after reconciling with the driver
+        or customer) so it becomes eligible to be marked paid."""
+        payout = self.get_object()
+        payout.verify()
         return Response(AdminDriverPayoutSerializer(payout).data)
 
 

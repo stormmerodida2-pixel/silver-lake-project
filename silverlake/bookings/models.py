@@ -214,12 +214,21 @@ class Booking(models.Model):
 
     def _ensure_driver_payout(self):
         """Records what's owed to the driver once their booking is confirmed. Doesn't pay them -
-        staff mark DriverPayout.is_paid once the money has actually been disbursed."""
+        staff mark DriverPayout.is_paid once the money has actually been disbursed. If any of the
+        payments behind this confirmation were self-reported cash (no independent gateway
+        confirming it, unlike M-Pesa), the payout is flagged for admin to verify before it can
+        be paid out."""
         if self.driver_payout_amount <= 0:
             return
-        from payments.models import DriverPayout
+        from payments.models import DriverPayout, PaymentMethod, PaymentStatus
+
+        has_cash_payment = self.payments.filter(status=PaymentStatus.SUCCESSFUL, method=PaymentMethod.CASH).exists()
 
         DriverPayout.objects.get_or_create(
             booking=self,
-            defaults={'driver_id': self.driver_id, 'amount': self.driver_payout_amount},
+            defaults={
+                'driver_id': self.driver_id,
+                'amount': self.driver_payout_amount,
+                'needs_verification': has_cash_payment,
+            },
         )

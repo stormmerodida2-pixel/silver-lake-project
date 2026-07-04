@@ -25,7 +25,19 @@ async function markPaid(payout) {
     })
     Object.assign(payout, data)
   } catch (err) {
-    error.value = 'Could not mark this payout as paid.'
+    error.value = err.response?.data?.detail || 'Could not mark this payout as paid.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+async function verifyPayout(payout) {
+  busyId.value = payout.id
+  try {
+    const { data } = await apiClient.post(`/admin/payouts/${payout.id}/verify/`)
+    Object.assign(payout, data)
+  } catch (err) {
+    error.value = 'Could not verify this payout.'
   } finally {
     busyId.value = null
   }
@@ -84,21 +96,41 @@ onMounted(load)
               </td>
               <td class="px-4 py-3 text-slate-300">KES {{ Number(payout.amount).toLocaleString() }}</td>
               <td class="px-4 py-3">
-                <span :class="payout.is_paid ? 'text-gold-400' : 'text-red-400'">
-                  {{ payout.is_paid ? 'Paid' : 'Pending' }}
-                </span>
+                <div class="flex flex-col gap-1">
+                  <span :class="payout.is_paid ? 'text-gold-400' : 'text-red-400'">
+                    {{ payout.is_paid ? 'Paid' : 'Pending' }}
+                  </span>
+                  <span
+                    v-if="payout.needs_verification"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold"
+                    :class="payout.is_verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gold-500/10 text-gold-400'"
+                    :title="'Confirmed via a self-reported cash payment' + (payout.is_verified ? ' - verified' : ' - not yet verified')"
+                  >
+                    {{ payout.is_verified ? 'Cash · Verified' : 'Cash · Needs Verification' }}
+                  </span>
+                </div>
               </td>
               <td class="px-4 py-3 text-slate-400">{{ payout.payout_reference || '-' }}</td>
               <td class="px-4 py-3">
-                <button
-                  v-if="!payout.is_paid && auth.user?.is_superuser"
-                  :disabled="busyId === payout.id"
-                  class="rounded-md bg-gold-500 px-2 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
-                  @click="markPaid(payout)"
-                >
-                  Mark Paid
-                </button>
-                <span v-else-if="!payout.is_paid" class="text-xs text-slate-500">Superadmin only</span>
+                <template v-if="!payout.is_paid">
+                  <button
+                    v-if="payout.needs_verification && !payout.is_verified && auth.user?.is_superuser"
+                    :disabled="busyId === payout.id"
+                    class="rounded-md border border-gold-500 px-2 py-1 text-xs font-semibold text-gold-400 hover:bg-gold-500 hover:text-navy-950 disabled:opacity-50"
+                    @click="verifyPayout(payout)"
+                  >
+                    Verify
+                  </button>
+                  <button
+                    v-else-if="auth.user?.is_superuser"
+                    :disabled="busyId === payout.id || (payout.needs_verification && !payout.is_verified)"
+                    class="rounded-md bg-gold-500 px-2 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                    @click="markPaid(payout)"
+                  >
+                    Mark Paid
+                  </button>
+                  <span v-else class="text-xs text-slate-500">Superadmin only</span>
+                </template>
               </td>
             </tr>
           </tbody>

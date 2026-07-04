@@ -1,0 +1,14 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  We've recorded a <strong>cash payment of KES {{ amount }}</strong> on your booking #{{ booking_id }},
+  reported by {{ driver_name }}.
+</p>
+<p style="margin:0 0 16px; padding:12px 16px; background:#fef3c7; border-radius:8px; color:#92400e;">
+  <strong>Didn't make this payment?</strong> Please contact us right away so we can look into it.
+</p>
+<p style="margin:0; font-size:14px; color:#334155;">
+  Remaining balance on this booking: <strong>KES {{ balance_due }}</strong>.
+</p>
+{% endblock %}
