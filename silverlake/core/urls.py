@@ -10,6 +10,7 @@ from .views import (
     AdminReviewViewSet,
     AdminStatsView,
     AdminUserViewSet,
+    AdminVehicleSubmissionViewSet,
 )
 
 router = DefaultRouter()
@@ -20,6 +21,7 @@ router.register('admin/bookings', AdminBookingViewSet, basename='admin-booking')
 router.register('admin/payouts', AdminDriverPayoutViewSet, basename='admin-payout')
 router.register('admin/fleet', AdminFleetViewSet, basename='admin-fleet')
 router.register('admin/reviews', AdminReviewViewSet, basename='admin-review')
+router.register('admin/vehicle-submissions', AdminVehicleSubmissionViewSet, basename='admin-vehicle-submission')
 
 urlpatterns = [
     path('admin/stats/', AdminStatsView.as_view(), name='admin-stats'),

@@ -67,6 +67,12 @@ async function submit() {
           We'll review your documents and vehicle details, then contact you at {{ form.email }} or
           {{ form.phone_number }}.
         </p>
+        <RouterLink
+          to="/"
+          class="mt-4 inline-block rounded-md bg-gold-500 px-5 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400"
+        >
+          Back to Home
+        </RouterLink>
       </div>
 
       <form v-else class="mt-10 space-y-6 rounded-xl border border-slate-200 bg-slate-50 p-6" @submit.prevent="submit">

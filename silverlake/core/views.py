@@ -12,7 +12,7 @@ from bookings.models import Booking, BookingStatus
 from bookings.serializers import BookingSerializer
 from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
-from fleet.models import Vehicle
+from fleet.models import Vehicle, VehicleSubmission
 from payments.models import DriverPayout, Payment, PaymentStatus
 from reviews.models import Review
 
@@ -24,6 +24,7 @@ from .serializers import (
     AdminReviewSerializer,
     AdminUserSerializer,
     AdminVehicleSerializer,
+    AdminVehicleSubmissionSerializer,
 )
 
 User = get_user_model()
@@ -157,17 +158,57 @@ class AdminDriverViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def suspend(self, request, pk=None):
+        from drivers.emails import send_driver_suspended_email
+
         driver = self.get_object()
+        reason = request.data.get('reason', '')
         driver.is_active = False
-        driver.save(update_fields=['is_active'])
+        driver.suspension_reason = reason
+        driver.save(update_fields=['is_active', 'suspension_reason'])
+        send_driver_suspended_email(driver, reason)
         return Response(AdminDriverSerializer(driver).data)
 
     @action(detail=True, methods=['post'])
     def activate(self, request, pk=None):
         driver = self.get_object()
         driver.is_active = True
-        driver.save(update_fields=['is_active'])
+        driver.suspension_reason = ''
+        driver.save(update_fields=['is_active', 'suspension_reason'])
         return Response(AdminDriverSerializer(driver).data)
+
+    @action(detail=True, methods=['post'])
+    def invite(self, request, pk=None):
+        """Sends (or re-sends) the driver's portal-login invite email."""
+        from drivers.services import create_driver_login
+
+        driver = self.get_object()
+        if not driver.email:
+            return Response(
+                {'detail': 'This driver has no email on file to send an invite to.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        create_driver_login(driver)
+        return Response(AdminDriverSerializer(driver).data)
+
+
+class AdminVehicleSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
+    """Staff-only review queue for vehicles drivers submit themselves via the driver portal."""
+
+    queryset = VehicleSubmission.objects.all().select_related('driver')
+    serializer_class = AdminVehicleSubmissionSerializer
+    permission_classes = [IsSupportStaff]
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        submission = self.get_object()
+        submission.approve()
+        return Response(AdminVehicleSubmissionSerializer(submission).data)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        submission = self.get_object()
+        submission.reject(notes=request.data.get('notes', ''))
+        return Response(AdminVehicleSubmissionSerializer(submission).data)
 
 
 class AdminDriverApplicationViewSet(viewsets.ReadOnlyModelViewSet):

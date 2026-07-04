@@ -100,6 +100,12 @@ const routes = [
     meta: { title: 'Complete Booking | SilverLake Driver Portal' },
   },
   {
+    path: '/driver',
+    name: 'driver-portal',
+    component: () => import('../views/driver/DriverPortalView.vue'),
+    meta: { title: 'Driver Portal | SilverLake Car Rentals', requiresDriver: true, hideChrome: true },
+  },
+  {
     path: '/admin',
     component: () => import('../layouts/AdminLayout.vue'),
     meta: { requiresStaff: true, hideChrome: true },
@@ -175,6 +181,14 @@ router.beforeEach((to) => {
       return { name: 'login', query: { redirect: to.fullPath } }
     }
     if (!auth.user?.is_staff) {
+      return { name: 'home' }
+    }
+  }
+  if (to.meta.requiresDriver) {
+    if (!auth.isAuthenticated) {
+      return { name: 'login', query: { redirect: to.fullPath } }
+    }
+    if (!auth.user?.is_driver) {
       return { name: 'home' }
     }
   }

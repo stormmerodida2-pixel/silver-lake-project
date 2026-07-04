@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
@@ -10,6 +11,10 @@ DOCUMENT_EXTENSIONS = FileExtensionValidator(['pdf', 'jpg', 'jpeg', 'png'])
 
 
 class Driver(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='driver_profile', help_text='Login account for the driver portal, if one has been set up.',
+    )
     full_name = models.CharField(max_length=100)
     photo = models.ImageField(upload_to='drivers/', blank=True, null=True)
     email = models.EmailField(blank=True, help_text='Used to notify the driver when they get booked')
@@ -18,6 +23,15 @@ class Driver(models.Model):
     bio = models.TextField(blank=True)
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=5.0)
     is_active = models.BooleanField(default=True)
+
+    # Self-reported unavailability (e.g. sick, on leave) - distinct from is_active (admin
+    # suspension). Either one hides the driver's vehicles from the public fleet listing.
+    is_away = models.BooleanField(default=False)
+    away_reason = models.TextField(blank=True, help_text='Visible to admins only, not customers.')
+
+    # Set by admin when suspending (is_active=False); emailed to the driver so they know why.
+    suspension_reason = models.TextField(blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -102,10 +116,15 @@ class DriverApplication(models.Model):
             price_per_day=self.price_per_day,
             image=self.vehicle_photo or None,
             is_available=True,
+            driver=self.created_driver,
         )
         self.status = ApplicationStatus.APPROVED
         self.reviewed_at = timezone.now()
         self.save()
+
+        from .services import create_driver_login
+
+        create_driver_login(self.created_driver)
 
     def reject(self, notes=''):
         self.status = ApplicationStatus.REJECTED

@@ -31,4 +31,10 @@ class VehicleViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = queryset.exclude(insurance_expiry_date__lt=today)
         queryset = queryset.exclude(inspection_expiry_date__lt=today)
 
+        # A driver-owned vehicle disappears from the public fleet while its driver is
+        # marked away or has been suspended by an admin. Vehicles with no driver (company
+        # fleet) are unaffected since these lookups simply don't match a null driver.
+        queryset = queryset.exclude(driver__is_away=True)
+        queryset = queryset.exclude(driver__is_active=False)
+
         return queryset

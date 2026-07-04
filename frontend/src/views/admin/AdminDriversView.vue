@@ -26,12 +26,25 @@ const {
   loadMore: loadMoreApplications,
 } = useAdminList('/admin/driver-applications/')
 
+const {
+  items: submissions,
+  nextUrl: submissionsNextUrl,
+  loading: submissionsLoading,
+  loadingMore: submissionsLoadingMore,
+  error: submissionsError,
+  load: loadSubmissions,
+  loadMore: loadMoreSubmissions,
+} = useAdminList('/admin/vehicle-submissions/')
+
 const busyId = ref(null)
-const loading = computed(() => driversLoading.value || applicationsLoading.value)
-const error = computed(() => driversError.value || applicationsError.value)
+const loading = computed(() => driversLoading.value || applicationsLoading.value || submissionsLoading.value)
+const error = computed(() => driversError.value || applicationsError.value || submissionsError.value)
 
 const pendingApplications = computed(() => applications.value.filter((a) => a.status === 'pending'))
 const reviewedApplications = computed(() => applications.value.filter((a) => a.status !== 'pending'))
+
+const pendingSubmissions = computed(() => submissions.value.filter((s) => s.status === 'pending'))
+const reviewedSubmissions = computed(() => submissions.value.filter((s) => s.status !== 'pending'))
 
 // ── Add-Driver modal ────────────────────────────────────────────────────────
 const showModal = ref(false)
@@ -82,14 +95,55 @@ async function createDriver() {
 }
 
 // ── Existing actions ─────────────────────────────────────────────────────────
-async function toggleDriverActive(driver) {
+async function activateDriver(driver) {
   busyId.value = driver.id
   try {
-    const action = driver.is_active ? 'suspend' : 'activate'
-    const { data } = await apiClient.post(`/admin/drivers/${driver.id}/${action}/`)
+    const { data } = await apiClient.post(`/admin/drivers/${driver.id}/activate/`)
     Object.assign(driver, data)
   } catch (err) {
     driversError.value = 'Could not update this driver.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+// ── Suspend-with-reason modal ────────────────────────────────────────────────
+const showSuspendModal = ref(false)
+const suspendingDriver = ref(null)
+const suspendReason = ref('')
+const suspending = ref(false)
+
+function openSuspendModal(driver) {
+  suspendingDriver.value = driver
+  suspendReason.value = ''
+  showSuspendModal.value = true
+}
+
+async function confirmSuspend() {
+  if (!suspendReason.value.trim()) return
+  suspending.value = true
+  busyId.value = suspendingDriver.value.id
+  try {
+    const { data } = await apiClient.post(`/admin/drivers/${suspendingDriver.value.id}/suspend/`, {
+      reason: suspendReason.value.trim(),
+    })
+    Object.assign(suspendingDriver.value, data)
+    showSuspendModal.value = false
+  } catch (err) {
+    driversError.value = 'Could not suspend this driver.'
+  } finally {
+    suspending.value = false
+    busyId.value = null
+  }
+}
+
+async function inviteDriver(driver) {
+  busyId.value = driver.id
+  try {
+    const { data } = await apiClient.post(`/admin/drivers/${driver.id}/invite/`)
+    Object.assign(driver, data)
+  } catch (err) {
+    driversError.value = err?.response?.data?.detail || 'Could not send portal invite.'
   } finally {
     busyId.value = null
   }
@@ -133,9 +187,34 @@ async function rejectApplication(application) {
   }
 }
 
+async function approveSubmission(submission) {
+  busyId.value = submission.id
+  try {
+    const { data } = await apiClient.post(`/admin/vehicle-submissions/${submission.id}/approve/`)
+    Object.assign(submission, data)
+  } catch (err) {
+    submissionsError.value = 'Could not approve this vehicle.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+async function rejectSubmission(submission) {
+  busyId.value = submission.id
+  try {
+    const { data } = await apiClient.post(`/admin/vehicle-submissions/${submission.id}/reject/`)
+    Object.assign(submission, data)
+  } catch (err) {
+    submissionsError.value = 'Could not reject this vehicle.'
+  } finally {
+    busyId.value = null
+  }
+}
+
 onMounted(() => {
   loadDrivers()
   loadApplications()
+  loadSubmissions()
 })
 </script>
 
@@ -236,6 +315,67 @@ onMounted(() => {
       </section>
 
       <section class="mt-10">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">
+          Pending Vehicle Submissions ({{ pendingSubmissions.length }})
+        </h2>
+        <p class="mt-1 text-xs text-slate-500">Cars drivers have submitted themselves via the driver portal.</p>
+        <div class="mt-3 space-y-4">
+          <div
+            v-for="submission in pendingSubmissions"
+            :key="submission.id"
+            class="rounded-xl border border-gold-500 bg-navy-900 p-5"
+          >
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 class="font-[Georgia] text-lg font-bold text-white">{{ submission.name }}</h3>
+                <p class="text-sm text-slate-400">Submitted by {{ submission.driver_name }}</p>
+                <p class="mt-1 text-sm text-slate-300">
+                  {{ submission.category }}, {{ submission.passenger_capacity }} pax,
+                  KES {{ Number(submission.price_per_day).toLocaleString() }}/day
+                </p>
+                <div v-if="submission.photos?.length" class="mt-2 flex flex-wrap gap-2">
+                  <a v-for="photo in submission.photos" :key="photo.id" :href="photo.image" target="_blank">
+                    <img :src="photo.image" alt="" class="h-16 w-24 rounded-lg border border-navy-800 object-cover" />
+                  </a>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-3 text-sm">
+                  <a :href="submission.logbook_document" target="_blank" class="text-gold-400 hover:text-gold-300">
+                    Logbook
+                  </a>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  :disabled="busyId === submission.id"
+                  class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                  @click="approveSubmission(submission)"
+                >
+                  Approve
+                </button>
+                <button
+                  :disabled="busyId === submission.id"
+                  class="rounded-md border border-red-400 px-3 py-1.5 text-sm font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
+                  @click="rejectSubmission(submission)"
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          </div>
+          <p v-if="!pendingSubmissions.length" class="text-sm text-slate-400">No pending vehicle submissions.</p>
+          <div v-if="submissionsNextUrl" class="text-center">
+            <button
+              :disabled="submissionsLoadingMore"
+              class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              @click="loadMoreSubmissions"
+            >
+              {{ submissionsLoadingMore ? 'Loading...' : 'Load More Submissions' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="mt-10">
         <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Live Drivers</h2>
         <div class="mt-3 overflow-x-auto rounded-xl border border-navy-800">
           <table class="w-full text-left text-sm">
@@ -258,17 +398,50 @@ onMounted(() => {
                 <td class="px-4 py-3 text-slate-300">{{ driver.years_of_experience }} yrs</td>
                 <td class="px-4 py-3 text-slate-300">{{ Number(driver.rating).toFixed(1) }}</td>
                 <td class="px-4 py-3">
-                  <span :class="driver.is_active ? 'text-gold-400' : 'text-red-400'">
-                    {{ driver.is_active ? 'Active' : 'Suspended' }}
-                  </span>
+                  <div class="flex flex-col gap-1">
+                    <span
+                      class="inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                      :class="driver.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'"
+                    >
+                      <span class="h-1.5 w-1.5 rounded-full" :class="driver.is_active ? 'bg-emerald-400' : 'bg-red-400'" />
+                      {{ driver.is_active ? 'Active' : 'Suspended' }}
+                    </span>
+                    <span
+                      v-if="driver.is_active && driver.is_away"
+                      class="inline-flex w-fit items-center gap-1.5 rounded-full bg-navy-800 px-2.5 py-0.5 text-xs font-semibold text-slate-300"
+                      :title="driver.away_reason"
+                    >
+                      Away
+                    </span>
+                    <span v-if="!driver.is_active && driver.suspension_reason" class="max-w-[180px] text-xs text-slate-500">
+                      {{ driver.suspension_reason }}
+                    </span>
+                  </div>
                 </td>
                 <td class="space-x-2 whitespace-nowrap px-4 py-3">
                   <button
+                    v-if="driver.is_active"
                     :disabled="busyId === driver.id"
                     class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
-                    @click="toggleDriverActive(driver)"
+                    @click="openSuspendModal(driver)"
                   >
-                    {{ driver.is_active ? 'Suspend' : 'Activate' }}
+                    Suspend
+                  </button>
+                  <button
+                    v-else
+                    :disabled="busyId === driver.id"
+                    class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                    @click="activateDriver(driver)"
+                  >
+                    Activate
+                  </button>
+                  <button
+                    v-if="driver.email && !driver.has_portal_account"
+                    :disabled="busyId === driver.id"
+                    class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                    @click="inviteDriver(driver)"
+                  >
+                    Send Invite
                   </button>
                   <button
                     v-if="auth.user?.is_superuser"
@@ -306,6 +479,22 @@ onMounted(() => {
             <span class="text-slate-300">{{ application.full_name }} - {{ application.vehicle_name }}</span>
             <span :class="application.status === 'approved' ? 'text-gold-400' : 'text-red-400'">
               {{ application.status }}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="reviewedSubmissions.length" class="mt-10">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Reviewed Vehicle Submissions</h2>
+        <div class="mt-3 space-y-2">
+          <div
+            v-for="submission in reviewedSubmissions"
+            :key="submission.id"
+            class="flex items-center justify-between rounded-md border border-navy-800 bg-navy-900 px-4 py-2 text-sm"
+          >
+            <span class="text-slate-300">{{ submission.name }} - {{ submission.driver_name }}</span>
+            <span :class="submission.status === 'approved' ? 'text-gold-400' : 'text-red-400'">
+              {{ submission.status }}
             </span>
           </div>
         </div>
@@ -415,6 +604,59 @@ onMounted(() => {
                   class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
                 >
                   {{ saving ? 'Creating…' : 'Create Driver' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Suspend Driver Modal -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="showSuspendModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          @click.self="showSuspendModal = false"
+        >
+          <div class="w-full max-w-md rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+            <div class="mb-6 flex items-center justify-between">
+              <h2 class="font-[Georgia] text-xl font-bold text-white">Suspend {{ suspendingDriver?.full_name }}</h2>
+              <button class="text-slate-400 transition-colors hover:text-white" @click="showSuspendModal = false">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p class="mb-4 text-sm text-slate-400">
+              This reason will be emailed to the driver and shown here to other admins.
+            </p>
+
+            <form class="space-y-4" @submit.prevent="confirmSuspend">
+              <textarea
+                v-model="suspendReason"
+                rows="3"
+                required
+                placeholder="e.g. Repeated customer complaints about late pickups"
+                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+              ></textarea>
+
+              <div class="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                  @click="showSuspendModal = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  :disabled="suspending || !suspendReason.trim()"
+                  class="flex-1 rounded-lg bg-red-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-400 disabled:opacity-50"
+                >
+                  {{ suspending ? 'Suspending…' : 'Confirm Suspend' }}
                 </button>
               </div>
             </form>

@@ -1,0 +1,20 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">A driver has submitted a new vehicle for review.</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px; border-collapse:collapse;">
+  <tr>
+    <td style="padding:6px 0; color:#64748b; width:140px;">Driver</td>
+    <td style="padding:6px 0; font-weight:bold;">{{ submission.driver.full_name }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Vehicle</td>
+    <td style="padding:6px 0;">
+      {{ submission.name }} ({{ submission.get_category_display }}),
+      {{ submission.passenger_capacity }} pax, KES {{ submission.price_per_day|floatformat:0 }}/day
+    </td>
+  </tr>
+</table>
+
+{% include "emails/_button.html" with url=review_url label="Review Submission" %}
+{% endblock %}

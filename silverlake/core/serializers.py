@@ -4,7 +4,8 @@ from rest_framework import serializers
 
 from accounts.models import CustomerProfile
 from drivers.models import Driver
-from fleet.models import Vehicle
+from drivers.serializers import VehicleSubmissionPhotoSerializer
+from fleet.models import Vehicle, VehicleSubmission
 from payments.models import DriverPayout
 from reviews.models import Review
 
@@ -75,13 +76,30 @@ class AdminCreateUserSerializer(serializers.Serializer):
 
 
 class AdminDriverSerializer(serializers.ModelSerializer):
+    has_portal_account = serializers.BooleanField(source='user_id', read_only=True)
+
     class Meta:
         model = Driver
         fields = [
             'id', 'full_name', 'photo', 'email', 'phone_number',
-            'years_of_experience', 'bio', 'rating', 'is_active', 'created_at',
+            'years_of_experience', 'bio', 'rating', 'is_active',
+            'is_away', 'away_reason', 'suspension_reason', 'has_portal_account', 'created_at',
         ]
-        read_only_fields = ['created_at']
+        read_only_fields = ['is_away', 'away_reason', 'suspension_reason', 'created_at']
+
+
+class AdminVehicleSubmissionSerializer(serializers.ModelSerializer):
+    driver_name = serializers.CharField(source='driver.full_name', read_only=True)
+    photos = VehicleSubmissionPhotoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = VehicleSubmission
+        fields = [
+            'id', 'driver', 'driver_name', 'name', 'category', 'tagline', 'description',
+            'passenger_capacity', 'price_per_day', 'photos', 'logbook_document',
+            'status', 'review_notes', 'created_at',
+        ]
+        read_only_fields = ['driver', 'status', 'created_at']
 
 
 class AdminDriverPayoutSerializer(serializers.ModelSerializer):

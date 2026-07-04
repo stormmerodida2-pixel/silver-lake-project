@@ -34,14 +34,19 @@ class RegisterSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     phone_number = serializers.SerializerMethodField()
+    is_driver = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone_number', 'is_staff', 'is_superuser']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone_number', 'is_staff', 'is_superuser', 'is_driver']
 
     def get_phone_number(self, user):
         profile = getattr(user, 'customer_profile', None)
         return profile.phone_number if profile else ''
+
+    def get_is_driver(self, user):
+        driver = getattr(user, 'driver_profile', None)
+        return bool(driver and driver.is_active)
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):

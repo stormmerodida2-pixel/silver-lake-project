@@ -106,6 +106,29 @@ const trustBadges = [
       </div>
     </section>
 
+    <!-- Become a driver CTA -->
+    <section class="bg-white">
+      <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <div class="flex flex-col items-center justify-between gap-6 rounded-2xl border border-navy-800 bg-navy-900 px-6 py-10 text-center sm:px-12 md:flex-row md:text-left">
+          <div>
+            <h2 class="font-[Georgia] text-2xl font-bold text-white">
+              Own a car? <span class="text-gold-400">Partner with SilverLake.</span>
+            </h2>
+            <p class="mt-2 max-w-xl text-sm text-slate-300">
+              List your vehicle with us and start earning as a driver-partner. Applications are reviewed
+              by our team before you go live.
+            </p>
+          </div>
+          <RouterLink
+            to="/become-a-driver"
+            class="shrink-0 rounded-md bg-gold-500 px-6 py-3 font-semibold text-navy-950 transition hover:bg-gold-400"
+          >
+            Become a Driver
+          </RouterLink>
+        </div>
+      </div>
+    </section>
+
     <!-- Reviews preview -->
     <section class="bg-white">
       <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
