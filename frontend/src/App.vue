@@ -5,7 +5,7 @@ import WhatsAppButton from './components/WhatsAppButton.vue'
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-navy-950">
+  <div class="flex min-h-screen flex-col bg-white">
     <NavBar />
     <main class="flex-1">
       <RouterView />

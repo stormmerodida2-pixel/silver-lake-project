@@ -38,58 +38,60 @@ async function submitReview() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-    <h1 class="text-center font-[Georgia] text-3xl font-bold text-white">Customer Reviews</h1>
+  <div class="bg-white">
+    <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <h1 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">Customer Reviews</h1>
 
-    <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      <ReviewCard v-for="review in catalog.reviews" :key="review.id" :review="review" />
-    </div>
-    <p v-if="!catalog.reviews.length" class="mt-10 text-center text-slate-400">No reviews yet - be the first!</p>
+      <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <ReviewCard v-for="review in catalog.reviews" :key="review.id" :review="review" />
+      </div>
+      <p v-if="!catalog.reviews.length" class="mt-10 text-center text-slate-500">No reviews yet - be the first!</p>
 
-    <div class="mx-auto mt-16 max-w-lg rounded-xl border border-navy-800 bg-navy-900 p-6">
-      <h2 class="font-[Georgia] text-xl font-bold text-white">Share your experience</h2>
+      <div class="mx-auto mt-16 max-w-lg rounded-xl border border-slate-200 bg-slate-50 p-6">
+        <h2 class="font-[Georgia] text-xl font-bold text-navy-900">Share your experience</h2>
 
-      <p v-if="submitted" class="mt-4 text-sm text-gold-400">
-        Thanks! Your review has been submitted and will appear once approved.
-      </p>
+        <p v-if="submitted" class="mt-4 text-sm text-brand-blue-600">
+          Thanks! Your review has been submitted and will appear once approved.
+        </p>
 
-      <form v-else class="mt-4 space-y-4" @submit.prevent="submitReview">
-        <div>
-          <label class="mb-1 block text-sm text-slate-300">Your name</label>
-          <input
-            v-model="form.customer_name"
-            type="text"
-            required
-            class="w-full rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-white focus:border-gold-400 focus:outline-none"
-          />
-        </div>
-        <div>
-          <label class="mb-1 block text-sm text-slate-300">Rating</label>
-          <select
-            v-model.number="form.rating"
-            class="w-full rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-white focus:border-gold-400 focus:outline-none"
+        <form v-else class="mt-4 space-y-4" @submit.prevent="submitReview">
+          <div>
+            <label class="mb-1 block text-sm text-slate-600">Your name</label>
+            <input
+              v-model="form.customer_name"
+              type="text"
+              required
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-slate-600">Rating</label>
+            <select
+              v-model.number="form.rating"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            >
+              <option v-for="n in 5" :key="n" :value="n">{{ n }} Star{{ n > 1 ? 's' : '' }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-slate-600">Comment</label>
+            <textarea
+              v-model="form.comment"
+              required
+              rows="4"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            ></textarea>
+          </div>
+          <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+          <button
+            type="submit"
+            :disabled="submitting"
+            class="w-full rounded-md bg-gold-500 px-4 py-2 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
           >
-            <option v-for="n in 5" :key="n" :value="n">{{ n }} Star{{ n > 1 ? 's' : '' }}</option>
-          </select>
-        </div>
-        <div>
-          <label class="mb-1 block text-sm text-slate-300">Comment</label>
-          <textarea
-            v-model="form.comment"
-            required
-            rows="4"
-            class="w-full rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-white focus:border-gold-400 focus:outline-none"
-          ></textarea>
-        </div>
-        <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
-        <button
-          type="submit"
-          :disabled="submitting"
-          class="w-full rounded-md bg-gold-500 px-4 py-2 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
-        >
-          {{ submitting ? 'Submitting...' : 'Submit Review' }}
-        </button>
-      </form>
+            {{ submitting ? 'Submitting...' : 'Submit Review' }}
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 </template>
