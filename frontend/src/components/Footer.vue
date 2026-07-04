@@ -1,6 +1,8 @@
 <script setup>
+import { useAuthStore } from '../stores/auth'
 import SilverLakeLogo from './SilverLakeLogo.vue'
 
+const auth = useAuthStore()
 const year = new Date().getFullYear()
 </script>
 
@@ -18,7 +20,7 @@ const year = new Date().getFullYear()
         <div class="mt-3 flex flex-wrap gap-4 text-sm">
           <RouterLink to="/drivers" class="text-slate-300 hover:text-gold-400">Meet Our Drivers</RouterLink>
           <RouterLink to="/reviews" class="text-slate-300 hover:text-gold-400">Leave a Review</RouterLink>
-          <RouterLink to="/become-a-driver" class="text-slate-300 hover:text-gold-400">Become a Driver</RouterLink>
+          <RouterLink v-if="!auth.user?.driver_status" to="/become-a-driver" class="text-slate-300 hover:text-gold-400">Become a Driver</RouterLink>
           <RouterLink to="/contact" class="text-slate-300 hover:text-gold-400">Contact Us</RouterLink>
         </div>
       </div>

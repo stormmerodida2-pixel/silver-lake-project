@@ -2,6 +2,9 @@
 import { reactive, ref } from 'vue'
 
 import apiClient from '../api/client'
+import { useAuthStore } from '../stores/auth'
+
+const auth = useAuthStore()
 
 const categories = [
   { value: 'executive_suv', label: 'Executive SUV' },
@@ -61,7 +64,22 @@ async function submit() {
         application before you and your car go live on the platform.
       </p>
 
-      <div v-if="submitted" class="mt-10 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
+      <div v-if="auth.user?.driver_status === 'active'" class="mt-10 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
+        <h2 class="font-[Georgia] text-xl font-bold text-brand-blue-600">You're already a driver-partner!</h2>
+        <p class="mt-2 text-sm text-slate-600">
+          Head to your <RouterLink to="/driver" class="font-semibold text-brand-blue-600 hover:underline">Driver Dashboard</RouterLink>
+          to manage your vehicles and availability.
+        </p>
+      </div>
+
+      <div v-else-if="auth.user?.driver_status === 'suspended'" class="mt-10 rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+        <h2 class="font-[Georgia] text-xl font-bold text-red-700">Currently Suspended</h2>
+        <p class="mt-2 text-sm text-red-700">
+          Your driver-partner account is currently suspended. Contact us if you believe this was a mistake.
+        </p>
+      </div>
+
+      <div v-else-if="submitted" class="mt-10 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
         <h2 class="font-[Georgia] text-xl font-bold text-brand-blue-600">Application received!</h2>
         <p class="mt-2 text-sm text-slate-600">
           We'll review your documents and vehicle details, then contact you at {{ form.email }} or

@@ -35,18 +35,32 @@ class RegisterSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     phone_number = serializers.SerializerMethodField()
     is_driver = serializers.SerializerMethodField()
+    driver_status = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone_number', 'is_staff', 'is_superuser', 'is_driver']
+        fields = [
+            'id', 'first_name', 'last_name', 'email', 'phone_number',
+            'is_staff', 'is_superuser', 'is_driver', 'driver_status',
+        ]
 
     def get_phone_number(self, user):
         profile = getattr(user, 'customer_profile', None)
         return profile.phone_number if profile else ''
 
     def get_is_driver(self, user):
+        # Portal access requires an active driver profile - a suspended driver loses it,
+        # same as the IsDriverUser permission check on the backend.
         driver = getattr(user, 'driver_profile', None)
         return bool(driver and driver.is_active)
+
+    def get_driver_status(self, user):
+        # For UI purposes beyond portal access (e.g. hiding "Become a Driver" once you already
+        # have a driver profile, whether active or suspended) - None means no driver profile at all.
+        driver = getattr(user, 'driver_profile', None)
+        if not driver:
+            return None
+        return 'active' if driver.is_active else 'suspended'
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):

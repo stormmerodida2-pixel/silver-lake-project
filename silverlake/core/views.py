@@ -84,6 +84,7 @@ class AdminStatsView(APIView):
                 'pending_applications': DriverApplication.objects.filter(
                     status=ApplicationStatus.PENDING
                 ).count(),
+                'away': Driver.objects.filter(is_active=True, is_away=True).count(),
             },
             'fleet': {
                 'total': Vehicle.objects.count(),

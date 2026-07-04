@@ -36,6 +36,25 @@ def send_driver_suspended_email(driver, reason):
     )
 
 
+def send_driver_away_notification(driver):
+    """Notifies every active staff account that a driver has marked themselves away - their
+    vehicle(s) are hidden from the public fleet until they mark themselves available again."""
+    staff_emails = list(
+        User.objects.filter(is_staff=True, is_active=True).exclude(email='').values_list('email', flat=True)
+    )
+    if not staff_emails:
+        return
+
+    review_url = f'{settings.FRONTEND_URL}/admin/drivers'
+    send_branded_email(
+        subject=f'Driver marked as away: {driver.full_name}',
+        template_name='emails/driver_away_admin_notice.html',
+        context={'driver': driver, 'review_url': review_url},
+        recipient_list=[settings.DEFAULT_FROM_EMAIL],
+        bcc=staff_emails,
+    )
+
+
 def send_new_vehicle_submission_notification(submission):
     """Notifies every active staff account that a driver submitted a car for review."""
     staff_emails = list(

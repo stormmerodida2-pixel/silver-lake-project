@@ -99,7 +99,7 @@ onMounted(async () => {
 
       <section>
         <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Users &amp; Drivers</h2>
-        <div class="mt-3 grid gap-4 sm:grid-cols-3">
+        <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <RouterLink
             to="/admin/users"
             class="rounded-xl border border-navy-800 bg-navy-900 p-5 transition hover:border-gold-400"
@@ -129,6 +129,21 @@ onMounted(async () => {
               {{ stats.drivers.pending_applications }}
             </p>
             <p class="text-xs font-semibold text-gold-400">Review &rarr;</p>
+          </RouterLink>
+          <RouterLink
+            to="/admin/drivers"
+            class="rounded-xl border p-5 transition"
+            :class="
+              stats.drivers.away
+                ? 'border-gold-500 bg-navy-900 hover:border-gold-400'
+                : 'border-navy-800 bg-navy-900 hover:border-gold-400'
+            "
+          >
+            <p class="text-sm text-slate-400">Drivers Away</p>
+            <p class="mt-1 text-2xl font-bold" :class="stats.drivers.away ? 'text-gold-400' : 'text-white'">
+              {{ stats.drivers.away }}
+            </p>
+            <p class="text-xs text-slate-500">Vehicles hidden from the public fleet</p>
           </RouterLink>
         </div>
       </section>

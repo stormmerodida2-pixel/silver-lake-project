@@ -1,10 +1,12 @@
 <script setup>
 import { onMounted } from 'vue'
 
+import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
 import VehicleCard from '../components/VehicleCard.vue'
 import ReviewCard from '../components/ReviewCard.vue'
 
+const auth = useAuthStore()
 const catalog = useCatalogStore()
 
 onMounted(() => {
@@ -106,8 +108,8 @@ const trustBadges = [
       </div>
     </section>
 
-    <!-- Become a driver CTA -->
-    <section class="bg-white">
+    <!-- Become a driver CTA (hidden once you're already an active driver-partner) -->
+    <section v-if="auth.user?.driver_status !== 'active'" class="bg-white">
       <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
         <div class="flex flex-col items-center justify-between gap-6 rounded-2xl border border-navy-800 bg-navy-900 px-6 py-10 text-center sm:px-12 md:flex-row md:text-left">
           <div>
@@ -119,7 +121,14 @@ const trustBadges = [
               by our team before you go live.
             </p>
           </div>
+          <p
+            v-if="auth.user?.driver_status === 'suspended'"
+            class="shrink-0 rounded-md border border-red-400 px-6 py-3 font-semibold text-red-400"
+          >
+            Currently Suspended
+          </p>
           <RouterLink
+            v-else
             to="/become-a-driver"
             class="shrink-0 rounded-md bg-gold-500 px-6 py-3 font-semibold text-navy-950 transition hover:bg-gold-400"
           >

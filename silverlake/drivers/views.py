@@ -2,7 +2,11 @@ from rest_framework import generics, mixins, permissions, response, viewsets
 
 from fleet.models import VehicleSubmission
 
-from .emails import send_new_driver_application_notification, send_new_vehicle_submission_notification
+from .emails import (
+    send_driver_away_notification,
+    send_new_driver_application_notification,
+    send_new_vehicle_submission_notification,
+)
 from .models import Driver, DriverApplication
 from .permissions import IsDriverUser
 from .serializers import (
@@ -52,8 +56,13 @@ class DriverAwayView(generics.UpdateAPIView):
         return self.request.user.driver_profile
 
     def update(self, request, *args, **kwargs):
+        driver = self.get_object()
+        was_away = driver.is_away
         super().update(request, *args, **kwargs)
-        return response.Response(DriverPortalSerializer(self.get_object()).data)
+        driver.refresh_from_db()
+        if driver.is_away and not was_away:
+            send_driver_away_notification(driver)
+        return response.Response(DriverPortalSerializer(driver).data)
 
 
 class DriverVehicleSubmissionViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):

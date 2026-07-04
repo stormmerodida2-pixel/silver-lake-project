@@ -19,6 +19,9 @@ const links = computed(() => {
   if (auth.isAuthenticated) {
     base.splice(3, 0, { to: '/account/bookings', label: 'My Bookings' })
   }
+  if (auth.user?.driver_status === 'active') {
+    base.push({ to: '/driver', label: 'Driver Dashboard' })
+  }
   if (auth.user?.is_staff) {
     base.push({ to: '/admin', label: 'Admin' })
   }
