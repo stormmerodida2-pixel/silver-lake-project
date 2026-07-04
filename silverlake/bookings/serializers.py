@@ -3,9 +3,10 @@ from copy import copy
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from fleet.models import Vehicle
 from reviews.serializers import ReviewSerializer
 
-from .models import Booking
+from .models import Booking, ServiceType
 
 # Fields Booking.clean() actually looks at - kept in sync with the validation logic there.
 CLEAN_RELEVANT_FIELDS = (
@@ -26,14 +27,14 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = [
-            'id', 'vehicle', 'vehicle_name', 'driver', 'driver_name', 'service_type',
+            'id', 'vehicle', 'vehicle_name', 'driver', 'driver_name', 'service_type', 'source',
             'customer_name', 'customer_phone', 'customer_email',
             'pickup_location', 'dropoff_location', 'start_date', 'end_date',
             'customer_license_number', 'customer_license_document', 'customer_id_document',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid',
             'status', 'notes', 'review', 'created_at',
         ]
-        read_only_fields = ['status', 'total_amount', 'created_at']
+        read_only_fields = ['status', 'source', 'total_amount', 'created_at']
 
     def get_vehicle_name(self, obj):
         return obj.vehicle.name if obj.vehicle else '—'
@@ -63,4 +64,38 @@ class BookingSerializer(serializers.ModelSerializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(exc.messages)
 
+        return attrs
+
+
+class DriverOnsiteBookingSerializer(serializers.Serializer):
+    """A driver creating a booking on the spot for a walk-up client who won't be registering
+    or logging in themselves. Always with_driver (it's the driver's own vehicle, in person),
+    so none of the self-drive document fields apply."""
+
+    vehicle = serializers.PrimaryKeyRelatedField(queryset=Vehicle.objects.all())
+    customer_name = serializers.CharField(max_length=100)
+    customer_phone = serializers.CharField(max_length=20)
+    customer_email = serializers.EmailField(required=False, allow_blank=True, default='')
+    pickup_location = serializers.CharField(max_length=200)
+    dropoff_location = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+    notes = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate_vehicle(self, vehicle):
+        driver = self.context['driver']
+        if vehicle.driver_id != driver.id:
+            raise serializers.ValidationError("You can only book one of your own vehicles.")
+        return vehicle
+
+    def validate(self, attrs):
+        driver = self.context['driver']
+        candidate = Booking(
+            vehicle=attrs['vehicle'], driver=driver, service_type=ServiceType.WITH_DRIVER,
+            start_date=attrs['start_date'], end_date=attrs['end_date'],
+        )
+        try:
+            candidate.clean()
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
         return attrs

@@ -118,6 +118,12 @@ const routes = [
     meta: { title: 'Complete Booking | SilverLake Driver Portal' },
   },
   {
+    path: '/pay/:token',
+    name: 'pay-booking',
+    component: () => import('../views/PayBookingView.vue'),
+    meta: { title: 'Pay for Your Trip | SilverLake Car Rentals' },
+  },
+  {
     path: '/driver',
     name: 'driver-portal',
     component: () => import('../views/driver/DriverPortalView.vue'),
@@ -169,6 +175,12 @@ const routes = [
         name: 'admin-payouts',
         component: () => import('../views/admin/AdminPayoutsView.vue'),
         meta: { title: 'Driver Payouts | SilverLake Car Rentals', pageTitle: 'Payouts' },
+      },
+      {
+        path: 'payments',
+        name: 'admin-payments',
+        component: () => import('../views/admin/AdminPaymentsView.vue'),
+        meta: { title: 'Payments | SilverLake Car Rentals', pageTitle: 'Payments' },
       },
     ],
   },

@@ -1,10 +1,13 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from . import mpesa
-from .models import Payment, PaymentMethod, PaymentStatus
-from .serializers import PaymentSerializer, StkPushRequestSerializer
+from bookings.models import Booking
+
+from .models import Payment, PaymentStatus
+from .serializers import PublicBookingPaymentSerializer, PaymentSerializer, StkPushRequestSerializer, TokenStkPushRequestSerializer
+from .services import PaymentValidationError, initiate_stk_push_payment
 
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
@@ -25,38 +28,37 @@ def stk_push(request):
     if booking.user_id != request.user.id and not request.user.is_staff:
         return Response({'detail': 'Not your booking.'}, status=status.HTTP_403_FORBIDDEN)
 
-    if data['amount'] > booking.balance_due:
-        return Response(
-            {'detail': f'Amount exceeds the outstanding balance of {booking.balance_due}.'},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    if not booking.is_deposit_paid and data['amount'] < booking.deposit_amount:
-        return Response(
-            {'detail': f'First payment must be at least the deposit of {booking.deposit_amount}.'},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+    try:
+        payment, result = initiate_stk_push_payment(booking, data['phone_number'], data['amount'])
+    except PaymentValidationError as exc:
+        return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-    payment = Payment.objects.create(
-        booking=data['booking'],
-        method=PaymentMethod.MPESA,
-        amount=data['amount'],
-        phone_number=data['phone_number'],
-    )
+    return Response({'payment_id': payment.id, **result}, status=status.HTTP_202_ACCEPTED)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def token_payment_detail(request, token):
+    """No-login payment page for a booking - shared with a walk-up client via customer_token
+    instead of requiring them to register/log in."""
+    booking = get_object_or_404(Booking, customer_token=token)
+    return Response(PublicBookingPaymentSerializer(booking).data)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def token_stk_push(request, token):
+    """Same STK Push flow as `stk_push`, but reached via the no-login customer_token link."""
+    booking = get_object_or_404(Booking, customer_token=token)
+
+    serializer = TokenStkPushRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
 
     try:
-        result = mpesa.initiate_stk_push(
-            phone_number=data['phone_number'],
-            amount=data['amount'],
-            account_reference=f'SILVERLAKE-{payment.booking_id}',
-            transaction_desc='SilverLake Car Rentals booking payment',
-        )
-    except Exception as exc:
-        payment.status = PaymentStatus.FAILED
-        payment.save(update_fields=['status'])
-        return Response({'detail': str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
-
-    payment.mpesa_checkout_request_id = result.get('CheckoutRequestID', '')
-    payment.save(update_fields=['mpesa_checkout_request_id'])
+        payment, result = initiate_stk_push_payment(booking, data['phone_number'], data['amount'])
+    except PaymentValidationError as exc:
+        return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response({'payment_id': payment.id, **result}, status=status.HTTP_202_ACCEPTED)
 

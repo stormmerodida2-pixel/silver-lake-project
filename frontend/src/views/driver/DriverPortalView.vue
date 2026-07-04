@@ -71,6 +71,84 @@ async function markAvailable() {
   }
 }
 
+// ── Walk-up client booking ───────────────────────────────────────────────────
+const showOnsiteModal = ref(false)
+const onsiteSaving = ref(false)
+const onsiteError = ref('')
+const onsiteForm = reactive({
+  vehicle: '',
+  customer_name: '',
+  customer_phone: '',
+  customer_email: '',
+  pickup_location: '',
+  dropoff_location: '',
+  start_date: '',
+  end_date: '',
+  notes: '',
+})
+const onsiteResult = ref(null) // { booking, payment_url } after creation
+const today = new Date().toISOString().split('T')[0]
+
+function openOnsiteModal() {
+  Object.assign(onsiteForm, {
+    vehicle: '', customer_name: '', customer_phone: '', customer_email: '',
+    pickup_location: '', dropoff_location: '', start_date: '', end_date: '', notes: '',
+  })
+  onsiteError.value = ''
+  onsiteResult.value = null
+  cashAmount.value = ''
+  cashNote.value = ''
+  cashError.value = ''
+  cashRecorded.value = false
+  showOnsiteModal.value = true
+}
+
+async function submitOnsiteBooking() {
+  onsiteError.value = ''
+  onsiteSaving.value = true
+  try {
+    const { data } = await apiClient.post('/driver/bookings/create/', onsiteForm)
+    onsiteResult.value = data
+  } catch (err) {
+    const detail = err?.response?.data
+    onsiteError.value = typeof detail === 'object'
+      ? Object.values(detail).flat().join(' ')
+      : 'Could not create this booking.'
+  } finally {
+    onsiteSaving.value = false
+  }
+}
+
+async function copyPaymentLink() {
+  if (!onsiteResult.value) return
+  await navigator.clipboard.writeText(onsiteResult.value.payment_url)
+}
+
+// ── Cash payment for the just-created walk-up booking ───────────────────────
+const cashAmount = ref('')
+const cashNote = ref('')
+const cashSaving = ref(false)
+const cashError = ref('')
+const cashRecorded = ref(false)
+
+async function recordCashPayment() {
+  cashError.value = ''
+  if (!cashAmount.value) return
+  cashSaving.value = true
+  try {
+    const { data } = await apiClient.post(
+      `/driver/bookings/${onsiteResult.value.booking.id}/record-cash/`,
+      { amount: cashAmount.value, note: cashNote.value },
+    )
+    onsiteResult.value.booking = data
+    cashRecorded.value = true
+  } catch (err) {
+    cashError.value = err?.response?.data?.detail || 'Could not record this payment.'
+  } finally {
+    cashSaving.value = false
+  }
+}
+
 // ── Add Vehicle modal ────────────────────────────────────────────────────────
 const showModal = ref(false)
 const saving = ref(false)
@@ -259,6 +337,27 @@ onMounted(loadProfile)
           </div>
         </section>
 
+        <!-- Walk-up client booking -->
+        <section class="mt-8">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Walk-Up Client</h2>
+            <button
+              v-if="profile.vehicles.length"
+              class="flex items-center gap-2 rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400"
+              @click="openOnsiteModal"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Book For a Client On-Site
+            </button>
+          </div>
+          <p class="mt-1 text-xs text-slate-500">
+            For a client with you right now who doesn't want to register - creates their booking and
+            gives you a payment link to share, no account needed on their end.
+          </p>
+        </section>
+
         <!-- Vehicle submissions -->
         <section class="mt-8">
           <div class="flex items-center justify-between">
@@ -311,6 +410,160 @@ onMounted(loadProfile)
         </section>
       </template>
     </main>
+
+    <!-- Walk-Up Client Booking Modal -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="showOnsiteModal"
+          class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
+          @click.self="showOnsiteModal = false"
+        >
+          <div class="w-full max-w-lg rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+            <div class="mb-6 flex items-center justify-between">
+              <h2 class="font-[Georgia] text-xl font-bold text-white">
+                {{ onsiteResult ? 'Booking Created' : 'Book For a Client On-Site' }}
+              </h2>
+              <button class="text-slate-400 transition-colors hover:text-white" @click="showOnsiteModal = false">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Result: payment link + cash option -->
+            <div v-if="onsiteResult" class="space-y-4">
+              <p class="text-sm text-slate-300">
+                Booking created for <strong>{{ onsiteResult.booking.customer_name }}</strong>. Share this link so
+                they can pay via M-Pesa on their own phone - no account needed.
+              </p>
+              <div class="flex items-center gap-2 rounded-lg border border-navy-700 bg-navy-800 px-3 py-2">
+                <span class="flex-1 truncate text-xs text-slate-300">{{ onsiteResult.payment_url }}</span>
+                <button
+                  class="shrink-0 rounded-md bg-gold-500 px-3 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400"
+                  @click="copyPaymentLink"
+                >
+                  Copy
+                </button>
+              </div>
+              <a
+                :href="`https://wa.me/?text=${encodeURIComponent('Here is your SilverLake payment link: ' + onsiteResult.payment_url)}`"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500 py-2.5 text-sm font-semibold text-emerald-400 hover:bg-emerald-500 hover:text-navy-950"
+              >
+                Share via WhatsApp
+              </a>
+
+              <div class="rounded-lg border border-navy-700 bg-navy-800/50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gold-400">Client Paid Cash Instead?</p>
+                <div v-if="cashRecorded" class="mt-2 text-sm text-emerald-400">Cash payment recorded.</div>
+                <div v-else class="mt-2 space-y-2">
+                  <input
+                    v-model="cashAmount" type="number" min="0" step="0.01"
+                    :placeholder="`Amount (deposit: KES ${Number(onsiteResult.booking.deposit_amount).toLocaleString()})`"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  />
+                  <input
+                    v-model="cashNote" type="text" placeholder="Note (optional)"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  />
+                  <p v-if="cashError" class="text-xs text-red-400">{{ cashError }}</p>
+                  <button
+                    :disabled="cashSaving || !cashAmount"
+                    class="w-full rounded-lg bg-navy-700 py-2 text-sm font-semibold text-white hover:bg-navy-600 disabled:opacity-50"
+                    @click="recordCashPayment"
+                  >
+                    {{ cashSaving ? 'Recording...' : 'Record Cash Payment' }}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                class="w-full rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500 hover:text-white"
+                @click="showOnsiteModal = false"
+              >
+                Done
+              </button>
+            </div>
+
+            <!-- Form -->
+            <form v-else class="space-y-4" @submit.prevent="submitOnsiteBooking">
+              <p v-if="onsiteError" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ onsiteError }}</p>
+
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Vehicle *</label>
+                <select
+                  v-model.number="onsiteForm.vehicle" required
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                >
+                  <option value="" disabled>Select one of your vehicles</option>
+                  <option v-for="v in profile.vehicles" :key="v.id" :value="v.id">{{ v.name }}</option>
+                </select>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Client Name *</label>
+                  <input v-model="onsiteForm.customer_name" type="text" required
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Phone *</label>
+                  <input v-model="onsiteForm.customer_phone" type="tel" placeholder="2547XXXXXXXX" required
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Email (optional)</label>
+                <input v-model="onsiteForm.customer_email" type="email"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                />
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Start Date *</label>
+                  <input v-model="onsiteForm.start_date" type="date" :min="today" required
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">End Date *</label>
+                  <input v-model="onsiteForm.end_date" type="date" :min="onsiteForm.start_date || today" required
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Pickup Location *</label>
+                <input v-model="onsiteForm.pickup_location" type="text" required
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Drop-off Location (optional)</label>
+                <input v-model="onsiteForm.dropoff_location" type="text"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                />
+              </div>
+
+              <div class="flex gap-3 pt-2">
+                <button type="button"
+                  class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500 hover:text-white"
+                  @click="showOnsiteModal = false">
+                  Cancel
+                </button>
+                <button type="submit" :disabled="onsiteSaving"
+                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50">
+                  {{ onsiteSaving ? 'Creating…' : 'Create Booking' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Add Vehicle Modal -->
     <Teleport to="body">
