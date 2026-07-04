@@ -123,7 +123,7 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
                   :key="img.id"
                   :src="img.image"
                   :alt="img.caption || vehicle.name"
-                  class="aspect-4/3 w-full rounded-lg object-cover"
+                  class="aspect-[4/3] w-full rounded-lg object-cover"
                 />
               </div>
             </div>

@@ -19,7 +19,7 @@ const categoryLabels = {
     :to="`/fleet/${vehicle.id}`"
     class="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 transition hover:shadow-xl hover:-translate-y-0.5"
   >
-    <div class="aspect-4/3 w-full overflow-hidden bg-slate-100">
+    <div class="aspect-[4/3] w-full overflow-hidden bg-slate-100">
       <img
         v-if="vehicle.image"
         :src="vehicle.image"

@@ -17,7 +17,11 @@ async function submit() {
   error.value = ''
   try {
     await auth.login(form.email, form.password)
-    router.push(route.query.redirect || '/')
+    if (auth.user?.is_staff) {
+      router.push('/admin')
+    } else {
+      router.push(route.query.redirect || '/')
+    }
   } catch (err) {
     error.value =
       err.response?.data?.detail ||

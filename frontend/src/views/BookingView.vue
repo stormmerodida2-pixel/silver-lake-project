@@ -65,6 +65,34 @@ watch(
 
 const selectedVehicle = computed(() => catalog.vehicles.find((v) => v.id === form.vehicle))
 
+// Keep the layout shape stable while filling the form (no shifting as fields fill in) -
+// only the confirmation/payment steps (which have no live sidebar use) switch to a centered column.
+const showTwoColumn = computed(() => step.value === 'form')
+const showSidebarContent = computed(() => !!selectedVehicle.value)
+
+// Combine the cover photo with any gallery images so the sidebar can flip through all of them.
+const vehiclePhotos = computed(() => {
+  const vehicle = selectedVehicle.value
+  if (!vehicle) return []
+  const photos = []
+  if (vehicle.image) photos.push({ image: vehicle.image, caption: vehicle.name })
+  for (const g of vehicle.gallery_images || []) photos.push(g)
+  return photos
+})
+
+const photoIndex = ref(0)
+watch(selectedVehicle, () => {
+  photoIndex.value = 0
+})
+
+function prevPhoto() {
+  photoIndex.value = (photoIndex.value - 1 + vehiclePhotos.value.length) % vehiclePhotos.value.length
+}
+
+function nextPhoto() {
+  photoIndex.value = (photoIndex.value + 1) % vehiclePhotos.value.length
+}
+
 const totalDays = computed(() => {
   if (!form.start_date || !form.end_date) return 0
   const diff = (new Date(form.end_date) - new Date(form.start_date)) / (1000 * 60 * 60 * 24)
@@ -128,9 +156,9 @@ async function payWithMpesa() {
         <p class="mt-2 text-slate-600">Choose your vehicle, dates, and how you'd like to travel.</p>
       </div>
 
-      <div class="mt-10 grid gap-8 lg:grid-cols-3">
+      <div class="mt-10 grid gap-8" :class="showTwoColumn ? 'lg:grid-cols-3' : 'mx-auto max-w-2xl'">
         <!-- Main column: form / confirmation / payment -->
-        <div class="lg:col-span-2">
+        <div :class="showTwoColumn ? 'lg:col-span-2' : ''">
           <form v-if="step === 'form'" class="space-y-5 rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:p-8" @submit.prevent="submitBooking">
             <div>
               <label class="mb-1 block text-sm text-slate-600">Service type</label>
@@ -365,17 +393,53 @@ async function payWithMpesa() {
         </div>
 
         <!-- Sidebar: live vehicle/cost summary -->
-        <aside class="lg:col-span-1">
-          <div class="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 lg:sticky lg:top-24">
-            <template v-if="selectedVehicle">
-              <div class="aspect-4/3 w-full overflow-hidden rounded-t-2xl bg-slate-100">
+        <aside v-if="showTwoColumn" class="lg:col-span-1">
+          <div
+            v-if="showSidebarContent"
+            class="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 lg:sticky lg:top-24"
+          >
+              <div class="group relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl bg-slate-100">
                 <img
-                  v-if="selectedVehicle.image"
-                  :src="selectedVehicle.image"
-                  :alt="selectedVehicle.name"
+                  v-if="vehiclePhotos.length"
+                  :src="vehiclePhotos[photoIndex].image"
+                  :alt="vehiclePhotos[photoIndex].caption || selectedVehicle.name"
                   class="h-full w-full object-cover"
                 />
                 <div v-else class="flex h-full items-center justify-center text-sm text-slate-400">No photo yet</div>
+
+                <template v-if="vehiclePhotos.length > 1">
+                  <button
+                    type="button"
+                    aria-label="Previous photo"
+                    class="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-navy-950/50 text-white opacity-0 transition group-hover:opacity-100 hover:bg-navy-950/80"
+                    @click="prevPhoto"
+                  >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next photo"
+                    class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-navy-950/50 text-white opacity-0 transition group-hover:opacity-100 hover:bg-navy-950/80"
+                    @click="nextPhoto"
+                  >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                  <div class="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
+                    <button
+                      v-for="(photo, i) in vehiclePhotos"
+                      :key="photo.id ?? i"
+                      type="button"
+                      :aria-label="`Show photo ${i + 1}`"
+                      class="h-1.5 w-1.5 rounded-full transition"
+                      :class="i === photoIndex ? 'bg-white' : 'bg-white/50'"
+                      @click="photoIndex = i"
+                    />
+                  </div>
+                </template>
               </div>
               <div class="p-5">
                 <h3 class="font-[Georgia] text-lg font-bold uppercase tracking-wide text-navy-900">
@@ -410,10 +474,6 @@ async function payWithMpesa() {
                   rest anytime before pickup.
                 </div>
               </div>
-            </template>
-            <div v-else class="p-6 text-center text-sm text-slate-500">
-              Select a vehicle to see photos, pricing, and your total cost here.
-            </div>
           </div>
         </aside>
       </div>

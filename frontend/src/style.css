@@ -15,6 +15,10 @@
   --font-display: Georgia, 'Times New Roman', serif;
 }
 
+html {
+  overflow-y: scroll;
+}
+
 body {
   margin: 0;
   background-color: #ffffff;
