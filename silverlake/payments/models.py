@@ -8,6 +8,7 @@ from drivers.models import Driver
 class PaymentMethod(models.TextChoices):
     MPESA = 'mpesa', 'M-Pesa'
     CARD = 'card', 'Card'
+    CASH = 'cash', 'Cash'
 
 
 class PaymentStatus(models.TextChoices):
@@ -29,6 +30,13 @@ class Payment(models.Model):
 
     # Card payment gateway reference (e.g. Flutterwave/Stripe transaction id)
     card_transaction_ref = models.CharField(max_length=100, blank=True)
+
+    # Set for cash payments a driver reports on the spot (e.g. a walk-up client who paid cash
+    # instead of via M-Pesa) - keeps an audit trail of who vouched for the money being received.
+    recorded_by_driver = models.ForeignKey(
+        Driver, null=True, blank=True, on_delete=models.SET_NULL, related_name='cash_payments_recorded',
+    )
+    note = models.CharField(max_length=200, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

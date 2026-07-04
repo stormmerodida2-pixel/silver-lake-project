@@ -9,10 +9,10 @@ from rest_framework.test import APITestCase
 
 from drivers.models import Driver
 from fleet.models import Vehicle
-from payments.models import Payment, PaymentStatus
+from payments.models import Payment, PaymentMethod, PaymentStatus
 from reviews.models import Review
 
-from .models import Booking, BookingStatus, ServiceType
+from .models import Booking, BookingSource, BookingStatus, ServiceType
 
 User = get_user_model()
 
@@ -211,3 +211,134 @@ class BookingReviewActionTests(APITestCase):
         booking = make_booking(self.user, self.vehicle, driver=self.driver, status=BookingStatus.COMPLETED)
         response = self.client.post(f'/api/bookings/{booking.id}/review/', {'rating': 6, 'comment': 'Too high'})
         self.assertEqual(response.status_code, 400)
+
+
+class DriverOnsiteBookingCreateTests(APITestCase):
+    """Covers /api/driver/bookings/create/ - a driver booking a walk-up client on the spot."""
+
+    def setUp(self):
+        driver_user = User.objects.create_user(username='onsite-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=driver_user, full_name='Onsite Driver', is_active=True)
+        self.own_vehicle = make_vehicle(name='My Car', driver=self.driver)
+        self.other_driver = Driver.objects.create(full_name='Other Driver', is_active=True)
+        self.other_vehicle = make_vehicle(name='Someone Elses Car', driver=self.other_driver)
+        self.client.force_authenticate(user=driver_user)
+
+    def _payload(self, **overrides):
+        payload = dict(
+            vehicle=self.own_vehicle.id, customer_name='Walk Up Client', customer_phone='254711111111',
+            pickup_location='Kisumu Airport', start_date=str(TOMORROW), end_date=str(NEXT_WEEK),
+        )
+        payload.update(overrides)
+        return payload
+
+    def test_driver_can_create_a_booking_for_their_own_vehicle(self):
+        response = self.client.post('/api/driver/bookings/create/', self._payload(), format='json')
+        self.assertEqual(response.status_code, 201)
+
+        booking = Booking.objects.get(pk=response.json()['booking']['id'])
+        self.assertEqual(booking.driver_id, self.driver.id)
+        self.assertEqual(booking.source, BookingSource.DRIVER_ONSITE)
+        self.assertEqual(booking.service_type, ServiceType.WITH_DRIVER)
+        self.assertIn(str(booking.customer_token), response.json()['payment_url'])
+
+    def test_driver_cannot_book_a_vehicle_that_isnt_theirs(self):
+        response = self.client.post(
+            '/api/driver/bookings/create/', self._payload(vehicle=self.other_vehicle.id), format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Booking.objects.filter(vehicle=self.other_vehicle).exists())
+
+    def test_conflicting_dates_on_the_same_vehicle_are_rejected(self):
+        make_booking(
+            User.objects.create_user(username='existing@example.com', password='pass12345!'),
+            self.own_vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+        )
+        response = self.client.post('/api/driver/bookings/create/', self._payload(), format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_repeat_walk_up_client_with_same_phone_reuses_their_account(self):
+        first = self.client.post('/api/driver/bookings/create/', self._payload(), format='json')
+        self.assertEqual(first.status_code, 201)
+
+        second = self.client.post(
+            '/api/driver/bookings/create/',
+            self._payload(start_date=str(NEXT_WEEK + timedelta(days=1)), end_date=str(NEXT_WEEK + timedelta(days=3))),
+            format='json',
+        )
+        self.assertEqual(second.status_code, 201)
+
+        first_booking = Booking.objects.get(pk=first.json()['booking']['id'])
+        second_booking = Booking.objects.get(pk=second.json()['booking']['id'])
+        self.assertEqual(first_booking.user_id, second_booking.user_id)
+
+
+class DriverCashPaymentTests(APITestCase):
+    def setUp(self):
+        driver_user = User.objects.create_user(username='cash-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=driver_user, full_name='Cash Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='client@example.com', password='pass12345!')
+        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        self.client.force_authenticate(user=driver_user)
+
+    def test_driver_can_record_cash_for_their_own_booking(self):
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/record-cash/',
+            {'amount': str(self.booking.deposit_amount), 'note': 'Paid at pickup'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+
+        payment = Payment.objects.get(booking=self.booking)
+        self.assertEqual(payment.method, PaymentMethod.CASH)
+        self.assertEqual(payment.status, PaymentStatus.SUCCESSFUL)
+        self.assertEqual(payment.recorded_by_driver_id, self.driver.id)
+
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.CONFIRMED)  # deposit met -> auto-confirmed
+
+    def test_cannot_record_cash_for_another_drivers_booking(self):
+        other_driver_user = User.objects.create_user(username='other-driver@example.com', password='pass12345!')
+        Driver.objects.create(user=other_driver_user, full_name='Not This Driver', is_active=True)
+        self.client.force_authenticate(user=other_driver_user)
+
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/record-cash/', {'amount': '100'}, format='json',
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_cannot_record_cash_exceeding_the_balance_due(self):
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/record-cash/',
+            {'amount': str(self.booking.total_amount + 1)}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+
+class TokenPaymentPageTests(APITestCase):
+    """Covers the no-login /api/pay/<token>/ page a walk-up client uses to pay."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(full_name='Token Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver)
+        self.customer = User.objects.create_user(username='tokenclient@example.com', password='pass12345!')
+        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver)
+
+    def test_booking_summary_is_reachable_with_no_authentication(self):
+        response = self.client.get(f'/api/pay/{self.booking.customer_token}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['customer_name'], self.booking.customer_name)
+
+    def test_unknown_token_is_not_found(self):
+        response = self.client.get('/api/pay/00000000-0000-0000-0000-000000000000/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_stk_push_rejects_an_amount_below_the_deposit(self):
+        response = self.client.post(
+            f'/api/pay/{self.booking.customer_token}/stk-push/',
+            {'phone_number': '254700000000', 'amount': '1'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())

@@ -50,6 +50,12 @@ onMounted(load)
             <td class="px-4 py-3 text-white">
               {{ booking.customer_name }}
               <div class="text-xs text-slate-500">{{ booking.customer_phone }}</div>
+              <span
+                v-if="booking.source === 'driver_onsite'"
+                class="mt-1 inline-block rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-400"
+              >
+                Walk-in
+              </span>
             </td>
             <td class="px-4 py-3 text-slate-300">
               {{ booking.vehicle_name }}

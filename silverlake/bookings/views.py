@@ -119,3 +119,74 @@ class DriverBookingView(APIView):
         return Response(BookingSerializer(booking).data)
 
 
+from django.conf import settings
+
+from accounts.services import get_or_create_customer_account
+from drivers.permissions import IsDriverUser
+from payments.services import PaymentValidationError, record_cash_payment
+
+from .models import BookingSource
+from .serializers import DriverOnsiteBookingSerializer
+
+
+class DriverOnsiteBookingCreateView(APIView):
+    """Lets a driver create a booking on the spot for a walk-up client who won't be registering
+    or logging in themselves - a lightweight customer account is created behind the scenes, and
+    a no-login payment link is handed back for the driver to share with the client directly."""
+
+    permission_classes = [IsDriverUser]
+
+    def post(self, request):
+        driver = request.user.driver_profile
+        serializer = DriverOnsiteBookingSerializer(data=request.data, context={'driver': driver})
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        customer, _ = get_or_create_customer_account(
+            full_name=data['customer_name'], phone_number=data['customer_phone'], email=data['customer_email'],
+        )
+
+        booking = Booking(
+            user=customer, vehicle=data['vehicle'], driver=driver, service_type='with_driver',
+            source=BookingSource.DRIVER_ONSITE,
+            customer_name=data['customer_name'], customer_phone=data['customer_phone'],
+            customer_email=data['customer_email'], pickup_location=data['pickup_location'],
+            dropoff_location=data['dropoff_location'], start_date=data['start_date'],
+            end_date=data['end_date'], notes=data['notes'],
+        )
+        booking.save()
+
+        return Response(
+            {
+                'booking': BookingSerializer(booking).data,
+                'payment_url': f'{settings.FRONTEND_URL}/pay/{booking.customer_token}',
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class DriverBookingCashPaymentView(APIView):
+    """Lets a driver record that a walk-up client paid in cash on the spot, for one of their own
+    bookings - keeps cash payments visible in the same revenue/payout tracking as M-Pesa ones."""
+
+    permission_classes = [IsDriverUser]
+
+    def post(self, request, pk):
+        driver = request.user.driver_profile
+        booking = get_object_or_404(Booking, pk=pk, driver=driver)
+
+        amount = request.data.get('amount')
+        note = request.data.get('note', '')
+        try:
+            amount = float(amount)
+        except (TypeError, ValueError):
+            return Response({'detail': 'A valid amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            record_cash_payment(booking, amount, driver=driver, note=note)
+        except PaymentValidationError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(BookingSerializer(booking).data)
+
+
