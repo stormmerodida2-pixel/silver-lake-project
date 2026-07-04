@@ -35,7 +35,7 @@ def send_trip_completed_email(booking):
             context={
                 'first_name': booking.customer_name.split()[0],
                 'vehicle_name': booking.vehicle.name,
-                'review_url': f'{settings.FRONTEND_URL}/reviews',
+                'review_url': f'{settings.FRONTEND_URL}/account/bookings',
             },
             recipient_list=[booking.customer_email] if booking.customer_email else [],
         )

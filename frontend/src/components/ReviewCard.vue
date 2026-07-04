@@ -14,5 +14,6 @@ defineProps({
     </p>
     <p class="mt-2 text-sm text-slate-700">&ldquo;{{ review.comment }}&rdquo;</p>
     <p class="mt-3 text-sm font-semibold text-navy-900">- {{ review.customer_name }}</p>
+    <p v-if="review.driver_name" class="text-xs text-slate-500">Trip with {{ review.driver_name }}</p>
   </div>
 </template>

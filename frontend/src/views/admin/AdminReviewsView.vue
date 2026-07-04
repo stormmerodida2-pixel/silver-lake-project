@@ -113,6 +113,8 @@ onMounted(load)
 
             <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
               <span class="font-medium text-white">{{ review.customer_name }}</span>
+              <span v-if="review.driver_name">·</span>
+              <span v-if="review.driver_name">Re: {{ review.driver_name }}</span>
               <span>·</span>
               <span>{{ new Date(review.created_at).toLocaleDateString() }}</span>
               <span
