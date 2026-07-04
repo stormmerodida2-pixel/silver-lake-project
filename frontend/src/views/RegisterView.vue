@@ -91,6 +91,12 @@ async function submit() {
         >
           {{ submitting ? 'Creating account...' : 'Sign Up' }}
         </button>
+        <p class="text-center text-xs text-slate-500">
+          By signing up, you agree to our
+          <RouterLink to="/terms" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Terms of Service</RouterLink>
+          and
+          <RouterLink to="/privacy" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Privacy Policy</RouterLink>.
+        </p>
         <p class="text-center text-sm text-slate-500">
           Already have an account?
           <RouterLink to="/login" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Log in</RouterLink>
