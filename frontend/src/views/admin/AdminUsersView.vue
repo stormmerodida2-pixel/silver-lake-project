@@ -231,7 +231,7 @@ onMounted(load)
         <div
           v-if="showModal"
           id="add-user-modal"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
           @click.self="showModal = false"
         >
           <div class="w-full max-w-md rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
@@ -342,7 +342,7 @@ onMounted(load)
       <Transition name="modal-fade">
         <div
           v-if="showEditModal"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
           @click.self="showEditModal = false"
         >
           <div class="w-full max-w-md rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">

@@ -14,11 +14,10 @@ const links = computed(() => {
     { to: '/', label: 'Home' },
     { to: '/fleet', label: 'Fleet' },
     { to: '/drivers', label: 'Drivers' },
-    { to: '/book', label: 'Book Now' },
     { to: '/contact', label: 'Contact' },
   ]
   if (auth.isAuthenticated) {
-    base.splice(4, 0, { to: '/account/bookings', label: 'My Bookings' })
+    base.splice(3, 0, { to: '/account/bookings', label: 'My Bookings' })
   }
   if (auth.user?.is_staff) {
     base.push({ to: '/admin', label: 'Admin' })
@@ -88,39 +87,42 @@ function handleLogout() {
     </nav>
 
     <div v-if="isOpen" class="flex flex-col gap-1 border-t border-navy-800 px-4 py-3 md:hidden">
-      <template v-if="auth.isAuthenticated">
-        <RouterLink
-          v-for="link in links"
-          :key="link.to"
-          :to="link.to"
-          class="rounded px-2 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
-          @click="isOpen = false"
-        >
-          {{ link.label }}
-        </RouterLink>
-        <button
-          class="rounded px-2 py-2 text-left text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
-          @click="handleLogout"
-        >
-          Log Out
-        </button>
-      </template>
-      <template v-else>
-        <RouterLink
-          to="/login"
-          class="rounded px-2 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
-          @click="isOpen = false"
-        >
-          Log In
-        </RouterLink>
-        <RouterLink
-          to="/register"
-          class="rounded px-2 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
-          @click="isOpen = false"
-        >
-          Sign Up
-        </RouterLink>
-      </template>
+      <RouterLink
+        v-for="link in links"
+        :key="link.to"
+        :to="link.to"
+        class="rounded px-2 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
+        @click="isOpen = false"
+      >
+        {{ link.label }}
+      </RouterLink>
+
+      <div class="mt-2 border-t border-navy-800 pt-2">
+        <template v-if="auth.isAuthenticated">
+          <button
+            class="w-full rounded px-2 py-2 text-left text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
+            @click="handleLogout"
+          >
+            Log Out
+          </button>
+        </template>
+        <template v-else>
+          <RouterLink
+            to="/login"
+            class="block rounded px-2 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
+            @click="isOpen = false"
+          >
+            Log In
+          </RouterLink>
+          <RouterLink
+            to="/register"
+            class="block rounded px-2 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
+            @click="isOpen = false"
+          >
+            Sign Up
+          </RouterLink>
+        </template>
+      </div>
     </div>
   </header>
 </template>

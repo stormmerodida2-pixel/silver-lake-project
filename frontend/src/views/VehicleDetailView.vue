@@ -131,7 +131,7 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
 
           <!-- Right: booking CTA -->
           <div class="lg:col-span-1">
-            <div class="sticky top-6 rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-lg">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-lg lg:sticky lg:top-6">
               <p class="text-center text-2xl font-bold text-navy-900">
                 KES {{ Number(vehicle.price_per_day).toLocaleString() }}
                 <span class="text-sm font-normal text-slate-500">/day</span>
