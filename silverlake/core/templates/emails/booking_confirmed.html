@@ -1,0 +1,71 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="font-size:18px; font-weight:bold; color:#0a1730; margin:0 0 16px;">
+  Booking Confirmed, {{ first_name }}! 🎉
+</p>
+
+<p style="margin:0 0 20px;">
+  Thank you for choosing SilverLake Car Rentals. Your deposit has been received
+  and your booking is now <strong style="color:#c9a227;">confirmed</strong>.
+</p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+  style="border:1px solid #e5e7eb; border-radius:8px; border-collapse:collapse; margin-bottom:24px;">
+  <tr style="background-color:#f8fafc;">
+    <td colspan="2" style="padding:12px 16px; font-size:13px; font-weight:bold;
+      text-transform:uppercase; letter-spacing:0.5px; color:#64748b; border-bottom:1px solid #e5e7eb;">
+      Booking Details
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb; width:40%;">Booking&nbsp;#</td>
+    <td style="padding:12px 16px; font-size:14px; color:#0a1730; font-weight:bold; border-bottom:1px solid #e5e7eb;">{{ booking_id }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb;">Vehicle</td>
+    <td style="padding:12px 16px; font-size:14px; color:#0a1730; font-weight:bold; border-bottom:1px solid #e5e7eb;">{{ vehicle_name }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb;">Service</td>
+    <td style="padding:12px 16px; font-size:14px; color:#0a1730; border-bottom:1px solid #e5e7eb;">{{ service_type }}</td>
+  </tr>
+  {% if driver_name %}
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb;">Driver</td>
+    <td style="padding:12px 16px; font-size:14px; color:#0a1730; border-bottom:1px solid #e5e7eb;">{{ driver_name }}</td>
+  </tr>
+  {% endif %}
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb;">Dates</td>
+    <td style="padding:12px 16px; font-size:14px; color:#0a1730; border-bottom:1px solid #e5e7eb;">{{ start_date }} &rarr; {{ end_date }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb;">Pickup</td>
+    <td style="padding:12px 16px; font-size:14px; color:#0a1730; border-bottom:1px solid #e5e7eb;">{{ pickup_location }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb;">Total Amount</td>
+    <td style="padding:12px 16px; font-size:14px; color:#0a1730; font-weight:bold; border-bottom:1px solid #e5e7eb;">KES {{ total_amount }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb;">Amount Paid</td>
+    <td style="padding:12px 16px; font-size:14px; color:#16a34a; font-weight:bold; border-bottom:1px solid #e5e7eb;">KES {{ amount_paid }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b;">Balance Due</td>
+    <td style="padding:12px 16px; font-size:14px; color:#c9a227; font-weight:bold;">KES {{ balance_due }}</td>
+  </tr>
+</table>
+
+<p style="margin:0 0 16px; font-size:14px; color:#64748b;">
+  The remaining balance of <strong style="color:#0a1730;">KES {{ balance_due }}</strong> is due on or before your pickup date.
+  You can pay via M-Pesa using the button below.
+</p>
+
+{% include "emails/_button.html" with url=bookings_url label="View My Bookings" %}
+
+<p style="margin:24px 0 0; font-size:13px; color:#94a3b8;">
+  Questions? Call us on <strong>0790 111 000</strong> or reply to this email.
+  We look forward to serving you!
+</p>
+{% endblock %}

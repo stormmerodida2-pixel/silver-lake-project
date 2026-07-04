@@ -15,13 +15,16 @@ const categoryLabels = {
 </script>
 
 <template>
-  <div class="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60">
-    <div class="aspect-4/3 w-full bg-slate-100">
+  <RouterLink
+    :to="`/fleet/${vehicle.id}`"
+    class="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 transition hover:shadow-xl hover:-translate-y-0.5"
+  >
+    <div class="aspect-4/3 w-full overflow-hidden bg-slate-100">
       <img
         v-if="vehicle.image"
         :src="vehicle.image"
         :alt="vehicle.name"
-        class="h-full w-full object-cover"
+        class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
       />
       <div v-else class="flex h-full items-center justify-center text-slate-400">No photo yet</div>
     </div>
@@ -42,13 +45,10 @@ const categoryLabels = {
         <span class="text-lg font-bold text-navy-900">
           KES {{ Number(vehicle.price_per_day).toLocaleString() }}<span class="text-sm font-normal text-slate-500">/day</span>
         </span>
-        <RouterLink
-          :to="`/book?vehicle=${vehicle.id}`"
-          class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
-        >
-          Book This
-        </RouterLink>
+        <span class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 transition group-hover:bg-gold-400">
+          View Details
+        </span>
       </div>
     </div>
-  </div>
+  </RouterLink>
 </template>

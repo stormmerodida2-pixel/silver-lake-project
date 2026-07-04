@@ -30,6 +30,8 @@ const form = reactive({
   allow_with_driver: true,
   is_available: true,
 })
+const imageFile = ref(null)
+const imagePreviewUrl = ref(null)
 
 function openModal() {
   Object.assign(form, {
@@ -37,8 +39,16 @@ function openModal() {
     passenger_capacity: 4, price_per_day: '',
     allow_self_drive: true, allow_with_driver: true, is_available: true,
   })
+  imageFile.value = null
+  imagePreviewUrl.value = null
   formError.value = ''
   showModal.value = true
+}
+
+function onImageSelected(event) {
+  const file = event.target.files[0]
+  imageFile.value = file || null
+  imagePreviewUrl.value = file ? URL.createObjectURL(file) : null
 }
 
 async function createVehicle() {
@@ -49,16 +59,18 @@ async function createVehicle() {
   }
   saving.value = true
   try {
-    const { data } = await apiClient.post('/admin/fleet/', {
-      name: form.name,
-      category: form.category,
-      tagline: form.tagline,
-      passenger_capacity: Number(form.passenger_capacity),
-      price_per_day: form.price_per_day,
-      allow_self_drive: form.allow_self_drive,
-      allow_with_driver: form.allow_with_driver,
-      is_available: form.is_available,
-    })
+    const payload = new FormData()
+    payload.append('name', form.name)
+    payload.append('category', form.category)
+    payload.append('tagline', form.tagline)
+    payload.append('passenger_capacity', Number(form.passenger_capacity))
+    payload.append('price_per_day', form.price_per_day)
+    payload.append('allow_self_drive', form.allow_self_drive)
+    payload.append('allow_with_driver', form.allow_with_driver)
+    payload.append('is_available', form.is_available)
+    if (imageFile.value) payload.append('image', imageFile.value)
+
+    const { data } = await apiClient.post('/admin/fleet/', payload)
     vehicles.value.unshift(data)
     showModal.value = false
   } catch (err) {
@@ -126,6 +138,7 @@ onMounted(load)
       <table class="w-full text-left text-sm">
         <thead class="bg-navy-900 text-slate-400">
           <tr>
+            <th class="px-4 py-3">Photo</th>
             <th class="px-4 py-3">Vehicle</th>
             <th class="px-4 py-3">Category</th>
             <th class="px-4 py-3">Capacity</th>
@@ -139,6 +152,12 @@ onMounted(load)
         </thead>
         <tbody class="divide-y divide-navy-800 bg-navy-950">
           <tr v-for="vehicle in vehicles" :key="vehicle.id">
+            <td class="px-4 py-3">
+              <div class="h-12 w-16 overflow-hidden rounded-md border border-navy-800 bg-navy-800">
+                <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
+                <div v-else class="flex h-full items-center justify-center text-xs text-slate-600">—</div>
+              </div>
+            </td>
             <td class="px-4 py-3">
               <p class="font-medium text-white">{{ vehicle.name }}</p>
               <p v-if="vehicle.tagline" class="text-xs text-slate-500">{{ vehicle.tagline }}</p>
@@ -277,6 +296,23 @@ onMounted(load)
                     type="text"
                     placeholder="Luxury · Power · Prestige"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Vehicle Photo</label>
+                <div class="flex items-center gap-3">
+                  <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-navy-700 bg-navy-800">
+                    <img v-if="imagePreviewUrl" :src="imagePreviewUrl" alt="Preview" class="h-full w-full object-cover" />
+                    <div v-else class="flex h-full items-center justify-center text-xs text-slate-500">No photo</div>
+                  </div>
+                  <input
+                    id="new-vehicle-image"
+                    type="file"
+                    accept="image/*"
+                    class="w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
+                    @change="onImageSelected"
                   />
                 </div>
               </div>

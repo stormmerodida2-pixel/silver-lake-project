@@ -2,9 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 
 import apiClient from '../api/client'
-import { useCatalogStore } from '../stores/catalog'
 
-const catalog = useCatalogStore()
 const bookings = ref([])
 const loading = ref(true)
 const cancellingId = ref(null)
@@ -16,10 +14,6 @@ const statusStyles = {
   ongoing: 'text-brand-blue-600',
   completed: 'text-slate-500',
   cancelled: 'text-red-600',
-}
-
-function vehicleName(id) {
-  return catalog.vehicles.find((v) => v.id === id)?.name || `Vehicle #${id}`
 }
 
 async function loadBookings() {
@@ -51,7 +45,6 @@ async function cancelBooking(booking) {
 const canCancel = (booking) => !['cancelled', 'completed'].includes(booking.status)
 
 onMounted(() => {
-  catalog.fetchVehicles()
   loadBookings()
 })
 </script>
@@ -76,7 +69,7 @@ onMounted(() => {
         >
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h3 class="font-[Georgia] text-lg font-bold text-navy-900">{{ vehicleName(booking.vehicle) }}</h3>
+              <h3 class="font-[Georgia] text-lg font-bold text-navy-900">{{ booking.vehicle_name }}</h3>
               <p class="text-sm text-slate-500">{{ booking.start_date }} to {{ booking.end_date }}</p>
               <p class="text-sm text-slate-500">{{ booking.pickup_location }}</p>
             </div>

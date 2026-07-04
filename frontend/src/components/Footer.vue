@@ -19,6 +19,7 @@ const year = new Date().getFullYear()
           <RouterLink to="/drivers" class="text-slate-300 hover:text-gold-400">Meet Our Drivers</RouterLink>
           <RouterLink to="/reviews" class="text-slate-300 hover:text-gold-400">Leave a Review</RouterLink>
           <RouterLink to="/become-a-driver" class="text-slate-300 hover:text-gold-400">Become a Driver</RouterLink>
+          <RouterLink to="/contact" class="text-slate-300 hover:text-gold-400">Contact Us</RouterLink>
         </div>
       </div>
 

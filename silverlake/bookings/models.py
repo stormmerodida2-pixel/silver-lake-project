@@ -156,10 +156,41 @@ class Booking(models.Model):
             self.status = BookingStatus.CONFIRMED
             self.save(update_fields=['status'])
             self._ensure_driver_payout()
+            self._send_confirmation_email()
             if self.driver_id:
                 from .emails import send_driver_booking_notification
 
                 send_driver_booking_notification(self)
+
+    def _send_confirmation_email(self):
+        """Sends a booking confirmed email to the customer. Swallowed silently on failure
+        so a misconfigured SMTP server never blocks a successful booking."""
+        try:
+            from django.conf import settings
+            from core.email_utils import send_branded_email
+
+            service_label = 'Book with Driver' if self.service_type == ServiceType.WITH_DRIVER else 'Self Drive'
+            send_branded_email(
+                subject=f'Booking Confirmed — SilverLake Car Rentals #{self.pk}',
+                template_name='emails/booking_confirmed.html',
+                context={
+                    'first_name': self.customer_name.split()[0],
+                    'booking_id': self.pk,
+                    'vehicle_name': self.vehicle.name,
+                    'service_type': service_label,
+                    'driver_name': self.driver.full_name if self.driver else None,
+                    'start_date': self.start_date.strftime('%d %b %Y'),
+                    'end_date': self.end_date.strftime('%d %b %Y'),
+                    'pickup_location': self.pickup_location,
+                    'total_amount': f'{self.total_amount:,.2f}',
+                    'amount_paid': f'{self.amount_paid:,.2f}',
+                    'balance_due': f'{self.balance_due:,.2f}',
+                    'bookings_url': f'{settings.FRONTEND_URL}/account/bookings',
+                },
+                recipient_list=[self.customer_email] if self.customer_email else [],
+            )
+        except Exception:
+            pass  # Never crash a booking over email
 
     def _ensure_driver_payout(self):
         """Records what's owed to the driver once their booking is confirmed. Doesn't pay them -

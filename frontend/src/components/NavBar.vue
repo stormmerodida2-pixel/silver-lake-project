@@ -13,9 +13,13 @@ const links = computed(() => {
   const base = [
     { to: '/', label: 'Home' },
     { to: '/fleet', label: 'Fleet' },
+    { to: '/drivers', label: 'Drivers' },
     { to: '/book', label: 'Book Now' },
-    { to: '/account/bookings', label: 'My Bookings' },
+    { to: '/contact', label: 'Contact' },
   ]
+  if (auth.isAuthenticated) {
+    base.splice(4, 0, { to: '/account/bookings', label: 'My Bookings' })
+  }
   if (auth.user?.is_staff) {
     base.push({ to: '/admin', label: 'Admin' })
   }
@@ -40,7 +44,7 @@ function handleLogout() {
         </span>
       </RouterLink>
 
-      <div v-if="auth.isAuthenticated" class="hidden items-center gap-6 md:flex">
+      <div class="hidden items-center gap-6 md:flex">
         <RouterLink
           v-for="link in links"
           :key="link.to"

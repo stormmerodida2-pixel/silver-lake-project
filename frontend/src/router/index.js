@@ -16,6 +16,12 @@ const routes = [
     meta: { title: 'Our Fleet | SilverLake Car Rentals' },
   },
   {
+    path: '/fleet/:id',
+    name: 'vehicle-detail',
+    component: () => import('../views/VehicleDetailView.vue'),
+    meta: { title: 'Vehicle Details | SilverLake Car Rentals' },
+  },
+  {
     path: '/drivers',
     name: 'drivers',
     component: () => import('../views/DriversView.vue'),
@@ -26,6 +32,12 @@ const routes = [
     name: 'reviews',
     component: () => import('../views/ReviewsView.vue'),
     meta: { title: 'Customer Reviews | SilverLake Car Rentals' },
+  },
+  {
+    path: '/contact',
+    name: 'contact',
+    component: () => import('../views/ContactView.vue'),
+    meta: { title: 'Contact Us | SilverLake Car Rentals' },
   },
   {
     path: '/book',
@@ -129,6 +141,13 @@ const routes = [
         meta: { title: 'Driver Payouts | SilverLake Car Rentals', pageTitle: 'Payouts' },
       },
     ],
+  },
+  // Catch-all 404
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    component: () => import('../views/NotFoundView.vue'),
+    meta: { title: '404 Not Found | SilverLake Car Rentals' },
   },
 ]
 
