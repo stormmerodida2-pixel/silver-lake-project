@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -100,7 +101,13 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER or 'no
 # Until real Gmail credentials are set, write emails to disk instead of crashing on send
 # (the dev server runs in the background, so console output isn't visible to test against -
 # check silverlake/sent_emails/ for the activation/reset link while testing).
-if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+if 'test' in sys.argv:
+    # Never hit real SMTP (or write to disk) from the automated test suite.
+    EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+    # The full PBKDF2 iteration count is unnecessary (and slow) for tests that create lots
+    # of throwaway users - this hasher is only used when 'test' is in sys.argv.
+    PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+elif EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
