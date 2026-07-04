@@ -37,7 +37,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone_number', 'is_staff']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone_number', 'is_staff', 'is_superuser']
 
     def get_phone_number(self, user):
         profile = getattr(user, 'customer_profile', None)

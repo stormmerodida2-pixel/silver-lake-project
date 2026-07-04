@@ -105,10 +105,22 @@ const routes = [
         meta: { title: 'Manage Bookings | SilverLake Car Rentals', pageTitle: 'Bookings' },
       },
       {
+        path: 'fleet',
+        name: 'admin-fleet',
+        component: () => import('../views/admin/AdminFleetView.vue'),
+        meta: { title: 'Manage Fleet | SilverLake Car Rentals', pageTitle: 'Fleet' },
+      },
+      {
         path: 'drivers',
         name: 'admin-drivers',
         component: () => import('../views/admin/AdminDriversView.vue'),
         meta: { title: 'Manage Drivers | SilverLake Car Rentals', pageTitle: 'Drivers' },
+      },
+      {
+        path: 'reviews',
+        name: 'admin-reviews',
+        component: () => import('../views/admin/AdminReviewsView.vue'),
+        meta: { title: 'Review Moderation | SilverLake Car Rentals', pageTitle: 'Reviews' },
       },
       {
         path: 'payouts',

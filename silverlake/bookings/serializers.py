@@ -17,11 +17,13 @@ class BookingSerializer(serializers.ModelSerializer):
     balance_due = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     deposit_amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     is_deposit_paid = serializers.BooleanField(read_only=True)
+    vehicle_name = serializers.SerializerMethodField()
+    driver_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
         fields = [
-            'id', 'vehicle', 'driver', 'service_type',
+            'id', 'vehicle', 'vehicle_name', 'driver', 'driver_name', 'service_type',
             'customer_name', 'customer_phone', 'customer_email',
             'pickup_location', 'dropoff_location', 'start_date', 'end_date',
             'customer_license_number', 'customer_license_document', 'customer_id_document',
@@ -29,6 +31,13 @@ class BookingSerializer(serializers.ModelSerializer):
             'status', 'notes', 'created_at',
         ]
         read_only_fields = ['status', 'total_amount', 'created_at']
+
+    def get_vehicle_name(self, obj):
+        return obj.vehicle.name if obj.vehicle else '—'
+
+    def get_driver_name(self, obj):
+        return obj.driver.full_name if obj.driver else None
+
 
     def validate(self, attrs):
         # Delegate to Booking.clean() so the same date-order/vehicle/driver-conflict/self-drive-

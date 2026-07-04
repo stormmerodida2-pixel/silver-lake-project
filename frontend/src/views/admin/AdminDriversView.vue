@@ -1,9 +1,11 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
+import { useAuthStore } from '../../stores/auth'
 
+const auth = useAuthStore()
 const {
   items: drivers,
   nextUrl: driversNextUrl,
@@ -31,6 +33,53 @@ const error = computed(() => driversError.value || applicationsError.value)
 const pendingApplications = computed(() => applications.value.filter((a) => a.status === 'pending'))
 const reviewedApplications = computed(() => applications.value.filter((a) => a.status !== 'pending'))
 
+// ── Add-Driver modal ────────────────────────────────────────────────────────
+const showModal = ref(false)
+const saving = ref(false)
+const formError = ref('')
+const form = reactive({
+  full_name: '',
+  phone_number: '',
+  years_of_experience: 0,
+  bio: '',
+})
+
+function openModal() {
+  Object.assign(form, { full_name: '', phone_number: '', years_of_experience: 0, bio: '' })
+  formError.value = ''
+  showModal.value = true
+}
+
+async function createDriver() {
+  formError.value = ''
+  if (!form.full_name.trim()) {
+    formError.value = 'Full name is required.'
+    return
+  }
+  saving.value = true
+  try {
+    const { data } = await apiClient.post('/admin/drivers/', {
+      full_name: form.full_name,
+      phone_number: form.phone_number,
+      years_of_experience: Number(form.years_of_experience),
+      bio: form.bio,
+      is_active: true,
+    })
+    drivers.value.unshift(data)
+    showModal.value = false
+  } catch (err) {
+    const detail = err?.response?.data
+    if (typeof detail === 'object') {
+      formError.value = Object.values(detail).flat().join(' ')
+    } else {
+      formError.value = 'Could not create driver. Please try again.'
+    }
+  } finally {
+    saving.value = false
+  }
+}
+
+// ── Existing actions ─────────────────────────────────────────────────────────
 async function toggleDriverActive(driver) {
   busyId.value = driver.id
   try {
@@ -90,7 +139,21 @@ onMounted(() => {
 
 <template>
   <div>
-    <h1 class="font-[Georgia] text-2xl font-bold text-white">Manage Drivers</h1>
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <h1 class="font-[Georgia] text-2xl font-bold text-white">Manage Drivers</h1>
+      <button
+        v-if="auth.user?.is_superuser"
+        id="add-driver-btn"
+        class="flex items-center gap-2 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400"
+        @click="openModal"
+      >
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        Add Driver
+      </button>
+    </div>
 
     <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
     <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
@@ -204,6 +267,7 @@ onMounted(() => {
                     {{ driver.is_active ? 'Suspend' : 'Activate' }}
                   </button>
                   <button
+                    v-if="auth.user?.is_superuser"
                     :disabled="busyId === driver.id"
                     class="rounded-md border border-red-400 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
                     @click="deleteDriver(driver)"
@@ -243,5 +307,116 @@ onMounted(() => {
         </div>
       </section>
     </template>
+
+    <!-- Add Driver Modal -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="showModal"
+          id="add-driver-modal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          @click.self="showModal = false"
+        >
+          <div class="w-full max-w-md rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+            <!-- Modal header -->
+            <div class="mb-6 flex items-center justify-between">
+              <h2 class="font-[Georgia] text-xl font-bold text-white">Add New Driver</h2>
+              <button
+                class="text-slate-400 transition-colors hover:text-white"
+                @click="showModal = false"
+              >
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Error -->
+            <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {{ formError }}
+            </p>
+
+            <!-- Form -->
+            <form class="space-y-4" @submit.prevent="createDriver">
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Full Name *</label>
+                <input
+                  id="new-driver-full-name"
+                  v-model="form.full_name"
+                  type="text"
+                  placeholder="John Kamau"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  required
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Phone Number</label>
+                <input
+                  id="new-driver-phone"
+                  v-model="form.phone_number"
+                  type="tel"
+                  placeholder="+254 700 000 000"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Years of Experience</label>
+                <input
+                  id="new-driver-experience"
+                  v-model="form.years_of_experience"
+                  type="number"
+                  min="0"
+                  max="50"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Bio / Description</label>
+                <textarea
+                  id="new-driver-bio"
+                  v-model="form.bio"
+                  rows="3"
+                  placeholder="Brief driver bio…"
+                  class="w-full resize-none rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                />
+              </div>
+
+              <p class="text-xs text-slate-500">
+                The driver will be set to <span class="text-gold-400">Active</span> immediately and appear in the live drivers list.
+              </p>
+
+              <div class="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                  @click="showModal = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="create-driver-submit"
+                  type="submit"
+                  :disabled="saving"
+                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
+                >
+                  {{ saving ? 'Creating…' : 'Create Driver' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+</style>

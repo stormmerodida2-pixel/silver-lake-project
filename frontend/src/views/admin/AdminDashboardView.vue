@@ -37,6 +37,8 @@ onMounted(async () => {
     <p v-else-if="error" class="text-center text-red-400">{{ error }}</p>
 
     <div v-else class="space-y-10">
+      <!-- Page title -->
+      <h1 class="font-[Georgia] text-2xl font-bold text-white">Dashboard</h1>
       <section class="rounded-2xl border border-gold-500/40 bg-gradient-to-br from-navy-900 to-navy-950 p-6 sm:p-8">
         <p class="text-sm font-semibold uppercase tracking-wide text-gold-400">Total Revenue Collected</p>
         <p class="mt-2 font-[Georgia] text-4xl font-bold text-white sm:text-5xl">
@@ -127,6 +129,73 @@ onMounted(async () => {
               {{ stats.drivers.pending_applications }}
             </p>
             <p class="text-xs font-semibold text-gold-400">Review &rarr;</p>
+          </RouterLink>
+        </div>
+      </section>
+
+      <!-- Fleet stats -->
+      <section>
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Fleet</h2>
+          <RouterLink to="/admin/fleet" class="text-sm font-semibold text-gold-400 hover:text-gold-300">
+            Manage fleet &rarr;
+          </RouterLink>
+        </div>
+        <div class="mt-3 grid gap-4 sm:grid-cols-3">
+          <RouterLink
+            to="/admin/fleet"
+            class="rounded-xl border border-navy-800 bg-navy-900 p-5 transition hover:border-gold-400"
+          >
+            <p class="text-sm text-slate-400">Total Vehicles</p>
+            <p class="mt-1 text-2xl font-bold text-white">{{ stats.fleet.total }}</p>
+          </RouterLink>
+          <RouterLink
+            to="/admin/fleet"
+            class="rounded-xl border border-navy-800 bg-navy-900 p-5 transition hover:border-gold-400"
+          >
+            <p class="text-sm text-slate-400">Available</p>
+            <p class="mt-1 text-2xl font-bold text-gold-400">{{ stats.fleet.available }}</p>
+          </RouterLink>
+          <RouterLink
+            to="/admin/fleet"
+            class="rounded-xl border border-navy-800 bg-navy-900 p-5 transition hover:border-gold-400"
+          >
+            <p class="text-sm text-slate-400">Unavailable</p>
+            <p class="mt-1 text-2xl font-bold" :class="stats.fleet.unavailable ? 'text-red-400' : 'text-white'">
+              {{ stats.fleet.unavailable }}
+            </p>
+          </RouterLink>
+        </div>
+      </section>
+
+      <!-- Reviews stats -->
+      <section>
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Reviews</h2>
+          <RouterLink to="/admin/reviews" class="text-sm font-semibold text-gold-400 hover:text-gold-300">
+            Moderate &rarr;
+          </RouterLink>
+        </div>
+        <div class="mt-3">
+          <RouterLink
+            to="/admin/reviews"
+            class="block rounded-xl border p-5 transition"
+            :class="
+              stats.reviews.pending
+                ? 'border-gold-500 bg-navy-900 hover:border-gold-400'
+                : 'border-navy-800 bg-navy-900 hover:border-gold-400'
+            "
+          >
+            <p class="text-sm text-slate-400">Pending Reviews</p>
+            <p
+              class="mt-1 text-2xl font-bold"
+              :class="stats.reviews.pending ? 'text-gold-400' : 'text-white'"
+            >
+              {{ stats.reviews.pending }}
+            </p>
+            <p class="mt-1 text-xs font-semibold text-gold-400">
+              {{ stats.reviews.pending ? 'Needs your attention — Review &rarr;' : 'All reviews moderated ✓' }}
+            </p>
           </RouterLink>
         </div>
       </section>

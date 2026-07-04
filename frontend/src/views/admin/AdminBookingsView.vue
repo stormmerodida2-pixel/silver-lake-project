@@ -51,8 +51,13 @@ onMounted(load)
               {{ booking.customer_name }}
               <div class="text-xs text-slate-500">{{ booking.customer_phone }}</div>
             </td>
-            <td class="px-4 py-3 text-slate-300">#{{ booking.vehicle }}</td>
-            <td class="px-4 py-3 text-slate-300">{{ booking.service_type === 'with_driver' ? 'With Driver' : 'Self Drive' }}</td>
+            <td class="px-4 py-3 text-slate-300">
+              {{ booking.vehicle_name }}
+            </td>
+            <td class="px-4 py-3 text-slate-300">
+              {{ booking.service_type === 'with_driver' ? 'With Driver' : 'Self Drive' }}
+              <div v-if="booking.driver_name" class="text-xs text-slate-500">{{ booking.driver_name }}</div>
+            </td>
             <td class="px-4 py-3 text-slate-400">{{ booking.start_date }} to {{ booking.end_date }}</td>
             <td class="px-4 py-3 text-slate-300">KES {{ Number(booking.total_amount).toLocaleString() }}</td>
             <td class="px-4 py-3 text-slate-300">KES {{ Number(booking.amount_paid).toLocaleString() }}</td>

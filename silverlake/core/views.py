@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum
 from django.utils import timezone
-from rest_framework import mixins, permissions, status, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -12,17 +12,32 @@ from bookings.models import Booking, BookingStatus
 from bookings.serializers import BookingSerializer
 from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
+from fleet.models import Vehicle
 from payments.models import DriverPayout, Payment, PaymentStatus
+from reviews.models import Review
 
-from .serializers import AdminDriverPayoutSerializer, AdminDriverSerializer, AdminUserSerializer
+from .permissions import IsSuperAdmin, IsSupportStaff
+from .serializers import (
+    AdminCreateUserSerializer,
+    AdminDriverPayoutSerializer,
+    AdminDriverSerializer,
+    AdminReviewSerializer,
+    AdminUserSerializer,
+    AdminVehicleSerializer,
+)
 
 User = get_user_model()
+
+# Actions that delete records, move money, or change fleet composition/pricing -
+# restricted to superusers. Everything else (viewing, day-to-day moderation) just
+# needs regular staff (IsSupportStaff).
+SUPERADMIN_ONLY_ACTIONS = {'create', 'update', 'partial_update', 'destroy', 'mark_paid'}
 
 
 class AdminStatsView(APIView):
     """Revenue and operational overview for the staff dashboard."""
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsSupportStaff]
 
     def get(self, request):
         now = timezone.now()
@@ -69,18 +84,47 @@ class AdminStatsView(APIView):
                     status=ApplicationStatus.PENDING
                 ).count(),
             },
+            'fleet': {
+                'total': Vehicle.objects.count(),
+                'available': Vehicle.objects.filter(is_available=True).count(),
+                'unavailable': Vehicle.objects.filter(is_available=False).count(),
+            },
+            'reviews': {
+                'pending': Review.objects.filter(is_approved=False).count(),
+            },
         })
 
 
 class AdminUserViewSet(
-    mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
 ):
-    """Staff-only customer account management (list/view/suspend/activate/delete). Staff/superuser
-    accounts aren't manageable through this API - use Django admin for those."""
+    """Staff-only customer account management (list/view/create/suspend/activate/delete). Staff/superuser
+    accounts aren't manageable through this API - use Django admin for those.
+
+    Create and delete are superadmin-only; support staff can list/view/suspend/activate."""
 
     queryset = User.objects.filter(is_staff=False).order_by('-date_joined')
     serializer_class = AdminUserSerializer
-    permission_classes = [permissions.IsAdminUser]
+
+    def get_permissions(self):
+        if self.action in SUPERADMIN_ONLY_ACTIONS:
+            return [IsSuperAdmin()]
+        return [IsSupportStaff()]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return AdminCreateUserSerializer
+        return AdminUserSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(AdminUserSerializer(user).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'])
     def suspend(self, request, pk=None):
@@ -98,11 +142,17 @@ class AdminUserViewSet(
 
 
 class AdminDriverViewSet(viewsets.ModelViewSet):
-    """Staff-only full management of live Driver records (suspend = set is_active False)."""
+    """Staff-only full management of live Driver records (suspend = set is_active False).
+
+    Create/update/delete are superadmin-only; support staff can list/view/suspend/activate."""
 
     queryset = Driver.objects.all().order_by('full_name')
     serializer_class = AdminDriverSerializer
-    permission_classes = [permissions.IsAdminUser]
+
+    def get_permissions(self):
+        if self.action in SUPERADMIN_ONLY_ACTIONS:
+            return [IsSuperAdmin()]
+        return [IsSupportStaff()]
 
     @action(detail=True, methods=['post'])
     def suspend(self, request, pk=None):
@@ -120,11 +170,12 @@ class AdminDriverViewSet(viewsets.ModelViewSet):
 
 
 class AdminDriverApplicationViewSet(viewsets.ReadOnlyModelViewSet):
-    """Staff-only review queue for 'become a driver' submissions."""
+    """Staff-only review queue for 'become a driver' submissions. Approving/rejecting is
+    day-to-day onboarding work, open to support staff."""
 
     queryset = DriverApplication.objects.all()
     serializer_class = DriverApplicationSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsSupportStaff]
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
@@ -140,11 +191,12 @@ class AdminDriverApplicationViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class AdminBookingViewSet(viewsets.ReadOnlyModelViewSet):
-    """Staff-only booking oversight, plus the ability to move a booking to any status."""
+    """Staff-only booking oversight, plus the ability to move a booking to any status -
+    day-to-day operations work, open to support staff."""
 
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsSupportStaff]
 
     @action(detail=True, methods=['post'], url_path='set-status')
     def set_status(self, request, pk=None):
@@ -161,14 +213,74 @@ class AdminBookingViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
-    """Staff-only view of what's owed to drivers, with a 'mark as paid' action once disbursed."""
+    """Staff-only view of what's owed to drivers. Everyone can see the ledger; only
+    superadmins can actually mark a payout as disbursed, since that's real money moving."""
 
     queryset = DriverPayout.objects.all().select_related('driver', 'booking').order_by('is_paid', '-created_at')
     serializer_class = AdminDriverPayoutSerializer
-    permission_classes = [permissions.IsAdminUser]
+
+    def get_permissions(self):
+        if self.action in SUPERADMIN_ONLY_ACTIONS:
+            return [IsSuperAdmin()]
+        return [IsSupportStaff()]
 
     @action(detail=True, methods=['post'], url_path='mark-paid')
     def mark_paid(self, request, pk=None):
         payout = self.get_object()
         payout.mark_paid(reference=request.data.get('payout_reference', ''))
         return Response(AdminDriverPayoutSerializer(payout).data)
+
+
+class AdminFleetViewSet(viewsets.ModelViewSet):
+    """Staff-only full CRUD for Vehicle records, plus toggle availability.
+
+    Create/update/delete (fleet composition and pricing) are superadmin-only; support
+    staff can list/view/toggle availability."""
+
+    queryset = Vehicle.objects.all().order_by('name')
+    serializer_class = AdminVehicleSerializer
+
+    def get_permissions(self):
+        if self.action in SUPERADMIN_ONLY_ACTIONS:
+            return [IsSuperAdmin()]
+        return [IsSupportStaff()]
+
+    @action(detail=True, methods=['post'], url_path='toggle-availability')
+    def toggle_availability(self, request, pk=None):
+        vehicle = self.get_object()
+        vehicle.is_available = not vehicle.is_available
+        vehicle.save(update_fields=['is_available'])
+        return Response(AdminVehicleSerializer(vehicle).data)
+
+
+class AdminReviewViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Staff-only review moderation. Approve/reject is day-to-day moderation (support staff);
+    permanently deleting a review is superadmin-only."""
+
+    queryset = Review.objects.all().order_by('-created_at')
+    serializer_class = AdminReviewSerializer
+
+    def get_permissions(self):
+        if self.action in SUPERADMIN_ONLY_ACTIONS:
+            return [IsSuperAdmin()]
+        return [IsSupportStaff()]
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        review = self.get_object()
+        review.is_approved = True
+        review.save(update_fields=['is_approved'])
+        return Response(AdminReviewSerializer(review).data)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        """Reject = mark unapproved (keep record but hide from public)."""
+        review = self.get_object()
+        review.is_approved = False
+        review.save(update_fields=['is_approved'])
+        return Response(AdminReviewSerializer(review).data)
