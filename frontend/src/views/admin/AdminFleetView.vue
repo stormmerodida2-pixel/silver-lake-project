@@ -16,31 +16,72 @@ const categoryLabels = {
   passenger_van: 'Passenger Van',
 }
 
-// ── Add Vehicle modal ───────────────────────────────────────────────────────
+// ── Shared Add / Edit modal ─────────────────────────────────────────────────
 const showModal = ref(false)
+const editingId = ref(null)   // null = create, number = edit
 const saving = ref(false)
 const formError = ref('')
 const form = reactive({
   name: '',
   category: 'executive_suv',
   tagline: '',
+  description: '',
   passenger_capacity: 4,
   price_per_day: '',
   allow_self_drive: true,
   allow_with_driver: true,
   is_available: true,
+  insurance_provider: '',
+  insurance_policy_number: '',
+  insurance_expiry_date: '',
+  inspection_expiry_date: '',
 })
 const imageFile = ref(null)
 const imagePreviewUrl = ref(null)
 
-function openModal() {
+const modalTitle = () => editingId.value ? 'Edit Vehicle' : 'Add New Vehicle'
+const submitLabel = () => saving.value
+  ? (editingId.value ? 'Saving…' : 'Creating…')
+  : (editingId.value ? 'Save Changes' : 'Add Vehicle')
+
+function resetForm() {
   Object.assign(form, {
-    name: '', category: 'executive_suv', tagline: '',
+    name: '', category: 'executive_suv', tagline: '', description: '',
     passenger_capacity: 4, price_per_day: '',
     allow_self_drive: true, allow_with_driver: true, is_available: true,
+    insurance_provider: '', insurance_policy_number: '',
+    insurance_expiry_date: '', inspection_expiry_date: '',
   })
   imageFile.value = null
   imagePreviewUrl.value = null
+  formError.value = ''
+}
+
+function openAddModal() {
+  editingId.value = null
+  resetForm()
+  showModal.value = true
+}
+
+function openEditModal(vehicle) {
+  editingId.value = vehicle.id
+  Object.assign(form, {
+    name: vehicle.name,
+    category: vehicle.category,
+    tagline: vehicle.tagline || '',
+    description: vehicle.description || '',
+    passenger_capacity: vehicle.passenger_capacity,
+    price_per_day: vehicle.price_per_day,
+    allow_self_drive: vehicle.allow_self_drive,
+    allow_with_driver: vehicle.allow_with_driver,
+    is_available: vehicle.is_available,
+    insurance_provider: vehicle.insurance_provider || '',
+    insurance_policy_number: vehicle.insurance_policy_number || '',
+    insurance_expiry_date: vehicle.insurance_expiry_date || '',
+    inspection_expiry_date: vehicle.inspection_expiry_date || '',
+  })
+  imageFile.value = null
+  imagePreviewUrl.value = vehicle.image || null
   formError.value = ''
   showModal.value = true
 }
@@ -51,7 +92,26 @@ function onImageSelected(event) {
   imagePreviewUrl.value = file ? URL.createObjectURL(file) : null
 }
 
-async function createVehicle() {
+function buildPayload() {
+  const payload = new FormData()
+  payload.append('name', form.name)
+  payload.append('category', form.category)
+  payload.append('tagline', form.tagline)
+  payload.append('description', form.description)
+  payload.append('passenger_capacity', Number(form.passenger_capacity))
+  payload.append('price_per_day', form.price_per_day)
+  payload.append('allow_self_drive', form.allow_self_drive)
+  payload.append('allow_with_driver', form.allow_with_driver)
+  payload.append('is_available', form.is_available)
+  payload.append('insurance_provider', form.insurance_provider)
+  payload.append('insurance_policy_number', form.insurance_policy_number)
+  payload.append('insurance_expiry_date', form.insurance_expiry_date)
+  payload.append('inspection_expiry_date', form.inspection_expiry_date)
+  if (imageFile.value) payload.append('image', imageFile.value)
+  return payload
+}
+
+async function saveVehicle() {
   formError.value = ''
   if (!form.name.trim() || !form.price_per_day) {
     formError.value = 'Name and price per day are required.'
@@ -59,27 +119,21 @@ async function createVehicle() {
   }
   saving.value = true
   try {
-    const payload = new FormData()
-    payload.append('name', form.name)
-    payload.append('category', form.category)
-    payload.append('tagline', form.tagline)
-    payload.append('passenger_capacity', Number(form.passenger_capacity))
-    payload.append('price_per_day', form.price_per_day)
-    payload.append('allow_self_drive', form.allow_self_drive)
-    payload.append('allow_with_driver', form.allow_with_driver)
-    payload.append('is_available', form.is_available)
-    if (imageFile.value) payload.append('image', imageFile.value)
-
-    const { data } = await apiClient.post('/admin/fleet/', payload)
-    vehicles.value.unshift(data)
+    const payload = buildPayload()
+    if (editingId.value) {
+      const { data } = await apiClient.patch(`/admin/fleet/${editingId.value}/`, payload)
+      const idx = vehicles.value.findIndex((v) => v.id === editingId.value)
+      if (idx !== -1) vehicles.value[idx] = data
+    } else {
+      const { data } = await apiClient.post('/admin/fleet/', payload)
+      vehicles.value.unshift(data)
+    }
     showModal.value = false
   } catch (err) {
     const detail = err?.response?.data
-    if (typeof detail === 'object') {
-      formError.value = Object.values(detail).flat().join(' ')
-    } else {
-      formError.value = 'Could not create vehicle. Please try again.'
-    }
+    formError.value = typeof detail === 'object'
+      ? Object.values(detail).flat().join(' ')
+      : 'Could not save vehicle. Please try again.'
   } finally {
     saving.value = false
   }
@@ -90,7 +144,7 @@ async function toggleAvailability(vehicle) {
   try {
     const { data } = await apiClient.post(`/admin/fleet/${vehicle.id}/toggle-availability/`)
     Object.assign(vehicle, data)
-  } catch (err) {
+  } catch {
     error.value = 'Could not update vehicle.'
   } finally {
     busyId.value = null
@@ -103,7 +157,7 @@ async function deleteVehicle(vehicle) {
   try {
     await apiClient.delete(`/admin/fleet/${vehicle.id}/`)
     vehicles.value = vehicles.value.filter((v) => v.id !== vehicle.id)
-  } catch (err) {
+  } catch {
     error.value = 'Could not delete this vehicle.'
   } finally {
     busyId.value = null
@@ -122,7 +176,7 @@ onMounted(load)
         v-if="auth.user?.is_superuser"
         id="add-vehicle-btn"
         class="flex items-center gap-2 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400"
-        @click="openModal"
+        @click="openAddModal"
       >
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -170,14 +224,16 @@ onMounted(load)
               <span v-if="vehicle.allow_with_driver" class="rounded bg-navy-800 px-1.5 py-0.5">With Driver</span>
             </td>
             <td class="px-4 py-3">
-              <span v-if="vehicle.insurance_expiry_date" :class="vehicle.is_insurance_expired ? 'text-red-400' : 'text-slate-400'" class="text-xs">
+              <span v-if="vehicle.insurance_expiry_date"
+                :class="vehicle.is_insurance_expired ? 'text-red-400' : 'text-slate-400'" class="text-xs">
                 {{ vehicle.insurance_expiry_date }}
                 <span v-if="vehicle.is_insurance_expired" class="ml-1 font-bold">⚠ Expired</span>
               </span>
               <span v-else class="text-xs text-slate-600">—</span>
             </td>
             <td class="px-4 py-3">
-              <span v-if="vehicle.inspection_expiry_date" :class="vehicle.is_inspection_expired ? 'text-red-400' : 'text-slate-400'" class="text-xs">
+              <span v-if="vehicle.inspection_expiry_date"
+                :class="vehicle.is_inspection_expired ? 'text-red-400' : 'text-slate-400'" class="text-xs">
                 {{ vehicle.inspection_expiry_date }}
                 <span v-if="vehicle.is_inspection_expired" class="ml-1 font-bold">⚠ Expired</span>
               </span>
@@ -189,6 +245,14 @@ onMounted(load)
               </span>
             </td>
             <td class="space-x-2 whitespace-nowrap px-4 py-3">
+              <button
+                v-if="auth.user?.is_superuser"
+                :disabled="busyId === vehicle.id"
+                class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                @click="openEditModal(vehicle)"
+              >
+                Edit
+              </button>
               <button
                 :disabled="busyId === vehicle.id"
                 class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
@@ -220,18 +284,17 @@ onMounted(load)
       </div>
     </div>
 
-    <!-- Add Vehicle Modal -->
+    <!-- Add / Edit Vehicle Modal -->
     <Teleport to="body">
       <Transition name="modal-fade">
         <div
           v-if="showModal"
-          id="add-vehicle-modal"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
           @click.self="showModal = false"
         >
-          <div class="w-full max-w-lg rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+          <div class="w-full max-w-2xl rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-white">Add New Vehicle</h2>
+              <h2 class="font-[Georgia] text-xl font-bold text-white">{{ modalTitle() }}</h2>
               <button class="text-slate-400 transition-colors hover:text-white" @click="showModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -241,65 +304,52 @@ onMounted(load)
 
             <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ formError }}</p>
 
-            <form class="space-y-4" @submit.prevent="createVehicle">
+            <form class="space-y-5" @submit.prevent="saveVehicle">
+
+              <!-- Basic info -->
               <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Vehicle Name *</label>
                   <input
-                    id="new-vehicle-name"
-                    v-model="form.name"
-                    type="text"
-                    placeholder="Toyota Prado TZG"
+                    v-model="form.name" type="text" placeholder="Toyota Prado TZG" required
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                    required
                   />
                 </div>
                 <div>
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Category</label>
-                  <select
-                    id="new-vehicle-category"
-                    v-model="form.category"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
-                  >
+                  <select v-model="form.category"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
                     <option v-for="(label, val) in categoryLabels" :key="val" :value="val">{{ label }}</option>
                   </select>
                 </div>
                 <div>
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Capacity (pax) *</label>
-                  <input
-                    id="new-vehicle-capacity"
-                    v-model="form.passenger_capacity"
-                    type="number"
-                    min="1"
-                    max="50"
+                  <input v-model="form.passenger_capacity" type="number" min="1" max="50"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                   />
                 </div>
                 <div>
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Price / Day (KES) *</label>
-                  <input
-                    id="new-vehicle-price"
-                    v-model="form.price_per_day"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="15000"
+                  <input v-model="form.price_per_day" type="number" min="0" step="0.01" placeholder="15000" required
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                    required
                   />
                 </div>
                 <div>
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Tagline</label>
-                  <input
-                    id="new-vehicle-tagline"
-                    v-model="form.tagline"
-                    type="text"
-                    placeholder="Luxury · Power · Prestige"
+                  <input v-model="form.tagline" type="text" placeholder="Luxury · Power · Prestige"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                 </div>
+                <div class="col-span-2">
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Description</label>
+                  <textarea v-model="form.description" rows="3"
+                    placeholder="Full vehicle description shown on the detail page..."
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  ></textarea>
+                </div>
               </div>
 
+              <!-- Photo -->
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Vehicle Photo</label>
                 <div class="flex items-center gap-3">
@@ -307,17 +357,45 @@ onMounted(load)
                     <img v-if="imagePreviewUrl" :src="imagePreviewUrl" alt="Preview" class="h-full w-full object-cover" />
                     <div v-else class="flex h-full items-center justify-center text-xs text-slate-500">No photo</div>
                   </div>
-                  <input
-                    id="new-vehicle-image"
-                    type="file"
-                    accept="image/*"
+                  <input type="file" accept="image/*"
                     class="w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
                     @change="onImageSelected"
                   />
                 </div>
+                <p v-if="editingId" class="mt-1 text-xs text-slate-500">Leave blank to keep the existing photo.</p>
               </div>
 
-              <div class="flex flex-wrap gap-4 pt-1">
+              <!-- Insurance & Inspection -->
+              <div class="grid grid-cols-2 gap-4 rounded-xl border border-navy-700 p-4">
+                <p class="col-span-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Insurance &amp; Inspection</p>
+                <div>
+                  <label class="mb-1 block text-xs text-slate-400">Insurance Provider</label>
+                  <input v-model="form.insurance_provider" type="text" placeholder="Jubilee Insurance"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-slate-400">Policy Number</label>
+                  <input v-model="form.insurance_policy_number" type="text" placeholder="POL-00123"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-slate-400">Insurance Expiry</label>
+                  <input v-model="form.insurance_expiry_date" type="date"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-slate-400">Inspection Expiry</label>
+                  <input v-model="form.inspection_expiry_date" type="date"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <!-- Checkboxes -->
+              <div class="flex flex-wrap gap-4">
                 <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
                   <input v-model="form.allow_self_drive" type="checkbox" class="accent-gold-500" />
                   Allow Self Drive
@@ -333,20 +411,14 @@ onMounted(load)
               </div>
 
               <div class="flex gap-3 pt-2">
-                <button
-                  type="button"
+                <button type="button"
                   class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
-                  @click="showModal = false"
-                >
+                  @click="showModal = false">
                   Cancel
                 </button>
-                <button
-                  id="create-vehicle-submit"
-                  type="submit"
-                  :disabled="saving"
-                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
-                >
-                  {{ saving ? 'Creating…' : 'Add Vehicle' }}
+                <button type="submit" :disabled="saving"
+                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50">
+                  {{ submitLabel() }}
                 </button>
               </div>
             </form>
