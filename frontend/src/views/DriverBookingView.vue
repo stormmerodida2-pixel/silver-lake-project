@@ -94,7 +94,7 @@ onMounted(fetchBooking)
 
         <div v-if="success" class="rounded-xl border border-green-500/20 bg-green-500/10 p-5 text-center text-green-400">
           <p class="font-bold text-lg">Trip marked as Completed! 🎉</p>
-          <p class="mt-1 text-sm text-slate-300">Your payout has been wired up to your driver account ledger.</p>
+          <p class="mt-1 text-sm text-slate-300">Your payout request has been queued in the system ledger for admin review.</p>
         </div>
 
         <!-- Error notification -->
@@ -182,7 +182,7 @@ onMounted(fetchBooking)
             class="w-full rounded-xl bg-gold-500 py-4 text-base font-bold text-navy-950 shadow-xl transition-all hover:bg-gold-400 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
             @click="markCompleted"
           >
-            {{ completing ? 'Processing Completed Status & Payout...' : 'Mark Trip as Completed & Claim Payout' }}
+            {{ completing ? 'Processing Completed Status...' : 'Mark Trip as Completed' }}
           </button>
         </div>
 

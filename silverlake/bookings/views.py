@@ -66,25 +66,30 @@ class DriverBookingView(APIView):
         if booking.status == BookingStatus.CANCELLED:
             return Response({'detail': 'Cannot complete a cancelled trip.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 1. Update booking status
+        # 1. Guard: Enforce full payment online before completion (Option A)
+        if booking.balance_due > 0:
+            return Response(
+                {'detail': f'Cannot complete trip. The customer has an outstanding balance of KES {booking.balance_due:,.2f} that must be paid online first.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 2. Update booking status
         booking.status = BookingStatus.COMPLETED
         booking.save(update_fields=['status'])
 
-        # 2. Wire driver payout immediately (Auto-disburse / mark as paid)
-        payout, created = DriverPayout.objects.get_or_create(
+        # 3. Create driver payout as PENDING (Admin clears ledger manually after sending cash)
+        DriverPayout.objects.get_or_create(
             booking=booking,
             defaults={
                 'driver': booking.driver,
-                'amount': booking.driver_payout_amount
+                'amount': booking.driver_payout_amount,
+                'is_paid': False
             }
         )
-        if not payout.is_paid:
-            payout.mark_paid(reference=f'AUTO-COMPLETED-#{booking.id}')
-            payout.notes = 'Payout automatically processed upon driver trip completion.'
-            payout.save()
 
-        # 3. Send review request email to customer
+        # 4. Send review request email to customer
         send_trip_completed_email(booking)
 
         return Response(BookingSerializer(booking).data)
+
 
