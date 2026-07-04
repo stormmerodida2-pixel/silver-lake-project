@@ -19,13 +19,29 @@ class AdminUserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'first_name', 'last_name', 'email', 'phone_number',
-            'is_active', 'is_staff', 'date_joined', 'bookings_count',
+            'is_active', 'is_staff', 'is_superuser', 'date_joined', 'bookings_count',
         ]
-        read_only_fields = ['email', 'is_staff', 'date_joined']
+        read_only_fields = ['email', 'date_joined']
 
     def get_phone_number(self, user):
         profile = getattr(user, 'customer_profile', None)
         return profile.phone_number if profile else ''
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        if request and self.instance and self.instance == request.user:
+            if attrs.get('is_superuser') is False or attrs.get('is_staff') is False:
+                raise serializers.ValidationError("You can't remove your own admin access.")
+        return attrs
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        phone_number = self.initial_data.get('phone_number')
+        if phone_number is not None:
+            CustomerProfile.objects.update_or_create(
+                user=instance, defaults={'phone_number': phone_number}
+            )
+        return instance
 
 
 class AdminCreateUserSerializer(serializers.Serializer):

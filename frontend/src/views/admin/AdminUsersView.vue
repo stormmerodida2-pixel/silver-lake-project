@@ -80,6 +80,53 @@ async function deleteUser(user) {
   }
 }
 
+// ── Edit-User modal ──────────────────────────────────────────────────────────
+const showEditModal = ref(false)
+const editSaving = ref(false)
+const editError = ref('')
+const editingUser = ref(null)
+const editForm = reactive({
+  first_name: '',
+  last_name: '',
+  phone_number: '',
+  is_active: true,
+  is_staff: false,
+  is_superuser: false,
+})
+
+function openEditModal(user) {
+  editingUser.value = user
+  Object.assign(editForm, {
+    first_name: user.first_name,
+    last_name: user.last_name,
+    phone_number: user.phone_number || '',
+    is_active: user.is_active,
+    is_staff: user.is_staff,
+    is_superuser: user.is_superuser,
+  })
+  editError.value = ''
+  showEditModal.value = true
+}
+
+async function saveUser() {
+  editError.value = ''
+  editSaving.value = true
+  try {
+    const { data } = await apiClient.patch(`/admin/users/${editingUser.value.id}/`, editForm)
+    Object.assign(editingUser.value, data)
+    showEditModal.value = false
+  } catch (err) {
+    const detail = err?.response?.data
+    if (typeof detail === 'object') {
+      editError.value = Object.values(detail).flat().join(' ')
+    } else {
+      editError.value = 'Could not update this user.'
+    }
+  } finally {
+    editSaving.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -112,6 +159,7 @@ onMounted(load)
             <th class="px-4 py-3">Email</th>
             <th class="px-4 py-3">Phone</th>
             <th class="px-4 py-3">Bookings</th>
+            <th class="px-4 py-3">Role</th>
             <th class="px-4 py-3">Status</th>
             <th class="px-4 py-3">Joined</th>
             <th class="px-4 py-3"></th>
@@ -123,6 +171,11 @@ onMounted(load)
             <td class="px-4 py-3 text-slate-300">{{ user.email }}</td>
             <td class="px-4 py-3 text-slate-300">{{ user.phone_number || '-' }}</td>
             <td class="px-4 py-3 text-slate-300">{{ user.bookings_count }}</td>
+            <td class="px-4 py-3 text-slate-300">
+              <span v-if="user.is_superuser" class="text-gold-400">Super Admin</span>
+              <span v-else-if="user.is_staff">Support Staff</span>
+              <span v-else>Customer</span>
+            </td>
             <td class="px-4 py-3">
               <span :class="user.is_active ? 'text-gold-400' : 'text-red-400'">
                 {{ user.is_active ? 'Active' : 'Suspended' }}
@@ -130,6 +183,13 @@ onMounted(load)
             </td>
             <td class="px-4 py-3 text-slate-400">{{ new Date(user.date_joined).toLocaleDateString() }}</td>
             <td class="space-x-2 whitespace-nowrap px-4 py-3">
+              <button
+                v-if="auth.user?.is_superuser"
+                class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400"
+                @click="openEditModal(user)"
+              >
+                Edit
+              </button>
               <button
                 :disabled="busyId === user.id"
                 class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
@@ -265,6 +325,104 @@ onMounted(load)
                   class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
                 >
                   {{ saving ? 'Creating…' : 'Create User' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Edit User Modal -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="showEditModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          @click.self="showEditModal = false"
+        >
+          <div class="w-full max-w-md rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+            <div class="mb-6 flex items-center justify-between">
+              <h2 class="font-[Georgia] text-xl font-bold text-white">Edit User</h2>
+              <button class="text-slate-400 transition-colors hover:text-white" @click="showEditModal = false">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p v-if="editError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {{ editError }}
+            </p>
+
+            <form class="space-y-4" @submit.prevent="saveUser">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">First Name</label>
+                  <input
+                    v-model="editForm.first_name"
+                    type="text"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Last Name</label>
+                  <input
+                    v-model="editForm.last_name"
+                    type="text"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Email</label>
+                <input
+                  :value="editingUser?.email"
+                  type="email"
+                  disabled
+                  class="w-full cursor-not-allowed rounded-lg border border-navy-700 bg-navy-800/50 px-4 py-2.5 text-sm text-slate-500"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Phone Number</label>
+                <input
+                  v-model="editForm.phone_number"
+                  type="tel"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                />
+              </div>
+
+              <label class="flex items-center gap-2 text-sm text-slate-300">
+                <input v-model="editForm.is_active" type="checkbox" class="h-4 w-4 rounded border-navy-700 bg-navy-800" />
+                Active
+              </label>
+
+              <div class="rounded-lg border border-navy-700 bg-navy-800/50 p-4">
+                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gold-400">Admin Role</p>
+                <label class="flex items-center gap-2 text-sm text-slate-300">
+                  <input v-model="editForm.is_staff" type="checkbox" class="h-4 w-4 rounded border-navy-700 bg-navy-800" />
+                  Support Staff (dashboard access)
+                </label>
+                <label class="mt-2 flex items-center gap-2 text-sm text-slate-300">
+                  <input v-model="editForm.is_superuser" type="checkbox" class="h-4 w-4 rounded border-navy-700 bg-navy-800" />
+                  Super Admin (full access, incl. destructive actions)
+                </label>
+              </div>
+
+              <div class="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                  @click="showEditModal = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  :disabled="editSaving"
+                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
+                >
+                  {{ editSaving ? 'Saving…' : 'Save Changes' }}
                 </button>
               </div>
             </form>

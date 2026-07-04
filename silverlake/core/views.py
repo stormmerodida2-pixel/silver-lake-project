@@ -99,15 +99,16 @@ class AdminUserViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Staff-only customer account management (list/view/create/suspend/activate/delete). Staff/superuser
-    accounts aren't manageable through this API - use Django admin for those.
+    """Staff-only account management (list/view/create/edit/suspend/activate/delete),
+    including granting/revoking staff and superadmin roles.
 
-    Create and delete are superadmin-only; support staff can list/view/suspend/activate."""
+    Create, edit, and delete are superadmin-only; support staff can list/view/suspend/activate."""
 
-    queryset = User.objects.filter(is_staff=False).order_by('-date_joined')
+    queryset = User.objects.all().order_by('-date_joined')
     serializer_class = AdminUserSerializer
 
     def get_permissions(self):
@@ -207,9 +208,41 @@ class AdminBookingViewSet(viewsets.ReadOnlyModelViewSet):
                 {'detail': f'Invalid status. Choose one of: {", ".join(BookingStatus.values)}.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        
+        # Guard: Cannot complete with outstanding balance
+        if new_status == BookingStatus.COMPLETED and booking.balance_due > 0:
+            return Response(
+                {'detail': f'Cannot complete trip. There is an outstanding balance of KES {booking.balance_due:,.2f}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         booking.status = new_status
         booking.save(update_fields=['status'])
+
+        # Trigger completion email/review invite
+        if new_status == BookingStatus.COMPLETED:
+            self._send_completion_email(booking)
+
         return Response(BookingSerializer(booking).data)
+
+    def _send_completion_email(self, booking):
+        try:
+            from django.conf import settings
+            from core.email_utils import send_branded_email
+
+            send_branded_email(
+                subject=f'How was your ride with SilverLake? (Booking #{booking.pk})',
+                template_name='emails/trip_completed.html',
+                context={
+                    'first_name': booking.customer_name.split()[0],
+                    'vehicle_name': booking.vehicle.name,
+                    'review_url': f'{settings.FRONTEND_URL}/reviews',
+                },
+                recipient_list=[booking.customer_email] if booking.customer_email else [],
+            )
+        except Exception:
+            pass
+
 
 
 class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
