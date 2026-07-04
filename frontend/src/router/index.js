@@ -40,6 +40,24 @@ const routes = [
     meta: { title: 'Contact Us | SilverLake Car Rentals' },
   },
   {
+    path: '/terms',
+    name: 'terms',
+    component: () => import('../views/legal/TermsView.vue'),
+    meta: { title: 'Terms of Service | SilverLake Car Rentals' },
+  },
+  {
+    path: '/privacy',
+    name: 'privacy',
+    component: () => import('../views/legal/PrivacyView.vue'),
+    meta: { title: 'Privacy Policy | SilverLake Car Rentals' },
+  },
+  {
+    path: '/refund-policy',
+    name: 'refund-policy',
+    component: () => import('../views/legal/RefundPolicyView.vue'),
+    meta: { title: 'Refund & Cancellation Policy | SilverLake Car Rentals' },
+  },
+  {
     path: '/book',
     name: 'book',
     component: () => import('../views/BookingView.vue'),

@@ -6,7 +6,7 @@ const year = new Date().getFullYear()
 
 <template>
   <footer class="border-t border-navy-800 bg-navy-900">
-    <div class="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-3">
+    <div class="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4">
       <div>
         <div class="flex items-center gap-2">
           <SilverLakeLogo :size="28" />
@@ -39,6 +39,15 @@ const year = new Date().getFullYear()
           <li>M-Pesa Paybill: 400400 (Acc: SILVERLAKE)</li>
           <li>M-Pesa Till: 1234567</li>
           <li>Bank: Co-operative Bank of Kenya</li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Legal</h4>
+        <ul class="mt-2 space-y-1 text-sm text-slate-300">
+          <li><RouterLink to="/terms" class="hover:text-gold-400">Terms of Service</RouterLink></li>
+          <li><RouterLink to="/privacy" class="hover:text-gold-400">Privacy Policy</RouterLink></li>
+          <li><RouterLink to="/refund-policy" class="hover:text-gold-400">Refund &amp; Cancellation</RouterLink></li>
         </ul>
       </div>
     </div>
