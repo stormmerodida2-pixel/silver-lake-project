@@ -110,6 +110,12 @@ function handleLogout() {
         </div>
         <div class="hidden text-sm text-slate-400 md:block">{{ route.meta.pageTitle || 'Admin Panel' }}</div>
         <div class="flex items-center gap-3 text-sm text-slate-300">
+          <span
+            class="rounded-full px-2 py-0.5 text-xs font-semibold"
+            :class="auth.user?.is_superuser ? 'bg-gold-500/10 text-gold-400' : 'bg-navy-800 text-slate-400'"
+          >
+            {{ auth.user?.is_superuser ? 'Super Admin' : 'Support Staff' }}
+          </span>
           <span>Hi, {{ auth.user?.first_name || 'Admin' }}</span>
         </div>
       </header>

@@ -3,7 +3,9 @@ import { computed, onMounted, ref } from 'vue'
 
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
+import { useAuthStore } from '../../stores/auth'
 
+const auth = useAuthStore()
 const { items: reviews, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/reviews/')
 const busyId = ref(null)
 const filter = ref('pending') // 'pending' | 'approved' | 'all'
@@ -141,6 +143,7 @@ onMounted(load)
               Revoke
             </button>
             <button
+              v-if="auth.user?.is_superuser"
               :disabled="busyId === review.id"
               class="rounded-md border border-red-400 px-3 py-1.5 text-sm font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
               @click="deleteReview(review)"

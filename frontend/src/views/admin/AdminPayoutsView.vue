@@ -3,7 +3,9 @@ import { computed, onMounted, ref } from 'vue'
 
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
+import { useAuthStore } from '../../stores/auth'
 
+const auth = useAuthStore()
 const { items: payouts, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/payouts/')
 const busyId = ref(null)
 const filter = ref('pending') // 'pending' | 'paid' | 'all'
@@ -89,13 +91,14 @@ onMounted(load)
               <td class="px-4 py-3 text-slate-400">{{ payout.payout_reference || '-' }}</td>
               <td class="px-4 py-3">
                 <button
-                  v-if="!payout.is_paid"
+                  v-if="!payout.is_paid && auth.user?.is_superuser"
                   :disabled="busyId === payout.id"
                   class="rounded-md bg-gold-500 px-2 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
                   @click="markPaid(payout)"
                 >
                   Mark Paid
                 </button>
+                <span v-else-if="!payout.is_paid" class="text-xs text-slate-500">Superadmin only</span>
               </td>
             </tr>
           </tbody>
