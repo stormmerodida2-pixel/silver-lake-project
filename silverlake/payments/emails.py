@@ -24,3 +24,29 @@ def send_cash_payment_recorded_email(payment):
         )
     except Exception:
         pass
+
+
+def send_cash_payment_driver_confirmation_email(payment):
+    """Confirms to the driver themselves that their recorded cash payment went through, and
+    sets expectations that it needs admin verification before their payout is released. Swallowed
+    silently on failure so a misconfigured SMTP server never blocks the payment from being
+    recorded."""
+    driver = payment.recorded_by_driver
+    booking = payment.booking
+    if not driver or not driver.email:
+        return
+    try:
+        send_branded_email(
+            subject=f'Cash payment recorded — SilverLake booking #{booking.pk}',
+            template_name='emails/cash_payment_driver_confirmation.html',
+            context={
+                'first_name': driver.full_name.split()[0],
+                'amount': f'{payment.amount:,.2f}',
+                'customer_name': booking.customer_name,
+                'booking_id': booking.pk,
+                'balance_due': f'{booking.balance_due:,.2f}',
+            },
+            recipient_list=[driver.email],
+        )
+    except Exception:
+        pass

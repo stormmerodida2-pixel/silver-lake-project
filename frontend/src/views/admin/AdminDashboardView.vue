@@ -183,15 +183,12 @@ onMounted(async () => {
         </div>
       </section>
 
-      <!-- Reviews stats -->
+      <!-- Reviews & Refunds stats -->
       <section>
         <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Reviews</h2>
-          <RouterLink to="/admin/reviews" class="text-sm font-semibold text-gold-400 hover:text-gold-300">
-            Moderate &rarr;
-          </RouterLink>
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Reviews &amp; Refunds</h2>
         </div>
-        <div class="mt-3">
+        <div class="mt-3 grid gap-4 sm:grid-cols-2">
           <RouterLink
             to="/admin/reviews"
             class="block rounded-xl border p-5 transition"
@@ -210,6 +207,26 @@ onMounted(async () => {
             </p>
             <p class="mt-1 text-xs font-semibold text-gold-400">
               {{ stats.reviews.pending ? 'Needs your attention — Review &rarr;' : 'All reviews moderated ✓' }}
+            </p>
+          </RouterLink>
+          <RouterLink
+            to="/admin/refunds"
+            class="block rounded-xl border p-5 transition"
+            :class="
+              stats.refunds.pending
+                ? 'border-gold-500 bg-navy-900 hover:border-gold-400'
+                : 'border-navy-800 bg-navy-900 hover:border-gold-400'
+            "
+          >
+            <p class="text-sm text-slate-400">Pending Refunds</p>
+            <p
+              class="mt-1 text-2xl font-bold"
+              :class="stats.refunds.pending ? 'text-gold-400' : 'text-white'"
+            >
+              {{ stats.refunds.pending }}
+            </p>
+            <p class="mt-1 text-xs font-semibold text-gold-400">
+              {{ stats.refunds.pending ? 'Owed to customers — Manage &rarr;' : 'Nothing owed ✓' }}
             </p>
           </RouterLink>
         </div>

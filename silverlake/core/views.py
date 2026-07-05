@@ -13,14 +13,18 @@ from bookings.serializers import BookingSerializer
 from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
 from fleet.models import Vehicle, VehicleSubmission
-from payments.models import DriverPayout, Payment, PaymentStatus
+from payments.models import DriverPayout, Payment, PaymentStatus, Refund, RefundStatus
 from reviews.models import Review
 
+from .audit import log_admin_action
+from .models import AuditLog
 from .permissions import IsSuperAdmin, IsSupportStaff
 from .serializers import (
+    AdminAuditLogSerializer,
     AdminCreateUserSerializer,
     AdminDriverPayoutSerializer,
     AdminDriverSerializer,
+    AdminRefundSerializer,
     AdminReviewSerializer,
     AdminUserSerializer,
     AdminVehicleSerializer,
@@ -32,7 +36,7 @@ User = get_user_model()
 # Actions that delete records, move money, or change fleet composition/pricing -
 # restricted to superusers. Everything else (viewing, day-to-day moderation) just
 # needs regular staff (IsSupportStaff).
-SUPERADMIN_ONLY_ACTIONS = {'create', 'update', 'partial_update', 'destroy', 'mark_paid', 'verify'}
+SUPERADMIN_ONLY_ACTIONS = {'create', 'update', 'partial_update', 'destroy', 'mark_paid', 'verify', 'mark_issued'}
 
 
 class AdminStatsView(APIView):
@@ -94,6 +98,9 @@ class AdminStatsView(APIView):
             'reviews': {
                 'pending': Review.objects.filter(is_approved=False).count(),
             },
+            'refunds': {
+                'pending': Refund.objects.filter(status=RefundStatus.PENDING).count(),
+            },
         })
 
 
@@ -129,11 +136,26 @@ class AdminUserViewSet(
         user = serializer.save()
         return Response(AdminUserSerializer(user).data, status=status.HTTP_201_CREATED)
 
+    def perform_update(self, serializer):
+        old_is_staff = serializer.instance.is_staff
+        old_is_superuser = serializer.instance.is_superuser
+        user = serializer.save()
+        if user.is_staff != old_is_staff or user.is_superuser != old_is_superuser:
+            log_admin_action(
+                self.request, 'user.update_roles', user,
+                detail=f'is_staff={user.is_staff}, is_superuser={user.is_superuser}',
+            )
+
+    def perform_destroy(self, instance):
+        log_admin_action(self.request, 'user.delete', instance)
+        instance.delete()
+
     @action(detail=True, methods=['post'])
     def suspend(self, request, pk=None):
         user = self.get_object()
         user.is_active = False
         user.save(update_fields=['is_active'])
+        log_admin_action(request, 'user.suspend', user)
         return Response(AdminUserSerializer(user).data)
 
     @action(detail=True, methods=['post'])
@@ -141,6 +163,7 @@ class AdminUserViewSet(
         user = self.get_object()
         user.is_active = True
         user.save(update_fields=['is_active'])
+        log_admin_action(request, 'user.activate', user)
         return Response(AdminUserSerializer(user).data)
 
 
@@ -167,6 +190,7 @@ class AdminDriverViewSet(viewsets.ModelViewSet):
         driver.suspension_reason = reason
         driver.save(update_fields=['is_active', 'suspension_reason'])
         send_driver_suspended_email(driver, reason)
+        log_admin_action(request, 'driver.suspend', driver, detail=reason)
         return Response(AdminDriverSerializer(driver).data)
 
     @action(detail=True, methods=['post'])
@@ -175,6 +199,7 @@ class AdminDriverViewSet(viewsets.ModelViewSet):
         driver.is_active = True
         driver.suspension_reason = ''
         driver.save(update_fields=['is_active', 'suspension_reason'])
+        log_admin_action(request, 'driver.activate', driver)
         return Response(AdminDriverSerializer(driver).data)
 
     @action(detail=True, methods=['post'])
@@ -258,6 +283,14 @@ class AdminBookingViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if new_status == BookingStatus.CANCELLED:
+            from django.core.exceptions import ValidationError as DjangoValidationError
+            try:
+                booking.mark_cancelled()
+            except DjangoValidationError as exc:
+                return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(BookingSerializer(booking).data)
+
         booking.status = new_status
         booking.save(update_fields=['status'])
 
@@ -286,12 +319,18 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
     @action(detail=True, methods=['post'], url_path='mark-paid')
     def mark_paid(self, request, pk=None):
         payout = self.get_object()
+        if payout.is_voided:
+            return Response(
+                {'detail': 'This payout was voided because the booking was cancelled.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if payout.needs_verification and not payout.is_verified:
             return Response(
                 {'detail': 'This payout was confirmed via a self-reported cash payment and must be verified before it can be marked paid.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         payout.mark_paid(reference=request.data.get('payout_reference', ''))
+        log_admin_action(request, 'payout.mark_paid', payout, detail=request.data.get('payout_reference', ''))
         return Response(AdminDriverPayoutSerializer(payout).data)
 
     @action(detail=True, methods=['post'])
@@ -300,7 +339,37 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
         or customer) so it becomes eligible to be marked paid."""
         payout = self.get_object()
         payout.verify()
+        log_admin_action(request, 'payout.verify', payout)
         return Response(AdminDriverPayoutSerializer(payout).data)
+
+
+class AdminAuditLogViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """Read-only trail of who performed sensitive admin actions (role changes, suspensions,
+    payouts, refunds). Viewing is not itself destructive, so any staff account can see it."""
+
+    queryset = AuditLog.objects.all().select_related('actor')
+    serializer_class = AdminAuditLogSerializer
+    permission_classes = [IsSupportStaff]
+
+
+class AdminRefundViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """Staff-only view of refunds owed after a cancelled booking. Everyone can see the ledger;
+    only superadmins can mark one issued, since that's real money moving."""
+
+    queryset = Refund.objects.all().select_related('booking').order_by('status', '-created_at')
+    serializer_class = AdminRefundSerializer
+
+    def get_permissions(self):
+        if self.action in SUPERADMIN_ONLY_ACTIONS:
+            return [IsSuperAdmin()]
+        return [IsSupportStaff()]
+
+    @action(detail=True, methods=['post'], url_path='mark-issued')
+    def mark_issued(self, request, pk=None):
+        refund = self.get_object()
+        refund.mark_issued(reference=request.data.get('reference', ''))
+        log_admin_action(request, 'refund.mark_issued', refund, detail=request.data.get('reference', ''))
+        return Response(AdminRefundSerializer(refund).data)
 
 
 class AdminFleetViewSet(viewsets.ModelViewSet):

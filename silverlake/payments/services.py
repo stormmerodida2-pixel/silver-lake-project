@@ -55,7 +55,8 @@ def record_cash_payment(booking, amount, driver, note=''):
     recorded_by_driver field keeps an audit trail of who vouched for it, and the resulting
     driver payout is flagged for admin verification before it can be paid out (see
     Booking._ensure_driver_payout). The customer is emailed immediately as an independent
-    check, since they didn't initiate this payment themselves."""
+    check, since they didn't initiate this payment themselves; the driver also gets a
+    confirmation of their own, so they know the payment was recorded and what happens next."""
     if booking.status in _CLOSED_BOOKING_STATUSES:
         raise PaymentValidationError(f'This booking is already {booking.get_status_display().lower()}.')
     if amount <= 0:
@@ -69,8 +70,9 @@ def record_cash_payment(booking, amount, driver, note=''):
     )
     booking.confirm_if_deposit_met()
 
-    from .emails import send_cash_payment_recorded_email
+    from .emails import send_cash_payment_driver_confirmation_email, send_cash_payment_recorded_email
 
     send_cash_payment_recorded_email(payment)
+    send_cash_payment_driver_confirmation_email(payment)
 
     return payment

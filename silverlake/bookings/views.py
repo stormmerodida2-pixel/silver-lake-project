@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -28,13 +29,10 @@ class BookingViewSet(viewsets.ModelViewSet):
     def cancel(self, request, pk=None):
         """Lets a customer cancel their own booking (or staff, any booking)."""
         booking = self.get_object()
-        if booking.status in (BookingStatus.CANCELLED, BookingStatus.COMPLETED):
-            return Response(
-                {'detail': f'Booking is already {booking.get_status_display().lower()}.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        booking.status = BookingStatus.CANCELLED
-        booking.save(update_fields=['status'])
+        try:
+            booking.mark_cancelled()
+        except ValidationError as exc:
+            return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
         return Response(BookingSerializer(booking).data)
 
     @action(detail=True, methods=['post'])

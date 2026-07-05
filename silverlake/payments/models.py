@@ -67,6 +67,12 @@ class DriverPayout(models.Model):
     is_verified = models.BooleanField(default=False)
     verified_at = models.DateTimeField(null=True, blank=True)
 
+    # Set when the booking behind this payout gets cancelled before the payout was disbursed -
+    # a cancelled trip shouldn't still owe the driver their cut, but the record is kept (not
+    # deleted) so there's a trail of what would have been paid.
+    is_voided = models.BooleanField(default=False)
+    voided_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -86,3 +92,40 @@ class DriverPayout(models.Model):
         if reference:
             self.payout_reference = reference
         self.save(update_fields=['is_paid', 'paid_at', 'payout_reference'])
+
+    def void(self):
+        self.is_voided = True
+        self.voided_at = timezone.now()
+        self.save(update_fields=['is_voided', 'voided_at'])
+
+
+class RefundStatus(models.TextChoices):
+    PENDING = 'pending', 'Pending'
+    ISSUED = 'issued', 'Issued'
+
+
+class Refund(models.Model):
+    """Tracks money owed back to a customer after a cancelled booking. There's no automated
+    M-Pesa refund API wired up, so this just gives admin a durable record of what's owed and
+    a place to confirm once they've sent it back by hand."""
+
+    booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name='refund')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=15, choices=RefundStatus.choices, default=RefundStatus.PENDING)
+    reference = models.CharField(max_length=100, blank=True, help_text='M-Pesa/bank reference used to send the refund')
+    notes = models.TextField(blank=True)
+    issued_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Refund for booking #{self.booking_id} - KES {self.amount} ({self.status})'
+
+    def mark_issued(self, reference=''):
+        self.status = RefundStatus.ISSUED
+        self.issued_at = timezone.now()
+        if reference:
+            self.reference = reference
+        self.save(update_fields=['status', 'issued_at', 'reference'])

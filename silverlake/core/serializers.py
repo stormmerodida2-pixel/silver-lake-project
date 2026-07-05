@@ -6,8 +6,10 @@ from accounts.models import CustomerProfile
 from drivers.models import Driver
 from drivers.serializers import VehicleSubmissionPhotoSerializer
 from fleet.models import Vehicle, VehicleSubmission
-from payments.models import DriverPayout
+from payments.models import DriverPayout, Refund
 from reviews.models import Review
+
+from .models import AuditLog
 
 User = get_user_model()
 
@@ -122,6 +124,30 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
             'needs_verification', 'is_verified', 'verified_at', 'created_at',
         ]
         read_only_fields = ['driver', 'amount', 'paid_at', 'needs_verification', 'is_verified', 'verified_at', 'created_at']
+
+
+class AdminAuditLogSerializer(serializers.ModelSerializer):
+    actor_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuditLog
+        fields = ['id', 'actor_email', 'action', 'target_repr', 'detail', 'created_at']
+
+    def get_actor_email(self, obj):
+        return obj.actor.email if obj.actor_id else None
+
+
+class AdminRefundSerializer(serializers.ModelSerializer):
+    booking_id = serializers.IntegerField(source='booking.id', read_only=True)
+    customer_name = serializers.CharField(source='booking.customer_name', read_only=True)
+
+    class Meta:
+        model = Refund
+        fields = [
+            'id', 'booking_id', 'customer_name', 'amount', 'status',
+            'reference', 'notes', 'issued_at', 'created_at',
+        ]
+        read_only_fields = ['amount', 'status', 'issued_at', 'created_at']
 
 
 class AdminVehicleSerializer(serializers.ModelSerializer):

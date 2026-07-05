@@ -10,7 +10,7 @@ from rest_framework.test import APITestCase
 
 from drivers.models import Driver
 from fleet.models import Vehicle
-from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus
+from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 from reviews.models import Review
 
 from .models import Booking, BookingSource, BookingStatus, ServiceType
@@ -56,6 +56,21 @@ class BookingValidationTests(TestCase):
         )
         with self.assertRaises(ValidationError):
             booking.clean()
+
+    def test_a_new_booking_cannot_start_in_the_past(self):
+        booking = Booking(
+            user=self.user, vehicle=self.vehicle, service_type=ServiceType.WITH_DRIVER,
+            customer_name='Jane', customer_phone='254700000000', pickup_location='Kisumu',
+            start_date=TODAY - timedelta(days=1), end_date=NEXT_WEEK,
+        )
+        with self.assertRaises(ValidationError):
+            booking.clean()
+
+    def test_an_existing_bookings_start_date_is_not_revalidated_on_later_edits(self):
+        booking = make_booking(self.user, self.vehicle, start_date=TOMORROW, end_date=NEXT_WEEK)
+        booking.start_date = TODAY - timedelta(days=1)  # simulate time having passed
+        booking.notes = 'Updated note'
+        booking.clean()  # should not raise - only new bookings are checked
 
     def test_self_drive_requires_license_and_id_documents(self):
         booking = Booking(
@@ -190,6 +205,37 @@ class BookingCancelActionTests(APITestCase):
         booking = make_booking(other_user, self.vehicle, status=BookingStatus.PENDING)
         response = self.client.post(f'/api/bookings/{booking.id}/cancel/')
         self.assertEqual(response.status_code, 404)  # not in this user's queryset
+
+    def test_cancelling_an_unpaid_booking_creates_no_refund(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        self.client.post(f'/api/bookings/{booking.id}/cancel/')
+        self.assertFalse(Refund.objects.filter(booking=booking).exists())
+
+    def test_cancelling_a_paid_booking_creates_a_refund_record(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA,
+            amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        self.client.post(f'/api/bookings/{booking.id}/cancel/')
+        refund = Refund.objects.get(booking=booking)
+        self.assertEqual(refund.amount, booking.deposit_amount)
+        self.assertEqual(refund.status, 'pending')
+
+    def test_cancelling_a_fully_paid_booking_voids_its_unpaid_driver_payout(self):
+        driver = Driver.objects.create(full_name='Cancel Driver', is_active=True)
+        booking = make_booking(self.user, self.vehicle, driver=driver, status=BookingStatus.PENDING)
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA,
+            amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.confirm_if_deposit_met()
+        payout = DriverPayout.objects.get(booking=booking)
+        self.assertFalse(payout.is_voided)
+
+        self.client.post(f'/api/bookings/{booking.id}/cancel/')
+        payout.refresh_from_db()
+        self.assertTrue(payout.is_voided)
 
 
 class BookingReviewActionTests(APITestCase):
@@ -401,6 +447,27 @@ class DriverCashPaymentTests(APITestCase):
         cash_emails = [m for m in mail.outbox if 'Cash payment recorded' in m.subject]
         self.assertEqual(len(cash_emails), 1)
         self.assertIn(self.booking.customer_email, cash_emails[0].to)
+
+    def test_cash_payment_also_emails_the_driver_a_confirmation(self):
+        self.driver.email = 'cash-driver@example.com'
+        self.driver.save(update_fields=['email'])
+
+        mail.outbox = []
+        self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/record-cash/',
+            {'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        driver_emails = [m for m in mail.outbox if 'Cash payment recorded' in m.subject and self.driver.email in m.to]
+        self.assertEqual(len(driver_emails), 1)
+
+    def test_no_driver_email_attempted_without_an_email_on_file(self):
+        self.assertEqual(self.driver.email, '')
+        mail.outbox = []
+        self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/record-cash/',
+            {'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_no_email_attempted_without_a_customer_email_on_file(self):
         self.assertEqual(self.booking.customer_email, '')

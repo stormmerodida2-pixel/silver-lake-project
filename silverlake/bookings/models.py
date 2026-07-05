@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.db import models
+from django.utils import timezone
 
 from drivers.models import Driver
 from fleet.models import Vehicle
@@ -92,6 +93,12 @@ class Booking(models.Model):
         return f'{self.customer_name} - {self.vehicle} ({self.start_date} to {self.end_date})'
 
     def clean(self):
+        # Only enforced on brand-new bookings (no pk yet) - once a booking exists, its start
+        # date shouldn't become invalid retroactively just because time passed while it sat
+        # pending, or block an unrelated field update (e.g. a note) on an older booking.
+        if self.pk is None and self.start_date and self.start_date < timezone.now().date():
+            raise ValidationError('Start date cannot be in the past.')
+
         if self.start_date and self.end_date and self.end_date < self.start_date:
             raise ValidationError('End date cannot be before start date.')
 
@@ -187,6 +194,26 @@ class Booking(models.Model):
                 send_driver_booking_notification(self)
 
         self._ensure_driver_payout()
+
+    def mark_cancelled(self):
+        """Cancels the booking. If money had already been collected against it, this is the
+        only place that flags it for a manual refund - there's no automated M-Pesa refund API
+        wired up, so admin sends it back by hand and marks the Refund record issued once done.
+        Also voids any driver payout that hadn't been paid out yet, since a cancelled trip
+        shouldn't still owe the driver their cut."""
+        if self.status in (BookingStatus.CANCELLED, BookingStatus.COMPLETED):
+            raise ValidationError(f'Booking is already {self.get_status_display().lower()}.')
+
+        self.status = BookingStatus.CANCELLED
+        self.save(update_fields=['status'])
+
+        if self.amount_paid > 0:
+            from payments.models import Refund
+
+            Refund.objects.get_or_create(booking=self, defaults={'amount': self.amount_paid})
+
+        if hasattr(self, 'driver_payout') and not self.driver_payout.is_paid:
+            self.driver_payout.void()
 
     def _send_confirmation_email(self):
         """Sends a booking confirmed email to the customer. Swallowed silently on failure

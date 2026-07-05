@@ -177,10 +177,22 @@ const routes = [
         meta: { title: 'Driver Payouts | SilverLake Car Rentals', pageTitle: 'Payouts' },
       },
       {
+        path: 'refunds',
+        name: 'admin-refunds',
+        component: () => import('../views/admin/AdminRefundsView.vue'),
+        meta: { title: 'Refunds | SilverLake Car Rentals', pageTitle: 'Refunds' },
+      },
+      {
         path: 'payments',
         name: 'admin-payments',
         component: () => import('../views/admin/AdminPaymentsView.vue'),
         meta: { title: 'Payments | SilverLake Car Rentals', pageTitle: 'Payments' },
+      },
+      {
+        path: 'audit-log',
+        name: 'admin-audit-log',
+        component: () => import('../views/admin/AdminAuditLogView.vue'),
+        meta: { title: 'Activity Log | SilverLake Car Rentals', pageTitle: 'Activity Log' },
       },
     ],
   },
