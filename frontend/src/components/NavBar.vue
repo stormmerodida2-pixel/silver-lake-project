@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
@@ -8,6 +8,13 @@ import SilverLakeLogo from './SilverLakeLogo.vue'
 const isOpen = ref(false)
 const auth = useAuthStore()
 const router = useRouter()
+
+// The nav bar is hidden (and unmounted) on the driver portal, so this fires again the moment
+// someone navigates back to the main site - catching any role change (e.g. a driver
+// application getting approved) that happened since they last logged in.
+onMounted(() => {
+  auth.refreshProfile()
+})
 
 const links = computed(() => {
   const base = [
@@ -40,8 +47,8 @@ function handleLogout() {
       <RouterLink to="/" class="flex items-center gap-2">
         <SilverLakeLogo :size="32" />
         <span class="flex items-baseline gap-2">
-          <span class="font-[Georgia] text-xl font-bold tracking-wide text-white">SILVERLAKE</span>
-          <span class="hidden text-xs tracking-widest text-gold-400 sm:inline">CAR RENTALS</span>
+          <span class="font-[Georgia] text-xl font-bold tracking-wide text-white">silverlake</span>
+          <span class="hidden text-xs tracking-widest text-gold-400 sm:inline"></span>
         </span>
       </RouterLink>
 

@@ -22,6 +22,10 @@ decision before launch, it's called out explicitly rather than glossed over.
 - **Driver-partner accounts are created for you.** A driver never signs up directly — once their
   application is approved, the system creates their login automatically and emails them an
   invite (see §4).
+- **Your role stays in sync.** The browser refreshes your profile (name, staff/driver status)
+  the moment you navigate back to the main site from the driver portal — so if your driver
+  application gets approved while you're still logged in, you don't need to log out and back in
+  to see the change take effect.
 
 ## 2. Roles
 
@@ -141,6 +145,7 @@ Sent automatically, using branded HTML templates, via Gmail SMTP:
 - Booking confirmed (customer), including a driver-notification if one's assigned
 - Trip completed / review invite (customer)
 - Cash payment recorded (customer) — an independent check, since they didn't initiate it
+- Cash payment recorded (driver) — confirms the amount and that it's queued for admin verification
 - Driver portal invite (driver)
 - Driver suspended, with reason (driver)
 - Driver marked themselves away (admin, BCC to staff)
@@ -181,7 +186,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-78 automated backend tests currently cover booking validation, payment guards, payout timing and
+82 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding, and the audit log — run with:
 ```
 cd silverlake

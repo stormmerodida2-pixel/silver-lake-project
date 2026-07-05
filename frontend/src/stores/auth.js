@@ -57,6 +57,20 @@ export const useAuthStore = defineStore('auth', {
       })
       return data
     },
+    async refreshProfile() {
+      // auth.user is only ever set at login and cached in localStorage - if a role changes
+      // server-side afterward (e.g. a driver application gets approved), this re-syncs it
+      // without forcing a fresh login. Fails silently - a stale profile isn't worth breaking
+      // the page over.
+      if (!this.isAuthenticated) return
+      try {
+        const { data } = await apiClient.get('/auth/me/')
+        this.user = data
+        localStorage.setItem('sl_user', JSON.stringify(data))
+      } catch (err) {
+        // ignore - keep whatever profile we already have
+      }
+    },
     logout() {
       this.user = null
       this.accessToken = ''
