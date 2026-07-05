@@ -13,11 +13,10 @@ const links = computed(() => {
   const base = [
     { to: '/', label: 'Home' },
     { to: '/fleet', label: 'Fleet' },
-    { to: '/drivers', label: 'Drivers' },
     { to: '/contact', label: 'Contact' },
   ]
   if (auth.isAuthenticated) {
-    base.splice(3, 0, { to: '/account/bookings', label: 'My Bookings' })
+    base.splice(2, 0, { to: '/account/bookings', label: 'My Bookings' })
   }
   if (auth.user?.driver_status === 'active') {
     base.push({ to: '/driver', label: 'Driver Dashboard' })
