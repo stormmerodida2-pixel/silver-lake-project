@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from bookings.models import Booking
@@ -24,14 +26,14 @@ class PaymentSerializer(serializers.ModelSerializer):
 class StkPushRequestSerializer(serializers.Serializer):
     booking = serializers.PrimaryKeyRelatedField(queryset=Booking.objects.all())
     phone_number = serializers.CharField(help_text='M-Pesa number in 2547XXXXXXXX format')
-    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
 
 
 class TokenStkPushRequestSerializer(serializers.Serializer):
     """Same as StkPushRequestSerializer but without `booking` - the booking is already
     resolved from the URL's customer_token, so there's nothing to look up or trust from the body."""
     phone_number = serializers.CharField(help_text='M-Pesa number in 2547XXXXXXXX format')
-    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
 
 
 class PublicBookingPaymentSerializer(serializers.ModelSerializer):

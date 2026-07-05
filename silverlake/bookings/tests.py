@@ -317,6 +317,36 @@ class DriverCashPaymentTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
 
+    def test_cannot_record_a_zero_or_negative_cash_amount(self):
+        for bad_amount in ('0', '-500'):
+            response = self.client.post(
+                f'/api/driver/bookings/{self.booking.id}/record-cash/', {'amount': bad_amount}, format='json',
+            )
+            self.assertEqual(response.status_code, 400, f'amount={bad_amount} should have been rejected')
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_cannot_record_cash_against_a_cancelled_booking(self):
+        self.booking.status = BookingStatus.CANCELLED
+        self.booking.save(update_fields=['status'])
+
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/record-cash/',
+            {'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_cannot_record_cash_against_a_completed_booking(self):
+        self.booking.status = BookingStatus.COMPLETED
+        self.booking.save(update_fields=['status'])
+
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/record-cash/',
+            {'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
     def test_cash_payment_flags_its_payout_as_needing_verification(self):
         self.client.post(
             f'/api/driver/bookings/{self.booking.id}/record-cash/',
@@ -384,6 +414,26 @@ class TokenPaymentPageTests(APITestCase):
         response = self.client.post(
             f'/api/pay/{self.booking.customer_token}/stk-push/',
             {'phone_number': '254700000000', 'amount': '1'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_stk_push_rejects_a_zero_or_negative_amount(self):
+        for bad_amount in ('0', '-500'):
+            response = self.client.post(
+                f'/api/pay/{self.booking.customer_token}/stk-push/',
+                {'phone_number': '254700000000', 'amount': bad_amount}, format='json',
+            )
+            self.assertEqual(response.status_code, 400, f'amount={bad_amount} should have been rejected')
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_stk_push_rejected_against_a_cancelled_booking(self):
+        self.booking.status = BookingStatus.CANCELLED
+        self.booking.save(update_fields=['status'])
+
+        response = self.client.post(
+            f'/api/pay/{self.booking.customer_token}/stk-push/',
+            {'phone_number': '254700000000', 'amount': str(self.booking.deposit_amount)}, format='json',
         )
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())

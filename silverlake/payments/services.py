@@ -1,3 +1,5 @@
+from bookings.models import BookingStatus
+
 from . import mpesa
 from .models import Payment, PaymentMethod, PaymentStatus
 
@@ -7,11 +9,20 @@ class PaymentValidationError(Exception):
     callers turn this into a 400/502 response with the given message."""
 
 
+# Bookings in these statuses are done - cancelled has nothing left to pay, completed should
+# already be settled - so no new payment should ever be recorded against either.
+_CLOSED_BOOKING_STATUSES = {BookingStatus.CANCELLED, BookingStatus.COMPLETED}
+
+
 def initiate_stk_push_payment(booking, phone_number, amount):
     """Shared by both the logged-in customer payment flow and the no-login token payment page -
     validates the amount against the booking, creates the Payment row, and kicks off the STK
     Push prompt. Raises PaymentValidationError on any failure; the Payment row it already
     created is marked FAILED before re-raising so it isn't left stuck as PENDING."""
+    if booking.status in _CLOSED_BOOKING_STATUSES:
+        raise PaymentValidationError(f'This booking is already {booking.get_status_display().lower()}.')
+    if amount <= 0:
+        raise PaymentValidationError('Amount must be greater than zero.')
     if amount > booking.balance_due:
         raise PaymentValidationError(f'Amount exceeds the outstanding balance of {booking.balance_due}.')
     if not booking.is_deposit_paid and amount < booking.deposit_amount:
@@ -45,6 +56,10 @@ def record_cash_payment(booking, amount, driver, note=''):
     driver payout is flagged for admin verification before it can be paid out (see
     Booking._ensure_driver_payout). The customer is emailed immediately as an independent
     check, since they didn't initiate this payment themselves."""
+    if booking.status in _CLOSED_BOOKING_STATUSES:
+        raise PaymentValidationError(f'This booking is already {booking.get_status_display().lower()}.')
+    if amount <= 0:
+        raise PaymentValidationError('Amount must be greater than zero.')
     if amount > booking.balance_due:
         raise PaymentValidationError(f'Amount exceeds the outstanding balance of {booking.balance_due}.')
 
