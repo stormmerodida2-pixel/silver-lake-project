@@ -3,10 +3,12 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APITestCase
+from rest_framework.throttling import ScopedRateThrottle
 
 from drivers.models import Driver
 from fleet.models import Vehicle
@@ -513,6 +515,26 @@ class TokenPaymentPageTests(APITestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_token_stk_push_is_throttled(self):
+        # settings.py forces every throttle scope to 10000/min under 'test' so the rest of the
+        # suite isn't tripped up by shared cache state - dial this one scope back down just for
+        # this test to prove the throttle is actually wired up, not just configured.
+        cache.clear()
+        original = ScopedRateThrottle.THROTTLE_RATES.get('mpesa-stk')
+        ScopedRateThrottle.THROTTLE_RATES['mpesa-stk'] = '1/min'
+        try:
+            self.client.post(
+                f'/api/pay/{self.booking.customer_token}/stk-push/',
+                {'phone_number': '254700000000', 'amount': '1'}, format='json',
+            )
+            response = self.client.post(
+                f'/api/pay/{self.booking.customer_token}/stk-push/',
+                {'phone_number': '254700000000', 'amount': '1'}, format='json',
+            )
+        finally:
+            ScopedRateThrottle.THROTTLE_RATES['mpesa-stk'] = original
+        self.assertEqual(response.status_code, 429)
 
     def test_stk_push_rejects_a_zero_or_negative_amount(self):
         for bad_amount in ('0', '-500'):

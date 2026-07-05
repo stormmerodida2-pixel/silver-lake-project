@@ -3,8 +3,9 @@ import hmac
 from decouple import config
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from bookings.models import Booking
 
@@ -21,6 +22,7 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
+@throttle_classes([ScopedRateThrottle])
 def stk_push(request):
     """Kick off an M-Pesa STK Push prompt on the customer's phone for a booking."""
     serializer = StkPushRequestSerializer(data=request.data)
@@ -39,8 +41,12 @@ def stk_push(request):
     return Response({'payment_id': payment.id, **result}, status=status.HTTP_202_ACCEPTED)
 
 
+stk_push.cls.throttle_scope = 'mpesa-stk'
+
+
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([ScopedRateThrottle])
 def token_payment_detail(request, token):
     """No-login payment page for a booking - shared with a walk-up client via customer_token
     instead of requiring them to register/log in."""
@@ -48,10 +54,16 @@ def token_payment_detail(request, token):
     return Response(PublicBookingPaymentSerializer(booking).data)
 
 
+token_payment_detail.cls.throttle_scope = 'token-payment-view'
+
+
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([ScopedRateThrottle])
 def token_stk_push(request, token):
-    """Same STK Push flow as `stk_push`, but reached via the no-login customer_token link."""
+    """Same STK Push flow as `stk_push`, but reached via the no-login customer_token link -
+    throttled tighter than most public endpoints, since each request can trigger a real M-Pesa
+    prompt on a stranger's phone if this link ever leaked."""
     booking = get_object_or_404(Booking, customer_token=token)
 
     serializer = TokenStkPushRequestSerializer(data=request.data)
@@ -64,6 +76,9 @@ def token_stk_push(request, token):
         return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response({'payment_id': payment.id, **result}, status=status.HTTP_202_ACCEPTED)
+
+
+token_stk_push.cls.throttle_scope = 'mpesa-stk'
 
 
 @api_view(['POST'])

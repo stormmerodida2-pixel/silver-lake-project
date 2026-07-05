@@ -79,6 +79,16 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
+    # Rates for the specific public-facing views that set throttle_classes/throttle_scope
+    # themselves (login, registration, password reset, and the M-Pesa STK push triggers) -
+    # everything else is unthrottled.
+    'DEFAULT_THROTTLE_RATES': {
+        'auth-login': '10/min',
+        'auth-register': '5/hour',
+        'auth-password-reset': '5/hour',
+        'mpesa-stk': '5/min',
+        'token-payment-view': '20/min',
+    },
 }
 
 SIMPLE_JWT = {
@@ -107,6 +117,12 @@ if 'test' in sys.argv:
     # The full PBKDF2 iteration count is unnecessary (and slow) for tests that create lots
     # of throwaway users - this hasher is only used when 'test' is in sys.argv.
     PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+    # Throttle state persists in the cache across test methods within the same run - without
+    # this, tests that hit a throttled view more than a handful of times would start failing
+    # on request count alone, not on what they're actually testing.
+    REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {
+        scope: '10000/min' for scope in REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']
+    }
 elif EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 else:

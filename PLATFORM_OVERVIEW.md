@@ -106,6 +106,10 @@ business-model pitch for the economics).
   theoretical way someone could have faked a "payment successful" notification.
 - There's a **no-login payment page**: a driver can share a private link with a walk-up customer
   who has no account, letting them pay their own balance without registering.
+- **Rate limiting** caps how many times the sensitive public endpoints can be hit in a given
+  window: login (10/min), registration (5/hour), password reset requests (5/hour), and both
+  M-Pesa STK push triggers (5/min) — the last one specifically because each request can fire a
+  real prompt on a customer's phone, so it's the one most worth capping if a link ever leaked.
 
 ## 7. Payouts, Refunds & Trust
 
@@ -191,8 +195,9 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-88 automated backend tests currently cover booking validation, payment guards, payout timing and
-verification, refund creation/voiding, the audit log, and the delete-protection rules — run with:
+90 automated backend tests currently cover booking validation, payment guards, payout timing and
+verification, refund creation/voiding, the audit log, the delete-protection rules, and rate
+limiting — run with:
 ```
 cd silverlake
 python manage.py test
@@ -206,7 +211,6 @@ Not broken, but worth a conscious decision before going fully live:
 - **`DEBUG=True` by default**, and CORS wide open under DEBUG.
 - **File storage is local disk** — uploaded documents/photos won't survive a server redeploy as
   currently configured.
-- **No rate limiting** on public endpoints (login, registration, the no-login payment page).
 - **Payment/booking links don't expire** — the no-login payment link and driver trip-completion
   link are permanent once issued.
 - **Refund disbursement is manual** — there's no automated M-Pesa refund API integration, only a
