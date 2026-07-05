@@ -2,7 +2,8 @@
 {% block content %}
 <p style="margin:0 0 16px;">Hi {{ driver_name }},</p>
 <p style="margin:0 0 16px;">
-  You've been booked for a trip! Here are the details:
+  A customer has just booked you for a trip. Here are the details - please review and
+  acknowledge it from your driver dashboard:
 </p>
 
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px; border-collapse:collapse;">
@@ -34,9 +35,10 @@
   {% endif %}
 </table>
 
-{% include "emails/_button.html" with url=complete_url label="Manage & Complete Trip" %}
+{% include "emails/_button.html" with url=portal_url label="Review & Approve" %}
 
 <p style="margin:20px 0 0; font-size:13px; color:#94a3b8;">
-  Please contact the customer ahead of time to confirm pickup details. After finishing the trip, click the button above to mark it completed and wire the funds.
+  Please contact the customer ahead of time to confirm pickup details. This booking still needs
+  the customer's deposit to be confirmed - you'll see that update on your dashboard too.
 </p>
 {% endblock %}

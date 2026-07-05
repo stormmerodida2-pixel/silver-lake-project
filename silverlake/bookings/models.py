@@ -85,6 +85,12 @@ class Booking(models.Model):
     status = models.CharField(max_length=20, choices=BookingStatus.choices, default=BookingStatus.PENDING)
     notes = models.TextField(blank=True)
 
+    # Set once the assigned driver has acknowledged this booking on their dashboard. Purely
+    # informational - doesn't gate confirmation/payment, just lets the driver keep track of
+    # what they've actually seen. Driver-onsite bookings are self-acknowledged at creation
+    # (the driver already knows about their own walk-up booking).
+    driver_acknowledged_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -185,15 +191,15 @@ class Booking(models.Model):
         driver's payout is handled separately in _ensure_driver_payout, which only queues once
         the booking is fully paid - not just deposited - so call this again on every later
         payment too (e.g. the customer clearing the remaining balance afterwards): the
-        confirmation part is a no-op the second time, but the payout check isn't."""
+        confirmation part is a no-op the second time, but the payout check isn't.
+
+        The assigned driver is notified separately, at booking creation rather than here - see
+        BookingViewSet.perform_create - so they find out as soon as a customer books them, not
+        only once a deposit happens to land."""
         if self.status == BookingStatus.PENDING and self.is_deposit_paid:
             self.status = BookingStatus.CONFIRMED
             self.save(update_fields=['status'])
             self._send_confirmation_email()
-            if self.driver_id:
-                from .emails import send_driver_booking_notification
-
-                send_driver_booking_notification(self)
 
         self._ensure_driver_payout()
 

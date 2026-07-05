@@ -70,7 +70,13 @@ business-model pitch for the economics).
      from the customer
    - Record a **cash payment** for one of their own bookings
    - View their own payout history
-5. Staff can **suspend** a driver (with a reason, which emails the driver) — this hides all of
+   - See every booking an online customer has placed against them, and **approve** a new one to
+     acknowledge they've seen it — this is informational only, it doesn't block or delay the
+     booking itself, which still confirms on the customer's deposit either way
+5. The driver is **emailed the moment an online customer books them** — not only once the
+   deposit is paid — so they find out as early as possible and can plan around it. A driver's
+   own walk-up bookings skip this (they already know, having just created it themselves).
+6. Staff can **suspend** a driver (with a reason, which emails the driver) — this hides all of
    their vehicles immediately, same as marking away. A suspended driver sees "Currently
    Suspended" on the site instead of the normal driver CTA; an active driver sees a link to their
    dashboard in the main nav instead.
@@ -151,7 +157,8 @@ completed trips.
 Sent automatically, using branded HTML templates, via Gmail SMTP:
 
 - Account activation (customer)
-- Booking confirmed (customer), including a driver-notification if one's assigned
+- Booking confirmed (customer)
+- New booking, please review (driver) — sent the moment an online customer books them
 - Trip completed / review invite (customer)
 - Cash payment recorded (customer) — an independent check, since they didn't initiate it
 - Cash payment recorded (driver) — confirms the amount and that it's queued for admin verification
@@ -195,9 +202,9 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-90 automated backend tests currently cover booking validation, payment guards, payout timing and
-verification, refund creation/voiding, the audit log, the delete-protection rules, and rate
-limiting — run with:
+96 automated backend tests currently cover booking validation, payment guards, payout timing and
+verification, refund creation/voiding, the audit log, the delete-protection rules, rate limiting,
+and driver booking notifications/acknowledgment — run with:
 ```
 cd silverlake
 python manage.py test

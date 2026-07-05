@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import apiClient from '../../api/client'
+import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
@@ -17,6 +18,37 @@ const categoryLabels = {
   premium_mpv: 'Premium MPV',
   compact_sedan: 'Compact Sedan',
   passenger_van: 'Passenger Van',
+}
+
+const statusLabels = {
+  pending: 'Pending',
+  confirmed: 'Confirmed',
+  ongoing: 'Ongoing',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+}
+const statusClasses = {
+  pending: 'bg-gold-500/10 text-gold-400',
+  confirmed: 'bg-brand-blue-500/10 text-brand-blue-400',
+  ongoing: 'bg-brand-blue-500/10 text-brand-blue-400',
+  completed: 'bg-emerald-500/10 text-emerald-400',
+  cancelled: 'bg-red-500/10 text-red-400',
+}
+
+// ── My bookings (online customers booking this driver) ──────────────────────
+const { items: bookings, loading: bookingsLoading, error: bookingsError, load: loadBookings } = useAdminList('/driver/bookings/mine/')
+const acknowledgingId = ref(null)
+
+async function acknowledgeBooking(booking) {
+  acknowledgingId.value = booking.id
+  try {
+    const { data } = await apiClient.post(`/driver/bookings/${booking.id}/acknowledge/`)
+    Object.assign(booking, data)
+  } catch (err) {
+    bookingsError.value = 'Could not acknowledge this booking.'
+  } finally {
+    acknowledgingId.value = null
+  }
 }
 
 async function loadProfile() {
@@ -217,7 +249,10 @@ function handleLogout() {
   router.push('/')
 }
 
-onMounted(loadProfile)
+onMounted(() => {
+  loadProfile()
+  loadBookings()
+})
 </script>
 
 <template>
@@ -334,6 +369,55 @@ onMounted(loadProfile)
               </span>
             </div>
             <p v-if="!profile.vehicles.length" class="text-sm text-slate-500">No live vehicles yet.</p>
+          </div>
+        </section>
+
+        <!-- My bookings -->
+        <section class="mt-8">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">My Bookings</h2>
+          <p class="mt-1 text-xs text-slate-500">
+            Trips customers have booked with you online - approve a new one to let us know you've seen it.
+          </p>
+
+          <p v-if="bookingsError" class="mt-3 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ bookingsError }}</p>
+
+          <div class="mt-3 space-y-3">
+            <div
+              v-for="booking in bookings"
+              :key="booking.id"
+              class="rounded-xl border p-4"
+              :class="!booking.driver_acknowledged_at ? 'border-gold-500 bg-navy-900' : 'border-navy-800 bg-navy-900'"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="font-semibold text-white">{{ booking.customer_name }}</p>
+                  <p class="text-xs text-slate-400">
+                    {{ booking.vehicle_name }} &middot; {{ booking.start_date }} to {{ booking.end_date }}
+                  </p>
+                  <p class="text-xs text-slate-500">{{ booking.pickup_location }}</p>
+                </div>
+                <span
+                  class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                  :class="statusClasses[booking.status]"
+                >
+                  {{ statusLabels[booking.status] || booking.status }}
+                </span>
+              </div>
+              <div class="mt-3 flex items-center justify-between">
+                <span v-if="booking.driver_acknowledged_at" class="text-xs font-semibold text-emerald-400">
+                  Acknowledged
+                </span>
+                <button
+                  v-else
+                  :disabled="acknowledgingId === booking.id"
+                  class="rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                  @click="acknowledgeBooking(booking)"
+                >
+                  {{ acknowledgingId === booking.id ? 'Approving...' : 'Approve' }}
+                </button>
+              </div>
+            </div>
+            <p v-if="!bookingsLoading && !bookings.length" class="text-sm text-slate-500">No bookings yet.</p>
           </div>
         </section>
 

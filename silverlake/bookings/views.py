@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError
-from rest_framework import mixins, permissions, status, viewsets
+from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -33,7 +33,11 @@ class BookingViewSet(
         return Booking.objects.filter(user=user)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        booking = serializer.save(user=self.request.user)
+        if booking.driver_id:
+            from .emails import send_driver_booking_notification
+
+            send_driver_booking_notification(booking)
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
@@ -128,6 +132,7 @@ class DriverBookingView(APIView):
 
 
 from django.conf import settings
+from django.utils import timezone
 
 from accounts.services import get_or_create_customer_account
 from drivers.permissions import IsDriverUser
@@ -161,6 +166,9 @@ class DriverOnsiteBookingCreateView(APIView):
             customer_email=data['customer_email'], pickup_location=data['pickup_location'],
             dropoff_location=data['dropoff_location'], start_date=data['start_date'],
             end_date=data['end_date'], notes=data['notes'],
+            # The driver created this themselves, so there's nothing for them to be notified
+            # about or acknowledge - unlike a booking an online customer places against them.
+            driver_acknowledged_at=timezone.now(),
         )
         booking.save()
 
@@ -195,6 +203,34 @@ class DriverBookingCashPaymentView(APIView):
         except PaymentValidationError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        return Response(BookingSerializer(booking).data)
+
+
+class DriverBookingListView(generics.ListAPIView):
+    """A driver's own assigned bookings - both ones an online customer placed against them and
+    their own walk-up ones - so they can see what's coming up and acknowledge new ones."""
+
+    serializer_class = BookingSerializer
+    permission_classes = [IsDriverUser]
+
+    def get_queryset(self):
+        driver = self.request.user.driver_profile
+        return Booking.objects.filter(driver=driver).exclude(status=BookingStatus.CANCELLED)
+
+
+class DriverBookingAcknowledgeView(APIView):
+    """Lets a driver acknowledge a booking an online customer placed against them. Purely
+    informational - doesn't gate confirmation or payment, just lets the driver mark that
+    they've seen it."""
+
+    permission_classes = [IsDriverUser]
+
+    def post(self, request, pk):
+        driver = request.user.driver_profile
+        booking = get_object_or_404(Booking, pk=pk, driver=driver)
+        if not booking.driver_acknowledged_at:
+            booking.driver_acknowledged_at = timezone.now()
+            booking.save(update_fields=['driver_acknowledged_at'])
         return Response(BookingSerializer(booking).data)
 
 

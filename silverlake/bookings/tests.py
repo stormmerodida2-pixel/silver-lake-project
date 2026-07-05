@@ -555,3 +555,112 @@ class TokenPaymentPageTests(APITestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+
+class DriverBookingNotificationTests(APITestCase):
+    """A driver should find out the moment an online customer books them - not gated on
+    payment - and be able to acknowledge it from their own dashboard."""
+
+    def setUp(self):
+        self.customer = User.objects.create_user(username='online-client@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(full_name='Notify Driver', is_active=True, email='notify-driver@example.com')
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.client.force_authenticate(user=self.customer)
+
+    def _booking_payload(self):
+        return {
+            'vehicle': self.vehicle.id,
+            'driver': self.driver.id,
+            'service_type': 'with_driver',
+            'customer_name': 'Jane Doe',
+            'customer_phone': '254700000000',
+            'pickup_location': 'Kisumu',
+            'start_date': str(TOMORROW),
+            'end_date': str(NEXT_WEEK),
+        }
+
+    def test_booking_a_driver_online_notifies_them_immediately_and_unacknowledged(self):
+        mail.outbox = []
+        response = self.client.post('/api/bookings/', self._booking_payload(), format='json')
+        self.assertEqual(response.status_code, 201)
+
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertIsNone(booking.driver_acknowledged_at)
+
+        driver_emails = [m for m in mail.outbox if 'New booking' in m.subject]
+        self.assertEqual(len(driver_emails), 1)
+        self.assertIn(self.driver.email, driver_emails[0].to)
+
+    def test_no_driver_email_attempted_without_one_on_file(self):
+        self.driver.email = ''
+        self.driver.save(update_fields=['email'])
+        mail.outbox = []
+        response = self.client.post('/api/bookings/', self._booking_payload(), format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_driver_can_acknowledge_their_own_booking(self):
+        response = self.client.post('/api/bookings/', self._booking_payload(), format='json')
+        booking_id = response.json()['id']
+
+        driver_user = User.objects.create_user(username='driver-login@example.com', password='pass12345!')
+        self.driver.user = driver_user
+        self.driver.save(update_fields=['user'])
+
+        self.client.force_authenticate(user=driver_user)
+        response = self.client.post(f'/api/driver/bookings/{booking_id}/acknowledge/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(response.json()['driver_acknowledged_at'])
+
+        booking = Booking.objects.get(pk=booking_id)
+        self.assertIsNotNone(booking.driver_acknowledged_at)
+
+    def test_driver_cannot_acknowledge_another_drivers_booking(self):
+        response = self.client.post('/api/bookings/', self._booking_payload(), format='json')
+        booking_id = response.json()['id']
+
+        other_driver_user = User.objects.create_user(username='other-driver@example.com', password='pass12345!')
+        Driver.objects.create(user=other_driver_user, full_name='Other Driver', is_active=True)
+
+        self.client.force_authenticate(user=other_driver_user)
+        response = self.client.post(f'/api/driver/bookings/{booking_id}/acknowledge/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_driver_bookings_list_only_returns_their_own(self):
+        self.client.post('/api/bookings/', self._booking_payload(), format='json')
+
+        driver_user = User.objects.create_user(username='driver-login2@example.com', password='pass12345!')
+        self.driver.user = driver_user
+        self.driver.save(update_fields=['user'])
+
+        other_driver = Driver.objects.create(full_name='Unrelated Driver', is_active=True)
+        other_vehicle = make_vehicle(name='Other Car', driver=other_driver, price_per_day=Decimal('1000'))
+        make_booking(self.customer, other_vehicle, driver=other_driver, status=BookingStatus.PENDING)
+
+        self.client.force_authenticate(user=driver_user)
+        response = self.client.get('/api/driver/bookings/mine/')
+        self.assertEqual(response.status_code, 200)
+        results = response.json()['results'] if 'results' in response.json() else response.json()
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['driver'], self.driver.id)
+
+    def test_onsite_booking_is_auto_acknowledged_and_does_not_self_notify(self):
+        driver_user = User.objects.create_user(username='onsite-driver@example.com', password='pass12345!')
+        self.driver.user = driver_user
+        self.driver.save(update_fields=['user'])
+
+        mail.outbox = []
+        self.client.force_authenticate(user=driver_user)
+        response = self.client.post('/api/driver/bookings/create/', {
+            'vehicle': self.vehicle.id,
+            'customer_name': 'Walk Up Client',
+            'customer_phone': '254700000001',
+            'pickup_location': 'Kisumu Airport',
+            'start_date': str(TOMORROW),
+            'end_date': str(NEXT_WEEK),
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+
+        booking = Booking.objects.get(pk=response.json()['booking']['id'])
+        self.assertIsNotNone(booking.driver_acknowledged_at)
+        self.assertEqual(len(mail.outbox), 0)

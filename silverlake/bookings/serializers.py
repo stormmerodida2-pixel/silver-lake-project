@@ -32,9 +32,9 @@ class BookingSerializer(serializers.ModelSerializer):
             'pickup_location', 'dropoff_location', 'start_date', 'end_date',
             'customer_license_number', 'customer_license_document', 'customer_id_document',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid',
-            'status', 'notes', 'review', 'created_at',
+            'status', 'notes', 'review', 'created_at', 'driver_acknowledged_at',
         ]
-        read_only_fields = ['status', 'source', 'total_amount', 'created_at']
+        read_only_fields = ['status', 'source', 'total_amount', 'created_at', 'driver_acknowledged_at']
 
     def get_vehicle_name(self, obj):
         return obj.vehicle.name if obj.vehicle else '—'
