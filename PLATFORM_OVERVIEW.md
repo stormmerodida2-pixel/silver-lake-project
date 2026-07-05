@@ -130,6 +130,11 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
   still owe a driver their cut.
 - **Every one of the above actions (verify, mark paid, mark issued, suspend, role changes) is
   now recorded in the Activity Log** — who did it and when.
+- **Deleting a user, driver, or vehicle can't take their financial history with them.** A
+  customer's bookings, a driver's payouts, and a vehicle's booking record are all protected —
+  trying to delete an account or vehicle that still has any of these on file is blocked with a
+  clear message ("suspend the account instead") rather than silently cascading the deletion
+  through every payment, payout, and refund tied to it.
 
 ## 8. Reviews
 
@@ -186,8 +191,8 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-82 automated backend tests currently cover booking validation, payment guards, payout timing and
-verification, refund creation/voiding, and the audit log — run with:
+88 automated backend tests currently cover booking validation, payment guards, payout timing and
+verification, refund creation/voiding, the audit log, and the delete-protection rules — run with:
 ```
 cd silverlake
 python manage.py test
