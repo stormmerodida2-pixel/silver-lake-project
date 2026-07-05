@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.db.models import Count, ProtectedError, Sum
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -12,7 +13,8 @@ from bookings.models import Booking, BookingStatus
 from bookings.serializers import BookingSerializer
 from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
-from fleet.models import Vehicle, VehicleSubmission
+from fleet.models import Vehicle, VehicleImage, VehicleSubmission
+from fleet.serializers import VehicleImageSerializer
 from payments.models import DriverPayout, Payment, PaymentStatus, Refund, RefundStatus
 from reviews.models import Review
 
@@ -36,7 +38,10 @@ User = get_user_model()
 # Actions that delete records, move money, or change fleet composition/pricing -
 # restricted to superusers. Everything else (viewing, day-to-day moderation) just
 # needs regular staff (IsSupportStaff).
-SUPERADMIN_ONLY_ACTIONS = {'create', 'update', 'partial_update', 'destroy', 'mark_paid', 'verify', 'mark_issued'}
+SUPERADMIN_ONLY_ACTIONS = {
+    'create', 'update', 'partial_update', 'destroy', 'mark_paid', 'verify', 'mark_issued',
+    'add_gallery_images', 'remove_gallery_image',
+}
 
 
 def _delete_or_block(request, instance, action, blocked_message):
@@ -248,12 +253,15 @@ class AdminVehicleSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
     def approve(self, request, pk=None):
         submission = self.get_object()
         submission.approve()
+        log_admin_action(request, 'vehicle_submission.approve', submission)
         return Response(AdminVehicleSubmissionSerializer(submission).data)
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
         submission = self.get_object()
-        submission.reject(notes=request.data.get('notes', ''))
+        notes = request.data.get('notes', '')
+        submission.reject(notes=notes)
+        log_admin_action(request, 'vehicle_submission.reject', submission, detail=notes)
         return Response(AdminVehicleSubmissionSerializer(submission).data)
 
 
@@ -269,22 +277,40 @@ class AdminDriverApplicationViewSet(viewsets.ReadOnlyModelViewSet):
     def approve(self, request, pk=None):
         application = self.get_object()
         application.approve()
+        log_admin_action(request, 'driver_application.approve', application)
         return Response(DriverApplicationSerializer(application).data)
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
         application = self.get_object()
-        application.reject(notes=request.data.get('notes', ''))
+        notes = request.data.get('notes', '')
+        application.reject(notes=notes)
+        log_admin_action(request, 'driver_application.reject', application, detail=notes)
         return Response(DriverApplicationSerializer(application).data)
 
 
-class AdminBookingViewSet(viewsets.ReadOnlyModelViewSet):
+class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet):
     """Staff-only booking oversight, plus the ability to move a booking to any status -
-    day-to-day operations work, open to support staff."""
+    day-to-day operations work, open to support staff.
+
+    Editing the record itself (driver, dates, vehicle, etc.) is superadmin-only - unlike a
+    status change, it can shift who a trip's payout is attributed to, so it gets the same tier
+    as other fleet/driver-composition changes. Re-runs the same conflict/capability checks as a
+    normal booking via BookingSerializer.validate()."""
 
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
-    permission_classes = [IsSupportStaff]
+
+    def get_permissions(self):
+        if self.action in ('update', 'partial_update'):
+            return [IsSuperAdmin()]
+        return [IsSupportStaff()]
+
+    def perform_update(self, serializer):
+        old_driver_id = serializer.instance.driver_id
+        booking = serializer.save()
+        detail = f'driver: {old_driver_id or "none"} -> {booking.driver_id or "none"}' if booking.driver_id != old_driver_id else ''
+        log_admin_action(self.request, 'booking.update', booking, detail=detail)
 
     @action(detail=True, methods=['post'], url_path='set-status')
     def set_status(self, request, pk=None):
@@ -406,6 +432,14 @@ class AdminFleetViewSet(viewsets.ModelViewSet):
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
 
+    def perform_create(self, serializer):
+        vehicle = serializer.save()
+        log_admin_action(self.request, 'vehicle.create', vehicle)
+
+    def perform_update(self, serializer):
+        vehicle = serializer.save()
+        log_admin_action(self.request, 'vehicle.update', vehicle)
+
     def destroy(self, request, *args, **kwargs):
         return _delete_or_block(
             request, self.get_object(), 'vehicle.delete',
@@ -418,6 +452,27 @@ class AdminFleetViewSet(viewsets.ModelViewSet):
         vehicle.is_available = not vehicle.is_available
         vehicle.save(update_fields=['is_available'])
         return Response(AdminVehicleSerializer(vehicle).data)
+
+    @action(detail=True, methods=['post'], url_path='gallery')
+    def add_gallery_images(self, request, pk=None):
+        """Adds one or more gallery photos to a company-created vehicle - a driver's own
+        submission already requires 2+ photos at submission time, but an admin-created vehicle
+        previously had no way to add anything beyond its single cover image."""
+        vehicle = self.get_object()
+        images = request.FILES.getlist('images')
+        if not images:
+            return Response({'detail': 'At least one image is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        created = [VehicleImage.objects.create(vehicle=vehicle, image=image) for image in images]
+        log_admin_action(request, 'vehicle.add_gallery_images', vehicle, detail=f'{len(created)} photo(s)')
+        return Response(VehicleImageSerializer(created, many=True).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path=r'gallery/(?P<image_id>\d+)')
+    def remove_gallery_image(self, request, pk=None, image_id=None):
+        vehicle = self.get_object()
+        image = get_object_or_404(VehicleImage, pk=image_id, vehicle=vehicle)
+        log_admin_action(request, 'vehicle.remove_gallery_image', vehicle)
+        image.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AdminReviewViewSet(
@@ -442,6 +497,9 @@ class AdminReviewViewSet(
         review = self.get_object()
         review.is_approved = True
         review.save(update_fields=['is_approved'])
+        if review.driver_id:
+            review.driver.recalculate_rating()
+        log_admin_action(request, 'review.approve', review)
         return Response(AdminReviewSerializer(review).data)
 
     @action(detail=True, methods=['post'])
@@ -450,4 +508,14 @@ class AdminReviewViewSet(
         review = self.get_object()
         review.is_approved = False
         review.save(update_fields=['is_approved'])
+        if review.driver_id:
+            review.driver.recalculate_rating()
+        log_admin_action(request, 'review.reject', review)
         return Response(AdminReviewSerializer(review).data)
+
+    def perform_destroy(self, instance):
+        driver = instance.driver
+        log_admin_action(self.request, 'review.delete', instance)
+        instance.delete()
+        if driver:
+            driver.recalculate_rating()

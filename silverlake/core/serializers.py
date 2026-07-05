@@ -6,6 +6,7 @@ from accounts.models import CustomerProfile
 from drivers.models import Driver
 from drivers.serializers import VehicleSubmissionPhotoSerializer
 from fleet.models import Vehicle, VehicleSubmission
+from fleet.serializers import VehicleImageSerializer
 from payments.models import DriverPayout, Refund
 from reviews.models import Review
 
@@ -153,19 +154,27 @@ class AdminRefundSerializer(serializers.ModelSerializer):
 class AdminVehicleSerializer(serializers.ModelSerializer):
     is_insurance_expired = serializers.BooleanField(read_only=True)
     is_inspection_expired = serializers.BooleanField(read_only=True)
+    driver_name = serializers.SerializerMethodField()
+    driver = serializers.PrimaryKeyRelatedField(
+        queryset=Driver.objects.filter(is_active=True), allow_null=True, required=False,
+    )
+    gallery_images = VehicleImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Vehicle
         fields = [
             'id', 'name', 'category', 'tagline', 'passenger_capacity',
-            'price_per_day', 'description', 'image', 'is_available',
-            'allow_self_drive', 'allow_with_driver',
+            'price_per_day', 'description', 'image', 'gallery_images', 'is_available',
+            'allow_self_drive', 'allow_with_driver', 'driver', 'driver_name',
             'insurance_provider', 'insurance_policy_number', 'insurance_expiry_date',
             'inspection_expiry_date',
             'is_insurance_expired', 'is_inspection_expired',
             'created_at',
         ]
         read_only_fields = ['created_at', 'is_insurance_expired', 'is_inspection_expired']
+
+    def get_driver_name(self, obj):
+        return obj.driver.full_name if obj.driver_id else None
 
 
 class AdminReviewSerializer(serializers.ModelSerializer):

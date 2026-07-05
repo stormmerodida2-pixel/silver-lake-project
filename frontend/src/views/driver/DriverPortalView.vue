@@ -51,6 +51,21 @@ async function acknowledgeBooking(booking) {
   }
 }
 
+const completingId = ref(null)
+
+async function completeBooking(booking) {
+  if (!confirm(`Mark the trip for ${booking.customer_name} as completed?`)) return
+  completingId.value = booking.id
+  try {
+    const { data } = await apiClient.post(`/driver/bookings/${booking.id}/complete/`)
+    Object.assign(booking, data)
+  } catch (err) {
+    bookingsError.value = err.response?.data?.detail || 'Could not complete this trip.'
+  } finally {
+    completingId.value = null
+  }
+}
+
 async function loadProfile() {
   loading.value = true
   error.value = ''
@@ -403,7 +418,7 @@ onMounted(() => {
                   {{ statusLabels[booking.status] || booking.status }}
                 </span>
               </div>
-              <div class="mt-3 flex items-center justify-between">
+              <div class="mt-3 flex items-center justify-between gap-3">
                 <span v-if="booking.driver_acknowledged_at" class="text-xs font-semibold text-emerald-400">
                   Acknowledged
                 </span>
@@ -414,6 +429,15 @@ onMounted(() => {
                   @click="acknowledgeBooking(booking)"
                 >
                   {{ acknowledgingId === booking.id ? 'Approving...' : 'Approve' }}
+                </button>
+
+                <button
+                  v-if="['confirmed', 'ongoing'].includes(booking.status)"
+                  :disabled="completingId === booking.id"
+                  class="rounded-md border border-navy-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                  @click="completeBooking(booking)"
+                >
+                  {{ completingId === booking.id ? 'Completing...' : 'Complete Trip' }}
                 </button>
               </div>
             </div>

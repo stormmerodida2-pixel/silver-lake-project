@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
 const { items: vehicles, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/fleet/')
+const { items: driverOptions, load: loadDriverOptions } = useAdminList('/admin/drivers/')
 const busyId = ref(null)
 
 const categoryLabels = {
@@ -31,6 +32,7 @@ const form = reactive({
   allow_self_drive: true,
   allow_with_driver: true,
   is_available: true,
+  driver: '',
   insurance_provider: '',
   insurance_policy_number: '',
   insurance_expiry_date: '',
@@ -38,6 +40,50 @@ const form = reactive({
 })
 const imageFile = ref(null)
 const imagePreviewUrl = ref(null)
+
+// ── Gallery photos (existing vehicles only) ─────────────────────────────────
+const galleryImages = ref([])
+const galleryUploading = ref(false)
+const galleryError = ref('')
+const removingImageId = ref(null)
+
+async function addGalleryImages(event) {
+  const files = Array.from(event.target.files || [])
+  if (!files.length || !editingId.value) return
+  galleryError.value = ''
+  galleryUploading.value = true
+  try {
+    const payload = new FormData()
+    files.forEach((file) => payload.append('images', file))
+    const { data } = await apiClient.post(`/admin/fleet/${editingId.value}/gallery/`, payload)
+    galleryImages.value.push(...data)
+    syncGalleryToList()
+  } catch (err) {
+    galleryError.value = 'Could not upload one or more photos.'
+  } finally {
+    galleryUploading.value = false
+    event.target.value = ''
+  }
+}
+
+async function removeGalleryImage(image) {
+  if (!editingId.value) return
+  removingImageId.value = image.id
+  try {
+    await apiClient.delete(`/admin/fleet/${editingId.value}/gallery/${image.id}/`)
+    galleryImages.value = galleryImages.value.filter((img) => img.id !== image.id)
+    syncGalleryToList()
+  } catch (err) {
+    galleryError.value = 'Could not remove this photo.'
+  } finally {
+    removingImageId.value = null
+  }
+}
+
+function syncGalleryToList() {
+  const vehicle = vehicles.value.find((v) => v.id === editingId.value)
+  if (vehicle) vehicle.gallery_images = [...galleryImages.value]
+}
 
 const modalTitle = () => editingId.value ? 'Edit Vehicle' : 'Add New Vehicle'
 const submitLabel = () => saving.value
@@ -48,13 +94,15 @@ function resetForm() {
   Object.assign(form, {
     name: '', category: 'executive_suv', tagline: '', description: '',
     passenger_capacity: 4, price_per_day: '',
-    allow_self_drive: true, allow_with_driver: true, is_available: true,
+    allow_self_drive: true, allow_with_driver: true, is_available: true, driver: '',
     insurance_provider: '', insurance_policy_number: '',
     insurance_expiry_date: '', inspection_expiry_date: '',
   })
   imageFile.value = null
   imagePreviewUrl.value = null
   formError.value = ''
+  galleryImages.value = []
+  galleryError.value = ''
 }
 
 function openAddModal() {
@@ -65,6 +113,8 @@ function openAddModal() {
 
 function openEditModal(vehicle) {
   editingId.value = vehicle.id
+  galleryImages.value = vehicle.gallery_images ? [...vehicle.gallery_images] : []
+  galleryError.value = ''
   Object.assign(form, {
     name: vehicle.name,
     category: vehicle.category,
@@ -75,6 +125,7 @@ function openEditModal(vehicle) {
     allow_self_drive: vehicle.allow_self_drive,
     allow_with_driver: vehicle.allow_with_driver,
     is_available: vehicle.is_available,
+    driver: vehicle.driver || '',
     insurance_provider: vehicle.insurance_provider || '',
     insurance_policy_number: vehicle.insurance_policy_number || '',
     insurance_expiry_date: vehicle.insurance_expiry_date || '',
@@ -103,6 +154,7 @@ function buildPayload() {
   payload.append('allow_self_drive', form.allow_self_drive)
   payload.append('allow_with_driver', form.allow_with_driver)
   payload.append('is_available', form.is_available)
+  payload.append('driver', form.driver)
   payload.append('insurance_provider', form.insurance_provider)
   payload.append('insurance_policy_number', form.insurance_policy_number)
   payload.append('insurance_expiry_date', form.insurance_expiry_date)
@@ -164,7 +216,10 @@ async function deleteVehicle(vehicle) {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadDriverOptions()
+})
 </script>
 
 <template>
@@ -215,6 +270,7 @@ onMounted(load)
             <td class="px-4 py-3">
               <p class="font-medium text-white">{{ vehicle.name }}</p>
               <p v-if="vehicle.tagline" class="text-xs text-slate-500">{{ vehicle.tagline }}</p>
+              <p v-if="vehicle.driver_name" class="text-xs text-gold-400">Driver: {{ vehicle.driver_name }}</p>
             </td>
             <td class="px-4 py-3 text-slate-300">{{ categoryLabels[vehicle.category] || vehicle.category }}</td>
             <td class="px-4 py-3 text-slate-300">{{ vehicle.passenger_capacity }} pax</td>
@@ -365,6 +421,38 @@ onMounted(load)
                 <p v-if="editingId" class="mt-1 text-xs text-slate-500">Leave blank to keep the existing photo.</p>
               </div>
 
+              <!-- Gallery photos (existing vehicles only) -->
+              <div v-if="editingId">
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Gallery Photos
+                </label>
+                <p v-if="galleryError" class="mb-2 text-xs text-red-400">{{ galleryError }}</p>
+                <div class="flex flex-wrap gap-2">
+                  <div
+                    v-for="image in galleryImages"
+                    :key="image.id"
+                    class="group relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-navy-700 bg-navy-800"
+                  >
+                    <img :src="image.image" alt="Gallery photo" class="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      :disabled="removingImageId === image.id"
+                      class="absolute inset-0 flex items-center justify-center bg-black/60 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100 disabled:opacity-100"
+                      @click="removeGalleryImage(image)"
+                    >
+                      {{ removingImageId === image.id ? 'Removing…' : 'Remove' }}
+                    </button>
+                  </div>
+                </div>
+                <input type="file" accept="image/*" multiple :disabled="galleryUploading"
+                  class="mt-2 w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950 disabled:opacity-50"
+                  @change="addGalleryImages"
+                />
+                <p class="mt-1 text-xs text-slate-500">
+                  {{ galleryUploading ? 'Uploading…' : 'Uploads immediately, separate from the fields below.' }}
+                </p>
+              </div>
+
               <!-- Insurance & Inspection -->
               <div class="grid grid-cols-2 gap-4 rounded-xl border border-navy-700 p-4">
                 <p class="col-span-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Insurance &amp; Inspection</p>
@@ -392,6 +480,20 @@ onMounted(load)
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white focus:border-gold-500 focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <!-- Driver assignment -->
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Assigned Driver</label>
+                <select v-model="form.driver"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                  <option value="">No driver assigned</option>
+                  <option v-for="d in driverOptions" :key="d.id" :value="d.id">{{ d.full_name }}</option>
+                </select>
+                <p class="mt-1 text-xs text-slate-500">
+                  Who drives this vehicle on "with driver" bookings. Only needed for company-owned
+                  vehicles — a driver-partner's own submitted car is assigned automatically.
+                </p>
               </div>
 
               <!-- Checkboxes -->

@@ -206,6 +206,38 @@ class DriverBookingCashPaymentView(APIView):
         return Response(BookingSerializer(booking).data)
 
 
+class DriverBookingCompleteView(APIView):
+    """Lets a driver mark one of their own trips completed once it's fully paid - the only other
+    way to do this today is an admin manually changing the booking's status, which isn't
+    something a driver out in the field can rely on. Sends the same review-invite email the
+    admin-side completion does."""
+
+    permission_classes = [IsDriverUser]
+
+    def post(self, request, pk):
+        driver = request.user.driver_profile
+        booking = get_object_or_404(Booking, pk=pk, driver=driver)
+
+        if booking.status == BookingStatus.CANCELLED:
+            return Response({'detail': 'Cannot complete a cancelled trip.'}, status=status.HTTP_400_BAD_REQUEST)
+        if booking.status == BookingStatus.COMPLETED:
+            return Response({'detail': 'This trip is already completed.'}, status=status.HTTP_400_BAD_REQUEST)
+        if booking.balance_due > 0:
+            return Response(
+                {'detail': f'Cannot complete this trip - there is an outstanding balance of KES {booking.balance_due:,.2f}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        booking.status = BookingStatus.COMPLETED
+        booking.save(update_fields=['status'])
+
+        from .emails import send_trip_completed_email
+
+        send_trip_completed_email(booking)
+
+        return Response(BookingSerializer(booking).data)
+
+
 class DriverBookingListView(generics.ListAPIView):
     """A driver's own assigned bookings - both ones an online customer placed against them and
     their own walk-up ones - so they can see what's coming up and acknowledge new ones."""

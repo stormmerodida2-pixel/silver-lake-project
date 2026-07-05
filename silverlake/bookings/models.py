@@ -100,7 +100,22 @@ class Booking(models.Model):
     def __str__(self):
         return f'{self.customer_name} - {self.vehicle} ({self.start_date} to {self.end_date})'
 
+    def _apply_default_driver(self):
+        """A with-driver booking defaults to the vehicle's own assigned driver if none was given -
+        the public booking flow never lets a customer pick a driver directly (there's no such
+        field on the form), so without this, every online with-driver booking would silently end
+        up with no driver at all: no payout, no notification, nothing."""
+        if (
+            self.service_type == ServiceType.WITH_DRIVER
+            and not self.driver_id
+            and self.vehicle_id
+            and self.vehicle.driver_id
+        ):
+            self.driver_id = self.vehicle.driver_id
+
     def clean(self):
+        self._apply_default_driver()
+
         # Only enforced on brand-new bookings (no pk yet) - once a booking exists, its start
         # date shouldn't become invalid retroactively just because time passed while it sat
         # pending, or block an unrelated field update (e.g. a note) on an older booking.
@@ -146,6 +161,10 @@ class Booking(models.Model):
         return (self.end_date - self.start_date).days + 1
 
     def save(self, *args, **kwargs):
+        # clean() (which also applies this) only ever runs against the throwaway validation
+        # candidate the serializer builds - not the actual instance being persisted - so this
+        # has to be re-applied here too for it to actually stick.
+        self._apply_default_driver()
         if not self.total_amount:
             self.total_amount = self.vehicle.price_per_day * self.rental_days
         super().save(*args, **kwargs)

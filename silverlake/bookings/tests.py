@@ -664,3 +664,109 @@ class DriverBookingNotificationTests(APITestCase):
         booking = Booking.objects.get(pk=response.json()['booking']['id'])
         self.assertIsNotNone(booking.driver_acknowledged_at)
         self.assertEqual(len(mail.outbox), 0)
+
+
+class BookingDriverDefaultingTests(APITestCase):
+    """The public booking form never lets a customer pick a driver directly - without a
+    server-side default, a with-driver booking would silently end up with no driver at all."""
+
+    def setUp(self):
+        self.customer = User.objects.create_user(username='defaulting-client@example.com', password='pass12345!')
+        self.client.force_authenticate(user=self.customer)
+
+    def test_with_driver_booking_defaults_to_the_vehicles_own_driver(self):
+        driver = Driver.objects.create(full_name='Vehicle Owner Driver', is_active=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+
+        response = self.client.post('/api/bookings/', {
+            'vehicle': vehicle.id,
+            'service_type': 'with_driver',
+            'customer_name': 'Jane Doe',
+            'customer_phone': '254700000000',
+            'pickup_location': 'Kisumu',
+            'start_date': str(TOMORROW),
+            'end_date': str(NEXT_WEEK),
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()['driver'], driver.id)
+
+    def test_with_driver_booking_on_a_vehicle_with_no_driver_stays_unassigned(self):
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+
+        response = self.client.post('/api/bookings/', {
+            'vehicle': vehicle.id,
+            'service_type': 'with_driver',
+            'customer_name': 'Jane Doe',
+            'customer_phone': '254700000000',
+            'pickup_location': 'Kisumu',
+            'start_date': str(TOMORROW),
+            'end_date': str(NEXT_WEEK),
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertIsNone(response.json()['driver'])
+
+    def test_self_drive_booking_is_not_assigned_a_driver_even_if_the_vehicle_has_one(self):
+        driver = Driver.objects.create(full_name='Not Applicable Driver', is_active=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+
+        response = self.client.post('/api/bookings/', {
+            'vehicle': vehicle.id,
+            'service_type': 'self_drive',
+            'customer_name': 'Jane Doe',
+            'customer_phone': '254700000000',
+            'customer_license_number': 'DL123',
+            'pickup_location': 'Kisumu',
+            'start_date': str(TOMORROW),
+            'end_date': str(NEXT_WEEK),
+            'customer_license_document': SimpleUploadedFile('license.jpg', b'x', content_type='image/jpeg'),
+            'customer_id_document': SimpleUploadedFile('id.jpg', b'x', content_type='image/jpeg'),
+        }, format='multipart')
+        self.assertEqual(response.status_code, 201)
+        self.assertIsNone(response.json()['driver'])
+
+
+class DriverBookingCompleteTests(APITestCase):
+    """Lets a driver mark their own fully-paid trip complete from the portal - previously the
+    only way to do this was an admin manually changing status, or a legacy no-login link
+    nothing in the current UI actually points to."""
+
+    def setUp(self):
+        driver_user = User.objects.create_user(username='complete-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=driver_user, full_name='Complete Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='complete-client@example.com', password='pass12345!')
+        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED)
+        self.client.force_authenticate(user=driver_user)
+
+    def test_cannot_complete_with_an_outstanding_balance(self):
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/complete/')
+        self.assertEqual(response.status_code, 400)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.CONFIRMED)
+
+    def test_driver_can_complete_a_fully_paid_trip(self):
+        self.booking.customer_email = 'complete-client@example.com'
+        self.booking.save(update_fields=['customer_email'])
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        mail.outbox = []
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/complete/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'completed')
+        self.assertTrue(any('How was your ride' in m.subject for m in mail.outbox))
+
+    def test_cannot_complete_a_cancelled_trip(self):
+        self.booking.status = BookingStatus.CANCELLED
+        self.booking.save(update_fields=['status'])
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/complete/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_driver_cannot_complete_another_drivers_trip(self):
+        other_driver_user = User.objects.create_user(username='other-complete-driver@example.com', password='pass12345!')
+        Driver.objects.create(user=other_driver_user, full_name='Other Driver', is_active=True)
+        self.client.force_authenticate(user=other_driver_user)
+
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/complete/')
+        self.assertEqual(response.status_code, 404)

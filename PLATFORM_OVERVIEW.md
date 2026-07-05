@@ -73,6 +73,9 @@ business-model pitch for the economics).
    - See every booking an online customer has placed against them, and **approve** a new one to
      acknowledge they've seen it — this is informational only, it doesn't block or delay the
      booking itself, which still confirms on the customer's deposit either way
+   - Mark a fully-paid trip **complete** once it's done, which sends the customer their
+     review-invite email — previously the only way to do this was an admin manually changing
+     the booking's status
 5. The driver is **emailed the moment an online customer books them** — not only once the
    deposit is paid — so they find out as early as possible and can plan around it. A driver's
    own walk-up bookings skip this (they already know, having just created it themselves).
@@ -85,14 +88,16 @@ business-model pitch for the economics).
 
 - A customer picks a vehicle, dates, and (if the vehicle allows it) whether they're driving
   themselves or want a driver. Self-drive requires uploading a driving license and ID/passport
-  document at booking time.
+  document at booking time. There's no separate "pick a driver" step — booking "with driver" on
+  a vehicle that has one automatically assigns that vehicle's own driver.
 - **New bookings can't start in the past** — this is checked at creation only, so an existing
   booking that's simply sat pending for a while is never retroactively invalidated by an
   unrelated edit.
 - Overlapping bookings for the same vehicle (or the same driver) are rejected outright.
 - A booking starts **Pending**, and moves to **Confirmed** automatically once a **30% deposit**
-  is paid. It later becomes **Ongoing**/**Completed** via staff updating status (completing a
-  trip is blocked if there's still a balance outstanding).
+  is paid. It later becomes **Ongoing**/**Completed** via staff updating status, or the driver
+  marking their own trip complete once it's fully paid (completing a trip is blocked if there's
+  still a balance outstanding).
 - Once completed, the customer can leave a **review** of the driver/trip (one per booking).
 - A customer (or staff) can **cancel** a booking any time before it's completed. As of today,
   cancelling a booking that already had money paid against it automatically creates a **Refund**
@@ -138,8 +143,10 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
 - **Cancelling voids any unpaid payout.** If a booking's driver payout hadn't been disbursed yet
   when the booking got cancelled, that payout is automatically voided — a cancelled trip can't
   still owe a driver their cut.
-- **Every one of the above actions (verify, mark paid, mark issued, suspend, role changes) is
-  now recorded in the Activity Log** — who did it and when.
+- **Every sensitive admin action is recorded in the Activity Log** — who did it and when. This
+  covers payout verify/mark-paid, refund mark-issued, suspend/activate, role changes, editing or
+  deleting a booking/vehicle/review, managing a vehicle's gallery, and approving/rejecting a
+  driver application or vehicle submission.
 - **Deleting a user, driver, or vehicle can't take their financial history with them.** A
   customer's bookings, a driver's payouts, and a vehicle's booking record are all protected —
   trying to delete an account or vehicle that still has any of these on file is blocked with a
@@ -149,8 +156,9 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
 ## 8. Reviews
 
 Customers can review a completed trip once; staff moderate (approve/reject) before a review is
-public. Reviews are tied to both the booking and the driver, so a driver's rating reflects real
-completed trips.
+public. Reviews are tied to both the booking and the driver, and a driver's displayed rating is
+recalculated automatically (the average of their approved reviews) every time one is approved,
+rejected, or deleted — it doesn't just sit at the default forever.
 
 ## 9. Email Notifications
 
@@ -183,8 +191,11 @@ in one consistent UI:
   create accounts directly.
 - **Drivers** — manage live drivers plus the driver-application and vehicle-submission review
   queues, all in one page.
-- **Bookings** — full oversight, manual status changes.
-- **Fleet** — full vehicle CRUD, toggle availability.
+- **Bookings** — full oversight, manual status changes, and (superadmin only) editing the
+  booking itself — e.g. fixing a booking assigned to the wrong driver.
+- **Fleet** — full vehicle CRUD, toggle availability, assign which driver drives a company-owned
+  vehicle (a driver-partner's own submitted car is assigned automatically), and manage a
+  vehicle's photo gallery beyond its single cover image.
 - **Reviews** — approve/reject, delete.
 - **Payouts** — the driver payout ledger; verify and mark paid.
 - **Refunds** — the refund ledger; mark issued.
@@ -202,9 +213,12 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-96 automated backend tests currently cover booking validation, payment guards, payout timing and
-verification, refund creation/voiding, the audit log, the delete-protection rules, rate limiting,
-and driver booking notifications/acknowledgment — run with:
+129 automated backend tests currently cover booking validation, payment guards, payout timing and
+verification, refund creation/voiding, the audit log (now covering every sensitive admin action,
+not just the earliest ones), the delete-protection rules, rate limiting, driver booking
+notifications/acknowledgment, driver-defaulting, driver-side trip completion, admin driver
+assignment, driver rating recalculation, admin booking edits, and vehicle gallery management —
+run with:
 ```
 cd silverlake
 python manage.py test

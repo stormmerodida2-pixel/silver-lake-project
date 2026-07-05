@@ -3,8 +3,11 @@ import { onMounted, ref } from 'vue'
 
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
+import { useAuthStore } from '../../stores/auth'
 
+const auth = useAuthStore()
 const { items: bookings, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/bookings/')
+const { items: driverOptions, load: loadDriverOptions } = useAdminList('/admin/drivers/')
 const busyId = ref(null)
 
 const statusOptions = ['pending', 'confirmed', 'ongoing', 'completed', 'cancelled']
@@ -22,7 +25,22 @@ async function changeStatus(booking, newStatus) {
   }
 }
 
-onMounted(load)
+async function changeDriver(booking, driverId) {
+  busyId.value = booking.id
+  try {
+    const { data } = await apiClient.patch(`/admin/bookings/${booking.id}/`, { driver: driverId || null })
+    Object.assign(booking, data)
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Could not reassign driver.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+onMounted(() => {
+  load()
+  loadDriverOptions()
+})
 </script>
 
 <template>
@@ -62,7 +80,17 @@ onMounted(load)
             </td>
             <td class="px-4 py-3 text-slate-300">
               {{ booking.service_type === 'with_driver' ? 'With Driver' : 'Self Drive' }}
-              <div v-if="booking.driver_name" class="text-xs text-slate-500">{{ booking.driver_name }}</div>
+              <select
+                v-if="booking.service_type === 'with_driver' && auth.user?.is_superuser"
+                :value="booking.driver || ''"
+                :disabled="busyId === booking.id"
+                class="mt-1 block rounded-md border border-navy-700 bg-navy-950 px-2 py-1 text-xs text-white focus:border-gold-400 focus:outline-none disabled:opacity-50"
+                @change="changeDriver(booking, $event.target.value ? Number($event.target.value) : null)"
+              >
+                <option value="">No driver assigned</option>
+                <option v-for="d in driverOptions" :key="d.id" :value="d.id">{{ d.full_name }}</option>
+              </select>
+              <div v-else-if="booking.driver_name" class="text-xs text-slate-500">{{ booking.driver_name }}</div>
             </td>
             <td class="px-4 py-3 text-slate-400">{{ booking.start_date }} to {{ booking.end_date }}</td>
             <td class="px-4 py-3 text-slate-300">KES {{ Number(booking.total_amount).toLocaleString() }}</td>

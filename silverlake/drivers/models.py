@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.core.validators import FileExtensionValidator
 from django.db import models
@@ -39,6 +41,17 @@ class Driver(models.Model):
 
     def __str__(self):
         return self.full_name
+
+    def recalculate_rating(self):
+        """Recomputes this driver's displayed rating from their approved reviews. Called
+        whenever a review tied to this driver is approved, rejected, or deleted - without this,
+        `rating` would just sit at its default forever, showing every driver as a flat 5.0
+        regardless of what customers actually said."""
+        from django.db.models import Avg
+
+        average = self.reviews.filter(is_approved=True).aggregate(avg=Avg('rating'))['avg']
+        self.rating = round(average, 2) if average is not None else Decimal('5.0')
+        self.save(update_fields=['rating'])
 
 
 class ApplicationStatus(models.TextChoices):

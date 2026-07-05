@@ -1,11 +1,13 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase
 
 from bookings.models import BookingStatus
 from bookings.tests import make_booking, make_vehicle
 from drivers.models import Driver
+from fleet.models import VehicleImage
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 
 from .models import AuditLog
@@ -161,6 +163,95 @@ class AdminAuditLogTests(APITestCase):
         response = self.client.get('/api/admin/audit-log/')
         self.assertEqual(response.status_code, 401)
 
+    def test_reassigning_a_bookings_driver_is_logged(self):
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='audit-client@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, status=BookingStatus.PENDING)
+        driver = Driver.objects.create(full_name='Audit Driver', is_active=True)
+
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.patch(f'/api/admin/bookings/{booking.id}/', {'driver': driver.id}, format='json')
+
+        entry = AuditLog.objects.get(action='booking.update')
+        self.assertEqual(entry.actor, self.superadmin)
+        self.assertIn(str(driver.id), entry.detail)
+
+    def test_creating_a_vehicle_is_logged(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(
+            '/api/admin/fleet/',
+            {'name': 'Audited Car', 'category': 'compact_sedan', 'passenger_capacity': 4, 'price_per_day': '1000'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(AuditLog.objects.filter(action='vehicle.create').exists())
+
+    def test_updating_a_vehicle_is_logged(self):
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.patch(f'/api/admin/fleet/{vehicle.id}/', {'price_per_day': '1200'}, format='json')
+        self.assertTrue(AuditLog.objects.filter(action='vehicle.update').exists())
+
+    def test_adding_a_gallery_image_is_logged(self):
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.post(
+            f'/api/admin/fleet/{vehicle.id}/gallery/',
+            {'images': [SimpleUploadedFile('a.jpg', b'x', content_type='image/jpeg')]}, format='multipart',
+        )
+        self.assertTrue(AuditLog.objects.filter(action='vehicle.add_gallery_images').exists())
+
+    def test_removing_a_gallery_image_is_logged(self):
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        image = VehicleImage.objects.create(
+            vehicle=vehicle, image=SimpleUploadedFile('a.jpg', b'x', content_type='image/jpeg'),
+        )
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.delete(f'/api/admin/fleet/{vehicle.id}/gallery/{image.id}/')
+        self.assertTrue(AuditLog.objects.filter(action='vehicle.remove_gallery_image').exists())
+
+    def test_approving_a_review_is_logged(self):
+        from reviews.models import Review
+
+        review = Review.objects.create(customer_name='Jane', rating=5, comment='Great!', is_approved=False)
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(f'/api/admin/reviews/{review.id}/approve/')
+        self.assertTrue(AuditLog.objects.filter(action='review.approve').exists())
+
+    def test_deleting_a_review_is_logged(self):
+        from reviews.models import Review
+
+        review = Review.objects.create(customer_name='Jane', rating=5, comment='Great!', is_approved=True)
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.delete(f'/api/admin/reviews/{review.id}/')
+        self.assertTrue(AuditLog.objects.filter(action='review.delete').exists())
+
+    def test_approving_a_driver_application_is_logged(self):
+        from drivers.models import DriverApplication
+
+        application = DriverApplication.objects.create(
+            full_name='Applicant', email='applicant@example.com', phone_number='254700000000',
+            license_number='DL1', license_document=SimpleUploadedFile('l.jpg', b'x', content_type='image/jpeg'),
+            vehicle_name='Toyota Noah', vehicle_category='premium_mpv',
+            passenger_capacity=7, price_per_day=5000,
+        )
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(f'/api/admin/driver-applications/{application.id}/approve/')
+        self.assertTrue(AuditLog.objects.filter(action='driver_application.approve').exists())
+
+    def test_approving_a_vehicle_submission_is_logged(self):
+        from fleet.models import VehicleSubmission
+
+        driver = Driver.objects.create(full_name='Submitting Driver', is_active=True)
+        submission = VehicleSubmission.objects.create(
+            driver=driver, name='Submitted Car', category='premium_mpv',
+            passenger_capacity=7, price_per_day=5000,
+            logbook_document=SimpleUploadedFile('logbook.pdf', b'x', content_type='application/pdf'),
+        )
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(f'/api/admin/vehicle-submissions/{submission.id}/approve/')
+        self.assertTrue(AuditLog.objects.filter(action='vehicle_submission.approve').exists())
+
 
 class CascadeDeleteProtectionTests(APITestCase):
     """Deleting a user/driver/vehicle must never silently take their bookings/payouts with
@@ -219,3 +310,130 @@ class CascadeDeleteProtectionTests(APITestCase):
         response = self.client.delete(f'/api/admin/fleet/{vehicle.id}/')
         self.assertEqual(response.status_code, 400)
         self.assertIn('bookings on file', response.json()['detail'])
+
+
+class AdminVehicleDriverAssignmentTests(APITestCase):
+    """Admin needs to be able to say who drives a company-owned vehicle - otherwise a
+    with-driver booking on it never has a driver to notify, pay out, or complete the trip."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='super5@example.com', password='pass12345!')
+
+    def test_superadmin_can_assign_a_driver_to_a_vehicle(self):
+        driver = Driver.objects.create(full_name='Company Driver', is_active=True)
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.patch(f'/api/admin/fleet/{vehicle.id}/', {'driver': driver.id}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['driver'], driver.id)
+        self.assertEqual(response.json()['driver_name'], driver.full_name)
+
+        vehicle.refresh_from_db()
+        self.assertEqual(vehicle.driver_id, driver.id)
+
+    def test_a_vehicle_with_no_driver_reports_a_null_driver_name(self):
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.get(f'/api/admin/fleet/{vehicle.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()['driver'])
+        self.assertIsNone(response.json()['driver_name'])
+
+    def test_cannot_assign_a_suspended_driver(self):
+        suspended_driver = Driver.objects.create(full_name='Suspended Driver', is_active=False)
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.patch(f'/api/admin/fleet/{vehicle.id}/', {'driver': suspended_driver.id}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_driver_can_be_cleared_back_to_none(self):
+        driver = Driver.objects.create(full_name='Removable Driver', is_active=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.patch(f'/api/admin/fleet/{vehicle.id}/', {'driver': ''}, format='multipart')
+        self.assertEqual(response.status_code, 200)
+        vehicle.refresh_from_db()
+        self.assertIsNone(vehicle.driver_id)
+
+
+class AdminBookingEditTests(APITestCase):
+    """Admin needs a way to fix a booking assigned to the wrong driver (e.g. one created before
+    its vehicle had a driver set) - a status change alone can't do that."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='super7@example.com', password='pass12345!')
+        self.staff = User.objects.create_user(username='staff7@example.com', password='pass12345!', is_staff=True)
+        self.customer = User.objects.create_user(username='edit-client@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.booking = make_booking(self.customer, self.vehicle, status=BookingStatus.PENDING)
+
+    def test_superadmin_can_reassign_the_driver(self):
+        driver = Driver.objects.create(full_name='Reassigned Driver', is_active=True)
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.patch(f'/api/admin/bookings/{self.booking.id}/', {'driver': driver.id}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.driver_id, driver.id)
+
+    def test_support_staff_cannot_edit_a_booking(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.patch(f'/api/admin/bookings/{self.booking.id}/', {'notes': 'Changed'}, format='json')
+        self.assertEqual(response.status_code, 403)
+
+    def test_support_staff_can_still_change_status(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/admin/bookings/{self.booking.id}/set-status/', {'status': 'confirmed'})
+        self.assertEqual(response.status_code, 200)
+
+
+class AdminVehicleGalleryTests(APITestCase):
+    """A company-created vehicle previously had no way to get more than its single cover photo -
+    only a driver's own submission required (and got) a real photo gallery."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='super8@example.com', password='pass12345!')
+        self.staff = User.objects.create_user(username='staff8@example.com', password='pass12345!', is_staff=True)
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+
+    def _image(self, name='photo.jpg'):
+        return SimpleUploadedFile(name, b'fake-image-bytes', content_type='image/jpeg')
+
+    def test_superadmin_can_add_gallery_images(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(
+            f'/api/admin/fleet/{self.vehicle.id}/gallery/',
+            {'images': [self._image('a.jpg'), self._image('b.jpg')]}, format='multipart',
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(response.json()), 2)
+        self.assertEqual(VehicleImage.objects.filter(vehicle=self.vehicle).count(), 2)
+
+    def test_support_staff_cannot_add_gallery_images(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(
+            f'/api/admin/fleet/{self.vehicle.id}/gallery/', {'images': [self._image()]}, format='multipart',
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_adding_with_no_images_is_rejected(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(f'/api/admin/fleet/{self.vehicle.id}/gallery/', {}, format='multipart')
+        self.assertEqual(response.status_code, 400)
+
+    def test_superadmin_can_remove_a_gallery_image(self):
+        image = VehicleImage.objects.create(vehicle=self.vehicle, image=self._image())
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/fleet/{self.vehicle.id}/gallery/{image.id}/')
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(VehicleImage.objects.filter(id=image.id).exists())
+
+    def test_cannot_remove_a_gallery_image_belonging_to_another_vehicle(self):
+        other_vehicle = make_vehicle(name='Other Car', price_per_day=Decimal('1000'))
+        image = VehicleImage.objects.create(vehicle=other_vehicle, image=self._image())
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/fleet/{self.vehicle.id}/gallery/{image.id}/')
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(VehicleImage.objects.filter(id=image.id).exists())
