@@ -52,7 +52,9 @@ class DriverPayout(models.Model):
     """What SilverLake owes a driver-partner for a with-driver booking, after the platform fee."""
 
     booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name='driver_payout')
-    driver = models.ForeignKey(Driver, on_delete=models.CASCADE, related_name='payouts')
+    # PROTECT, not CASCADE - deleting a driver shouldn't silently take their payout history
+    # (paid or not) with them. A driver with payouts on file has to be suspended, not deleted.
+    driver = models.ForeignKey(Driver, on_delete=models.PROTECT, related_name='payouts')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     is_paid = models.BooleanField(default=False)
     paid_at = models.DateTimeField(null=True, blank=True)

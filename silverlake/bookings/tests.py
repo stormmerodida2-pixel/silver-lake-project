@@ -181,6 +181,14 @@ class BookingCancelActionTests(APITestCase):
         self.vehicle = make_vehicle()
         self.client.force_authenticate(user=self.user)
 
+    def test_customer_cannot_hard_delete_their_own_booking(self):
+        # Deleting (vs. cancelling) would cascade-delete any Payment/DriverPayout/Refund tied
+        # to it - "removing" a booking is always cancel(), never destroy().
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        response = self.client.delete(f'/api/bookings/{booking.id}/')
+        self.assertEqual(response.status_code, 405)
+        self.assertTrue(Booking.objects.filter(id=booking.id).exists())
+
     def test_can_cancel_a_pending_booking(self):
         booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
         response = self.client.post(f'/api/bookings/{booking.id}/cancel/')

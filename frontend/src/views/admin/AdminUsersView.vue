@@ -74,7 +74,7 @@ async function deleteUser(user) {
     await apiClient.delete(`/admin/users/${user.id}/`)
     users.value = users.value.filter((u) => u.id !== user.id)
   } catch (err) {
-    error.value = 'Could not delete this user.'
+    error.value = err.response?.data?.detail || 'Could not delete this user.'
   } finally {
     busyId.value = null
   }

@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError
-from rest_framework import permissions, status, viewsets
+from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -10,8 +10,18 @@ from .models import Booking, BookingStatus
 from .serializers import BookingSerializer
 
 
-class BookingViewSet(viewsets.ModelViewSet):
-    """Requires login. Customers only see/manage their own bookings; staff see all."""
+class BookingViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Requires login. Customers only see/manage their own bookings; staff see all.
+
+    Deliberately no destroy - a booking's payments/payouts/refund would cascade-delete with it,
+    silently destroying financial history. "Removing" a booking is always cancel(), which keeps
+    the record and its money trail intact."""
 
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]

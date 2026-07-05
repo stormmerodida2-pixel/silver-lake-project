@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Sum
+from django.db.models import Count, ProtectedError, Sum
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -37,6 +37,18 @@ User = get_user_model()
 # restricted to superusers. Everything else (viewing, day-to-day moderation) just
 # needs regular staff (IsSupportStaff).
 SUPERADMIN_ONLY_ACTIONS = {'create', 'update', 'partial_update', 'destroy', 'mark_paid', 'verify', 'mark_issued'}
+
+
+def _delete_or_block(request, instance, action, blocked_message):
+    """Deletes instance, logging who did it - or returns a clean 400 instead of a raw 500 if
+    it's still referenced by records (bookings, payouts) that must never silently disappear
+    with it."""
+    try:
+        log_admin_action(request, action, instance)
+        instance.delete()
+    except ProtectedError:
+        return Response({'detail': blocked_message}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AdminStatsView(APIView):
@@ -146,9 +158,11 @@ class AdminUserViewSet(
                 detail=f'is_staff={user.is_staff}, is_superuser={user.is_superuser}',
             )
 
-    def perform_destroy(self, instance):
-        log_admin_action(self.request, 'user.delete', instance)
-        instance.delete()
+    def destroy(self, request, *args, **kwargs):
+        return _delete_or_block(
+            request, self.get_object(), 'user.delete',
+            'This user has bookings on file and cannot be deleted. Suspend the account instead.',
+        )
 
     @action(detail=True, methods=['post'])
     def suspend(self, request, pk=None):
@@ -179,6 +193,12 @@ class AdminDriverViewSet(viewsets.ModelViewSet):
         if self.action in SUPERADMIN_ONLY_ACTIONS:
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
+
+    def destroy(self, request, *args, **kwargs):
+        return _delete_or_block(
+            request, self.get_object(), 'driver.delete',
+            'This driver has payout records on file and cannot be deleted. Suspend the account instead.',
+        )
 
     @action(detail=True, methods=['post'])
     def suspend(self, request, pk=None):
@@ -385,6 +405,12 @@ class AdminFleetViewSet(viewsets.ModelViewSet):
         if self.action in SUPERADMIN_ONLY_ACTIONS:
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
+
+    def destroy(self, request, *args, **kwargs):
+        return _delete_or_block(
+            request, self.get_object(), 'vehicle.delete',
+            'This vehicle has bookings on file and cannot be deleted. Mark it unavailable instead.',
+        )
 
     @action(detail=True, methods=['post'], url_path='toggle-availability')
     def toggle_availability(self, request, pk=None):

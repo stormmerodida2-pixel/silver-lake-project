@@ -156,7 +156,7 @@ async function deleteDriver(driver) {
     await apiClient.delete(`/admin/drivers/${driver.id}/`)
     drivers.value = drivers.value.filter((d) => d.id !== driver.id)
   } catch (err) {
-    driversError.value = 'Could not delete this driver.'
+    driversError.value = err.response?.data?.detail || 'Could not delete this driver.'
   } finally {
     busyId.value = null
   }

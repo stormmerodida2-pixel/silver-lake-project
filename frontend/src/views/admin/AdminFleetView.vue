@@ -157,8 +157,8 @@ async function deleteVehicle(vehicle) {
   try {
     await apiClient.delete(`/admin/fleet/${vehicle.id}/`)
     vehicles.value = vehicles.value.filter((v) => v.id !== vehicle.id)
-  } catch {
-    error.value = 'Could not delete this vehicle.'
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Could not delete this vehicle.'
   } finally {
     busyId.value = null
   }

@@ -160,3 +160,62 @@ class AdminAuditLogTests(APITestCase):
     def test_unauthenticated_user_cannot_view_the_audit_log(self):
         response = self.client.get('/api/admin/audit-log/')
         self.assertEqual(response.status_code, 401)
+
+
+class CascadeDeleteProtectionTests(APITestCase):
+    """Deleting a user/driver/vehicle must never silently take their bookings/payouts with
+    them - that's exactly the financial trail the rest of this app is built to preserve."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='super4@example.com', password='pass12345!')
+
+    def test_deleting_a_user_with_bookings_is_blocked(self):
+        customer = User.objects.create_user(username='has-bookings@example.com', password='pass12345!')
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        make_booking(customer, vehicle, status=BookingStatus.PENDING)
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/users/{customer.id}/')
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(User.objects.filter(id=customer.id).exists())
+
+    def test_deleting_a_user_with_no_bookings_still_works(self):
+        customer = User.objects.create_user(username='no-bookings@example.com', password='pass12345!')
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/users/{customer.id}/')
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(User.objects.filter(id=customer.id).exists())
+
+    def test_deleting_a_driver_with_payouts_is_blocked(self):
+        driver = Driver.objects.create(full_name='Payout History Driver', is_active=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='payout-client@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.confirm_if_deposit_met()
+        self.assertTrue(DriverPayout.objects.filter(driver=driver).exists())
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/drivers/{driver.id}/')
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(Driver.objects.filter(id=driver.id).exists())
+        self.assertTrue(DriverPayout.objects.filter(driver=driver).exists())
+
+    def test_deleting_a_driver_with_no_payouts_still_works(self):
+        driver = Driver.objects.create(full_name='Clean Driver', is_active=True)
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/drivers/{driver.id}/')
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Driver.objects.filter(id=driver.id).exists())
+
+    def test_deleting_a_vehicle_with_bookings_is_blocked(self):
+        customer = User.objects.create_user(username='vehicle-client@example.com', password='pass12345!')
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        make_booking(customer, vehicle, status=BookingStatus.PENDING)
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/fleet/{vehicle.id}/')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('bookings on file', response.json()['detail'])

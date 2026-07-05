@@ -43,7 +43,9 @@ class Booking(models.Model):
     # Self-drive bookings have no driver payout, so the platform keeps the full amount either way.
     PLATFORM_FEE_PERCENT = Decimal('15')
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='bookings')
+    # PROTECT, not CASCADE - deleting a user shouldn't silently take their payment/payout/
+    # refund history with them. An account with bookings on file has to be suspended, not deleted.
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='bookings')
     vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name='bookings')
     driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings')
     service_type = models.CharField(max_length=20, choices=ServiceType.choices)
