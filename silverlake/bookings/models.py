@@ -172,15 +172,21 @@ class Booking(models.Model):
         return self.total_amount - self.platform_fee_amount
 
     def confirm_if_deposit_met(self):
+        """Confirms the booking once the deposit lands (pending -> confirmed, one-time). The
+        driver's payout is handled separately in _ensure_driver_payout, which only queues once
+        the booking is fully paid - not just deposited - so call this again on every later
+        payment too (e.g. the customer clearing the remaining balance afterwards): the
+        confirmation part is a no-op the second time, but the payout check isn't."""
         if self.status == BookingStatus.PENDING and self.is_deposit_paid:
             self.status = BookingStatus.CONFIRMED
             self.save(update_fields=['status'])
-            self._ensure_driver_payout()
             self._send_confirmation_email()
             if self.driver_id:
                 from .emails import send_driver_booking_notification
 
                 send_driver_booking_notification(self)
+
+        self._ensure_driver_payout()
 
     def _send_confirmation_email(self):
         """Sends a booking confirmed email to the customer. Swallowed silently on failure
@@ -213,12 +219,14 @@ class Booking(models.Model):
             pass  # Never crash a booking over email
 
     def _ensure_driver_payout(self):
-        """Records what's owed to the driver once their booking is confirmed. Doesn't pay them -
-        staff mark DriverPayout.is_paid once the money has actually been disbursed. If any of the
-        payments behind this confirmation were self-reported cash (no independent gateway
-        confirming it, unlike M-Pesa), the payout is flagged for admin to verify before it can
-        be paid out."""
-        if self.driver_payout_amount <= 0:
+        """Records what's owed to the driver once the booking is fully paid - not merely
+        deposited, since the driver's cut is calculated on the whole trip value and shouldn't
+        be queued for payout while the business has only actually collected a fraction of that
+        (e.g. just the 30% deposit). Doesn't pay them - staff mark DriverPayout.is_paid once the
+        money has actually been disbursed. If any of the payments behind this were self-reported
+        cash (no independent gateway confirming it, unlike M-Pesa), the payout is flagged for
+        admin to verify before it can be paid out."""
+        if self.driver_payout_amount <= 0 or self.balance_due > 0:
             return
         from payments.models import DriverPayout, PaymentMethod, PaymentStatus
 

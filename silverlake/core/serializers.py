@@ -106,11 +106,18 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
     driver_name = serializers.CharField(source='driver.full_name', read_only=True)
     booking_id = serializers.IntegerField(source='booking.id', read_only=True)
     customer_name = serializers.CharField(source='booking.customer_name', read_only=True)
+    # Payouts are only ever created once a booking is fully paid (see Booking._ensure_driver_payout),
+    # but surfacing these anyway gives admin a direct way to double-check that before disbursing -
+    # e.g. if a booking's payment status were ever adjusted after the payout was already queued.
+    booking_total_amount = serializers.DecimalField(source='booking.total_amount', max_digits=10, decimal_places=2, read_only=True)
+    booking_amount_paid = serializers.DecimalField(source='booking.amount_paid', max_digits=10, decimal_places=2, read_only=True)
+    booking_balance_due = serializers.DecimalField(source='booking.balance_due', max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = DriverPayout
         fields = [
             'id', 'driver', 'driver_name', 'booking_id', 'customer_name',
+            'booking_total_amount', 'booking_amount_paid', 'booking_balance_due',
             'amount', 'is_paid', 'paid_at', 'payout_reference', 'notes',
             'needs_verification', 'is_verified', 'verified_at', 'created_at',
         ]

@@ -62,6 +62,25 @@ refuse to accept a payment against a booking that's already cancelled or complet
 *Code:* `silverlake/payments/services.py` (`initiate_stk_push_payment`, `record_cash_payment`),
 `silverlake/payments/serializers.py` (`min_value` on the amount fields).
 
+### 4. A driver's payout was queued for the full trip value on a 30% deposit
+
+**The gap:** A driver's payout is calculated on the *whole* trip value, but it was queued the
+moment just the deposit (30%) landed and the booking confirmed — not once the trip was actually
+paid in full. A customer who paid the deposit and then never paid the remaining balance would
+still leave the business owing the driver their full cut, for money the business never actually
+collected. On top of that, the admin Payouts page didn't show how much of the booking had
+actually been paid, so there was no way to catch this by eye either.
+
+**The fix:** Payout creation is now decoupled from booking confirmation. Confirming the booking
+(pending → confirmed) still only needs the deposit, same as before - but the `DriverPayout` row
+itself isn't created until the booking's `balance_due` reaches zero. Paying off the remaining
+balance later (after the booking is already confirmed) now re-checks and creates the payout at
+that point. The admin Payouts page also now shows each payout's booking total, amount paid, and
+any balance still owed, as a second line of visibility regardless.
+
+*Code:* `silverlake/bookings/models.py` (`confirm_if_deposit_met`, `_ensure_driver_payout`),
+`silverlake/core/serializers.py` (`AdminDriverPayoutSerializer`), `AdminPayoutsView.vue`.
+
 ## What's still open (not fixed, flagging for a decision)
 
 - **Payment/booking links never expire.** `customer_token` and `driver_token` (used for the
@@ -77,10 +96,11 @@ refuse to accept a payment against a booking that's already cancelled or complet
 
 ## How this is tested
 
-66 automated backend tests cover the booking/payment/payout logic (`silverlake/bookings/tests.py`,
+67 automated backend tests cover the booking/payment/payout logic (`silverlake/bookings/tests.py`,
 `silverlake/payments/tests.py`, `silverlake/core/tests.py`), including every scenario described
-above — wrong/missing callback secret, zero/negative amounts, and payments against closed
-bookings are all explicitly tested to fail the way this document says they should.
+above — wrong/missing callback secret, zero/negative amounts, payments against closed bookings,
+and a payout not appearing until the booking is fully paid are all explicitly tested to behave
+the way this document says they should.
 
 Run them with:
 ```

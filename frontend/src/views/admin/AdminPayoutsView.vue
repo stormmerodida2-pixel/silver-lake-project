@@ -81,7 +81,8 @@ onMounted(load)
             <tr>
               <th class="px-4 py-3">Driver</th>
               <th class="px-4 py-3">Booking</th>
-              <th class="px-4 py-3">Amount</th>
+              <th class="px-4 py-3">Payout Amount</th>
+              <th class="px-4 py-3">Booking Paid</th>
               <th class="px-4 py-3">Status</th>
               <th class="px-4 py-3">Reference</th>
               <th class="px-4 py-3"></th>
@@ -95,6 +96,14 @@ onMounted(load)
                 <div class="text-xs text-slate-500">{{ payout.customer_name }}</div>
               </td>
               <td class="px-4 py-3 text-slate-300">KES {{ Number(payout.amount).toLocaleString() }}</td>
+              <td class="px-4 py-3">
+                <span class="text-slate-300">
+                  KES {{ Number(payout.booking_amount_paid).toLocaleString() }} / {{ Number(payout.booking_total_amount).toLocaleString() }}
+                </span>
+                <div v-if="Number(payout.booking_balance_due) > 0" class="text-xs font-semibold text-red-400">
+                  KES {{ Number(payout.booking_balance_due).toLocaleString() }} still owed
+                </div>
+              </td>
               <td class="px-4 py-3">
                 <div class="flex flex-col gap-1">
                   <span :class="payout.is_paid ? 'text-gold-400' : 'text-red-400'">

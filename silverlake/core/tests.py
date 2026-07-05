@@ -26,7 +26,7 @@ class AdminPayoutVerificationTests(APITestCase):
         self.booking = make_booking(customer, vehicle, driver=self.driver, status=BookingStatus.PENDING)
 
         Payment.objects.create(
-            booking=self.booking, method=PaymentMethod.CASH, amount=self.booking.deposit_amount,
+            booking=self.booking, method=PaymentMethod.CASH, amount=self.booking.total_amount,
             status=PaymentStatus.SUCCESSFUL, recorded_by_driver=self.driver,
         )
         self.booking.confirm_if_deposit_met()
@@ -67,7 +67,7 @@ class AdminPayoutVerificationTests(APITestCase):
         other_booking = make_booking(other_customer, other_vehicle, driver=self.driver, status=BookingStatus.PENDING)
         Payment.objects.create(
             booking=other_booking, method=PaymentMethod.MPESA,
-            amount=other_booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+            amount=other_booking.total_amount, status=PaymentStatus.SUCCESSFUL,
         )
         other_booking.confirm_if_deposit_met()
         other_payout = DriverPayout.objects.get(booking=other_booking)

@@ -128,17 +128,35 @@ class BookingMoneyMathTests(TestCase):
         self.assertTrue(booking.is_deposit_paid)
         self.assertEqual(booking.balance_due, booking.total_amount - booking.deposit_amount)
 
-    def test_confirm_if_deposit_met_only_confirms_once_and_creates_payout(self):
+    def test_confirm_if_deposit_met_only_confirms_once(self):
         booking = make_booking(self.user, self.vehicle, driver=self.driver)
         Payment.objects.create(booking=booking, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
 
         booking.confirm_if_deposit_met()
         booking.refresh_from_db()
         self.assertEqual(booking.status, BookingStatus.CONFIRMED)
+
+        # Calling again should be a no-op, not raise or re-send the confirmation email.
+        booking.confirm_if_deposit_met()
+        self.assertEqual(booking.status, BookingStatus.CONFIRMED)
+
+    def test_payout_is_not_created_until_the_booking_is_fully_paid(self):
+        """The driver's payout is calculated on the whole trip value, so it shouldn't be queued
+        while the business has only collected a fraction of that (e.g. just the deposit)."""
+        booking = make_booking(self.user, self.vehicle, driver=self.driver)
+        Payment.objects.create(booking=booking, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+
+        booking.confirm_if_deposit_met()
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, BookingStatus.CONFIRMED)  # deposit is enough to confirm...
+        self.assertFalse(DriverPayout.objects.filter(booking=booking).exists())  # ...but not to pay out
+
+        # Paying off the remaining balance later should create the payout, exactly once.
+        Payment.objects.create(booking=booking, amount=booking.balance_due, status=PaymentStatus.SUCCESSFUL)
+        booking.confirm_if_deposit_met()
         self.assertEqual(booking.driver_payout.amount, booking.driver_payout_amount)
 
-        # Calling again should be a no-op, not raise or duplicate the payout.
-        booking.confirm_if_deposit_met()
+        booking.confirm_if_deposit_met()  # calling again shouldn't duplicate it
         self.assertEqual(booking.driver.payouts.filter(booking=booking).count(), 1)
 
 
@@ -348,19 +366,22 @@ class DriverCashPaymentTests(APITestCase):
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
 
     def test_cash_payment_flags_its_payout_as_needing_verification(self):
+        # Pays the full amount in one go via cash, so the payout is created (deferred until
+        # fully paid) and its needs_verification flag can be checked.
         self.client.post(
             f'/api/driver/bookings/{self.booking.id}/record-cash/',
-            {'amount': str(self.booking.deposit_amount)}, format='json',
+            {'amount': str(self.booking.total_amount)}, format='json',
         )
         payout = DriverPayout.objects.get(booking=self.booking)
         self.assertTrue(payout.needs_verification)
         self.assertFalse(payout.is_verified)
 
     def test_mpesa_confirmed_payout_does_not_need_verification(self):
-        # Simulate a successful M-Pesa payment (as the callback would record it) instead of cash.
+        # Simulate a successful M-Pesa payment (as the callback would record it) instead of cash,
+        # for the full amount so the payout actually gets created.
         Payment.objects.create(
             booking=self.booking, method=PaymentMethod.MPESA,
-            amount=self.booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
         )
         self.booking.confirm_if_deposit_met()
         payout = DriverPayout.objects.get(booking=self.booking)
