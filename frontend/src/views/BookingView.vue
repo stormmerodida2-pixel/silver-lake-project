@@ -406,7 +406,13 @@ async function payWithMpesa() {
         <!-- Sidebar: live vehicle/cost summary -->
         <aside v-if="showTwoColumn" class="lg:col-span-1">
           <div
-            v-if="showSidebarContent"
+            v-if="!showSidebarContent"
+            class="flex h-full min-h-[16rem] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-400 lg:sticky lg:top-24"
+          >
+            Select a vehicle to see your trip summary here.
+          </div>
+          <div
+            v-else
             class="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 lg:sticky lg:top-24"
           >
               <div class="group relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl bg-slate-100">
