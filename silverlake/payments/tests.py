@@ -1,7 +1,9 @@
 from decimal import Decimal
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from bookings.models import BookingStatus
@@ -9,6 +11,7 @@ from bookings.tests import make_booking, make_vehicle
 from drivers.models import Driver
 
 from .models import Payment, PaymentMethod, PaymentStatus
+from .services import PaymentValidationError, initiate_stk_push_payment
 
 User = get_user_model()
 
@@ -149,6 +152,46 @@ class PaymentStatusPollingTests(APITestCase):
         other_booking = make_booking(other_customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)
         response = self.client.get(f'/api/pay/{other_booking.customer_token}/payments/{self.payment.id}/')
         self.assertEqual(response.status_code, 404)
+
+
+class StkPushCooldownTests(APITestCase):
+    """A retry (e.g. after the frontend gives up polling) shouldn't be able to fire a second
+    concurrent STK push while the first one might still complete - that's how a customer ends
+    up paying twice with nothing catching it."""
+
+    def setUp(self):
+        driver = Driver.objects.create(full_name='Cooldown Driver', is_active=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='cooldown-client@example.com', password='pass12345!')
+        self.booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
+
+    @patch('payments.services.mpesa.initiate_stk_push')
+    def test_a_second_push_within_the_cooldown_is_rejected(self, mock_stk):
+        mock_stk.return_value = {'CheckoutRequestID': 'ws_CO_1'}
+        initiate_stk_push_payment(self.booking, '254700000000', self.booking.deposit_amount)
+
+        with self.assertRaises(PaymentValidationError):
+            initiate_stk_push_payment(self.booking, '254700000000', self.booking.deposit_amount)
+        self.assertEqual(mock_stk.call_count, 1)
+
+    @patch('payments.services.mpesa.initiate_stk_push')
+    def test_a_push_is_allowed_again_once_the_pending_one_is_marked_failed(self, mock_stk):
+        mock_stk.return_value = {'CheckoutRequestID': 'ws_CO_1'}
+        payment, _ = initiate_stk_push_payment(self.booking, '254700000000', self.booking.deposit_amount)
+        payment.status = PaymentStatus.FAILED
+        payment.save(update_fields=['status'])
+
+        initiate_stk_push_payment(self.booking, '254700000000', self.booking.deposit_amount)
+        self.assertEqual(mock_stk.call_count, 2)
+
+    @patch('payments.services.mpesa.initiate_stk_push')
+    def test_a_push_is_allowed_again_after_the_cooldown_window_passes(self, mock_stk):
+        mock_stk.return_value = {'CheckoutRequestID': 'ws_CO_1'}
+        payment, _ = initiate_stk_push_payment(self.booking, '254700000000', self.booking.deposit_amount)
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(minutes=5))
+
+        initiate_stk_push_payment(self.booking, '254700000000', self.booking.deposit_amount)
+        self.assertEqual(mock_stk.call_count, 2)
 
         self.booking.refresh_from_db()
         self.assertEqual(self.booking.status, BookingStatus.PENDING)

@@ -1,4 +1,7 @@
 import logging
+from datetime import timedelta
+
+from django.utils import timezone
 
 from bookings.models import BookingStatus
 
@@ -17,6 +20,12 @@ class PaymentValidationError(Exception):
 # already be settled - so no new payment should ever be recorded against either.
 _CLOSED_BOOKING_STATUSES = {BookingStatus.CANCELLED, BookingStatus.COMPLETED}
 
+# How long a just-sent STK push is considered "still might complete" before we'll let the same
+# booking try again - short enough that a genuinely abandoned prompt isn't stuck forever, long
+# enough to stop a customer firing a second concurrent prompt (and risking paying twice) just
+# because our own poll gave up waiting before Safaricom's callback arrived.
+STK_PUSH_RETRY_COOLDOWN = timedelta(seconds=60)
+
 
 def initiate_stk_push_payment(booking, phone_number, amount):
     """Shared by both the logged-in customer payment flow and the no-login token payment page -
@@ -31,6 +40,16 @@ def initiate_stk_push_payment(booking, phone_number, amount):
         raise PaymentValidationError(f'Amount exceeds the outstanding balance of {booking.balance_due}.')
     if not booking.is_deposit_paid and amount < booking.deposit_amount:
         raise PaymentValidationError(f'First payment must be at least the deposit of {booking.deposit_amount}.')
+
+    recent_pending = booking.payments.filter(
+        method=PaymentMethod.MPESA, status=PaymentStatus.PENDING,
+        created_at__gte=timezone.now() - STK_PUSH_RETRY_COOLDOWN,
+    ).exists()
+    if recent_pending:
+        raise PaymentValidationError(
+            'A payment request was already sent to your phone in the last minute. Please '
+            'complete it, or wait a moment before trying again.'
+        )
 
     payment = Payment.objects.create(
         booking=booking, method=PaymentMethod.MPESA, amount=amount, phone_number=phone_number,

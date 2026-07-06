@@ -115,11 +115,7 @@ business-model pitch for the economics).
 - The M-Pesa callback (Safaricom telling us a payment succeeded) is protected by a private secret
   baked into the callback URL — without it, the request is rejected outright. This closes off a
   theoretical way someone could have faked a "payment successful" notification.
-- There's a **no-login payment page**: a driver can share a private link with a walk-up customer
-  who has no account, letting them pay their own balance without registering.
-- After an M-Pesa prompt is sent, the page **polls until it actually knows the outcome** —
-  success, failure, or a timeout after ~90 seconds — instead of just saying "check your phone"
-  and leaving the customer with no way to tell a failed payment from one still processing.
+mnm 
 - **Rate limiting** caps how many times the sensitive public endpoints can be hit in a given
   window: login (10/min), registration (5/hour), password reset requests (5/hour), and both
   M-Pesa STK push triggers (5/min) — the last one specifically because each request can fire a
@@ -145,7 +141,13 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
   "Issued" (with a reference number).
 - **Cancelling voids any unpaid payout.** If a booking's driver payout hadn't been disbursed yet
   when the booking got cancelled, that payout is automatically voided — a cancelled trip can't
-  still owe a driver their cut.
+  still owe a driver their cut. This also covers a payment that was already in flight before the
+  cancellation and only confirms afterward (e.g. an M-Pesa prompt sent moments before the
+  customer cancelled) — it can never queue a new payout, and instead tops up the refund to match
+  what's actually been paid.
+- **A payment retry can't quietly become a double payment.** If an M-Pesa prompt is still
+  possibly active (sent in the last minute), trying again on the same booking is blocked with a
+  clear message instead of firing a second concurrent prompt.
 - **Every sensitive admin action is recorded in the Activity Log** — who did it and when. This
   covers payout verify/mark-paid, refund mark-issued, suspend/activate, role changes, editing or
   deleting a booking/vehicle/review, managing a vehicle's gallery, and approving/rejecting a
@@ -216,9 +218,10 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-135 automated backend tests currently cover booking validation, payment guards, payout timing and
-verification, refund creation/voiding, the audit log (now covering every sensitive admin action,
-not just the earliest ones), the delete-protection rules, rate limiting, driver booking
+141 automated backend tests currently cover booking validation, payment guards, payout timing and
+verification, refund creation/voiding (including late payments arriving after cancellation), the
+audit log (now covering every sensitive admin action, not just the earliest ones), the
+delete-protection rules, rate limiting, the STK-push retry cooldown, driver booking
 notifications/acknowledgment, driver-defaulting, driver-side trip completion, admin driver
 assignment, driver rating recalculation, admin booking edits, vehicle gallery management, and
 payment status polling — run with:

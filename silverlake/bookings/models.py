@@ -215,12 +215,33 @@ class Booking(models.Model):
         The assigned driver is notified separately, at booking creation rather than here - see
         BookingViewSet.perform_create - so they find out as soon as a customer books them, not
         only once a deposit happens to land."""
+        if self.status == BookingStatus.CANCELLED:
+            # An M-Pesa payment that was already in flight before the booking got cancelled can
+            # still land here via the callback - never queue a payout for a trip that isn't
+            # happening, and make sure the refund actually covers what's arrived since.
+            self._reconcile_refund_after_late_payment()
+            return
+
         if self.status == BookingStatus.PENDING and self.is_deposit_paid:
             self.status = BookingStatus.CONFIRMED
             self.save(update_fields=['status'])
             self._send_confirmation_email()
 
         self._ensure_driver_payout()
+
+    def _reconcile_refund_after_late_payment(self):
+        """A payment landing on an already-cancelled booking still needs to be accounted for -
+        either bumps an existing pending Refund up to the real amount owed, or creates one if
+        this is the first money that's shown up since cancellation. Never touches a refund
+        that's already been issued - that's a manual reconciliation for admin at that point."""
+        if self.amount_paid <= 0:
+            return
+        from payments.models import Refund, RefundStatus
+
+        refund, created = Refund.objects.get_or_create(booking=self, defaults={'amount': self.amount_paid})
+        if not created and refund.status == RefundStatus.PENDING and refund.amount != self.amount_paid:
+            refund.amount = self.amount_paid
+            refund.save(update_fields=['amount'])
 
     def mark_cancelled(self):
         """Cancels the booking. If money had already been collected against it, this is the

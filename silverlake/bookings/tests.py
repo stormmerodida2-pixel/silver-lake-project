@@ -247,6 +247,61 @@ class BookingCancelActionTests(APITestCase):
         payout.refresh_from_db()
         self.assertTrue(payout.is_voided)
 
+    def test_a_payment_confirmed_after_cancellation_does_not_queue_a_payout(self):
+        # Simulates an STK push that was already in flight before the customer cancelled -
+        # Safaricom's callback can still confirm it successful after the fact.
+        driver = Driver.objects.create(full_name='Late Payment Driver', is_active=True)
+        booking = make_booking(self.user, self.vehicle, driver=driver, status=BookingStatus.PENDING)
+        booking.mark_cancelled()
+
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA,
+            amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.confirm_if_deposit_met()
+
+        self.assertFalse(DriverPayout.objects.filter(booking=booking).exists())
+
+    def test_a_payment_confirmed_after_cancellation_updates_the_pending_refund(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA,
+            amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.mark_cancelled()
+        refund = Refund.objects.get(booking=booking)
+        self.assertEqual(refund.amount, booking.deposit_amount)
+
+        # More money lands after cancellation (e.g. a second STK push that was already sent).
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA,
+            amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.confirm_if_deposit_met()
+
+        refund.refresh_from_db()
+        self.assertEqual(refund.amount, booking.amount_paid)
+
+    def test_an_already_issued_refund_is_not_changed_by_a_late_payment(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA,
+            amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.mark_cancelled()
+        refund = Refund.objects.get(booking=booking)
+        refund.mark_issued(reference='REFUND123')
+        original_amount = refund.amount
+
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA,
+            amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.confirm_if_deposit_met()
+
+        refund.refresh_from_db()
+        self.assertEqual(refund.amount, original_amount)
+
 
 class BookingReviewActionTests(APITestCase):
     """Covers /api/bookings/<id>/review/ - a customer reviewing their own completed trip."""
