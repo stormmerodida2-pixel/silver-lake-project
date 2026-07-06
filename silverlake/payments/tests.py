@@ -99,3 +99,56 @@ class MpesaCallbackSecurityTests(APITestCase):
 
         self.booking.refresh_from_db()
         self.assertEqual(self.booking.status, BookingStatus.PENDING)
+
+
+class PaymentStatusPollingTests(APITestCase):
+    """Lets the frontend poll whether an STK push actually went through, instead of leaving the
+    customer staring at "check your phone" forever with no way to know if it failed."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(full_name='Polling Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='polling-client@example.com', password='pass12345!')
+        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        self.payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA,
+            amount=self.booking.deposit_amount, status=PaymentStatus.PENDING,
+        )
+
+    def test_owner_can_poll_their_own_payment_status(self):
+        self.client.force_authenticate(user=self.customer)
+        response = self.client.get(f'/api/payments/{self.payment.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'pending')
+
+    def test_another_customer_cannot_poll_someone_elses_payment(self):
+        other_customer = User.objects.create_user(username='other-polling@example.com', password='pass12345!')
+        self.client.force_authenticate(user=other_customer)
+        response = self.client.get(f'/api/payments/{self.payment.id}/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_unauthenticated_user_cannot_poll_a_payment(self):
+        response = self.client.get(f'/api/payments/{self.payment.id}/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_staff_can_poll_any_payment(self):
+        staff = User.objects.create_user(username='polling-staff@example.com', password='pass12345!', is_staff=True)
+        self.client.force_authenticate(user=staff)
+        response = self.client.get(f'/api/payments/{self.payment.id}/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_token_payment_status_reflects_the_real_payment(self):
+        self.payment.status = PaymentStatus.SUCCESSFUL
+        self.payment.save(update_fields=['status'])
+        response = self.client.get(f'/api/pay/{self.booking.customer_token}/payments/{self.payment.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'successful')
+
+    def test_token_payment_status_rejects_a_payment_from_a_different_booking(self):
+        other_customer = User.objects.create_user(username='other-token-client@example.com', password='pass12345!')
+        other_booking = make_booking(other_customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        response = self.client.get(f'/api/pay/{other_booking.customer_token}/payments/{self.payment.id}/')
+        self.assertEqual(response.status_code, 404)
+
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.PENDING)

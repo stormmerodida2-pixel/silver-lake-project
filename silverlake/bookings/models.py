@@ -119,7 +119,7 @@ class Booking(models.Model):
         # Only enforced on brand-new bookings (no pk yet) - once a booking exists, its start
         # date shouldn't become invalid retroactively just because time passed while it sat
         # pending, or block an unrelated field update (e.g. a note) on an older booking.
-        if self.pk is None and self.start_date and self.start_date < timezone.now().date():
+        if self.pk is None and self.start_date and self.start_date < timezone.localdate():
             raise ValidationError('Start date cannot be in the past.')
 
         if self.start_date and self.end_date and self.end_date < self.start_date:

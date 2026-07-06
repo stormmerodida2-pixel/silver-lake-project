@@ -117,6 +117,9 @@ business-model pitch for the economics).
   theoretical way someone could have faked a "payment successful" notification.
 - There's a **no-login payment page**: a driver can share a private link with a walk-up customer
   who has no account, letting them pay their own balance without registering.
+- After an M-Pesa prompt is sent, the page **polls until it actually knows the outcome** —
+  success, failure, or a timeout after ~90 seconds — instead of just saying "check your phone"
+  and leaving the customer with no way to tell a failed payment from one still processing.
 - **Rate limiting** caps how many times the sensitive public endpoints can be hit in a given
   window: login (10/min), registration (5/hour), password reset requests (5/hour), and both
   M-Pesa STK push triggers (5/min) — the last one specifically because each request can fire a
@@ -213,12 +216,12 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-129 automated backend tests currently cover booking validation, payment guards, payout timing and
+135 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding, the audit log (now covering every sensitive admin action,
 not just the earliest ones), the delete-protection rules, rate limiting, driver booking
 notifications/acknowledgment, driver-defaulting, driver-side trip completion, admin driver
-assignment, driver rating recalculation, admin booking edits, and vehicle gallery management —
-run with:
+assignment, driver rating recalculation, admin booking edits, vehicle gallery management, and
+payment status polling — run with:
 ```
 cd silverlake
 python manage.py test

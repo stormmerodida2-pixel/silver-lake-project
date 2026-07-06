@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import apiClient from '../api/client'
@@ -81,16 +81,44 @@ const vehiclePhotos = computed(() => {
 })
 
 const photoIndex = ref(0)
+let photoTimer = null
+
+function stopPhotoTimer() {
+  clearInterval(photoTimer)
+  photoTimer = null
+}
+
+// Auto-advances through the gallery when there's more than one photo - restarted after any
+// manual interaction so a click doesn't get immediately undone by the next auto-tick.
+function startPhotoTimer() {
+  stopPhotoTimer()
+  if (vehiclePhotos.value.length > 1) {
+    photoTimer = setInterval(() => {
+      photoIndex.value = (photoIndex.value + 1) % vehiclePhotos.value.length
+    }, 4000)
+  }
+}
+
 watch(selectedVehicle, () => {
   photoIndex.value = 0
+  startPhotoTimer()
 })
+
+onUnmounted(stopPhotoTimer)
 
 function prevPhoto() {
   photoIndex.value = (photoIndex.value - 1 + vehiclePhotos.value.length) % vehiclePhotos.value.length
+  startPhotoTimer()
 }
 
 function nextPhoto() {
   photoIndex.value = (photoIndex.value + 1) % vehiclePhotos.value.length
+  startPhotoTimer()
+}
+
+function goToPhoto(index) {
+  photoIndex.value = index
+  startPhotoTimer()
 }
 
 const totalDays = computed(() => {
@@ -141,21 +169,68 @@ async function submitBooking() {
   }
 }
 
+// ── Payment status polling ──────────────────────────────────────────────────
+const paymentOutcome = ref(null) // null (waiting) | 'successful' | 'failed' | 'timeout'
+let pollTimer = null
+let pollAttempts = 0
+const MAX_POLL_ATTEMPTS = 30 // ~90s at 3s intervals
+
+function stopPolling() {
+  clearInterval(pollTimer)
+  pollTimer = null
+}
+
+function startPolling(paymentId) {
+  pollAttempts = 0
+  stopPolling()
+  pollTimer = setInterval(async () => {
+    pollAttempts += 1
+    try {
+      const { data } = await apiClient.get(`/payments/${paymentId}/`)
+      if (data.status === 'successful') {
+        stopPolling()
+        paymentOutcome.value = 'successful'
+      } else if (data.status === 'failed') {
+        stopPolling()
+        paymentOutcome.value = 'failed'
+      } else if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+        stopPolling()
+        paymentOutcome.value = 'timeout'
+      }
+    } catch (err) {
+      // A transient network hiccup shouldn't end the poll - just try again next tick.
+      if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+        stopPolling()
+        paymentOutcome.value = 'timeout'
+      }
+    }
+  }, 3000)
+}
+
+onUnmounted(stopPolling)
+
 async function payWithMpesa() {
   submitting.value = true
   error.value = ''
   try {
-    await apiClient.post('/payments/mpesa/stk-push/', {
+    const { data } = await apiClient.post('/payments/mpesa/stk-push/', {
       booking: booking.value.id,
       phone_number: form.customer_phone,
       amount: amountToPay.value,
     })
+    paymentOutcome.value = null
     step.value = 'paying'
+    startPolling(data.payment_id)
   } catch (err) {
     error.value = err.response?.data?.detail || 'Could not start M-Pesa payment. You can also pay via Paybill 400400 (Acc: SILVERLAKE).'
   } finally {
     submitting.value = false
   }
+}
+
+function retryPayment() {
+  paymentOutcome.value = null
+  step.value = 'confirmed'
 }
 </script>
 
@@ -329,77 +404,191 @@ async function payWithMpesa() {
             </button>
           </form>
 
-          <div v-else-if="step === 'confirmed'" class="rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:p-8">
-            <h2 class="font-[Georgia] text-xl font-bold text-brand-blue-600">Booking received!</h2>
-            <p class="mt-2 text-sm text-slate-600">
-              We've logged your booking for {{ selectedVehicle?.name }} - total KES
-              {{ Number(booking.total_amount).toLocaleString() }}.
-            </p>
-
-            <div class="mt-4">
-              <label class="mb-1 block text-sm text-slate-600">How much would you like to pay now?</label>
-              <div class="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  class="rounded-md border px-3 py-2 text-sm font-semibold"
-                  :class="payOption === 'deposit' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
-                  @click="payOption = 'deposit'"
-                >
-                  Deposit (30%)<br />
-                  <span class="text-xs font-normal">KES {{ Number(booking.deposit_amount).toLocaleString() }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="rounded-md border px-3 py-2 text-sm font-semibold"
-                  :class="payOption === 'full' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
-                  @click="payOption = 'full'"
-                >
-                  Pay in Full<br />
-                  <span class="text-xs font-normal">KES {{ Number(booking.balance_due).toLocaleString() }}</span>
-                </button>
+          <div v-else-if="step === 'confirmed'" class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <!-- Success header -->
+            <div class="flex items-start gap-4 border-b border-slate-100 p-6 sm:p-8">
+              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <h2 class="font-[Georgia] text-xl font-bold text-navy-900">Booking Received</h2>
+                <p class="mt-1 text-sm text-slate-500">
+                  Reference <span class="font-mono text-slate-700">#{{ booking?.id }}</span>
+                </p>
               </div>
             </div>
 
-            <div class="mt-4 flex gap-3">
-              <button
-                class="rounded-md border px-3 py-2 text-sm font-semibold"
-                :class="paymentMethod === 'mpesa' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
-                @click="paymentMethod = 'mpesa'"
-              >
-                M-Pesa
-              </button>
-              <button
-                class="rounded-md border px-3 py-2 text-sm font-semibold"
-                :class="paymentMethod === 'card' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
-                @click="paymentMethod = 'card'"
-              >
-                Card
-              </button>
+            <!-- Receipt summary -->
+            <div class="border-b border-slate-100 px-6 py-4 text-sm sm:px-8">
+              <div class="flex items-center justify-between py-1.5">
+                <span class="text-slate-500">Vehicle</span>
+                <span class="font-medium text-navy-900">{{ selectedVehicle?.name }}</span>
+              </div>
+              <div class="flex items-center justify-between border-t border-dashed border-slate-200 py-1.5 pt-2.5">
+                <span class="font-semibold text-navy-900">Trip Total</span>
+                <span class="font-[Georgia] text-lg font-bold text-navy-900">
+                  KES {{ Number(booking.total_amount).toLocaleString() }}
+                </span>
+              </div>
             </div>
 
-            <div v-if="paymentMethod === 'mpesa'" class="mt-4">
-              <p v-if="error" class="mb-2 text-sm text-red-600">{{ error }}</p>
-              <button
-                :disabled="submitting"
-                class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
-                @click="payWithMpesa"
-              >
-                {{ submitting ? 'Sending prompt...' : `Pay KES ${amountToPay.toLocaleString()} via M-Pesa` }}
-              </button>
-            </div>
+            <div class="p-6 sm:p-8">
+              <label class="mb-2 block text-sm font-semibold text-navy-900">How much would you like to pay now?</label>
+              <div class="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  class="rounded-xl border-2 p-3 text-left transition"
+                  :class="payOption === 'deposit' ? 'border-brand-blue-600 bg-brand-blue-50' : 'border-slate-200 hover:border-slate-300'"
+                  @click="payOption = 'deposit'"
+                >
+                  <span class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <span
+                      class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border-2"
+                      :class="payOption === 'deposit' ? 'border-brand-blue-600' : 'border-slate-300'"
+                    >
+                      <span v-if="payOption === 'deposit'" class="h-1.5 w-1.5 rounded-full bg-brand-blue-600" />
+                    </span>
+                    Deposit (30%)
+                  </span>
+                  <span class="mt-1 block font-[Georgia] text-lg font-bold text-navy-900">
+                    KES {{ Number(booking.deposit_amount).toLocaleString() }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="rounded-xl border-2 p-3 text-left transition"
+                  :class="payOption === 'full' ? 'border-brand-blue-600 bg-brand-blue-50' : 'border-slate-200 hover:border-slate-300'"
+                  @click="payOption = 'full'"
+                >
+                  <span class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <span
+                      class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border-2"
+                      :class="payOption === 'full' ? 'border-brand-blue-600' : 'border-slate-300'"
+                    >
+                      <span v-if="payOption === 'full'" class="h-1.5 w-1.5 rounded-full bg-brand-blue-600" />
+                    </span>
+                    Pay in Full
+                  </span>
+                  <span class="mt-1 block font-[Georgia] text-lg font-bold text-navy-900">
+                    KES {{ Number(booking.balance_due).toLocaleString() }}
+                  </span>
+                </button>
+              </div>
 
-            <div v-else class="mt-4 text-sm text-slate-600">
-              Card payments are being set up. In the meantime you can pay via M-Pesa Paybill 400400 (Acc: SILVERLAKE)
-              or reach us on WhatsApp to arrange payment.
+              <label class="mb-2 mt-5 block text-sm font-semibold text-navy-900">Payment method</label>
+              <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                <button
+                  class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
+                  :class="paymentMethod === 'mpesa' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-navy-900'"
+                  @click="paymentMethod = 'mpesa'"
+                >
+                  M-Pesa
+                </button>
+                <button
+                  class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
+                  :class="paymentMethod === 'card' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-navy-900'"
+                  @click="paymentMethod = 'card'"
+                >
+                  Card
+                </button>
+              </div>
+
+              <div v-if="paymentMethod === 'mpesa'" class="mt-5">
+                <p v-if="error" class="mb-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                  <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M10.29 3.86L1.82 18a1.5 1.5 0 001.29 2.25h17.78a1.5 1.5 0 001.29-2.25L13.71 3.86a1.5 1.5 0 00-2.42 0z" />
+                  </svg>
+                  <span>{{ error }}</span>
+                </p>
+                <button
+                  :disabled="submitting"
+                  class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+                  @click="payWithMpesa"
+                >
+                  {{ submitting ? 'Sending prompt...' : `Pay KES ${amountToPay.toLocaleString()} via M-Pesa` }}
+                </button>
+              </div>
+
+              <div v-else class="mt-5 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                Card payments are being set up. In the meantime you can pay via M-Pesa Paybill 400400
+                (Acc: SILVERLAKE) or reach us on WhatsApp to arrange payment.
+              </div>
             </div>
           </div>
 
-          <div v-else-if="step === 'paying'" class="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center sm:p-8">
-            <h2 class="font-[Georgia] text-xl font-bold text-brand-blue-600">Check your phone</h2>
-            <p class="mt-2 text-sm text-slate-600">
-              We've sent an M-Pesa prompt to {{ form.customer_phone }}. Enter your PIN to complete payment for booking
-              #{{ booking?.id }}.
-            </p>
+          <div v-else-if="step === 'paying'" class="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
+            <template v-if="paymentOutcome === 'successful'">
+              <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 class="mt-4 font-[Georgia] text-xl font-bold text-navy-900">Payment Received</h2>
+              <p class="mt-2 text-sm text-slate-600">
+                Booking #{{ booking?.id }} is confirmed. We've sent a confirmation to your email if you gave us one.
+              </p>
+              <RouterLink
+                to="/account/bookings"
+                class="mt-5 inline-block rounded-md bg-gold-500 px-5 py-2.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+              >
+                View My Bookings
+              </RouterLink>
+            </template>
+
+            <template v-else-if="paymentOutcome === 'failed'">
+              <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+                <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <h2 class="mt-4 font-[Georgia] text-xl font-bold text-navy-900">Payment Didn't Go Through</h2>
+              <p class="mt-2 text-sm text-slate-600">
+                The M-Pesa prompt was cancelled, timed out, or declined. No money has left your account - you can try
+                again whenever you're ready.
+              </p>
+              <button
+                class="mt-5 rounded-md bg-gold-500 px-5 py-2.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+                @click="retryPayment"
+              >
+                Try Again
+              </button>
+            </template>
+
+            <template v-else-if="paymentOutcome === 'timeout'">
+              <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold-500/10 text-gold-500">
+                <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+              </div>
+              <h2 class="mt-4 font-[Georgia] text-xl font-bold text-navy-900">Still Waiting on M-Pesa</h2>
+              <p class="mt-2 text-sm text-slate-600">
+                This is taking longer than usual. If you already entered your PIN, check
+                <RouterLink to="/account/bookings" class="font-semibold text-brand-blue-600 hover:underline">My Bookings</RouterLink>
+                in a moment - it'll update once M-Pesa confirms. Otherwise, you can try again.
+              </p>
+              <button
+                class="mt-5 rounded-md bg-gold-500 px-5 py-2.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+                @click="retryPayment"
+              >
+                Try Again
+              </button>
+            </template>
+
+            <template v-else>
+              <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-blue-50 text-brand-blue-600">
+                <svg class="h-7 w-7 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
+                </svg>
+              </div>
+              <h2 class="mt-4 font-[Georgia] text-xl font-bold text-navy-900">Check Your Phone</h2>
+              <p class="mt-2 text-sm text-slate-600">
+                We've sent an M-Pesa prompt to {{ form.customer_phone }}. Enter your PIN to complete payment for
+                booking #{{ booking?.id }}.
+              </p>
+            </template>
           </div>
         </div>
 
@@ -415,14 +604,21 @@ async function payWithMpesa() {
             v-else
             class="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 lg:sticky lg:top-24"
           >
-              <div class="group relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl bg-slate-100">
-                <img
-                  v-if="vehiclePhotos.length"
-                  :src="vehiclePhotos[photoIndex].image"
-                  :alt="vehiclePhotos[photoIndex].caption || selectedVehicle.name"
-                  class="h-full w-full object-cover"
-                />
-                <div v-else class="flex h-full items-center justify-center text-sm text-slate-400">No photo yet</div>
+              <div
+                class="group relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl bg-slate-100"
+                @mouseenter="stopPhotoTimer"
+                @mouseleave="startPhotoTimer"
+              >
+                <Transition name="photo-fade">
+                  <img
+                    v-if="vehiclePhotos.length"
+                    :key="photoIndex"
+                    :src="vehiclePhotos[photoIndex].image"
+                    :alt="vehiclePhotos[photoIndex].caption || selectedVehicle.name"
+                    class="absolute inset-0 h-full w-full object-cover"
+                  />
+                </Transition>
+                <div v-if="!vehiclePhotos.length" class="flex h-full items-center justify-center text-sm text-slate-400">No photo yet</div>
 
                 <template v-if="vehiclePhotos.length > 1">
                   <button
@@ -453,7 +649,7 @@ async function payWithMpesa() {
                       :aria-label="`Show photo ${i + 1}`"
                       class="h-1.5 w-1.5 rounded-full transition"
                       :class="i === photoIndex ? 'bg-white' : 'bg-white/50'"
-                      @click="photoIndex = i"
+                      @click="goToPhoto(i)"
                     />
                   </div>
                 </template>
@@ -497,3 +693,14 @@ async function payWithMpesa() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.photo-fade-enter-active,
+.photo-fade-leave-active {
+  transition: opacity 0.6s ease;
+}
+.photo-fade-enter-from,
+.photo-fade-leave-to {
+  opacity: 0;
+}
+</style>

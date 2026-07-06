@@ -1,7 +1,11 @@
+import logging
+
 from bookings.models import BookingStatus
 
 from . import mpesa
 from .models import Payment, PaymentMethod, PaymentStatus
+
+logger = logging.getLogger(__name__)
 
 
 class PaymentValidationError(Exception):
@@ -42,7 +46,14 @@ def initiate_stk_push_payment(booking, phone_number, amount):
     except Exception as exc:
         payment.status = PaymentStatus.FAILED
         payment.save(update_fields=['status'])
-        raise PaymentValidationError(str(exc)) from exc
+        # Never surface the raw upstream error (e.g. a requests.HTTPError whose message
+        # includes Safaricom's own API URL) to the customer - log it for us, show them
+        # something they can actually act on.
+        logger.exception('M-Pesa STK push failed for booking %s', booking.pk)
+        raise PaymentValidationError(
+            'Could not reach M-Pesa right now. Please try again shortly, or pay directly via '
+            'Paybill 400400 (Account: SILVERLAKE).'
+        ) from exc
 
     payment.mpesa_checkout_request_id = result.get('CheckoutRequestID', '')
     payment.save(update_fields=['mpesa_checkout_request_id'])

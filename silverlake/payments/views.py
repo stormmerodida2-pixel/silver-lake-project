@@ -1,6 +1,7 @@
 import hmac
 
 from decouple import config
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -15,9 +16,23 @@ from .services import PaymentValidationError, initiate_stk_push_payment
 
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
+    """Staff can browse the full payment log; any authenticated customer can poll a single
+    payment's status by id to check whether their own STK push actually went through - list
+    stays staff-only so nobody can browse other people's payments."""
+
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
-    permission_classes = [permissions.IsAdminUser]
+
+    def get_permissions(self):
+        if self.action == 'retrieve':
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+
+    def get_object(self):
+        obj = super().get_object()
+        if not self.request.user.is_staff and obj.booking.user_id != self.request.user.id:
+            raise Http404
+        return obj
 
 
 @api_view(['POST'])
@@ -79,6 +94,21 @@ def token_stk_push(request, token):
 
 
 token_stk_push.cls.throttle_scope = 'mpesa-stk'
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([ScopedRateThrottle])
+def token_payment_status(request, token, payment_id):
+    """Lets the no-login payment page poll whether its STK push actually went through -
+    scoped to the booking's own customer_token so a payment id alone isn't enough to look up
+    someone else's payment."""
+    booking = get_object_or_404(Booking, customer_token=token)
+    payment = get_object_or_404(Payment, pk=payment_id, booking=booking)
+    return Response({'status': payment.status})
+
+
+token_payment_status.cls.throttle_scope = 'token-payment-view'
 
 
 @api_view(['POST'])

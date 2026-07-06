@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import apiClient from '../api/client'
@@ -15,6 +15,7 @@ const payOption = ref('deposit') // 'deposit' | 'full'
 const submitting = ref(false)
 const error = ref('')
 const requested = ref(false)
+const paymentOutcome = ref(null) // null (waiting) | 'successful' | 'failed' | 'timeout'
 
 async function loadBooking() {
   loading.value = true
@@ -34,20 +35,66 @@ const amountToPay = computed(() => {
   return payOption.value === 'full' ? Number(booking.value.balance_due) : Number(booking.value.deposit_amount)
 })
 
+// ── Payment status polling ──────────────────────────────────────────────────
+let pollTimer = null
+let pollAttempts = 0
+const MAX_POLL_ATTEMPTS = 30 // ~90s at 3s intervals
+
+function stopPolling() {
+  clearInterval(pollTimer)
+  pollTimer = null
+}
+
+function startPolling(paymentId) {
+  pollAttempts = 0
+  stopPolling()
+  pollTimer = setInterval(async () => {
+    pollAttempts += 1
+    try {
+      const { data } = await apiClient.get(`/pay/${route.params.token}/payments/${paymentId}/`)
+      if (data.status === 'successful') {
+        stopPolling()
+        paymentOutcome.value = 'successful'
+        loadBooking()
+      } else if (data.status === 'failed') {
+        stopPolling()
+        paymentOutcome.value = 'failed'
+      } else if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+        stopPolling()
+        paymentOutcome.value = 'timeout'
+      }
+    } catch (err) {
+      if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+        stopPolling()
+        paymentOutcome.value = 'timeout'
+      }
+    }
+  }, 3000)
+}
+
+onUnmounted(stopPolling)
+
 async function payWithMpesa() {
   submitting.value = true
   error.value = ''
   try {
-    await apiClient.post(`/pay/${route.params.token}/stk-push/`, {
+    const { data } = await apiClient.post(`/pay/${route.params.token}/stk-push/`, {
       phone_number: phoneNumber.value,
       amount: amountToPay.value,
     })
+    paymentOutcome.value = null
     requested.value = true
+    startPolling(data.payment_id)
   } catch (err) {
     error.value = err.response?.data?.detail || 'Could not start M-Pesa payment. You can also pay via Paybill 400400 (Acc: SILVERLAKE).'
   } finally {
     submitting.value = false
   }
+}
+
+function retryPayment() {
+  paymentOutcome.value = null
+  requested.value = false
 }
 
 onMounted(loadBooking)
@@ -98,11 +145,66 @@ onMounted(loadBooking)
           This booking is fully paid. Thank you!
         </div>
 
-        <div v-else-if="requested" class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
-          <h2 class="font-[Georgia] text-lg font-bold text-brand-blue-600">Check your phone</h2>
-          <p class="mt-2 text-sm text-slate-600">
-            We've sent an M-Pesa prompt to {{ phoneNumber }}. Enter your PIN to complete payment.
-          </p>
+        <div v-else-if="requested" class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+          <template v-if="paymentOutcome === 'successful'">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Payment Received</h2>
+            <p class="mt-2 text-sm text-slate-600">Thank you - your payment has been confirmed.</p>
+          </template>
+
+          <template v-else-if="paymentOutcome === 'failed'">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+              <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Payment Didn't Go Through</h2>
+            <p class="mt-2 text-sm text-slate-600">
+              The M-Pesa prompt was cancelled, timed out, or declined. No money has left your account.
+            </p>
+            <button
+              class="mt-5 rounded-md bg-gold-500 px-5 py-2.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+              @click="retryPayment"
+            >
+              Try Again
+            </button>
+          </template>
+
+          <template v-else-if="paymentOutcome === 'timeout'">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold-500/10 text-gold-500">
+              <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Still Waiting on M-Pesa</h2>
+            <p class="mt-2 text-sm text-slate-600">
+              This is taking longer than usual. If you already entered your PIN, refresh this page in a
+              moment. Otherwise, you can try again.
+            </p>
+            <button
+              class="mt-5 rounded-md bg-gold-500 px-5 py-2.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+              @click="retryPayment"
+            >
+              Try Again
+            </button>
+          </template>
+
+          <template v-else>
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-blue-50 text-brand-blue-600">
+              <svg class="h-7 w-7 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
+              </svg>
+            </div>
+            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Check Your Phone</h2>
+            <p class="mt-2 text-sm text-slate-600">
+              We've sent an M-Pesa prompt to {{ phoneNumber }}. Enter your PIN to complete payment.
+            </p>
+          </template>
         </div>
 
         <div v-else class="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-6">
