@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
 
     'accounts',
@@ -92,8 +93,12 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    # Longer-lived than the 5 min default since the frontend doesn't auto-refresh yet.
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    # Short-lived on purpose - the frontend's axios interceptor silently refreshes on a 401,
+    # so there's no UX cost to keeping this tight. A short-lived access token also limits how
+    # long a stolen one keeps working even after the refresh token behind it gets blacklisted
+    # (see accounts.services.blacklist_all_tokens_for_user) - blacklisting only stops a refresh
+    # token from minting new access tokens, it can't revoke an access token already issued.
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=14),
 }
 

@@ -17,8 +17,13 @@ decision before launch, it's called out explicitly rather than glossed over.
   clicked before they can log in. This keeps out throwaway/fake emails.
 - **Password reset** is self-service (forgot password → email link → set new password), and a
   logged-in user can change their password directly from their account.
-- **JWT-based sessions.** Logging in issues a signed token the frontend holds onto; there's no
-  separate "remember me" — it's the standard token-refresh pattern.
+- **JWT-based sessions.** Logging in issues a short-lived access token (15 min) plus a
+  longer-lived refresh token (14 days); the frontend silently refreshes in the background, so
+  the short lifetime costs nothing in usability.
+- **Logging out, changing your password, or resetting a forgotten one actually revokes the
+  session server-side** — not just clearing the browser's local storage. A token that's been
+  copied or stolen stops working the moment any of those three things happen, instead of quietly
+  continuing to work for up to 14 days regardless.
 - **Driver-partner accounts are created for you.** A driver never signs up directly — once their
   application is approved, the system creates their login automatically and emails them an
   invite (see §4).
@@ -218,13 +223,13 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-141 automated backend tests currently cover booking validation, payment guards, payout timing and
+148 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
-delete-protection rules, rate limiting, the STK-push retry cooldown, driver booking
-notifications/acknowledgment, driver-defaulting, driver-side trip completion, admin driver
-assignment, driver rating recalculation, admin booking edits, vehicle gallery management, and
-payment status polling — run with:
+delete-protection rules, rate limiting, the STK-push retry cooldown, session/token revocation on
+logout and password change, driver booking notifications/acknowledgment, driver-defaulting,
+driver-side trip completion, admin driver assignment, driver rating recalculation, admin booking
+edits, vehicle gallery management, and payment status polling — run with:
 ```
 cd silverlake
 python manage.py test

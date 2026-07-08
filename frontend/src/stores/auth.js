@@ -71,13 +71,34 @@ export const useAuthStore = defineStore('auth', {
         // ignore - keep whatever profile we already have
       }
     },
-    logout() {
+    async logout() {
+      // Capture both tokens before clearing local state - the request interceptor reads the
+      // access token straight from localStorage, which is about to be wiped, so this request
+      // needs its own explicit Authorization header rather than relying on that.
+      const refresh = this.refreshToken
+      const access = this.accessToken
+
+      // Clear local state up front (synchronously, before the request below) so the UI updates
+      // instantly regardless of whether the caller awaits this - the network call to actually
+      // revoke the token server-side is best-effort from here on.
       this.user = null
       this.accessToken = ''
       this.refreshToken = ''
       localStorage.removeItem('sl_user')
       localStorage.removeItem('sl_access')
       localStorage.removeItem('sl_refresh')
+
+      if (refresh) {
+        try {
+          await apiClient.post(
+            '/auth/logout/',
+            { refresh },
+            { headers: { Authorization: `Bearer ${access}` } },
+          )
+        } catch (err) {
+          // Token already expired/invalid, or a network hiccup - local logout already happened.
+        }
+      }
     },
   },
 })

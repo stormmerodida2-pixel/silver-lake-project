@@ -1,8 +1,20 @@
 from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from .models import CustomerProfile
 
 User = get_user_model()
+
+
+def blacklist_all_tokens_for_user(user):
+    """Revokes every refresh token issued to this user - called whenever their password changes
+    (via change-password or the forgot-password reset link), so a stolen session doesn't just
+    keep working right through the one action a customer would actually take if they suspected
+    their account was compromised. Only stops a token being used to mint a *new* access token -
+    an access token already issued stays valid until it naturally expires (see
+    SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'], kept short specifically because of this)."""
+    for token in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=token)
 
 
 def get_or_create_customer_account(full_name, phone_number, email=''):

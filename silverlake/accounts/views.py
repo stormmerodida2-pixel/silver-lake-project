@@ -6,7 +6,9 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .emails import send_activation_email, send_password_reset_email
@@ -17,6 +19,7 @@ from .serializers import (
     RegisterSerializer,
     UserSerializer,
 )
+from .services import blacklist_all_tokens_for_user
 
 User = get_user_model()
 
@@ -116,6 +119,7 @@ class PasswordResetConfirmView(APIView):
 
         user.set_password(data['new_password'])
         user.save(update_fields=['password'])
+        blacklist_all_tokens_for_user(user)
         return Response({'detail': 'Password reset. You can now log in.'})
 
 
@@ -132,4 +136,22 @@ class ChangePasswordView(APIView):
 
         request.user.set_password(data['new_password'])
         request.user.save(update_fields=['password'])
+        blacklist_all_tokens_for_user(request.user)
         return Response({'detail': 'Password changed.'})
+
+
+class LogoutView(APIView):
+    """Blacklists the refresh token behind the current session - without this, "logging out"
+    only ever cleared the frontend's own localStorage, and the token itself kept working against
+    the API for anyone who still had a copy of it (e.g. from browser history or a shared device)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        refresh = request.data.get('refresh')
+        if refresh:
+            try:
+                RefreshToken(refresh).blacklist()
+            except TokenError:
+                pass  # Already invalid/expired/blacklisted - logging out is a no-op either way.
+        return Response({'detail': 'Logged out.'})
