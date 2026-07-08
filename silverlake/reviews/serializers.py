@@ -4,15 +4,14 @@ from .models import Review
 
 
 class ReviewSerializer(serializers.ModelSerializer):
-    driver_name = serializers.SerializerMethodField()
+    """Public-facing shape - deliberately excludes which driver/booking a review is about.
+    Admin moderation uses its own separate serializer (core.serializers.AdminReviewSerializer)
+    that does include the driver, since staff need that to moderate accurately."""
 
     class Meta:
         model = Review
-        fields = ['id', 'customer_name', 'rating', 'comment', 'driver_name', 'created_at']
+        fields = ['id', 'customer_name', 'rating', 'comment', 'created_at']
         read_only_fields = ['created_at']
-
-    def get_driver_name(self, obj):
-        return obj.driver.full_name if obj.driver_id else None
 
 
 class BookingReviewCreateSerializer(serializers.ModelSerializer):

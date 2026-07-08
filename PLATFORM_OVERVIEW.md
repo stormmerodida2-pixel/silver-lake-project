@@ -17,6 +17,9 @@ decision before launch, it's called out explicitly rather than glossed over.
   clicked before they can log in. This keeps out throwaway/fake emails.
 - **Password reset** is self-service (forgot password → email link → set new password), and a
   logged-in user can change their password directly from their account.
+- **A "My Profile" page** lets a customer update their own name and phone number. Email is
+  deliberately not editable there — it doubles as the login username, and changing it has no
+  re-verification flow yet, so that stays a "contact us" request for now.
 - **JWT-based sessions.** Logging in issues a short-lived access token (15 min) plus a
   longer-lived refresh token (14 days); the frontend silently refreshes in the background, so
   the short lifetime costs nothing in usability.
@@ -170,6 +173,13 @@ public. Reviews are tied to both the booking and the driver, and a driver's disp
 recalculated automatically (the average of their approved reviews) every time one is approved,
 rejected, or deleted — it doesn't just sit at the default forever.
 
+- **The public reviews page and home page are view-only.** There's no way to submit a review
+  from either — the only legitimate way to leave one is reviewing your own completed booking
+  (from My Bookings, while logged in). The public API is read-only too, not just the UI.
+- **Driver identity is never shown publicly on a review.** The public listing shows the rating,
+  comment, and customer name only — not which driver or booking it's about. Staff still see that
+  detail on the admin Reviews page, since they need it to moderate accurately.
+
 ## 9. Email Notifications
 
 Sent automatically, using branded HTML templates, via Gmail SMTP:
@@ -223,13 +233,14 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-148 automated backend tests currently cover booking validation, payment guards, payout timing and
+157 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules, rate limiting, the STK-push retry cooldown, session/token revocation on
 logout and password change, driver booking notifications/acknowledgment, driver-defaulting,
 driver-side trip completion, admin driver assignment, driver rating recalculation, admin booking
-edits, vehicle gallery management, and payment status polling — run with:
+edits, vehicle gallery management, payment status polling, self-service profile updates, and the
+public reviews API's read-only/no-driver-details restrictions — run with:
 ```
 cd silverlake
 python manage.py test

@@ -1,97 +1,28 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted } from 'vue'
 
-import apiClient from '../api/client'
 import { useCatalogStore } from '../stores/catalog'
 import ReviewCard from '../components/ReviewCard.vue'
 
 const catalog = useCatalogStore()
 
-const form = reactive({
-  customer_name: '',
-  rating: 5,
-  comment: '',
-})
-const submitting = ref(false)
-const submitted = ref(false)
-const error = ref('')
-
 onMounted(() => {
   catalog.fetchReviews()
 })
-
-async function submitReview() {
-  submitting.value = true
-  error.value = ''
-  try {
-    await apiClient.post('/reviews/', form)
-    submitted.value = true
-    form.customer_name = ''
-    form.rating = 5
-    form.comment = ''
-  } catch (err) {
-    error.value = 'Could not submit your review. Please try again.'
-  } finally {
-    submitting.value = false
-  }
-}
 </script>
 
 <template>
   <div class="bg-white">
     <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
       <h1 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">Customer Reviews</h1>
+      <p class="mt-2 text-center text-sm text-slate-500">
+        Shared by customers after their trip - book with us and yours could be next.
+      </p>
 
       <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <ReviewCard v-for="review in catalog.reviews" :key="review.id" :review="review" />
       </div>
-      <p v-if="!catalog.reviews.length" class="mt-10 text-center text-slate-500">No reviews yet - be the first!</p>
-
-      <div class="mx-auto mt-16 max-w-lg rounded-xl border border-slate-200 bg-slate-50 p-6">
-        <h2 class="font-[Georgia] text-xl font-bold text-navy-900">Share your experience</h2>
-
-        <p v-if="submitted" class="mt-4 text-sm text-brand-blue-600">
-          Thanks! Your review has been submitted and will appear once approved.
-        </p>
-
-        <form v-else class="mt-4 space-y-4" @submit.prevent="submitReview">
-          <div>
-            <label class="mb-1 block text-sm text-slate-600">Your name</label>
-            <input
-              v-model="form.customer_name"
-              type="text"
-              required
-              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label class="mb-1 block text-sm text-slate-600">Rating</label>
-            <select
-              v-model.number="form.rating"
-              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
-            >
-              <option v-for="n in 5" :key="n" :value="n">{{ n }} Star{{ n > 1 ? 's' : '' }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="mb-1 block text-sm text-slate-600">Comment</label>
-            <textarea
-              v-model="form.comment"
-              required
-              rows="4"
-              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
-            ></textarea>
-          </div>
-          <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
-          <button
-            type="submit"
-            :disabled="submitting"
-            class="w-full rounded-md bg-gold-500 px-4 py-2 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
-          >
-            {{ submitting ? 'Submitting...' : 'Submit Review' }}
-          </button>
-        </form>
-      </div>
+      <p v-if="!catalog.reviews.length" class="mt-10 text-center text-slate-500">No reviews yet.</p>
     </div>
   </div>
 </template>

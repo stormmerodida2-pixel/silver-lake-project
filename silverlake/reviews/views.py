@@ -4,17 +4,14 @@ from .models import Review
 from .serializers import ReviewSerializer
 
 
-class ReviewViewSet(viewsets.ModelViewSet):
-    """Public can read approved reviews and submit new ones; new submissions await admin approval."""
+class ReviewViewSet(viewsets.ReadOnlyModelViewSet):
+    """Public, read-only, approved reviews only. Reviews are never created here directly -
+    the only legitimate way to leave one is BookingViewSet.review, which requires being
+    logged in and reviewing your own completed trip. Admin moderation (approve/reject/delete)
+    lives separately on AdminReviewViewSet."""
 
     serializer_class = ReviewSerializer
+    permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        if self.action in ('list', 'retrieve'):
-            return Review.objects.filter(is_approved=True)
-        return Review.objects.all()
-
-    def get_permissions(self):
-        if self.action in ('list', 'retrieve', 'create'):
-            return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return Review.objects.filter(is_approved=True)

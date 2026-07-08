@@ -62,3 +62,46 @@ class DriverRatingRecalculationTests(APITestCase):
         Review.objects.create(driver=self.driver, customer_name='A', rating=1, comment='Unapproved', is_approved=False)
         self.driver.recalculate_rating()
         self.assertEqual(self.driver.rating, Decimal('5.00'))
+
+
+class PublicReviewApiTests(APITestCase):
+    """The public /api/reviews/ endpoint is read-only - the only legitimate way to leave a
+    review is reviewing your own completed booking (see bookings.tests.BookingReviewActionTests),
+    never a free-form submission with no booking behind it. Driver identity is also never
+    exposed on this public surface, even though admins need to see it to moderate."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(full_name='Hidden Driver', is_active=True)
+        self.review = Review.objects.create(
+            driver=self.driver, customer_name='Jane', rating=5, comment='Great trip!', is_approved=True,
+        )
+
+    def test_approved_reviews_are_publicly_listed_without_driver_details(self):
+        response = self.client.get('/api/reviews/')
+        self.assertEqual(response.status_code, 200)
+        results = response.json().get('results', response.json())
+        self.assertEqual(len(results), 1)
+        self.assertNotIn('driver_name', results[0])
+        self.assertNotIn('driver', results[0])
+
+    def test_unapproved_reviews_are_not_publicly_listed(self):
+        Review.objects.create(customer_name='Bob', rating=2, comment='Meh', is_approved=False)
+        response = self.client.get('/api/reviews/')
+        results = response.json().get('results', response.json())
+        self.assertEqual(len(results), 1)
+
+    def test_anonymous_users_cannot_submit_a_free_form_review(self):
+        response = self.client.post('/api/reviews/', {
+            'customer_name': 'Anyone', 'rating': 5, 'comment': 'Never actually booked anything',
+        })
+        self.assertIn(response.status_code, (403, 405))
+        self.assertEqual(Review.objects.count(), 1)  # still just the one from setUp
+
+    def test_logged_in_users_also_cannot_submit_via_the_public_endpoint(self):
+        user = User.objects.create_user(username='reviewer@example.com', password='pass12345!')
+        self.client.force_authenticate(user=user)
+        response = self.client.post('/api/reviews/', {
+            'customer_name': 'Anyone', 'rating': 5, 'comment': 'Still no booking behind this',
+        })
+        self.assertIn(response.status_code, (403, 405))
+        self.assertEqual(Review.objects.count(), 1)
