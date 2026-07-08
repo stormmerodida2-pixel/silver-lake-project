@@ -13,7 +13,7 @@ defineProps({
   <img
     :src="logoIcon"
     alt="SilverLake Car Rentals"
-    :style="{ width: `${size}px`, height: `${size}px` }"
-    class="shrink-0 rounded-full object-cover"
+    :style="{ height: `${size}px`, width: 'auto' }"
+    class="shrink-0 object-contain"
   />
 </template>

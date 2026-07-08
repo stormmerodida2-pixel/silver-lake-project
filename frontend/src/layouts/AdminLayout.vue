@@ -145,7 +145,7 @@ function handleLogout() {
           >
             {{ auth.user?.is_superuser ? 'Super Admin' : 'Support Staff' }}
           </span>
-          <RouterLink to="/account/profile" class="transition hover:text-gold-400">
+          <RouterLink to="/account/profile" class="font-[Georgia] text-base tracking-wide transition hover:text-gold-400">
             Hi, {{ auth.user?.first_name || 'Admin' }}
           </RouterLink>
         </div>
