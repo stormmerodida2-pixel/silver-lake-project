@@ -63,6 +63,25 @@ class UserSerializer(serializers.ModelSerializer):
         return 'active' if driver.is_active else 'suspended'
 
 
+class UpdateProfileSerializer(serializers.ModelSerializer):
+    """Lets a customer edit their own name and phone number. Deliberately doesn't include email -
+    it doubles as the login username with no re-verification flow for changing it, so that stays
+    out of scope for a simple self-service profile edit."""
+
+    phone_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
+
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'phone_number']
+
+    def update(self, instance, validated_data):
+        phone_number = validated_data.pop('phone_number', None)
+        instance = super().update(instance, validated_data)
+        if phone_number is not None:
+            CustomerProfile.objects.update_or_create(user=instance, defaults={'phone_number': phone_number})
+        return instance
+
+
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
 

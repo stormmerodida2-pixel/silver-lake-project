@@ -94,6 +94,12 @@ const routes = [
     meta: { title: 'Reset Password | SilverLake Car Rentals' },
   },
   {
+    path: '/account/profile',
+    name: 'profile',
+    component: () => import('../views/ProfileView.vue'),
+    meta: { title: 'My Profile | SilverLake Car Rentals', requiresAuth: true },
+  },
+  {
     path: '/account/change-password',
     name: 'change-password',
     component: () => import('../views/ChangePasswordView.vue'),
