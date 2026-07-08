@@ -1,17 +1,16 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../api/client'
 import { useAuthStore } from '../stores/auth'
+import { useCatalogStore } from '../stores/catalog'
 
 const auth = useAuthStore()
+const catalog = useCatalogStore()
 
-const categories = [
-  { value: 'executive_suv', label: 'Executive SUV' },
-  { value: 'premium_mpv', label: 'Premium MPV' },
-  { value: 'compact_sedan', label: 'Compact Sedan' },
-  { value: 'passenger_van', label: 'Passenger Van' },
-]
+onMounted(() => {
+  catalog.fetchCategories()
+})
 
 const form = reactive({
   full_name: '',
@@ -192,7 +191,7 @@ async function submit() {
                 class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
               >
                 <option value="" disabled>Select a category</option>
-                <option v-for="cat in categories" :key="cat.value" :value="cat.value">{{ cat.label }}</option>
+                <option v-for="cat in catalog.categories" :key="cat.slug" :value="cat.slug">{{ cat.name }}</option>
               </select>
             </div>
             <div>

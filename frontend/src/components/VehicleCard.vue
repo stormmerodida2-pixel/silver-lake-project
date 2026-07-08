@@ -5,13 +5,6 @@ const props = defineProps({
     required: true,
   },
 })
-
-const categoryLabels = {
-  executive_suv: 'Executive SUV',
-  premium_mpv: 'Premium MPV',
-  compact_sedan: 'Compact Sedan',
-  passenger_van: 'Passenger Van',
-}
 </script>
 
 <template>
@@ -34,7 +27,7 @@ const categoryLabels = {
         {{ vehicle.name }}
       </h3>
       <p class="text-sm font-semibold text-brand-blue-600">
-        {{ categoryLabels[vehicle.category] || vehicle.category }}
+        {{ vehicle.category_name || vehicle.category }}
       </p>
       <p class="flex items-center gap-1 text-sm text-slate-600">
         {{ vehicle.passenger_capacity }} Passengers

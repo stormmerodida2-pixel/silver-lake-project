@@ -13,8 +13,8 @@ from bookings.models import Booking, BookingStatus
 from bookings.serializers import BookingSerializer
 from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
-from fleet.models import Vehicle, VehicleImage, VehicleSubmission
-from fleet.serializers import VehicleImageSerializer
+from fleet.models import Vehicle, VehicleCategory, VehicleImage, VehicleSubmission
+from fleet.serializers import VehicleCategorySerializer, VehicleImageSerializer
 from payments.models import DriverPayout, Payment, PaymentStatus, Refund, RefundStatus
 from reviews.models import Review
 
@@ -416,6 +416,34 @@ class AdminRefundViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
         refund.mark_issued(reference=request.data.get('reference', ''))
         log_admin_action(request, 'refund.mark_issued', refund, detail=request.data.get('reference', ''))
         return Response(AdminRefundSerializer(refund).data)
+
+
+class AdminVehicleCategoryViewSet(viewsets.ModelViewSet):
+    """Staff-only management of fleet types (e.g. "Executive SUV") - these used to be a fixed
+    enum in code, now a plain admin-editable list. Deleting one a vehicle/submission/driver
+    application still references is blocked rather than silently orphaning those records."""
+
+    queryset = VehicleCategory.objects.all().order_by('order', 'name')
+    serializer_class = VehicleCategorySerializer
+
+    def get_permissions(self):
+        if self.action in SUPERADMIN_ONLY_ACTIONS:
+            return [IsSuperAdmin()]
+        return [IsSupportStaff()]
+
+    def perform_create(self, serializer):
+        category = serializer.save()
+        log_admin_action(self.request, 'vehicle_category.create', category)
+
+    def perform_update(self, serializer):
+        category = serializer.save()
+        log_admin_action(self.request, 'vehicle_category.update', category)
+
+    def destroy(self, request, *args, **kwargs):
+        return _delete_or_block(
+            request, self.get_object(), 'vehicle_category.delete',
+            'This fleet type is still assigned to a vehicle, submission, or driver application and cannot be deleted.',
+        )
 
 
 class AdminFleetViewSet(viewsets.ModelViewSet):

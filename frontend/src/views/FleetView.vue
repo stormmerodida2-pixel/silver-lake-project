@@ -7,13 +7,10 @@ import VehicleCard from '../components/VehicleCard.vue'
 const catalog = useCatalogStore()
 const activeCategory = ref('all')
 
-const categories = [
+const categories = computed(() => [
   { value: 'all', label: 'All' },
-  { value: 'executive_suv', label: 'Executive SUV' },
-  { value: 'premium_mpv', label: 'Premium MPV' },
-  { value: 'compact_sedan', label: 'Compact Sedan' },
-  { value: 'passenger_van', label: 'Passenger Van' },
-]
+  ...catalog.categories.map((c) => ({ value: c.slug, label: c.name })),
+])
 
 const filteredVehicles = computed(() => {
   if (activeCategory.value === 'all') return catalog.vehicles
@@ -22,6 +19,7 @@ const filteredVehicles = computed(() => {
 
 onMounted(() => {
   catalog.fetchVehicles()
+  catalog.fetchCategories()
 })
 </script>
 

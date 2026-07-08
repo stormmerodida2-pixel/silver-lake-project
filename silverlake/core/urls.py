@@ -12,6 +12,7 @@ from .views import (
     AdminReviewViewSet,
     AdminStatsView,
     AdminUserViewSet,
+    AdminVehicleCategoryViewSet,
     AdminVehicleSubmissionViewSet,
 )
 
@@ -23,6 +24,7 @@ router.register('admin/bookings', AdminBookingViewSet, basename='admin-booking')
 router.register('admin/payouts', AdminDriverPayoutViewSet, basename='admin-payout')
 router.register('admin/refunds', AdminRefundViewSet, basename='admin-refund')
 router.register('admin/fleet', AdminFleetViewSet, basename='admin-fleet')
+router.register('admin/fleet-types', AdminVehicleCategoryViewSet, basename='admin-fleet-type')
 router.register('admin/reviews', AdminReviewViewSet, basename='admin-review')
 router.register('admin/vehicle-submissions', AdminVehicleSubmissionViewSet, basename='admin-vehicle-submission')
 router.register('admin/audit-log', AdminAuditLogViewSet, basename='admin-audit-log')

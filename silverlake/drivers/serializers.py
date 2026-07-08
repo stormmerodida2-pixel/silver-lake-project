@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from fleet.serializers import VehicleSerializer
-from fleet.models import VehicleSubmission, VehicleSubmissionPhoto
+from fleet.models import VehicleCategory, VehicleSubmission, VehicleSubmissionPhoto
 
 from .models import Driver, DriverApplication
 
@@ -19,6 +19,8 @@ class VehicleSubmissionPhotoSerializer(serializers.ModelSerializer):
 
 
 class VehicleSubmissionSerializer(serializers.ModelSerializer):
+    category = serializers.SlugRelatedField(slug_field='slug', queryset=VehicleCategory.objects.all())
+    category_name = serializers.CharField(source='category.name', read_only=True)
     images = serializers.ListField(
         child=serializers.ImageField(), write_only=True, min_length=2,
         help_text='At least 2 photos of the vehicle.',
@@ -28,7 +30,7 @@ class VehicleSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleSubmission
         fields = [
-            'id', 'name', 'category', 'tagline', 'description', 'passenger_capacity',
+            'id', 'name', 'category', 'category_name', 'tagline', 'description', 'passenger_capacity',
             'price_per_day', 'images', 'photos', 'logbook_document', 'status', 'review_notes', 'created_at',
         ]
         read_only_fields = ['status', 'review_notes', 'created_at']
@@ -65,12 +67,15 @@ class DriverAwaySerializer(serializers.ModelSerializer):
 
 
 class DriverApplicationSerializer(serializers.ModelSerializer):
+    vehicle_category = serializers.SlugRelatedField(slug_field='slug', queryset=VehicleCategory.objects.all())
+    vehicle_category_name = serializers.CharField(source='vehicle_category.name', read_only=True)
+
     class Meta:
         model = DriverApplication
         fields = [
             'id', 'full_name', 'email', 'phone_number', 'years_of_experience', 'bio',
             'license_number', 'license_document',
-            'vehicle_name', 'vehicle_category', 'passenger_capacity', 'price_per_day',
+            'vehicle_name', 'vehicle_category', 'vehicle_category_name', 'passenger_capacity', 'price_per_day',
             'vehicle_photo', 'vehicle_logbook_document',
             'status', 'created_at',
         ]

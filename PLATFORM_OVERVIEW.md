@@ -42,7 +42,7 @@ decision before launch, it's called out explicitly rather than glossed over.
 | **Customer** | Anyone who registers | Browse the fleet, book a trip, pay, view their own bookings, leave a review after a completed trip |
 | **Driver-partner** | Approved via the "Become a Driver" flow | Everything a customer can do, plus: submit their own vehicle(s) for approval, mark themselves away/available, log walk-up bookings and cash payments for their own vehicle, see their own payout history |
 | **Support Staff** (`is_staff`) | Internal team | Day-to-day admin: view users/bookings/payments, moderate reviews, approve driver applications & vehicle submissions, suspend/activate accounts |
-| **Super Admin** (`is_superuser`) | Owner/senior staff | Everything Support Staff can do, **plus** anything that moves money or changes fleet composition: create/edit/delete users, create/edit/delete vehicles, verify & pay out driver payouts, issue refunds, permanently delete reviews |
+| **Super Admin** (`is_superuser`) | Owner/seniogr staff | Everything Support Staff can do, **plus** anything that moves money or changes fleet composition: create/edit/delete users, create/edit/delete vehicles, verify & pay out driver payouts, issue refunds, permanently delete reviews |
 
 The split exists so day-to-day operations don't require the same access as financial actions.
 Every action in the second column that touches money or someone's access level is now recorded
@@ -51,6 +51,11 @@ in an **Activity Log** admin staff can review (who did what, and when — see §
 ## 3. The Fleet
 
 - Vehicles are either **self-drive**, **with-driver**, or both, set per vehicle.
+- **Fleet types** (e.g. "Executive SUV") are admin-managed records, not a fixed list in code —
+  superadmins add/edit/remove them from **Admin → Fleet Types**. Every vehicle, driver-submitted
+  car, and "Become a Driver" application picks its category from this same list. A fleet type
+  still assigned to any vehicle, submission, or application can't be deleted (blocked, not
+  silently orphaned) — rename or leave it in place instead.
 - Each vehicle tracks **insurance and inspection expiry dates**. If either lapses, the vehicle
   automatically disappears from what customers see — no manual step required, so an expired
   vehicle can't accidentally keep taking bookings.
@@ -221,6 +226,9 @@ in one consistent UI:
 - **Fleet** — full vehicle CRUD, toggle availability, assign which driver drives a company-owned
   vehicle (a driver-partner's own submitted car is assigned automatically), and manage a
   vehicle's photo gallery beyond its single cover image.
+- **Fleet Types** — add/edit/remove the vehicle categories offered across the site (used to be a
+  fixed enum in code); a type still in use by a vehicle, submission, or application can't be
+  deleted.
 - **Reviews** — approve/reject, delete.
 - **Payouts** — the driver payout ledger; verify and mark paid.
 - **Refunds** — the refund ledger; mark issued.
@@ -238,15 +246,16 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-160 automated backend tests currently cover booking validation, payment guards, payout timing and
+172 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
-delete-protection rules, rate limiting, the STK-push retry cooldown, session/token revocation on
-logout and password change, driver booking notifications/acknowledgment, driver-defaulting,
-driver-side trip completion, admin driver assignment, driver rating recalculation, admin booking
-edits, vehicle gallery management, payment status polling, self-service profile updates, the
-public reviews API's read-only/no-driver-details restrictions, and the Django admin's own
-bulk-action fixes — run with:
+delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
+the STK-push retry cooldown, session/token revocation on logout and password change, driver
+booking notifications/acknowledgment, driver-defaulting, driver-side trip completion, admin driver
+assignment, driver rating recalculation, admin booking edits, vehicle gallery management, payment
+status polling, self-service profile updates, the public reviews API's read-only/no-driver-details
+restrictions, fleet-type CRUD and permission tiers, and the Django admin's own bulk-action
+fixes — run with:
 ```
 cd silverlake
 python manage.py test

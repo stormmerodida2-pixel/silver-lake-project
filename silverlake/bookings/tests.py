@@ -11,7 +11,7 @@ from rest_framework.test import APITestCase
 from rest_framework.throttling import ScopedRateThrottle
 
 from drivers.models import Driver
-from fleet.models import Vehicle
+from fleet.models import Vehicle, VehicleCategory
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 from reviews.models import Review
 
@@ -25,8 +25,12 @@ NEXT_WEEK = TODAY + timedelta(days=7)
 
 
 def make_vehicle(**kwargs):
+    if 'category' not in kwargs:
+        kwargs['category'], _ = VehicleCategory.objects.get_or_create(
+            slug='compact_sedan', defaults={'name': 'Compact Sedan'},
+        )
     defaults = dict(
-        name='Test Car', category='compact_sedan', passenger_capacity=4,
+        name='Test Car', passenger_capacity=4,
         price_per_day=Decimal('1000'), is_available=True,
     )
     defaults.update(kwargs)

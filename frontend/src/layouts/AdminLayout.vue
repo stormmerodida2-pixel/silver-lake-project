@@ -30,6 +30,11 @@ const navItems = [
     icon: 'M5 17h14M6 17l1.5-5h9L18 17M9 12V8h6v4M10 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm5 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z',
   },
   {
+    to: '/admin/fleet-types',
+    label: 'Fleet Types',
+    icon: 'M4 6h16M4 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V6Z',
+  },
+  {
     to: '/admin/drivers',
     label: 'Drivers',
     icon: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z',

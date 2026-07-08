@@ -6,8 +6,8 @@ from rest_framework.test import APITestCase
 
 from bookings.models import BookingStatus
 from bookings.tests import make_booking, make_vehicle
-from drivers.models import Driver
-from fleet.models import VehicleImage
+from drivers.models import Driver, DriverApplication
+from fleet.models import VehicleCategory, VehicleImage, VehicleSubmission
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 
 from .models import AuditLog
@@ -229,10 +229,13 @@ class AdminAuditLogTests(APITestCase):
     def test_approving_a_driver_application_is_logged(self):
         from drivers.models import DriverApplication
 
+        category, _ = VehicleCategory.objects.get_or_create(
+            slug='premium_mpv', defaults={'name': 'Premium MPV'},
+        )
         application = DriverApplication.objects.create(
             full_name='Applicant', email='applicant@example.com', phone_number='254700000000',
             license_number='DL1', license_document=SimpleUploadedFile('l.jpg', b'x', content_type='image/jpeg'),
-            vehicle_name='Toyota Noah', vehicle_category='premium_mpv',
+            vehicle_name='Toyota Noah', vehicle_category=category,
             passenger_capacity=7, price_per_day=5000,
         )
         self.client.force_authenticate(user=self.staff)
@@ -243,8 +246,11 @@ class AdminAuditLogTests(APITestCase):
         from fleet.models import VehicleSubmission
 
         driver = Driver.objects.create(full_name='Submitting Driver', is_active=True)
+        category, _ = VehicleCategory.objects.get_or_create(
+            slug='premium_mpv', defaults={'name': 'Premium MPV'},
+        )
         submission = VehicleSubmission.objects.create(
-            driver=driver, name='Submitted Car', category='premium_mpv',
+            driver=driver, name='Submitted Car', category=category,
             passenger_capacity=7, price_per_day=5000,
             logbook_document=SimpleUploadedFile('logbook.pdf', b'x', content_type='application/pdf'),
         )
@@ -437,3 +443,89 @@ class AdminVehicleGalleryTests(APITestCase):
         response = self.client.delete(f'/api/admin/fleet/{self.vehicle.id}/gallery/{image.id}/')
         self.assertEqual(response.status_code, 404)
         self.assertTrue(VehicleImage.objects.filter(id=image.id).exists())
+
+
+class AdminVehicleCategoryTests(APITestCase):
+    """Fleet types used to be a fixed enum in code - now a plain admin-editable list.
+    Create/update/delete are superadmin-only (fleet composition tier); support staff can
+    still list them to populate forms. Deleting one still referenced by a vehicle,
+    submission, or driver application must be blocked, not silently orphan those records."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='super9@example.com', password='pass12345!')
+        self.staff = User.objects.create_user(username='staff9@example.com', password='pass12345!', is_staff=True)
+
+    def test_anyone_authenticated_as_staff_can_list_categories(self):
+        VehicleCategory.objects.create(name='Luxury Convertible')
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/admin/fleet-types/')
+        self.assertEqual(response.status_code, 200)
+        names = [c['name'] for c in response.json().get('results', response.json())]
+        self.assertIn('Luxury Convertible', names)
+
+    def test_superadmin_can_create_a_category_with_an_auto_generated_slug(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post('/api/admin/fleet-types/', {'name': 'Luxury Convertible', 'order': 5})
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()['slug'], 'luxury-convertible')
+        self.assertTrue(VehicleCategory.objects.filter(slug='luxury-convertible').exists())
+
+    def test_support_staff_cannot_create_a_category(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post('/api/admin/fleet-types/', {'name': 'Luxury Convertible'})
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(VehicleCategory.objects.filter(name='Luxury Convertible').exists())
+
+    def test_support_staff_cannot_delete_a_category(self):
+        category = VehicleCategory.objects.create(name='Luxury Convertible')
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.delete(f'/api/admin/fleet-types/{category.id}/')
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(VehicleCategory.objects.filter(id=category.id).exists())
+
+    def test_superadmin_can_delete_an_unused_category(self):
+        category = VehicleCategory.objects.create(name='Luxury Convertible')
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/fleet-types/{category.id}/')
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(VehicleCategory.objects.filter(id=category.id).exists())
+
+    def test_deleting_a_category_still_used_by_a_vehicle_is_blocked(self):
+        category = VehicleCategory.objects.create(name='Luxury Convertible')
+        make_vehicle(category=category, price_per_day=Decimal('1000'))
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/fleet-types/{category.id}/')
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(VehicleCategory.objects.filter(id=category.id).exists())
+
+    def test_deleting_a_category_still_used_by_a_vehicle_submission_is_blocked(self):
+        category = VehicleCategory.objects.create(name='Luxury Convertible')
+        driver = Driver.objects.create(full_name='Submitting Driver', is_active=True)
+        VehicleSubmission.objects.create(
+            driver=driver, name='Submitted Car', category=category,
+            passenger_capacity=4, price_per_day=5000,
+            logbook_document=SimpleUploadedFile('logbook.pdf', b'x', content_type='application/pdf'),
+        )
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/fleet-types/{category.id}/')
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(VehicleCategory.objects.filter(id=category.id).exists())
+
+    def test_deleting_a_category_still_used_by_a_driver_application_is_blocked(self):
+        category = VehicleCategory.objects.create(name='Luxury Convertible')
+        DriverApplication.objects.create(
+            full_name='Applicant', email='applicant@example.com', phone_number='254700000000',
+            license_number='DL1', license_document=SimpleUploadedFile('l.jpg', b'x', content_type='image/jpeg'),
+            vehicle_name='Convertible One', vehicle_category=category,
+            passenger_capacity=2, price_per_day=8000,
+        )
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/fleet-types/{category.id}/')
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(VehicleCategory.objects.filter(id=category.id).exists())
+
+    def test_deleting_a_category_is_logged(self):
+        category = VehicleCategory.objects.create(name='Luxury Convertible')
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.delete(f'/api/admin/fleet-types/{category.id}/')
+        self.assertTrue(AuditLog.objects.filter(action='vehicle_category.delete').exists())

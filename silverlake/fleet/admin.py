@@ -1,11 +1,17 @@
 from django.contrib import admin
 
-from .models import Vehicle, VehicleImage
+from .models import Vehicle, VehicleCategory, VehicleImage
 
 
 class VehicleImageInline(admin.TabularInline):
     model = VehicleImage
     extra = 1
+
+
+@admin.register(VehicleCategory)
+class VehicleCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'order')
+    prepopulated_fields = {'slug': ('name',)}
 
 
 @admin.register(Vehicle)

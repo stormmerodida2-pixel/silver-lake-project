@@ -7,9 +7,11 @@ export const useCatalogStore = defineStore('catalog', {
     vehicles: [],
     drivers: [],
     reviews: [],
+    categories: [],
     loaded: {
       drivers: false,
       reviews: false,
+      categories: false,
     },
   }),
   actions: {
@@ -30,6 +32,14 @@ export const useCatalogStore = defineStore('catalog', {
       const { data } = await apiClient.get('/reviews/')
       this.reviews = data.results ?? data
       this.loaded.reviews = true
+    },
+    // Fleet types (e.g. "Executive SUV") - admin-managed, so this isn't cached as
+    // aggressively as drivers/reviews; still cheap enough to just fetch once per session.
+    async fetchCategories() {
+      if (this.loaded.categories) return
+      const { data } = await apiClient.get('/categories/')
+      this.categories = data.results ?? data
+      this.loaded.categories = true
     },
   },
 })

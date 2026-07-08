@@ -258,7 +258,7 @@ onMounted(() => {
                   {{ application.years_of_experience }} years experience - License #{{ application.license_number }}
                 </p>
                 <p class="mt-1 text-sm text-slate-300">
-                  Vehicle: {{ application.vehicle_name }} ({{ application.vehicle_category }}),
+                  Vehicle: {{ application.vehicle_name }} ({{ application.vehicle_category_name || application.vehicle_category }}),
                   {{ application.passenger_capacity }} pax, KES {{ Number(application.price_per_day).toLocaleString() }}/day
                 </p>
                 <div class="mt-2 flex flex-wrap gap-3 text-sm">
@@ -330,7 +330,7 @@ onMounted(() => {
                 <h3 class="font-[Georgia] text-lg font-bold text-white">{{ submission.name }}</h3>
                 <p class="text-sm text-slate-400">Submitted by {{ submission.driver_name }}</p>
                 <p class="mt-1 text-sm text-slate-300">
-                  {{ submission.category }}, {{ submission.passenger_capacity }} pax,
+                  {{ submission.category_name || submission.category }}, {{ submission.passenger_capacity }} pax,
                   KES {{ Number(submission.price_per_day).toLocaleString() }}/day
                 </p>
                 <div v-if="submission.photos?.length" class="mt-2 flex flex-wrap gap-2">

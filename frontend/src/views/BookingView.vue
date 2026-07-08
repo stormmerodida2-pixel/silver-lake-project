@@ -10,13 +10,6 @@ const route = useRoute()
 const catalog = useCatalogStore()
 const auth = useAuthStore()
 
-const categoryLabels = {
-  executive_suv: 'Executive SUV',
-  premium_mpv: 'Premium MPV',
-  compact_sedan: 'Compact Sedan',
-  passenger_van: 'Passenger Van',
-}
-
 const form = reactive({
   vehicle: route.query.vehicle ? Number(route.query.vehicle) : '',
   service_type: route.query.service || 'with_driver',
@@ -749,7 +742,7 @@ function retryPayment() {
                   {{ selectedVehicle.name }}
                 </h3>
                 <p class="text-sm font-semibold text-brand-blue-600">
-                  {{ categoryLabels[selectedVehicle.category] || selectedVehicle.category }}
+                  {{ selectedVehicle.category_name || selectedVehicle.category }}
                 </p>
                 <p class="mt-1 text-sm text-slate-600">{{ selectedVehicle.passenger_capacity }} Passengers</p>
                 <p class="mt-1 text-sm text-slate-500">

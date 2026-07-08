@@ -13,13 +13,6 @@ const vehicle = ref(null)
 const loading = ref(true)
 const error = ref('')
 
-const categoryLabels = {
-  executive_suv: 'Executive SUV',
-  premium_mpv: 'Premium MPV',
-  compact_sedan: 'Compact Sedan',
-  passenger_van: 'Passenger Van',
-}
-
 onMounted(async () => {
   // Try catalog cache first, fall back to direct API call
   await catalog.fetchVehicles()
@@ -80,7 +73,7 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
           <!-- Left: details -->
           <div class="lg:col-span-2">
             <p class="text-sm font-semibold uppercase tracking-widest text-brand-blue-600">
-              {{ categoryLabels[vehicle.category] || vehicle.category }}
+              {{ vehicle.category_name || vehicle.category }}
             </p>
             <h1 class="mt-2 font-[Georgia] text-3xl font-bold text-navy-900 sm:text-4xl">
               {{ vehicle.name }}

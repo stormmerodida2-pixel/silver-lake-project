@@ -5,7 +5,7 @@ from rest_framework import serializers
 from accounts.models import CustomerProfile
 from drivers.models import Driver
 from drivers.serializers import VehicleSubmissionPhotoSerializer
-from fleet.models import Vehicle, VehicleSubmission
+from fleet.models import Vehicle, VehicleCategory, VehicleSubmission
 from fleet.serializers import VehicleImageSerializer
 from payments.models import DriverPayout, Refund
 from reviews.models import Review
@@ -93,12 +93,14 @@ class AdminDriverSerializer(serializers.ModelSerializer):
 
 class AdminVehicleSubmissionSerializer(serializers.ModelSerializer):
     driver_name = serializers.CharField(source='driver.full_name', read_only=True)
+    category = serializers.SlugRelatedField(slug_field='slug', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
     photos = VehicleSubmissionPhotoSerializer(many=True, read_only=True)
 
     class Meta:
         model = VehicleSubmission
         fields = [
-            'id', 'driver', 'driver_name', 'name', 'category', 'tagline', 'description',
+            'id', 'driver', 'driver_name', 'name', 'category', 'category_name', 'tagline', 'description',
             'passenger_capacity', 'price_per_day', 'photos', 'logbook_document',
             'status', 'review_notes', 'created_at',
         ]
@@ -158,12 +160,14 @@ class AdminVehicleSerializer(serializers.ModelSerializer):
     driver = serializers.PrimaryKeyRelatedField(
         queryset=Driver.objects.filter(is_active=True), allow_null=True, required=False,
     )
+    category = serializers.SlugRelatedField(slug_field='slug', queryset=VehicleCategory.objects.all())
+    category_name = serializers.CharField(source='category.name', read_only=True)
     gallery_images = VehicleImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Vehicle
         fields = [
-            'id', 'name', 'category', 'tagline', 'passenger_capacity',
+            'id', 'name', 'category', 'category_name', 'tagline', 'passenger_capacity',
             'price_per_day', 'description', 'image', 'gallery_images', 'is_available',
             'allow_self_drive', 'allow_with_driver', 'driver', 'driver_name',
             'insurance_provider', 'insurance_policy_number', 'insurance_expiry_date',

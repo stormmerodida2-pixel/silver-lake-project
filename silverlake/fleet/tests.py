@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 from bookings.models import Booking, BookingStatus, ServiceType
 from drivers.models import Driver
 
-from .models import Vehicle
+from .models import Vehicle, VehicleCategory
 
 User = get_user_model()
 
@@ -15,8 +15,12 @@ TODAY = date.today()
 
 
 def make_vehicle(**kwargs):
+    if 'category' not in kwargs:
+        kwargs['category'], _ = VehicleCategory.objects.get_or_create(
+            slug='compact_sedan', defaults={'name': 'Compact Sedan'},
+        )
     defaults = dict(
-        name='Test Car', category='compact_sedan', passenger_capacity=4,
+        name='Test Car', passenger_capacity=4,
         price_per_day=Decimal('1000'), is_available=True,
     )
     defaults.update(kwargs)
@@ -77,3 +81,32 @@ class PublicFleetVisibilityTests(APITestCase):
         data = response.json()
         results = data['results'] if isinstance(data, dict) and 'results' in data else data
         return [v['name'] for v in results]
+
+
+class PublicCategoryApiTests(APITestCase):
+    """Fleet types are managed on the admin dashboard, but everyone needs to read them -
+    the public fleet page's filters and the driver/become-a-driver forms all depend on this
+    being reachable with no login."""
+
+    def test_categories_are_publicly_listed_ordered_by_order_then_name(self):
+        VehicleCategory.objects.create(name='Zebra Van', order=99)
+        VehicleCategory.objects.create(name='Alpha Sedan', order=99)
+        response = self.client.get('/api/categories/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        results = data['results'] if isinstance(data, dict) and 'results' in data else data
+        names = [c['name'] for c in results]
+        self.assertEqual(names[-2:], ['Alpha Sedan', 'Zebra Van'])
+
+    def test_category_slug_is_auto_generated_from_name(self):
+        category = VehicleCategory.objects.create(name='Luxury Convertible')
+        self.assertEqual(category.slug, 'luxury-convertible')
+
+    def test_vehicles_can_be_filtered_by_category_slug(self):
+        sedan = VehicleCategory.objects.create(name='Sedan')
+        van = VehicleCategory.objects.create(name='Van')
+        make_vehicle(name='A Sedan Car', category=sedan)
+        make_vehicle(name='A Van', category=van)
+        response = self.client.get('/api/vehicles/', {'category': 'sedan'})
+        names = [v['name'] for v in response.json().get('results', response.json())]
+        self.assertEqual(names, ['A Sedan Car'])

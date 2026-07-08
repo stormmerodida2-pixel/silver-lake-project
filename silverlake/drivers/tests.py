@@ -5,7 +5,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APITestCase
 
-from fleet.models import VehicleSubmission
+from fleet.models import VehicleCategory, VehicleSubmission
 
 from .models import ApplicationStatus, Driver, DriverApplication
 from .services import create_driver_login
@@ -61,10 +61,13 @@ class CreateDriverLoginTests(TestCase):
 
 class DriverApplicationApproveTests(TestCase):
     def _make_application(self):
+        category, _ = VehicleCategory.objects.get_or_create(
+            slug='premium_mpv', defaults={'name': 'Premium MPV'},
+        )
         return DriverApplication.objects.create(
             full_name='Applicant One', email='applicant@example.com', phone_number='254700000000',
             license_number='DL999', license_document=make_image('license.png'),
-            vehicle_name='Toyota Noah', vehicle_category='premium_mpv',
+            vehicle_name='Toyota Noah', vehicle_category=category,
             passenger_capacity=7, price_per_day=5000,
         )
 

@@ -1,11 +1,22 @@
 from datetime import date
 
-from rest_framework import viewsets
+from rest_framework import permissions, viewsets
 
 from bookings.models import BLOCKING_BOOKING_STATUSES, Booking
 
-from .models import Vehicle
-from .serializers import VehicleSerializer
+from .models import Vehicle, VehicleCategory
+from .serializers import VehicleCategorySerializer, VehicleSerializer
+
+
+class VehicleCategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """Public read-only list of fleet types, so pages can populate category filters/dropdowns
+    without needing admin auth - categories themselves are only ever added/edited/removed
+    from the admin dashboard."""
+
+    queryset = VehicleCategory.objects.all()
+    serializer_class = VehicleCategorySerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = None
 
 
 class VehicleViewSet(viewsets.ReadOnlyModelViewSet):
@@ -16,7 +27,7 @@ class VehicleViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = super().get_queryset()
         category = self.request.query_params.get('category')
         if category:
-            queryset = queryset.filter(category=category)
+            queryset = queryset.filter(category__slug=category)
 
         today = date.today()
         currently_booked_ids = Booking.objects.filter(

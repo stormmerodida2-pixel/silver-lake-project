@@ -1,22 +1,37 @@
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
+from django.utils.text import slugify
 
 from .validators import validate_file_size
 
 DOCUMENT_EXTENSIONS = FileExtensionValidator(['pdf', 'jpg', 'jpeg', 'png'])
 
 
-class VehicleCategory(models.TextChoices):
-    EXECUTIVE_SUV = 'executive_suv', 'Executive SUV'
-    PREMIUM_MPV = 'premium_mpv', 'Premium MPV'
-    COMPACT_SEDAN = 'compact_sedan', 'Compact Sedan'
-    PASSENGER_VAN = 'passenger_van', 'Passenger Van'
+class VehicleCategory(models.Model):
+    """A fleet type (e.g. Executive SUV). Admin-managed so new categories can be added from
+    the dashboard instead of requiring a code change - used to be a fixed enum."""
+
+    name = models.CharField(max_length=50, unique=True)
+    slug = models.SlugField(max_length=60, unique=True, blank=True)
+    order = models.PositiveSmallIntegerField(default=0, help_text='Lower numbers show first')
+
+    class Meta:
+        ordering = ['order', 'name']
+        verbose_name_plural = 'vehicle categories'
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
 
 
 class Vehicle(models.Model):
     name = models.CharField(max_length=100, help_text='e.g. Toyota Prado TZG')
-    category = models.CharField(max_length=20, choices=VehicleCategory.choices)
+    category = models.ForeignKey(VehicleCategory, on_delete=models.PROTECT, related_name='vehicles')
     tagline = models.CharField(max_length=150, blank=True, help_text='e.g. Luxury - Power - Prestige')
     passenger_capacity = models.PositiveSmallIntegerField()
     price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
@@ -90,7 +105,7 @@ class VehicleSubmission(models.Model):
     driver = models.ForeignKey('drivers.Driver', on_delete=models.CASCADE, related_name='vehicle_submissions')
 
     name = models.CharField(max_length=100)
-    category = models.CharField(max_length=20, choices=VehicleCategory.choices)
+    category = models.ForeignKey(VehicleCategory, on_delete=models.PROTECT, related_name='vehicle_submissions')
     tagline = models.CharField(max_length=150, blank=True)
     description = models.TextField(blank=True)
     passenger_capacity = models.PositiveSmallIntegerField()

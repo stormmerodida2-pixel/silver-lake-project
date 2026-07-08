@@ -13,11 +13,10 @@ const profile = ref(null)
 const loading = ref(true)
 const error = ref('')
 
-const categoryLabels = {
-  executive_suv: 'Executive SUV',
-  premium_mpv: 'Premium MPV',
-  compact_sedan: 'Compact Sedan',
-  passenger_van: 'Passenger Van',
+const categories = ref([])
+async function loadCategories() {
+  const { data } = await apiClient.get('/categories/')
+  categories.value = data.results ?? data
 }
 
 const statusLabels = {
@@ -202,7 +201,7 @@ const saving = ref(false)
 const formError = ref('')
 const form = reactive({
   name: '',
-  category: 'executive_suv',
+  category: '',
   tagline: '',
   description: '',
   passenger_capacity: 4,
@@ -214,7 +213,7 @@ const logbookFile = ref(null)
 
 function openModal() {
   Object.assign(form, {
-    name: '', category: 'executive_suv', tagline: '', description: '',
+    name: '', category: categories.value[0]?.slug || '', tagline: '', description: '',
     passenger_capacity: 4, price_per_day: '',
   })
   photoFiles.value = []
@@ -267,6 +266,7 @@ function handleLogout() {
 onMounted(() => {
   loadProfile()
   loadBookings()
+  loadCategories()
 })
 </script>
 
@@ -372,7 +372,7 @@ onMounted(() => {
               <div class="flex-1">
                 <p class="font-semibold text-white">{{ vehicle.name }}</p>
                 <p class="text-xs text-slate-400">
-                  {{ categoryLabels[vehicle.category] || vehicle.category }} &middot;
+                  {{ vehicle.category_name || vehicle.category }} &middot;
                   KES {{ Number(vehicle.price_per_day).toLocaleString() }}/day
                 </p>
               </div>
@@ -494,7 +494,7 @@ onMounted(() => {
                 <div>
                   <p class="font-semibold text-white">{{ submission.name }}</p>
                   <p class="text-xs text-slate-400">
-                    {{ categoryLabels[submission.category] || submission.category }} &middot;
+                    {{ submission.category_name || submission.category }} &middot;
                     KES {{ Number(submission.price_per_day).toLocaleString() }}/day
                   </p>
                 </div>
@@ -706,7 +706,7 @@ onMounted(() => {
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Category</label>
                   <select v-model="form.category"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
-                    <option v-for="(label, val) in categoryLabels" :key="val" :value="val">{{ label }}</option>
+                    <option v-for="cat in categories" :key="cat.slug" :value="cat.slug">{{ cat.name }}</option>
                   </select>
                 </div>
                 <div>

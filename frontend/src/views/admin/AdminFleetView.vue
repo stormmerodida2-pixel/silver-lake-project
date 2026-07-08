@@ -8,14 +8,8 @@ import { useAuthStore } from '../../stores/auth'
 const auth = useAuthStore()
 const { items: vehicles, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/fleet/')
 const { items: driverOptions, load: loadDriverOptions } = useAdminList('/admin/drivers/')
+const { items: fleetTypes, load: loadFleetTypes } = useAdminList('/admin/fleet-types/')
 const busyId = ref(null)
-
-const categoryLabels = {
-  executive_suv: 'Executive SUV',
-  premium_mpv: 'Premium MPV',
-  compact_sedan: 'Compact Sedan',
-  passenger_van: 'Passenger Van',
-}
 
 // ── Shared Add / Edit modal ─────────────────────────────────────────────────
 const showModal = ref(false)
@@ -24,7 +18,7 @@ const saving = ref(false)
 const formError = ref('')
 const form = reactive({
   name: '',
-  category: 'executive_suv',
+  category: '',
   tagline: '',
   description: '',
   passenger_capacity: 4,
@@ -92,7 +86,7 @@ const submitLabel = () => saving.value
 
 function resetForm() {
   Object.assign(form, {
-    name: '', category: 'executive_suv', tagline: '', description: '',
+    name: '', category: fleetTypes.value[0]?.slug || '', tagline: '', description: '',
     passenger_capacity: 4, price_per_day: '',
     allow_self_drive: true, allow_with_driver: true, is_available: true, driver: '',
     insurance_provider: '', insurance_policy_number: '',
@@ -219,6 +213,7 @@ async function deleteVehicle(vehicle) {
 onMounted(() => {
   load()
   loadDriverOptions()
+  loadFleetTypes()
 })
 </script>
 
@@ -272,7 +267,7 @@ onMounted(() => {
               <p v-if="vehicle.tagline" class="text-xs text-slate-500">{{ vehicle.tagline }}</p>
               <p v-if="vehicle.driver_name" class="text-xs text-gold-400">Driver: {{ vehicle.driver_name }}</p>
             </td>
-            <td class="px-4 py-3 text-slate-300">{{ categoryLabels[vehicle.category] || vehicle.category }}</td>
+            <td class="px-4 py-3 text-slate-300">{{ vehicle.category_name || vehicle.category }}</td>
             <td class="px-4 py-3 text-slate-300">{{ vehicle.passenger_capacity }} pax</td>
             <td class="px-4 py-3 text-slate-300">KES {{ Number(vehicle.price_per_day).toLocaleString() }}</td>
             <td class="px-4 py-3 text-xs text-slate-400">
@@ -375,7 +370,7 @@ onMounted(() => {
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Category</label>
                   <select v-model="form.category"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
-                    <option v-for="(label, val) in categoryLabels" :key="val" :value="val">{{ label }}</option>
+                    <option v-for="cat in fleetTypes" :key="cat.slug" :value="cat.slug">{{ cat.name }}</option>
                   </select>
                 </div>
                 <div>

@@ -79,7 +79,9 @@ class DriverApplication(models.Model):
 
     # The car they want enlisted alongside them
     vehicle_name = models.CharField(max_length=100)
-    vehicle_category = models.CharField(max_length=20, choices=VehicleCategory.choices)
+    vehicle_category = models.ForeignKey(
+        VehicleCategory, on_delete=models.PROTECT, related_name='driver_applications',
+    )
     passenger_capacity = models.PositiveSmallIntegerField()
     price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
     vehicle_photo = models.ImageField(
