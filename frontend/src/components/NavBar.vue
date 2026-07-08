@@ -43,43 +43,39 @@ function handleLogout() {
 
 <template>
   <header class="sticky top-0 z-40 border-b border-navy-800 bg-navy-950/95 backdrop-blur">
-    <nav class="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3 sm:px-6">
+    <nav class="mx-auto flex max-w-6xl items-center gap-10 px-4 py-4 sm:px-6">
       <RouterLink to="/" class="flex items-center gap-2">
         <SilverLakeLogo :size="32" />
-        <span class="flex items-baseline gap-2">
-          <span class="font-[Georgia] text-xl font-bold tracking-wide text-white">silverlake</span>
-          <span class="hidden text-xs tracking-widest text-gold-400 sm:inline"></span>
-        </span>
       </RouterLink>
 
-      <div class="hidden items-center gap-6 md:flex">
+      <div class="hidden items-center gap-10 md:flex">
         <RouterLink
           v-for="link in links"
           :key="link.to"
           :to="link.to"
-          class="text-sm font-medium text-slate-200 transition hover:text-gold-400"
+          class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400"
           active-class="text-gold-400"
         >
           {{ link.label }}
         </RouterLink>
       </div>
 
-      <div class="ml-auto hidden items-center gap-4 md:flex">
+      <div class="ml-auto hidden items-center gap-6 md:flex">
         <template v-if="auth.isAuthenticated">
-          <RouterLink to="/account/profile" class="text-sm text-slate-400 transition hover:text-gold-400">
+          <RouterLink to="/account/profile" class="font-[Georgia] text-base tracking-wide text-slate-400 transition hover:text-gold-400">
             Hi, {{ auth.user?.first_name || 'there' }}
           </RouterLink>
-          <button class="text-sm font-medium text-slate-200 transition hover:text-gold-400" @click="handleLogout">
+          <button class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400" @click="handleLogout">
             Log Out
           </button>
         </template>
         <template v-else>
-          <RouterLink to="/login" class="text-sm font-medium text-slate-200 transition hover:text-gold-400">
+          <RouterLink to="/login" class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400">
             Log In
           </RouterLink>
           <RouterLink
             to="/register"
-            class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+            class="rounded-md bg-gold-500 px-3 py-1.5 font-[Georgia] text-base font-semibold tracking-wide text-navy-950 transition hover:bg-gold-400"
           >
             Sign Up
           </RouterLink>
