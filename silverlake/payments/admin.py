@@ -1,4 +1,6 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+
+from core.audit import log_admin_action
 
 from .models import DriverPayout, Payment
 
@@ -22,7 +24,21 @@ class DriverPayoutAdmin(admin.ModelAdmin):
     @admin.action(description='Mark selected payouts as paid')
     def mark_as_paid(self, request, queryset):
         count = 0
+        skipped = 0
         for payout in queryset.filter(is_paid=False):
+            # Same rule as AdminDriverPayoutViewSet.mark_paid - a payout sourced from a
+            # self-reported cash payment must be explicitly verified first, or this becomes
+            # the one place that fabricated cash claim could still sail through to a real payout.
+            if payout.needs_verification and not payout.is_verified:
+                skipped += 1
+                continue
             payout.mark_paid()
+            log_admin_action(request, 'payout.mark_paid', payout, detail='via Django admin')
             count += 1
         self.message_user(request, f'{count} payout(s) marked as paid.')
+        if skipped:
+            self.message_user(
+                request,
+                f'{skipped} payout(s) skipped - cash-sourced and not yet verified.',
+                level=messages.WARNING,
+            )

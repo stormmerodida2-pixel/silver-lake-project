@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from core.audit import log_admin_action
+
 from .models import Driver, DriverApplication
 
 
@@ -26,6 +28,7 @@ class DriverApplicationAdmin(admin.ModelAdmin):
         approved = 0
         for application in queryset.exclude(status='approved'):
             application.approve()
+            log_admin_action(request, 'driver_application.approve', application, detail='via Django admin')
             approved += 1
         self.message_user(request, f'{approved} application(s) approved and enlisted.')
 
@@ -34,5 +37,6 @@ class DriverApplicationAdmin(admin.ModelAdmin):
         rejected = 0
         for application in queryset.exclude(status='approved'):
             application.reject()
+            log_admin_action(request, 'driver_application.reject', application, detail='via Django admin')
             rejected += 1
         self.message_user(request, f'{rejected} application(s) rejected.')

@@ -97,6 +97,15 @@ function handleLogout() {
 
       <div class="border-t border-navy-800 p-3">
         <RouterLink
+          to="/account/profile"
+          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z" />
+          </svg>
+          My Profile
+        </RouterLink>
+        <RouterLink
           to="/"
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
         >
@@ -131,7 +140,9 @@ function handleLogout() {
           >
             {{ auth.user?.is_superuser ? 'Super Admin' : 'Support Staff' }}
           </span>
-          <span>Hi, {{ auth.user?.first_name || 'Admin' }}</span>
+          <RouterLink to="/account/profile" class="transition hover:text-gold-400">
+            Hi, {{ auth.user?.first_name || 'Admin' }}
+          </RouterLink>
         </div>
       </header>
 

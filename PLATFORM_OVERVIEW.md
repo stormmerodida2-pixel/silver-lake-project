@@ -165,6 +165,11 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
   trying to delete an account or vehicle that still has any of these on file is blocked with a
   clear message ("suspend the account instead") rather than silently cascading the deletion
   through every payment, payout, and refund tied to it.
+- **Django's own built-in admin site is a local-development tool only, not a second production
+  admin surface.** It's only reachable when `DEBUG` is on. It used to be reachable in production
+  too, and its own bulk actions bypassed two of the safeguards above (cash-payout verification
+  and driver-rating recalculation on review approval) — those are fixed regardless, but the real
+  admin surface for day-to-day use is always the Vue dashboard described in §10.
 
 ## 8. Reviews
 
@@ -233,14 +238,15 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-157 automated backend tests currently cover booking validation, payment guards, payout timing and
+160 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules, rate limiting, the STK-push retry cooldown, session/token revocation on
 logout and password change, driver booking notifications/acknowledgment, driver-defaulting,
 driver-side trip completion, admin driver assignment, driver rating recalculation, admin booking
-edits, vehicle gallery management, payment status polling, self-service profile updates, and the
-public reviews API's read-only/no-driver-details restrictions — run with:
+edits, vehicle gallery management, payment status polling, self-service profile updates, the
+public reviews API's read-only/no-driver-details restrictions, and the Django admin's own
+bulk-action fixes — run with:
 ```
 cd silverlake
 python manage.py test

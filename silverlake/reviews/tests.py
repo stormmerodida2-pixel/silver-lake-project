@@ -105,3 +105,39 @@ class PublicReviewApiTests(APITestCase):
         })
         self.assertIn(response.status_code, (403, 405))
         self.assertEqual(Review.objects.count(), 1)
+
+
+class DjangoAdminReviewActionTests(APITestCase):
+    """The Django admin's bulk approve action used to call queryset.update(), which bypasses
+    save() entirely - a driver's rating would silently go stale for anything approved this way
+    instead of through the real admin dashboard. Tests the ModelAdmin action directly (rather
+    than via the /admin/ URL) since that URL is only registered when DEBUG is on, and Django's
+    test runner always forces DEBUG off."""
+
+    def setUp(self):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from .admin import ReviewAdmin
+
+        self.superadmin = User.objects.create_superuser(username='django-admin-super2@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(full_name='Django Review Driver', is_active=True)
+        self.review = Review.objects.create(
+            driver=self.driver, customer_name='Jane', rating=2, comment='Fine', is_approved=False,
+        )
+
+        self.admin = ReviewAdmin(Review, AdminSite())
+        request = RequestFactory().post('/admin/reviews/review/')
+        request.user = self.superadmin
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        self.request = request
+
+    def test_bulk_approve_recalculates_the_drivers_rating(self):
+        self.assertEqual(self.driver.rating, Decimal('5.00'))
+        self.admin.approve_reviews(self.request, Review.objects.filter(pk=self.review.pk))
+        self.review.refresh_from_db()
+        self.driver.refresh_from_db()
+        self.assertTrue(self.review.is_approved)
+        self.assertEqual(self.driver.rating, Decimal('2.00'))

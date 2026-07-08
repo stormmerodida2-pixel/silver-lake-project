@@ -20,7 +20,6 @@ from django.contrib import admin
 from django.urls import include, path
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
     path('api/', include('accounts.urls')),
     path('api/', include('fleet.urls')),
     path('api/', include('drivers.urls')),
@@ -31,4 +30,10 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
+    # Django's built-in admin is a local development convenience only - the real admin surface
+    # is the custom Vue dashboard at /admin in the frontend, which enforces the two-tier
+    # permission system, the audit log, and safeguards (e.g. cash-payout verification) that this
+    # raw admin's own ModelAdmin actions don't consistently respect. Never expose it in
+    # production - a superuser here could bypass those checks entirely.
+    urlpatterns = [path('admin/', admin.site.urls)] + urlpatterns
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

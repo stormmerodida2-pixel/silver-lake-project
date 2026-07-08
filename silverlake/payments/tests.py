@@ -10,7 +10,7 @@ from bookings.models import BookingStatus
 from bookings.tests import make_booking, make_vehicle
 from drivers.models import Driver
 
-from .models import Payment, PaymentMethod, PaymentStatus
+from .models import DriverPayout, Payment, PaymentMethod, PaymentStatus
 from .services import PaymentValidationError, initiate_stk_push_payment
 
 User = get_user_model()
@@ -195,3 +195,47 @@ class StkPushCooldownTests(APITestCase):
 
         self.booking.refresh_from_db()
         self.assertEqual(self.booking.status, BookingStatus.PENDING)
+
+
+class DjangoAdminPayoutActionTests(APITestCase):
+    """The Django admin's own bulk action used to bypass the cash-payout verification gate
+    entirely - it called payout.mark_paid() directly with no check at all. Tests the
+    ModelAdmin action directly (rather than via the /admin/ URL) since that URL is only
+    registered when DEBUG is on, and Django's test runner always forces DEBUG off."""
+
+    def setUp(self):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from .admin import DriverPayoutAdmin
+
+        self.superadmin = User.objects.create_superuser(username='django-admin-super@example.com', password='pass12345!')
+        driver = Driver.objects.create(full_name='Django Admin Driver', is_active=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='django-admin-client@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.CASH, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.confirm_if_deposit_met()
+        self.payout = DriverPayout.objects.get(booking=booking)
+        assert self.payout.needs_verification and not self.payout.is_verified
+
+        self.admin = DriverPayoutAdmin(DriverPayout, AdminSite())
+        request = RequestFactory().post('/admin/payments/driverpayout/')
+        request.user = self.superadmin
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        self.request = request
+
+    def test_bulk_action_does_not_pay_out_an_unverified_cash_sourced_payout(self):
+        self.admin.mark_as_paid(self.request, DriverPayout.objects.filter(pk=self.payout.pk))
+        self.payout.refresh_from_db()
+        self.assertFalse(self.payout.is_paid)
+
+    def test_bulk_action_still_pays_out_a_verified_payout(self):
+        self.payout.verify()
+        self.admin.mark_as_paid(self.request, DriverPayout.objects.filter(pk=self.payout.pk))
+        self.payout.refresh_from_db()
+        self.assertTrue(self.payout.is_paid)
