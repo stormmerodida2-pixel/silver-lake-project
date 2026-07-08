@@ -42,6 +42,32 @@ const submitting = ref(false)
 const error = ref('')
 const today = new Date().toISOString().split('T')[0]
 
+// ── Card form (UI only - no gateway wired up yet, nothing here is ever sent anywhere) ──────
+const card = reactive({ number: '', name: '', expiry: '', cvv: '' })
+const cardNotice = ref('')
+
+function onCardNumberInput(event) {
+  const digits = event.target.value.replace(/\D/g, '').slice(0, 16)
+  card.number = digits.replace(/(.{4})/g, '$1 ').trim()
+}
+
+function onCardExpiryInput(event) {
+  const digits = event.target.value.replace(/\D/g, '').slice(0, 4)
+  card.expiry = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits
+}
+
+function onCardCvvInput(event) {
+  card.cvv = event.target.value.replace(/\D/g, '').slice(0, 4)
+}
+
+function submitCardPayment() {
+  // There's no card gateway wired up yet - deliberately not sending these details anywhere.
+  // Raw card numbers should only ever go straight to a PCI-compliant processor, never our own
+  // server, so this stays a UI-only stub until a real gateway (e.g. Flutterwave/Paystack) is
+  // integrated.
+  cardNotice.value = "Card payments aren't live yet - please use M-Pesa, or reach us on WhatsApp to arrange payment."
+}
+
 onMounted(() => {
   catalog.fetchVehicles()
 })
@@ -511,10 +537,74 @@ function retryPayment() {
                 </button>
               </div>
 
-              <div v-else class="mt-5 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                Card payments are being set up. In the meantime you can pay via M-Pesa Paybill 400400
-                (Acc: SILVERLAKE) or reach us on WhatsApp to arrange payment.
-              </div>
+              <form v-else class="mt-5 space-y-3" @submit.prevent="submitCardPayment">
+                <div>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Card Number</label>
+                  <input
+                    :value="card.number"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="cc-number"
+                    placeholder="1234 5678 9012 3456"
+                    maxlength="19"
+                    class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono tracking-wide text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                    @input="onCardNumberInput"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Cardholder Name</label>
+                  <input
+                    v-model="card.name"
+                    type="text"
+                    autocomplete="cc-name"
+                    placeholder="Jane Doe"
+                    class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Expiry</label>
+                    <input
+                      :value="card.expiry"
+                      type="text"
+                      inputmode="numeric"
+                      autocomplete="cc-exp"
+                      placeholder="MM/YY"
+                      maxlength="5"
+                      class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                      @input="onCardExpiryInput"
+                    />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">CVV</label>
+                    <input
+                      :value="card.cvv"
+                      type="password"
+                      inputmode="numeric"
+                      autocomplete="cc-csc"
+                      placeholder="123"
+                      maxlength="4"
+                      class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                      @input="onCardCvvInput"
+                    />
+                  </div>
+                </div>
+
+                <p v-if="cardNotice" class="flex items-start gap-2 rounded-lg border border-gold-500/40 bg-gold-500/10 px-3 py-2.5 text-sm text-navy-900">
+                  <svg class="mt-0.5 h-4 w-4 shrink-0 text-gold-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>{{ cardNotice }}</span>
+                </p>
+
+                <button
+                  type="submit"
+                  class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400"
+                >
+                  Pay KES {{ amountToPay.toLocaleString() }} by Card
+                </button>
+                <p class="text-center text-xs text-slate-400">Secured payment - your card details are never stored on our servers.</p>
+              </form>
             </div>
           </div>
 

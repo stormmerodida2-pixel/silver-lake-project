@@ -27,9 +27,28 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-j4v=c0*78mzij*cq8*3abgz^z$b13bll(1@kxlu!tb(42&oqi1')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+# Defaults to False (safe) - local development explicitly sets DEBUG=True in .env, so this only
+# matters as a fallback for an environment that forgot to set it at all, e.g. a fresh production
+# deploy - better that come up locked down than wide open.
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+
+if not DEBUG:
+    # HTTPS enforcement - only in production, since local dev runs over plain http.
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year - browsers remember to always use https for this site
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    # Only needed if deployed behind a reverse proxy/load balancer that terminates TLS itself
+    # and forwards plain http internally (Render, Railway, Heroku, an nginx front end, etc.) -
+    # without this, SECURE_SSL_REDIRECT would redirect-loop forever since Django never sees the
+    # request as secure. Leave this off (default) for a direct-to-Django HTTPS setup, e.g. a VPS
+    # terminating TLS in Django/gunicorn itself.
+    if config('BEHIND_HTTPS_PROXY', default=False, cast=bool):
+        SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
 # Application definition
