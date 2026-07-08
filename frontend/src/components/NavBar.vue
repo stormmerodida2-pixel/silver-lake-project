@@ -66,7 +66,9 @@ function handleLogout() {
 
       <div class="ml-auto hidden items-center gap-4 md:flex">
         <template v-if="auth.isAuthenticated">
-          <span class="text-sm text-slate-400">Hi, {{ auth.user?.first_name || 'there' }}</span>
+          <RouterLink to="/account/profile" class="text-sm text-slate-400 transition hover:text-gold-400">
+            Hi, {{ auth.user?.first_name || 'there' }}
+          </RouterLink>
           <button class="text-sm font-medium text-slate-200 transition hover:text-gold-400" @click="handleLogout">
             Log Out
           </button>
@@ -108,6 +110,13 @@ function handleLogout() {
 
       <div class="mt-2 border-t border-navy-800 pt-2">
         <template v-if="auth.isAuthenticated">
+          <RouterLink
+            to="/account/profile"
+            class="block rounded px-2 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
+            @click="isOpen = false"
+          >
+            My Profile
+          </RouterLink>
           <button
             class="w-full rounded px-2 py-2 text-left text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
             @click="handleLogout"

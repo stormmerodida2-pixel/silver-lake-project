@@ -7,6 +7,7 @@ from rest_framework.test import APITestCase
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .models import CustomerProfile
 from .services import blacklist_all_tokens_for_user
 
 User = get_user_model()
@@ -81,6 +82,56 @@ class PasswordChangeInvalidatesSessionsTests(APITestCase):
 
         refresh_response = self.client.post('/api/auth/refresh/', {'refresh': str(refresh)})
         self.assertEqual(refresh_response.status_code, 401)
+
+
+class ProfileUpdateTests(APITestCase):
+    """A customer editing their own name/phone via PATCH /auth/me/ - deliberately can't touch
+    email (it doubles as the login username) or any of the staff/driver fields."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='profile@example.com', email='profile@example.com', password='pass12345!',
+            first_name='Old', last_name='Name',
+        )
+        CustomerProfile.objects.create(user=self.user, phone_number='254700000000')
+        self.client.force_authenticate(user=self.user)
+
+    def test_can_update_name_and_phone_number(self):
+        response = self.client.patch('/api/auth/me/', {
+            'first_name': 'New', 'last_name': 'Name', 'phone_number': '254711111111',
+        }, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['first_name'], 'New')
+        self.assertEqual(response.json()['phone_number'], '254711111111')
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'New')
+        self.assertEqual(self.user.customer_profile.phone_number, '254711111111')
+
+    def test_partial_update_only_touches_the_given_fields(self):
+        response = self.client.patch('/api/auth/me/', {'first_name': 'OnlyThis'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'OnlyThis')
+        self.assertEqual(self.user.last_name, 'Name')  # unchanged
+        self.assertEqual(self.user.customer_profile.phone_number, '254700000000')  # unchanged
+
+    def test_cannot_update_email_via_profile(self):
+        response = self.client.patch('/api/auth/me/', {'email': 'changed@example.com'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'profile@example.com')
+
+    def test_cannot_grant_yourself_staff_via_profile(self):
+        response = self.client.patch('/api/auth/me/', {'is_staff': True}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_staff)
+
+    def test_unauthenticated_user_cannot_update_a_profile(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.patch('/api/auth/me/', {'first_name': 'X'}, format='json')
+        self.assertEqual(response.status_code, 401)
 
     def test_helper_is_safe_to_call_for_a_user_with_no_outstanding_tokens(self):
         blacklist_all_tokens_for_user(self.user)  # should not raise

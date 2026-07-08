@@ -17,6 +17,7 @@ from .serializers import (
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
+    UpdateProfileSerializer,
     UserSerializer,
 )
 from .services import blacklist_all_tokens_for_user
@@ -63,12 +64,29 @@ class RegisterView(APIView):
         )
 
 
-class MeView(generics.RetrieveAPIView):
-    serializer_class = UserSerializer
+class MeView(generics.RetrieveUpdateAPIView):
+    """GET returns the full profile (including read-only is_driver/driver_status); PATCH/PUT
+    edits name and phone number via a separate, purely-writable serializer, but the response
+    always comes back through UserSerializer so the shape is consistent either way."""
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         return self.request.user
+
+    def get_serializer_class(self):
+        if self.request.method in ('PUT', 'PATCH'):
+            return UpdateProfileSerializer
+        return UserSerializer
+
+    def update(self, request, *args, **kwargs):
+        super().update(request, *args, **kwargs)
+        # Re-fetch a clean instance rather than re-serializing self.get_object() - the phone
+        # number update goes through a separate CustomerProfile save, but Django caches the
+        # reverse customer_profile accessor on the user instance the moment it's first read, so
+        # the in-memory object here would still show the old phone number otherwise.
+        fresh_user = User.objects.get(pk=request.user.pk)
+        return Response(UserSerializer(fresh_user).data)
 
 
 def _get_user_from_uid(uid):
