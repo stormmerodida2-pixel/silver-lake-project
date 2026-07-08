@@ -259,6 +259,7 @@ async function submitVehicle() {
 }
 
 function handleLogout() {
+  if (!confirm('Are you sure you want to log out?')) return
   auth.logout()
   router.push('/')
 }

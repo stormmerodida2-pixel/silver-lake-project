@@ -35,6 +35,7 @@ const links = computed(() => {
 })
 
 function handleLogout() {
+  if (!confirm('Are you sure you want to log out?')) return
   auth.logout()
   isOpen.value = false
   router.push('/')

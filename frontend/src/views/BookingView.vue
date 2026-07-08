@@ -88,6 +88,9 @@ const selectedVehicle = computed(() => catalog.vehicles.find((v) => v.id === for
 // only the confirmation/payment steps (which have no live sidebar use) switch to a centered column.
 const showTwoColumn = computed(() => step.value === 'form')
 const showSidebarContent = computed(() => !!selectedVehicle.value)
+// The sidebar itself only appears once there's something to show in it - no empty
+// placeholder box while the form step is still waiting on a vehicle pick.
+const showSidebar = computed(() => showTwoColumn.value && showSidebarContent.value)
 
 // Combine the cover photo with any gallery images so the sidebar can flip through all of them.
 const vehiclePhotos = computed(() => {
@@ -261,9 +264,9 @@ function retryPayment() {
         <p class="mt-2 text-slate-600">Choose your vehicle, dates, and how you'd like to travel.</p>
       </div>
 
-      <div class="mt-10 grid gap-8" :class="showTwoColumn ? 'lg:grid-cols-3' : 'mx-auto max-w-2xl'">
+      <div class="mt-10 grid gap-8" :class="showSidebar ? 'lg:grid-cols-3' : 'mx-auto max-w-2xl'">
         <!-- Main column: form / confirmation / payment -->
-        <div :class="showTwoColumn ? 'lg:col-span-2' : ''">
+        <div :class="showSidebar ? 'lg:col-span-2' : ''">
           <form v-if="step === 'form'" class="space-y-5 rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:p-8" @submit.prevent="submitBooking">
             <div>
               <label class="mb-1 block text-sm text-slate-600">Service type</label>
@@ -675,16 +678,9 @@ function retryPayment() {
           </div>
         </div>
 
-        <!-- Sidebar: live vehicle/cost summary -->
-        <aside v-if="showTwoColumn" class="lg:col-span-1">
+        <!-- Sidebar: live vehicle/cost summary (only once a vehicle is actually picked) -->
+        <aside v-if="showSidebar" class="lg:col-span-1">
           <div
-            v-if="!showSidebarContent"
-            class="flex h-full min-h-[16rem] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-400 lg:sticky lg:top-24"
-          >
-            Select a vehicle to see your trip summary here.
-          </div>
-          <div
-            v-else
             class="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 lg:sticky lg:top-24"
           >
               <div
