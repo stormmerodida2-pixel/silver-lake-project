@@ -416,11 +416,18 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
 
     @action(detail=True, methods=['post'])
     def verify(self, request, pk=None):
-        """Confirms a cash-sourced payout is legitimate (e.g. after reconciling with the driver
-        or customer) so it becomes eligible to be marked paid."""
+        """Confirms a cash-sourced payout is legitimate, after reconciling with the driver or
+        customer - requires a short note describing how it was reconciled, so verifying is an
+        attested action with a trail, not just a button clicked on trust."""
+        note = request.data.get('note', '').strip()
+        if not note:
+            return Response(
+                {'note': ['Describe how this was reconciled (e.g. "called customer, confirmed KES 5000").']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         payout = self.get_object()
-        payout.verify()
-        log_admin_action(request, 'payout.verify', payout)
+        payout.verify(note)
+        log_admin_action(request, 'payout.verify', payout, detail=note)
         return Response(AdminDriverPayoutSerializer(payout).data)
 
 

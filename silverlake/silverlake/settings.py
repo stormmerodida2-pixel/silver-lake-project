@@ -110,6 +110,7 @@ REST_FRAMEWORK = {
         'mpesa-stk': '5/min',
         'token-payment-view': '20/min',
         'driver-application': '5/hour',
+        'payment-dispute': '10/hour',
     },
 }
 

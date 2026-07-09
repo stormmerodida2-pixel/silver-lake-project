@@ -38,6 +38,13 @@ class Payment(models.Model):
     )
     note = models.CharField(max_length=200, blank=True)
 
+    # A customer can flag a self-reported cash payment as wrong/never received, via the no-login
+    # link in their cash_payment_recorded email - the one independent check on a driver's own
+    # word, since there's no gateway confirming a cash handoff the way M-Pesa confirms itself.
+    is_disputed = models.BooleanField(default=False)
+    disputed_at = models.DateTimeField(null=True, blank=True)
+    dispute_note = models.TextField(blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -68,6 +75,10 @@ class DriverPayout(models.Model):
     needs_verification = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     verified_at = models.DateTimeField(null=True, blank=True)
+    # Required, not optional - forces whoever verifies to actually record how they reconciled
+    # it (e.g. "called customer, confirmed KES 5000 received"), rather than the button just
+    # being clicked on trust.
+    verification_note = models.TextField(blank=True)
 
     # Set when the booking behind this payout gets cancelled before the payout was disbursed -
     # a cancelled trip shouldn't still owe the driver their cut, but the record is kept (not
@@ -83,10 +94,11 @@ class DriverPayout(models.Model):
     def __str__(self):
         return f'{self.driver.full_name} - KES {self.amount} ({"paid" if self.is_paid else "pending"})'
 
-    def verify(self):
+    def verify(self, note):
         self.is_verified = True
         self.verified_at = timezone.now()
-        self.save(update_fields=['is_verified', 'verified_at'])
+        self.verification_note = note
+        self.save(update_fields=['is_verified', 'verified_at', 'verification_note'])
 
     def mark_paid(self, reference=''):
         self.is_paid = True

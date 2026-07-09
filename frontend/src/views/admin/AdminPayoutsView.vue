@@ -32,12 +32,21 @@ async function markPaid(payout) {
 }
 
 async function verifyPayout(payout) {
+  const note = window.prompt(
+    'How was this reconciled? (required - e.g. "Called customer, confirmed KES 5000 received")',
+    '',
+  )
+  if (note === null) return
+  if (!note.trim()) {
+    error.value = 'A reconciliation note is required to verify this payout.'
+    return
+  }
   busyId.value = payout.id
   try {
-    const { data } = await apiClient.post(`/admin/payouts/${payout.id}/verify/`)
+    const { data } = await apiClient.post(`/admin/payouts/${payout.id}/verify/`, { note })
     Object.assign(payout, data)
   } catch (err) {
-    error.value = 'Could not verify this payout.'
+    error.value = err.response?.data?.note?.[0] || 'Could not verify this payout.'
   } finally {
     busyId.value = null
   }
@@ -113,9 +122,16 @@ onMounted(load)
                     v-if="payout.needs_verification"
                     class="inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold"
                     :class="payout.is_verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gold-500/10 text-gold-400'"
-                    :title="'Confirmed via a self-reported cash payment' + (payout.is_verified ? ' - verified' : ' - not yet verified')"
+                    :title="payout.is_verified ? payout.verification_note : 'Confirmed via a self-reported cash payment - not yet verified'"
                   >
                     {{ payout.is_verified ? 'Cash · Verified' : 'Cash · Needs Verification' }}
+                  </span>
+                  <span
+                    v-if="payout.has_disputed_payment"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-400"
+                    title="A customer has disputed a cash payment on this booking - resolve before verifying or paying."
+                  >
+                    ⚠ Disputed
                   </span>
                 </div>
               </td>

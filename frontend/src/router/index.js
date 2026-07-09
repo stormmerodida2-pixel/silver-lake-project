@@ -124,6 +124,12 @@ const routes = [
     meta: { title: 'Pay for Your Trip | SilverLake Car Rentals' },
   },
   {
+    path: '/dispute-payment/:token/:paymentId',
+    name: 'dispute-payment',
+    component: () => import('../views/DisputePaymentView.vue'),
+    meta: { title: 'Dispute a Payment | SilverLake Car Rentals' },
+  },
+  {
     path: '/driver',
     name: 'driver-portal',
     component: () => import('../views/driver/DriverPortalView.vue'),

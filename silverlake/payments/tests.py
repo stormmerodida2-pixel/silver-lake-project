@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 from datetime import timedelta
 from unittest.mock import patch
@@ -235,7 +236,79 @@ class DjangoAdminPayoutActionTests(APITestCase):
         self.assertFalse(self.payout.is_paid)
 
     def test_bulk_action_still_pays_out_a_verified_payout(self):
-        self.payout.verify()
+        self.payout.verify('Confirmed with customer.')
         self.admin.mark_as_paid(self.request, DriverPayout.objects.filter(pk=self.payout.pk))
         self.payout.refresh_from_db()
         self.assertTrue(self.payout.is_paid)
+
+
+class DisputeCashPaymentTests(APITestCase):
+    """The one independent check a customer has on a driver's self-reported cash payment -
+    reached via the no-login link in their cash_payment_recorded email, same customer_token
+    mechanism as the payment page itself."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(full_name='Dispute Driver', is_active=True)
+        vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='dispute-client@example.com', password='pass12345!')
+        self.booking = make_booking(customer, vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        self.cash_payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH, amount=self.booking.total_amount,
+            status=PaymentStatus.SUCCESSFUL, recorded_by_driver=self.driver,
+        )
+        self.booking.confirm_if_deposit_met()
+        self.payout = DriverPayout.objects.get(booking=self.booking)
+
+    def _url(self, payment=None):
+        payment = payment or self.cash_payment
+        return f'/api/pay/{self.booking.customer_token}/payments/{payment.id}/dispute/'
+
+    def test_can_view_the_payment_before_disputing(self):
+        response = self.client.get(self._url())
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['is_disputed'])
+
+    def test_filing_a_dispute_flags_the_payment(self):
+        response = self.client.post(self._url(), {'note': 'I never paid this.'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.cash_payment.refresh_from_db()
+        self.assertTrue(self.cash_payment.is_disputed)
+        self.assertIsNotNone(self.cash_payment.disputed_at)
+        self.assertEqual(self.cash_payment.dispute_note, 'I never paid this.')
+
+    def test_filing_a_dispute_relocks_an_already_verified_payout(self):
+        self.payout.verify('Confirmed with customer (turned out to be wrong).')
+        self.assertTrue(self.payout.is_verified)
+
+        self.client.post(self._url(), {'note': 'Actually never paid.'}, format='json')
+
+        self.payout.refresh_from_db()
+        self.assertTrue(self.payout.needs_verification)
+        self.assertFalse(self.payout.is_verified)
+
+    def test_cannot_dispute_a_payout_already_paid_out(self):
+        self.payout.verify('Confirmed.')
+        self.payout.mark_paid()
+        self.client.post(self._url(), {'note': 'Too late, disputing anyway.'}, format='json')
+        self.payout.refresh_from_db()
+        self.assertTrue(self.payout.is_paid)
+        self.assertTrue(self.payout.is_verified)  # left untouched - already disbursed
+
+    def test_only_cash_payments_can_be_disputed(self):
+        mpesa_payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA, amount=Decimal('100'),
+            status=PaymentStatus.SUCCESSFUL,
+        )
+        response = self.client.post(self._url(mpesa_payment), {'note': 'Not mine.'}, format='json')
+        self.assertEqual(response.status_code, 404)
+
+    def test_wrong_token_is_a_404(self):
+        response = self.client.get(f'/api/pay/{uuid.uuid4()}/payments/{self.cash_payment.id}/dispute/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_payment_belonging_to_a_different_booking_is_a_404(self):
+        other_customer = User.objects.create_user(username='other-dispute@example.com', password='pass12345!')
+        other_vehicle = make_vehicle(name='Other Car', price_per_day=Decimal('1000'))
+        other_booking = make_booking(other_customer, other_vehicle, status=BookingStatus.PENDING)
+        response = self.client.get(f'/api/pay/{other_booking.customer_token}/payments/{self.cash_payment.id}/dispute/')
+        self.assertEqual(response.status_code, 404)

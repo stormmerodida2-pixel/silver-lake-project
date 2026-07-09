@@ -53,9 +53,18 @@ onMounted(load)
             </td>
             <td class="px-4 py-3 text-slate-300">KES {{ Number(payment.amount).toLocaleString() }}</td>
             <td class="px-4 py-3">
-              <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="statusBadge[payment.status]">
-                {{ payment.status }}
-              </span>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="statusBadge[payment.status]">
+                  {{ payment.status }}
+                </span>
+                <span
+                  v-if="payment.is_disputed"
+                  class="rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-red-400"
+                  :title="payment.dispute_note"
+                >
+                  ⚠ Disputed
+                </span>
+              </div>
             </td>
             <td class="px-4 py-3 text-xs text-slate-400">
               {{ payment.mpesa_receipt_number || payment.card_transaction_ref || '—' }}

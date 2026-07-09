@@ -6,8 +6,9 @@
   reported by {{ driver_name }}.
 </p>
 <p style="margin:0 0 16px; padding:12px 16px; background:#fef3c7; border-radius:8px; color:#92400e;">
-  <strong>Didn't make this payment?</strong> Please contact us right away so we can look into it.
+  <strong>Didn't make this payment, or is the amount wrong?</strong> Let us know below and our team will look into it.
 </p>
+{% include "emails/_button.html" with url=dispute_url label="Dispute This Payment" %}
 <p style="margin:0; font-size:14px; color:#334155;">
   Remaining balance on this booking: <strong>KES {{ balance_due }}</strong>.
 </p>

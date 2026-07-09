@@ -15,7 +15,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'booking', 'method', 'amount', 'status',
             'mpesa_receipt_number', 'phone_number', 'card_transaction_ref',
-            'recorded_by_driver_name', 'note', 'created_at',
+            'recorded_by_driver_name', 'note', 'is_disputed', 'disputed_at', 'dispute_note', 'created_at',
         ]
         read_only_fields = ['status', 'mpesa_receipt_number', 'created_at']
 

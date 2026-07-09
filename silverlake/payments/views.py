@@ -3,6 +3,7 @@ import hmac
 from decouple import config
 from django.http import Http404
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.response import Response
@@ -10,7 +11,7 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from bookings.models import Booking
 
-from .models import Payment, PaymentStatus
+from .models import Payment, PaymentMethod, PaymentStatus
 from .serializers import PublicBookingPaymentSerializer, PaymentSerializer, StkPushRequestSerializer, TokenStkPushRequestSerializer
 from .services import PaymentValidationError, initiate_stk_push_payment
 
@@ -109,6 +110,49 @@ def token_payment_status(request, token, payment_id):
 
 
 token_payment_status.cls.throttle_scope = 'token-payment-view'
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([ScopedRateThrottle])
+def token_dispute_payment(request, token, payment_id):
+    """The one independent check on a driver's self-reported cash payment - reached via the
+    no-login link in the cash_payment_recorded email, since the customer who actually handed
+    over (or didn't hand over) the cash is the only one who can say the recorded amount is
+    wrong. GET lets the dispute page show what's being disputed before the customer submits
+    anything; POST files the dispute.
+
+    Only cash payments are disputable - M-Pesa/card payments are independently confirmed by
+    their own gateway already, so there's nothing for a customer-side dispute to add there.
+
+    Filing a dispute re-locks the booking's payout (if one exists and isn't paid yet) by
+    forcing needs_verification/is_verified back to their pre-verification state, even if a
+    superadmin had already verified it - a dispute arriving after verification means that
+    verification needs to be redone, not that it still stands."""
+    booking = get_object_or_404(Booking, customer_token=token)
+    payment = get_object_or_404(Payment, pk=payment_id, booking=booking, method=PaymentMethod.CASH)
+
+    if request.method == 'GET':
+        return Response({
+            'amount': payment.amount, 'created_at': payment.created_at,
+            'is_disputed': payment.is_disputed, 'booking_id': booking.pk,
+        })
+
+    payment.is_disputed = True
+    payment.disputed_at = timezone.now()
+    payment.dispute_note = request.data.get('note', '')
+    payment.save(update_fields=['is_disputed', 'disputed_at', 'dispute_note'])
+
+    payout = getattr(booking, 'driver_payout', None)
+    if payout and not payout.is_paid:
+        payout.needs_verification = True
+        payout.is_verified = False
+        payout.save(update_fields=['needs_verification', 'is_verified'])
+
+    return Response({'detail': 'Dispute recorded. Our team will follow up with you.'})
+
+
+token_dispute_payment.cls.throttle_scope = 'payment-dispute'
 
 
 @api_view(['POST'])

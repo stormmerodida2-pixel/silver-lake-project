@@ -1,3 +1,5 @@
+from decouple import config
+
 from core.email_utils import send_branded_email
 
 
@@ -9,6 +11,7 @@ def send_cash_payment_recorded_email(payment):
     booking = payment.booking
     if not booking.customer_email:
         return
+    frontend_url = config('FRONTEND_URL', default='http://localhost:5173')
     try:
         send_branded_email(
             subject=f'Cash payment recorded on your SilverLake booking #{booking.pk}',
@@ -19,6 +22,7 @@ def send_cash_payment_recorded_email(payment):
                 'driver_name': payment.recorded_by_driver.full_name if payment.recorded_by_driver else 'your driver',
                 'booking_id': booking.pk,
                 'balance_due': f'{booking.balance_due:,.2f}',
+                'dispute_url': f'{frontend_url}/dispute-payment/{booking.customer_token}/{payment.pk}',
             },
             recipient_list=[booking.customer_email],
         )

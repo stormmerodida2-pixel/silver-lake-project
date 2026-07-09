@@ -117,6 +117,7 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
     booking_total_amount = serializers.DecimalField(source='booking.total_amount', max_digits=10, decimal_places=2, read_only=True)
     booking_amount_paid = serializers.DecimalField(source='booking.amount_paid', max_digits=10, decimal_places=2, read_only=True)
     booking_balance_due = serializers.DecimalField(source='booking.balance_due', max_digits=10, decimal_places=2, read_only=True)
+    has_disputed_payment = serializers.SerializerMethodField()
 
     class Meta:
         model = DriverPayout
@@ -124,9 +125,16 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
             'id', 'driver', 'driver_name', 'booking_id', 'customer_name',
             'booking_total_amount', 'booking_amount_paid', 'booking_balance_due',
             'amount', 'is_paid', 'paid_at', 'payout_reference', 'notes',
-            'needs_verification', 'is_verified', 'verified_at', 'created_at',
+            'needs_verification', 'is_verified', 'verification_note', 'verified_at',
+            'has_disputed_payment', 'created_at',
         ]
-        read_only_fields = ['driver', 'amount', 'paid_at', 'needs_verification', 'is_verified', 'verified_at', 'created_at']
+        read_only_fields = [
+            'driver', 'amount', 'paid_at', 'needs_verification', 'is_verified',
+            'verification_note', 'verified_at', 'created_at',
+        ]
+
+    def get_has_disputed_payment(self, obj):
+        return obj.booking.payments.filter(is_disputed=True).exists()
 
 
 class AdminAuditLogSerializer(serializers.ModelSerializer):

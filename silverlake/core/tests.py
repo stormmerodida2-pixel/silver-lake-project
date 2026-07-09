@@ -56,11 +56,15 @@ class AdminPayoutVerificationTests(APITestCase):
     def test_superadmin_can_verify_then_mark_paid(self):
         self.client.force_authenticate(user=self.superadmin)
 
-        verify_response = self.client.post(f'/api/admin/payouts/{self.payout.id}/verify/')
+        verify_response = self.client.post(
+            f'/api/admin/payouts/{self.payout.id}/verify/',
+            {'note': 'Called customer, confirmed amount received.'}, format='json',
+        )
         self.assertEqual(verify_response.status_code, 200)
         self.payout.refresh_from_db()
         self.assertTrue(self.payout.is_verified)
         self.assertIsNotNone(self.payout.verified_at)
+        self.assertEqual(self.payout.verification_note, 'Called customer, confirmed amount received.')
 
         pay_response = self.client.post(
             f'/api/admin/payouts/{self.payout.id}/mark-paid/', {'payout_reference': 'MPESA123'},
@@ -69,11 +73,23 @@ class AdminPayoutVerificationTests(APITestCase):
         self.payout.refresh_from_db()
         self.assertTrue(self.payout.is_paid)
 
+    def test_verifying_without_a_note_is_rejected(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(f'/api/admin/payouts/{self.payout.id}/verify/', {}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.payout.refresh_from_db()
+        self.assertFalse(self.payout.is_verified)
+
+    def test_verifying_with_a_blank_note_is_rejected(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(f'/api/admin/payouts/{self.payout.id}/verify/', {'note': '   '}, format='json')
+        self.assertEqual(response.status_code, 400)
+
     def test_marking_a_payout_paid_emails_the_driver(self):
         self.driver.email = 'payout-driver@example.com'
         self.driver.save(update_fields=['email'])
         self.client.force_authenticate(user=self.superadmin)
-        self.client.post(f'/api/admin/payouts/{self.payout.id}/verify/')
+        self.client.post(f'/api/admin/payouts/{self.payout.id}/verify/', {'note': 'Confirmed with customer.'}, format='json')
 
         mail.outbox = []
         self.client.post(f'/api/admin/payouts/{self.payout.id}/mark-paid/', {'payout_reference': 'MPESA123'})

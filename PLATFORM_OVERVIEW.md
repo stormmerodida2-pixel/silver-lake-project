@@ -179,9 +179,10 @@ business-model pitch for the economics).
   theoretical way someone could have faked a "payment successful" notification.
 mnm 
 - **Rate limiting** caps how many times the sensitive public endpoints can be hit in a given
-  window: login (10/min), registration (5/hour), password reset requests (5/hour), and both
-  M-Pesa STK push triggers (5/min) — the last one specifically because each request can fire a
-  real prompt on a customer's phone, so it's the one most worth capping if a link ever leaked.
+  window: login (10/min), registration (5/hour), password reset requests (5/hour), both M-Pesa
+  STK push triggers (5/min) — the last one specifically because each request can fire a real
+  prompt on a customer's phone, so it's the one most worth capping if a link ever leaked — and
+  the no-login payment-dispute link (10/hour).
 
 ## 7. Payouts, Refunds & Trust
 
@@ -197,6 +198,16 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
   (self-reported, no bank confirming it), that payout is flagged "Needs Verification" and can't
   be marked paid until a superadmin explicitly verifies it. M-Pesa-confirmed payouts skip this,
   since Safaricom's own confirmation already is the verification.
+- **Verifying a cash-sourced payout requires a note.** The verify action rejects an empty note -
+  a superadmin has to record how it was actually reconciled (e.g. "called customer, confirmed
+  KES 5000 received"), so verifying is an attested action with a trail rather than a button
+  clicked on trust.
+- **A customer can dispute a cash payment.** The email notifying them a cash payment was
+  recorded includes a no-login "Dispute This Payment" link (same customer_token mechanism as the
+  payment page). Filing a dispute flags the payment and - if the payout hasn't been paid out yet -
+  forces it back to "Needs Verification" even if a superadmin had already verified it, since a
+  dispute arriving afterward means that verification needs to be redone. Only cash payments can
+  be disputed; M-Pesa/card payments are already independently confirmed by their own gateway.
 - **Refunds are tracked, not automated.** There's no live M-Pesa refund API wired up — instead,
   cancelling a paid booking creates a `Refund` record automatically, which shows up on the admin
   Refunds page as "Pending" until a superadmin sends the money back by hand and marks it
@@ -328,7 +339,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-263 automated backend tests currently cover booking validation, payment guards, payout timing and
+272 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -343,9 +354,11 @@ auto-complete a booking), vehicle service-history logging (driver scoped to thei
 admin can log for any vehicle), the time-based service-due calculation and its exposure to staff
 and the owning driver, profile photo upload/removal (including the file-size limit and that it
 appears in the login response), announcement audience targeting/permissions and the staff-propose
-/superadmin-approve workflow for client-facing announcements, and (using real threads against a
-live test transaction, not a single-connection simulation) that two concurrent booking requests
-for the same vehicle can't both succeed — run with:
+/superadmin-approve workflow for client-facing announcements, the mandatory reconciliation note
+on cash-payout verification and the customer-facing cash-payment dispute flow (including that a
+dispute re-locks an already-verified payout), and (using real threads against a live test
+transaction, not a single-connection simulation) that two concurrent booking requests for the
+same vehicle can't both succeed — run with:
 ```
 cd silverlake
 python manage.py test
