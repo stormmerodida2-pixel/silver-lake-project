@@ -68,6 +68,11 @@ in an **Activity Log** admin staff can review (who did what, and when — see §
   (Leaflet + OpenStreetMap, no API key needed), with a "live" vs "last seen X ago" distinction.
   This is browser-based, not dedicated GPS hardware, so it only works while the driver has the
   portal tab open — there's no background/always-on tracking.
+- **Service history**: a running log of maintenance/service events per vehicle (date + notes),
+  not just a single "last serviced" field — so nothing gets overwritten and admins can see
+  everything ever logged. A driver-partner logs one for their own vehicle from the Driver
+  Portal; admins can log one for any vehicle (needed for company-owned fleet cars, which have
+  no owning driver to log it themselves) from the Fleet page's edit modal.
 - A vehicle also disappears from public listings while its assigned driver has marked themselves
   **away**, or if that driver has been suspended (see §4) — the fleet listing always reflects who's
   actually available right now.
@@ -218,12 +223,12 @@ rejected, or deleted — it doesn't just sit at the default forever.
   comment, and customer name only — not which driver or booking it's about. Staff still see that
   detail on the admin Reviews page, since they need it to moderate accurately.
 
-## 9. Email Notifications
+## 9. Email Notifications & Announcements
 
-This is the platform's only notification system — there's no in-app bell/toast/notification
-center, so every state change a user needs to know about goes out as a branded HTML email via
-Gmail SMTP. The brand icon is embedded inline (Content-ID, not a remote URL) in every one, so it
-still renders even when a client blocks remote images.
+Individual state-change notifications ("your booking was confirmed") go out as branded HTML
+email via Gmail SMTP — there's no in-app bell/toast for these specifically. The brand icon is
+embedded inline (Content-ID, not a remote URL) in every one, so it still renders even when a
+client blocks remote images.
 
 - Account activation (customer)
 - Booking confirmed (customer)
@@ -245,6 +250,16 @@ still renders even when a client blocks remote images.
 Every email send is wrapped so a failure (bad SMTP config, etc.) never blocks the underlying
 action — a booking still confirms even if the confirmation email fails to send.
 
+**Announcements** are a separate, in-app-only mechanism for one-way broadcasts — a superadmin
+writes a message and picks exactly one audience (**Staff**, **Drivers**, or **Clients**), from
+**Admin → Announcements**. No email is sent; it just shows as a dismissible banner the next time
+someone in that audience is in the app (public site header, Driver Portal, or admin dashboard,
+matching their role). A user can belong to more than one audience — e.g. a staff member who's
+also booked a car sees both "staff" and "clients" announcements. Dismissing one just marks it
+read for that user; it doesn't delete or deactivate it for anyone else. Creating, deactivating,
+or deleting an announcement is superadmin-only — broadcasting to a whole group is significant
+enough that it isn't a day-to-day support-staff action.
+
 ## 10. The Admin Dashboard
 
 A custom Vue dashboard at `/admin` (not Django's built-in admin) — everything staff need lives
@@ -262,8 +277,8 @@ in one consistent UI:
   end date but still open are highlighted **Needs Attention** (see §5), and a "Trip" column
   shows driver-confirmed start/end timestamps.
 - **Fleet** — full vehicle CRUD, toggle availability, assign which driver drives a company-owned
-  vehicle (a driver-partner's own submitted car is assigned automatically), and manage a
-  vehicle's photo gallery beyond its single cover image.
+  vehicle (a driver-partner's own submitted car is assigned automatically), manage a vehicle's
+  photo gallery beyond its single cover image, and view/log its service history (see §3).
 - **Fleet Types** — add/edit/remove the vehicle categories offered across the site (used to be a
   fixed enum in code); a type still in use by a vehicle, submission, or application can't be
   deleted, but can be deactivated to stop offering it going forward without losing history.
@@ -275,6 +290,8 @@ in one consistent UI:
 - **Refunds** — the refund ledger; mark issued.
 - **Payments** — the raw payment log.
 - **Activity Log** — who performed which sensitive action, and when.
+- **Announcements** (superadmin only — hidden from support staff in the nav, unlike every other
+  page here) — broadcast an in-app message to staff, drivers, or clients (see §9).
 
 Every page is mobile-responsive: the sidebar collapses to a horizontal scrolling nav, stat grids
 drop to a single column, and every table scrolls horizontally instead of breaking the layout.
@@ -287,7 +304,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-212 automated backend tests currently cover booking validation, payment guards, payout timing and
+235 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -297,8 +314,9 @@ assignment, driver rating recalculation, admin booking edits, vehicle gallery ma
 status polling, self-service profile updates, the public reviews API's read-only/no-driver-details
 restrictions, fleet-type CRUD and permission tiers, the Django admin's own bulk-action fixes,
 live vehicle-location reporting (only accepted for the assigned driver's own currently-active
-trip), and the trip start/end lifecycle (including the one case a late payment is allowed to
-auto-complete a booking) — run with:
+trip), the trip start/end lifecycle (including the one case a late payment is allowed to
+auto-complete a booking), vehicle service-history logging (driver scoped to their own vehicle;
+admin can log for any vehicle), and announcement audience targeting/permissions — run with:
 ```
 cd silverlake
 python manage.py test
