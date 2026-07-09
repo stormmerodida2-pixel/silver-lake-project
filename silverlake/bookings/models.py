@@ -49,13 +49,12 @@ class Booking(models.Model):
     vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name='bookings')
     driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings')
     service_type = models.CharField(max_length=20, choices=ServiceType.choices)
-    driver_token = models.UUIDField(default=uuid.uuid4, editable=False, null=True)
 
     # Where the booking came from - lets admin tell walk-up trips a driver books on-site (no
     # customer login involved) apart from ones the customer created themselves online.
     source = models.CharField(max_length=20, choices=BookingSource.choices, default=BookingSource.ONLINE)
     # Lets a customer with no account (or who never logs in) open a no-login payment page for
-    # this specific booking - shared with them directly by the driver, distinct from driver_token.
+    # this specific booking - shared with them directly by the driver.
     customer_token = models.UUIDField(default=uuid.uuid4, editable=False, null=True, unique=True)
 
     customer_name = models.CharField(max_length=100)

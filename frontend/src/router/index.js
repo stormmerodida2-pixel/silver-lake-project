@@ -118,12 +118,6 @@ const routes = [
     meta: { title: 'Become a Driver | SilverLake Car Rentals' },
   },
   {
-    path: '/driver/booking/:token',
-    name: 'driver-booking',
-    component: () => import('../views/DriverBookingView.vue'),
-    meta: { title: 'Complete Booking | SilverLake Driver Portal' },
-  },
-  {
     path: '/pay/:token',
     name: 'pay-booking',
     component: () => import('../views/PayBookingView.vue'),
