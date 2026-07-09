@@ -719,6 +719,32 @@ class DriverBookingNotificationTests(APITestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]['driver'], self.driver.id)
 
+    def test_driver_sees_the_customers_rating_on_a_completed_and_reviewed_trip(self):
+        driver_user = User.objects.create_user(username='rated-driver@example.com', password='pass12345!')
+        self.driver.user = driver_user
+        self.driver.save(update_fields=['user'])
+        booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver, status=BookingStatus.COMPLETED,
+        )
+        Review.objects.create(booking=booking, driver=self.driver, customer_name='Jane Doe', rating=4, comment='Smooth ride')
+
+        self.client.force_authenticate(user=driver_user)
+        response = self.client.get('/api/driver/bookings/mine/')
+        results = response.json()['results'] if 'results' in response.json() else response.json()
+        self.assertEqual(results[0]['review']['rating'], 4)
+        self.assertEqual(results[0]['review']['comment'], 'Smooth ride')
+
+    def test_driver_sees_no_review_data_when_the_customer_has_not_rated_yet(self):
+        driver_user = User.objects.create_user(username='unrated-driver@example.com', password='pass12345!')
+        self.driver.user = driver_user
+        self.driver.save(update_fields=['user'])
+        make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.COMPLETED)
+
+        self.client.force_authenticate(user=driver_user)
+        response = self.client.get('/api/driver/bookings/mine/')
+        results = response.json()['results'] if 'results' in response.json() else response.json()
+        self.assertIsNone(results[0]['review'])
+
     def test_onsite_booking_is_auto_acknowledged_and_does_not_self_notify(self):
         driver_user = User.objects.create_user(username='onsite-driver@example.com', password='pass12345!')
         self.driver.user = driver_user

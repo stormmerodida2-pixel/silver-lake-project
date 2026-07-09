@@ -503,6 +503,15 @@ onMounted(() => {
                     {{ booking.vehicle_name }} &middot; {{ booking.start_date }} to {{ booking.end_date }}
                   </p>
                   <p class="text-xs text-slate-500">{{ booking.pickup_location }}</p>
+                  <div v-if="booking.status === 'completed' && booking.review" class="mt-1.5 flex items-center gap-1">
+                    <span class="text-sm leading-none text-gold-400">
+                      <span v-for="n in 5" :key="n">{{ n <= booking.review.rating ? '★' : '☆' }}</span>
+                    </span>
+                    <span class="text-xs text-slate-500">customer rating</span>
+                  </div>
+                  <p v-if="booking.status === 'completed' && booking.review?.comment" class="mt-1 max-w-sm text-xs italic text-slate-400">
+                    “{{ booking.review.comment }}”
+                  </p>
                 </div>
                 <span
                   class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold"
