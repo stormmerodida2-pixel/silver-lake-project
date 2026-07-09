@@ -1,0 +1,16 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  Your payout of <strong style="color:#c9a227;">KES {{ amount }}</strong> for booking
+  <strong>#{{ booking_id }}</strong> ({{ customer_name }}) has been paid out.
+</p>
+{% if reference %}
+<p style="margin:0 0 16px; padding:12px 16px; background:#f1f5f9; border-radius:8px; color:#334155;">
+  Reference: <strong>{{ reference }}</strong>
+</p>
+{% endif %}
+<p style="margin:0; font-size:13px; color:#64748b;">
+  Questions about this payout? Call us on <strong>0790 111 000</strong> or reply to this email.
+</p>
+{% endblock %}

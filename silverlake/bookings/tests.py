@@ -306,6 +306,22 @@ class BookingCancelActionTests(APITestCase):
         refund.refresh_from_db()
         self.assertEqual(refund.amount, original_amount)
 
+    def test_cancelling_a_booking_emails_the_customer(self):
+        booking = make_booking(
+            self.user, self.vehicle, status=BookingStatus.PENDING, customer_email='jane@example.com',
+        )
+        mail.outbox = []
+        self.client.post(f'/api/bookings/{booking.id}/cancel/')
+        cancel_emails = [m for m in mail.outbox if 'has been cancelled' in m.subject]
+        self.assertEqual(len(cancel_emails), 1)
+        self.assertIn('jane@example.com', cancel_emails[0].to)
+
+    def test_no_cancellation_email_attempted_without_a_customer_email_on_file(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING, customer_email='')
+        mail.outbox = []
+        self.client.post(f'/api/bookings/{booking.id}/cancel/')
+        self.assertEqual(len(mail.outbox), 0)
+
 
 class BookingReviewActionTests(APITestCase):
     """Covers /api/bookings/<id>/review/ - a customer reviewing their own completed trip."""

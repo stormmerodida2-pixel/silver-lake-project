@@ -1,6 +1,7 @@
 import base64
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -100,6 +101,15 @@ class DriverApplicationApproveTests(TestCase):
         self.assertIsNone(application.created_driver)
         self.assertIsNone(application.created_vehicle)
 
+    def test_reject_emails_the_applicant(self):
+        application = self._make_application()
+        mail.outbox = []
+        application.reject(notes='Vehicle photos were unclear')
+
+        rejection_emails = [m for m in mail.outbox if 'Update on your SilverLake driver application' in m.subject]
+        self.assertEqual(len(rejection_emails), 1)
+        self.assertIn('applicant@example.com', rejection_emails[0].to)
+
 
 class DriverPortalAccessTests(APITestCase):
     """A plain customer account (no driver_profile) must not reach the driver portal API."""
@@ -175,6 +185,39 @@ class VehicleSubmissionTests(APITestCase):
         self.assertTrue(submission.created_vehicle.is_available)
         # First photo becomes the cover image, the rest become gallery images.
         self.assertEqual(submission.created_vehicle.gallery_images.count(), 1)
+
+    def test_approving_a_submission_emails_the_driver(self):
+        self.driver.email = 'submitting-driver@example.com'
+        self.driver.save(update_fields=['email'])
+        self.client.post('/api/driver/vehicle-submissions/', self._payload(), format='multipart')
+        submission = VehicleSubmission.objects.get()
+
+        mail.outbox = []
+        submission.approve()
+        approved_emails = [m for m in mail.outbox if 'is now live on SilverLake' in m.subject]
+        self.assertEqual(len(approved_emails), 1)
+        self.assertIn('submitting-driver@example.com', approved_emails[0].to)
+
+    def test_rejecting_a_submission_emails_the_driver(self):
+        self.driver.email = 'submitting-driver@example.com'
+        self.driver.save(update_fields=['email'])
+        self.client.post('/api/driver/vehicle-submissions/', self._payload(), format='multipart')
+        submission = VehicleSubmission.objects.get()
+
+        mail.outbox = []
+        submission.reject(notes='Photos too dark')
+        rejected_emails = [m for m in mail.outbox if 'Update on your My Car submission' in m.subject]
+        self.assertEqual(len(rejected_emails), 1)
+        self.assertIn('submitting-driver@example.com', rejected_emails[0].to)
+
+    def test_no_submission_email_attempted_without_a_driver_email_on_file(self):
+        self.assertEqual(self.driver.email, '')
+        self.client.post('/api/driver/vehicle-submissions/', self._payload(), format='multipart')
+        submission = VehicleSubmission.objects.get()
+
+        mail.outbox = []
+        submission.approve()
+        self.assertEqual(len(mail.outbox), 0)
 
 
 class DriverApplicationThrottleTests(APITestCase):

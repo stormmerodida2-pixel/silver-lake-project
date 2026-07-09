@@ -31,6 +31,29 @@ def send_driver_booking_notification(booking):
         pass
 
 
+def send_booking_cancelled_email(booking):
+    """Sent whenever a booking is cancelled, whether by the customer themselves or by staff -
+    previously there was no notification at all, so a staff-initiated cancellation would leave
+    the customer finding out only by checking 'My Bookings'. Swallowed silently on failure so a
+    misconfigured SMTP server never blocks the cancellation."""
+    if not booking.customer_email:
+        return
+    try:
+        send_branded_email(
+            subject=f'Your SilverLake booking #{booking.pk} has been cancelled',
+            template_name='emails/booking_cancelled.html',
+            context={
+                'first_name': booking.customer_name.split()[0],
+                'booking_id': booking.pk,
+                'vehicle_name': booking.vehicle.name,
+                'amount_paid': f'{booking.amount_paid:,.2f}' if booking.amount_paid > 0 else None,
+            },
+            recipient_list=[booking.customer_email],
+        )
+    except Exception:
+        pass
+
+
 def send_trip_completed_email(booking):
     """Sends a review request email to the customer on trip completion."""
     try:

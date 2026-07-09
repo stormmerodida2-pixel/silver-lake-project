@@ -159,12 +159,20 @@ class VehicleSubmission(models.Model):
         self.reviewed_at = timezone.now()
         self.save()
 
+        from drivers.emails import send_vehicle_submission_approved_email
+
+        send_vehicle_submission_approved_email(self)
+
     def reject(self, notes=''):
         self.status = VehicleSubmissionStatus.REJECTED
         if notes:
             self.review_notes = notes
         self.reviewed_at = timezone.now()
         self.save()
+
+        from drivers.emails import send_vehicle_submission_rejected_email
+
+        send_vehicle_submission_rejected_email(self)
 
 
 class VehicleSubmissionPhoto(models.Model):

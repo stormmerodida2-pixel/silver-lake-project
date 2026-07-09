@@ -91,3 +91,64 @@ def send_new_driver_application_notification(application):
         recipient_list=[settings.DEFAULT_FROM_EMAIL],
         bcc=staff_emails,
     )
+
+
+def send_driver_application_rejected_email(application):
+    """Sent when an admin rejects a 'become a driver' application - approval already tells the
+    applicant via the portal-invite email, but rejection previously left them never hearing
+    back at all. Swallowed silently on failure so a misconfigured SMTP server never blocks the
+    application from being processed."""
+    try:
+        send_branded_email(
+            subject='Update on your SilverLake driver application',
+            template_name='emails/driver_application_rejected.html',
+            context={'first_name': application.full_name.split()[0], 'notes': application.review_notes},
+            recipient_list=[application.email],
+        )
+    except Exception:
+        pass
+
+
+def send_vehicle_submission_approved_email(submission):
+    """Sent when a driver-partner's own submitted vehicle is approved and goes live. No-ops if
+    the driver has no email on file; swallowed silently on failure so a misconfigured SMTP
+    server never blocks the submission from being approved."""
+    driver = submission.driver
+    if not driver.email:
+        return
+    try:
+        send_branded_email(
+            subject=f'Your {submission.name} is now live on SilverLake',
+            template_name='emails/vehicle_submission_approved.html',
+            context={
+                'first_name': driver.full_name.split()[0],
+                'vehicle_name': submission.name,
+                'portal_url': f'{settings.FRONTEND_URL}/driver',
+            },
+            recipient_list=[driver.email],
+        )
+    except Exception:
+        pass
+
+
+def send_vehicle_submission_rejected_email(submission):
+    """Sent when a driver-partner's own submitted vehicle is rejected - previously the driver
+    had no way to find out except by checking their portal. No-ops if the driver has no email
+    on file; swallowed silently on failure so a misconfigured SMTP server never blocks the
+    submission from being processed."""
+    driver = submission.driver
+    if not driver.email:
+        return
+    try:
+        send_branded_email(
+            subject=f'Update on your {submission.name} submission',
+            template_name='emails/vehicle_submission_rejected.html',
+            context={
+                'first_name': driver.full_name.split()[0],
+                'vehicle_name': submission.name,
+                'notes': submission.review_notes,
+            },
+            recipient_list=[driver.email],
+        )
+    except Exception:
+        pass

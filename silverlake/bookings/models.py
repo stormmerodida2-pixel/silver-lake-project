@@ -263,6 +263,10 @@ class Booking(models.Model):
         if hasattr(self, 'driver_payout') and not self.driver_payout.is_paid:
             self.driver_payout.void()
 
+        from .emails import send_booking_cancelled_email
+
+        send_booking_cancelled_email(self)
+
     def _send_confirmation_email(self):
         """Sends a booking confirmed email to the customer. Swallowed silently on failure
         so a misconfigured SMTP server never blocks a successful booking."""

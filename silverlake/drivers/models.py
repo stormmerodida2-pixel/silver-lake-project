@@ -147,3 +147,7 @@ class DriverApplication(models.Model):
             self.review_notes = notes
         self.reviewed_at = timezone.now()
         self.save()
+
+        from .emails import send_driver_application_rejected_email
+
+        send_driver_application_rejected_email(self)

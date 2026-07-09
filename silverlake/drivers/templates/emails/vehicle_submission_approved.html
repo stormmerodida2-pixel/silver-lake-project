@@ -1,0 +1,9 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  Great news - your <strong>{{ vehicle_name }}</strong> has been approved and is now live on our
+  public fleet listing. It's ready to start receiving bookings.
+</p>
+{% include "emails/_button.html" with url=portal_url label="View My Portal" %}
+{% endblock %}

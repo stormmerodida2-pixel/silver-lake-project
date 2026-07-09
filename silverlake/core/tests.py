@@ -1,7 +1,9 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase
 from rest_framework.test import APITestCase
 
 from bookings.models import BookingStatus
@@ -65,6 +67,18 @@ class AdminPayoutVerificationTests(APITestCase):
         self.payout.refresh_from_db()
         self.assertTrue(self.payout.is_paid)
 
+    def test_marking_a_payout_paid_emails_the_driver(self):
+        self.driver.email = 'payout-driver@example.com'
+        self.driver.save(update_fields=['email'])
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.post(f'/api/admin/payouts/{self.payout.id}/verify/')
+
+        mail.outbox = []
+        self.client.post(f'/api/admin/payouts/{self.payout.id}/mark-paid/', {'payout_reference': 'MPESA123'})
+        payout_emails = [m for m in mail.outbox if 'payout has been paid' in m.subject]
+        self.assertEqual(len(payout_emails), 1)
+        self.assertIn('payout-driver@example.com', payout_emails[0].to)
+
     def test_mpesa_sourced_payout_can_be_marked_paid_without_verification(self):
         other_customer = User.objects.create_user(username='other-client@example.com', password='pass12345!')
         other_vehicle = make_vehicle(name='Other Car', driver=self.driver, price_per_day=Decimal('1000'))
@@ -98,7 +112,9 @@ class AdminRefundActionTests(APITestCase):
         self.staff = User.objects.create_user(username='staff2@example.com', password='pass12345!', is_staff=True)
         vehicle = make_vehicle(name='Refund Car', price_per_day=Decimal('1000'))
         customer = User.objects.create_user(username='refund-client@example.com', password='pass12345!')
-        booking = make_booking(customer, vehicle, status=BookingStatus.PENDING)
+        booking = make_booking(
+            customer, vehicle, status=BookingStatus.PENDING, customer_email='refund-client@example.com',
+        )
         Payment.objects.create(
             booking=booking, method=PaymentMethod.MPESA, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
         )
@@ -123,6 +139,14 @@ class AdminRefundActionTests(APITestCase):
         self.assertEqual(self.refund.status, 'issued')
         self.assertEqual(self.refund.reference, 'MPESA-REFUND-1')
         self.assertIsNotNone(self.refund.issued_at)
+
+    def test_marking_a_refund_issued_emails_the_customer(self):
+        self.client.force_authenticate(user=self.superadmin)
+        mail.outbox = []
+        self.client.post(f'/api/admin/refunds/{self.refund.id}/mark-issued/', {'reference': 'MPESA-REFUND-1'})
+        refund_emails = [m for m in mail.outbox if 'refund has been issued' in m.subject]
+        self.assertEqual(len(refund_emails), 1)
+        self.assertIn('refund-client@example.com', refund_emails[0].to)
 
 
 class AdminAuditLogTests(APITestCase):
@@ -547,3 +571,26 @@ class AdminVehicleCategoryTests(APITestCase):
         self.client.force_authenticate(user=self.superadmin)
         self.client.delete(f'/api/admin/fleet-types/{category.id}/')
         self.assertTrue(AuditLog.objects.filter(action='vehicle_category.delete').exists())
+
+
+class BrandedEmailTests(TestCase):
+    """Every branded email embeds the logo inline via Content-ID rather than a remote URL, so
+    it always renders regardless of the recipient's client blocking remote images. A previous
+    Django upgrade silently broke this (an attribute it relied on was removed) - every branded
+    send failed and got swallowed by the caller's try/except, so nothing surfaced until this
+    test was added to catch it directly."""
+
+    def test_branded_email_embeds_the_logo_inline(self):
+        from core.email_utils import send_branded_email
+
+        mail.outbox = []
+        send_branded_email(
+            subject='Test',
+            template_name='emails/trip_completed.html',
+            context={'first_name': 'Jane', 'vehicle_name': 'Test Car', 'review_url': 'http://example.com'},
+            recipient_list=['jane@example.com'],
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        raw = mail.outbox[0].message().as_string()
+        self.assertIn('cid:logo', raw)
+        self.assertIn('Content-ID: <logo>', raw)

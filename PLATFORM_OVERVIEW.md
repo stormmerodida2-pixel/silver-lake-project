@@ -121,7 +121,7 @@ business-model pitch for the economics).
 
 ## 6. Payments
 
-- **M-Pesa STK Push** (Paybill **400400**) is the primary payment rail — a customer gets a prompt
+- **M-Pesa STK Push** (Paybill) is the primary payment rail — a customer gets a prompt
   on their phone and pays directly into the till.
 - **Cash payments**: a driver can record a cash payment they collected on the spot (e.g. a
   walk-up client). This is flagged for admin review before it can trigger a real payout — see §7.
@@ -194,19 +194,27 @@ rejected, or deleted — it doesn't just sit at the default forever.
 
 ## 9. Email Notifications
 
-Sent automatically, using branded HTML templates, via Gmail SMTP:
+This is the platform's only notification system — there's no in-app bell/toast/notification
+center, so every state change a user needs to know about goes out as a branded HTML email via
+Gmail SMTP. The brand icon is embedded inline (Content-ID, not a remote URL) in every one, so it
+still renders even when a client blocks remote images.
 
 - Account activation (customer)
 - Booking confirmed (customer)
+- **Booking cancelled (customer)** — whether they cancelled it themselves or staff did
 - New booking, please review (driver) — sent the moment an online customer books them
 - Trip completed / review invite (customer)
+- **Refund issued (customer)** — their only signal the money actually went out, beyond checking their own statement
 - Cash payment recorded (customer) — an independent check, since they didn't initiate it
 - Cash payment recorded (driver) — confirms the amount and that it's queued for admin verification
+- **Payout paid (driver)** — their receipt that a payout actually went out
 - Driver portal invite (driver)
 - Driver suspended, with reason (driver)
 - Driver marked themselves away (admin, BCC to staff)
 - New driver application submitted (admin)
+- **Driver application rejected (applicant)** — approval already emailed the portal invite; rejection previously left the applicant never hearing back at all
 - New vehicle submitted by a driver (admin)
+- **Vehicle submission approved / rejected (driver)** — previously the driver only found out by checking their own portal
 
 Every email send is wrapped so a failure (bad SMTP config, etc.) never blocks the underlying
 action — a booking still confirms even if the confirmation email fails to send.
@@ -248,7 +256,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-177 automated backend tests currently cover booking validation, payment guards, payout timing and
+186 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,

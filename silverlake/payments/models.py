@@ -95,6 +95,10 @@ class DriverPayout(models.Model):
             self.payout_reference = reference
         self.save(update_fields=['is_paid', 'paid_at', 'payout_reference'])
 
+        from .emails import send_payout_paid_email
+
+        send_payout_paid_email(self)
+
     def void(self):
         self.is_voided = True
         self.voided_at = timezone.now()
@@ -131,3 +135,7 @@ class Refund(models.Model):
         if reference:
             self.reference = reference
         self.save(update_fields=['status', 'issued_at', 'reference'])
+
+        from .emails import send_refund_issued_email
+
+        send_refund_issued_email(self)
