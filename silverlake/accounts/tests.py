@@ -1,6 +1,9 @@
+import base64
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework.test import APITestCase
@@ -11,6 +14,11 @@ from .models import CustomerProfile
 from .services import blacklist_all_tokens_for_user
 
 User = get_user_model()
+
+# A real 1x1 PNG - Pillow (used by ImageField validation) rejects arbitrary bytes.
+PNG_1PX = base64.b64decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+)
 
 
 class LoginThrottleTests(APITestCase):
@@ -148,3 +156,71 @@ class ProfileUpdateTests(APITestCase):
 
         refresh_response = self.client.post('/api/auth/refresh/', {'refresh': str(refresh)})
         self.assertEqual(refresh_response.status_code, 401)
+
+
+class AvatarUploadTests(APITestCase):
+    """A customer's profile photo - separate POST-to-set/DELETE-to-remove endpoints rather than
+    bundled into the plain-JSON PATCH /auth/me/, since HTML/multipart forms can't represent
+    "clear this field" the way an explicit DELETE can."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='avatar@example.com', email='avatar@example.com', password='pass12345!',
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def _png(self, name='avatar.png'):
+        return SimpleUploadedFile(name, PNG_1PX, content_type='image/png')
+
+    def test_avatar_is_null_by_default(self):
+        response = self.client.get('/api/auth/me/')
+        self.assertIsNone(response.json()['avatar'])
+
+    def test_can_upload_an_avatar(self):
+        response = self.client.post('/api/auth/me/avatar/', {'avatar': self._png()}, format='multipart')
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(response.json()['avatar'])
+        self.user.customer_profile.refresh_from_db()
+        self.assertTrue(self.user.customer_profile.avatar)
+
+    def test_uploading_again_replaces_the_previous_avatar(self):
+        self.client.post('/api/auth/me/avatar/', {'avatar': self._png('first.png')}, format='multipart')
+        first_name = self.user.customer_profile.avatar.name
+
+        self.client.post('/api/auth/me/avatar/', {'avatar': self._png('second.png')}, format='multipart')
+        self.user.customer_profile.refresh_from_db()
+        self.assertNotEqual(self.user.customer_profile.avatar.name, first_name)
+
+    def test_can_remove_an_avatar(self):
+        self.client.post('/api/auth/me/avatar/', {'avatar': self._png()}, format='multipart')
+        response = self.client.delete('/api/auth/me/avatar/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()['avatar'])
+        self.user.customer_profile.refresh_from_db()
+        self.assertFalse(self.user.customer_profile.avatar)
+
+    def test_removing_with_no_avatar_set_is_a_harmless_no_op(self):
+        response = self.client.delete('/api/auth/me/avatar/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()['avatar'])
+
+    def test_upload_with_no_file_is_a_clean_400(self):
+        response = self.client.post('/api/auth/me/avatar/', {}, format='multipart')
+        self.assertEqual(response.status_code, 400)
+
+    def test_oversized_avatar_is_rejected(self):
+        oversized = SimpleUploadedFile('big.png', PNG_1PX + b'0' * (6 * 1024 * 1024), content_type='image/png')
+        response = self.client.post('/api/auth/me/avatar/', {'avatar': oversized}, format='multipart')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('avatar', response.json())
+
+    def test_unauthenticated_request_is_rejected(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.post('/api/auth/me/avatar/', {'avatar': self._png()}, format='multipart')
+        self.assertEqual(response.status_code, 401)
+
+    def test_avatar_appears_in_the_login_response(self):
+        self.client.post('/api/auth/me/avatar/', {'avatar': self._png()}, format='multipart')
+        self.client.force_authenticate(user=None)
+        response = self.client.post('/api/auth/login/', {'username': 'avatar@example.com', 'password': 'pass12345!'})
+        self.assertIsNotNone(response.json()['user']['avatar'])

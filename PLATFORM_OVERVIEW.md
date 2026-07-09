@@ -20,6 +20,11 @@ decision before launch, it's called out explicitly rather than glossed over.
 - **A "My Profile" page** lets a customer update their own name and phone number. Email is
   deliberately not editable there — it doubles as the login username, and changing it has no
   re-verification flow yet, so that stays a "contact us" request for now.
+- **Profile photo.** A customer can upload (and remove) a profile photo from the same page —
+  separate upload/remove endpoints from the name/phone save, so removing a photo is an explicit
+  action rather than something that could happen by accident via a blank form field. Shows as a
+  small circular avatar next to "Hi, {name}" in the site header once set; falls back to your
+  initials when there's no photo.
 - **JWT-based sessions.** Logging in issues a short-lived access token (15 min) plus a
   longer-lived refresh token (14 days); the frontend silently refreshes in the background, so
   the short lifetime costs nothing in usability.
@@ -323,7 +328,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-250 automated backend tests currently cover booking validation, payment guards, payout timing and
+259 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -336,7 +341,8 @@ live vehicle-location reporting (only accepted for the assigned driver's own cur
 trip), the trip start/end lifecycle (including the one case a late payment is allowed to
 auto-complete a booking), vehicle service-history logging (driver scoped to their own vehicle;
 admin can log for any vehicle), the time-based service-due calculation and its exposure to staff
-and the owning driver, announcement audience targeting/permissions and the staff-propose
+and the owning driver, profile photo upload/removal (including the file-size limit and that it
+appears in the login response), announcement audience targeting/permissions and the staff-propose
 /superadmin-approve workflow for client-facing announcements, and (using real threads against a
 live test transaction, not a single-connection simulation) that two concurrent booking requests
 for the same vehicle can't both succeed — run with:

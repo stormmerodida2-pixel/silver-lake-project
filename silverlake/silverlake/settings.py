@@ -233,6 +233,14 @@ STATIC_URL = 'static/'
 
 # Media files (uploaded vehicle/driver photos)
 MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+if 'test' in sys.argv:
+    # Without this, every test that uploads a file (vehicle photos, driver logbooks, avatars,
+    # ...) writes a real file into the real media/ folder on disk, individually harmless but
+    # accumulating with every test run since nothing ever cleans them up - a tempfile.mkdtemp()
+    # gets discarded by the OS instead.
+    import tempfile
+    MEDIA_ROOT = Path(tempfile.mkdtemp(prefix='silverlake_test_media_'))
+else:
+    MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

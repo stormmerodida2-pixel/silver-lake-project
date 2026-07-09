@@ -34,19 +34,28 @@ class RegisterSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     phone_number = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
     is_driver = serializers.SerializerMethodField()
     driver_status = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
-            'id', 'first_name', 'last_name', 'email', 'phone_number',
+            'id', 'first_name', 'last_name', 'email', 'phone_number', 'avatar',
             'is_staff', 'is_superuser', 'is_driver', 'driver_status',
         ]
 
     def get_phone_number(self, user):
         profile = getattr(user, 'customer_profile', None)
         return profile.phone_number if profile else ''
+
+    def get_avatar(self, user):
+        profile = getattr(user, 'customer_profile', None)
+        if not (profile and profile.avatar):
+            return None
+        request = self.context.get('request')
+        url = profile.avatar.url
+        return request.build_absolute_uri(url) if request else url
 
     def get_is_driver(self, user):
         # Portal access requires an active driver profile - a suspended driver loses it,

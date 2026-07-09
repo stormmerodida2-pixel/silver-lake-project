@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../api/client'
 import { useAuthStore } from '../stores/auth'
@@ -13,6 +13,58 @@ const submitting = ref(false)
 const error = ref('')
 const success = ref(false)
 
+// ── Profile photo ────────────────────────────────────────────────────────────
+const avatarUrl = ref(null)
+const avatarInput = ref(null)
+const avatarUploading = ref(false)
+const avatarError = ref('')
+const initials = computed(() => {
+  const name = `${form.first_name || ''} ${form.last_name || ''}`.trim()
+  const parts = name.split(/\s+/).filter(Boolean)
+  return (parts[0]?.[0] || '') + (parts[1]?.[0] || '')
+})
+
+function pickAvatar() {
+  avatarInput.value?.click()
+}
+
+async function onAvatarSelected(event) {
+  const file = event.target.files[0]
+  event.target.value = ''  // allow re-selecting the same file later
+  if (!file) return
+  avatarError.value = ''
+  avatarUploading.value = true
+  try {
+    const payload = new FormData()
+    payload.append('avatar', file)
+    const { data } = await apiClient.post('/auth/me/avatar/', payload)
+    avatarUrl.value = data.avatar
+    await auth.refreshProfile()  // keeps the NavBar's copy (and localStorage) in sync too
+  } catch (err) {
+    const detail = err?.response?.data
+    avatarError.value = typeof detail === 'object'
+      ? Object.values(detail).flat().join(' ')
+      : 'Could not upload this photo.'
+  } finally {
+    avatarUploading.value = false
+  }
+}
+
+async function removeAvatar() {
+  if (!confirm('Remove your profile photo?')) return
+  avatarError.value = ''
+  avatarUploading.value = true
+  try {
+    const { data } = await apiClient.delete('/auth/me/avatar/')
+    avatarUrl.value = data.avatar
+    await auth.refreshProfile()
+  } catch (err) {
+    avatarError.value = 'Could not remove your photo.'
+  } finally {
+    avatarUploading.value = false
+  }
+}
+
 async function loadProfile() {
   loading.value = true
   try {
@@ -21,6 +73,7 @@ async function loadProfile() {
     form.last_name = data.last_name
     form.phone_number = data.phone_number
     email.value = data.email
+    avatarUrl.value = data.avatar
   } catch (err) {
     error.value = 'Could not load your profile.'
   } finally {
@@ -57,7 +110,43 @@ onMounted(loadProfile)
 
       <p v-if="loading" class="mt-10 text-center text-slate-500">Loading...</p>
 
-      <form v-else class="mt-10 space-y-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 sm:p-10" @submit.prevent="submit">
+      <template v-else>
+        <!-- Profile photo -->
+        <div class="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-8 sm:flex-row sm:p-10">
+          <div class="h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-white bg-navy-900 shadow-sm">
+            <img v-if="avatarUrl" :src="avatarUrl" alt="Your profile photo" class="h-full w-full object-cover" />
+            <div v-else class="flex h-full w-full items-center justify-center font-[Georgia] text-2xl font-bold text-gold-400">
+              {{ initials || '—' }}
+            </div>
+          </div>
+          <div class="flex-1 text-center sm:text-left">
+            <p class="font-[Georgia] text-lg font-bold text-navy-900">Profile Photo</p>
+            <p class="mt-1 text-sm text-slate-500">JPG or PNG, up to 5MB.</p>
+            <p v-if="avatarError" class="mt-2 text-sm text-red-600">{{ avatarError }}</p>
+            <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarSelected" />
+            <div class="mt-3 flex flex-wrap justify-center gap-3 sm:justify-start">
+              <button
+                type="button"
+                :disabled="avatarUploading"
+                class="rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+                @click="pickAvatar"
+              >
+                {{ avatarUploading ? 'Saving…' : (avatarUrl ? 'Change Photo' : 'Upload Photo') }}
+              </button>
+              <button
+                v-if="avatarUrl"
+                type="button"
+                :disabled="avatarUploading"
+                class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-red-400 hover:text-red-600 disabled:opacity-60"
+                @click="removeAvatar"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+
+      <form class="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 sm:p-10" @submit.prevent="submit">
         <div class="grid gap-5 sm:grid-cols-2">
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-600">First name</label>
@@ -110,6 +199,7 @@ onMounted(loadProfile)
           {{ submitting ? 'Saving...' : 'Save Changes' }}
         </button>
       </form>
+      </template>
 
       <p class="mt-6 text-center text-sm text-slate-500">
         Want to change your password instead?

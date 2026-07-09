@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import generics, permissions, status
@@ -12,6 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .emails import send_activation_email, send_password_reset_email
+from .models import CustomerProfile
 from .serializers import (
     ChangePasswordSerializer,
     PasswordResetConfirmSerializer,
@@ -38,7 +40,7 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
                 attrs[self.username_field] = user.get_username()
 
         data = super().validate(attrs)
-        data['user'] = UserSerializer(self.user).data
+        data['user'] = UserSerializer(self.user, context=self.context).data
         return data
 
 
@@ -86,7 +88,37 @@ class MeView(generics.RetrieveUpdateAPIView):
         # reverse customer_profile accessor on the user instance the moment it's first read, so
         # the in-memory object here would still show the old phone number otherwise.
         fresh_user = User.objects.get(pk=request.user.pk)
-        return Response(UserSerializer(fresh_user).data)
+        return Response(UserSerializer(fresh_user, context=self.get_serializer_context()).data)
+
+
+class MyAvatarView(APIView):
+    """Separate from MeView's name/phone PATCH, same reasoning as gallery images elsewhere in
+    this app - a binary upload doesn't belong mixed into a plain JSON field-update endpoint, and
+    HTML/multipart forms can't represent "clear this field" the way a POST-to-set /
+    DELETE-to-remove pair can."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        avatar = request.FILES.get('avatar')
+        if not avatar:
+            return Response({'avatar': ['No file provided.']}, status=status.HTTP_400_BAD_REQUEST)
+        profile, _ = CustomerProfile.objects.get_or_create(user=request.user)
+        profile.avatar = avatar
+        try:
+            profile.full_clean(validate_unique=False)
+        except DjangoValidationError as exc:
+            return Response({'avatar': exc.message_dict.get('avatar', exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        profile.save()
+        return Response(UserSerializer(request.user, context={'request': request}).data)
+
+    def delete(self, request):
+        profile = getattr(request.user, 'customer_profile', None)
+        if profile and profile.avatar:
+            profile.avatar.delete(save=False)
+            profile.avatar = None
+            profile.save(update_fields=['avatar'])
+        return Response(UserSerializer(request.user, context={'request': request}).data)
 
 
 def _get_user_from_uid(uid):
