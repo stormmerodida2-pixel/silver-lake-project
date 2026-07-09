@@ -228,6 +228,13 @@ class DriverBookingCompleteView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # A direct completion (skipping the explicit Start/End Trip buttons) still means the
+        # trip physically happened - stamp trip_ended_at if it isn't already, so anyone later
+        # checking "did this trip actually end" gets a real answer either way.
+        if not booking.trip_ended_at:
+            booking.trip_ended_at = timezone.now()
+            booking.save(update_fields=['trip_ended_at'])
+
         booking.status = BookingStatus.COMPLETED
         booking.save(update_fields=['status'])
 
@@ -236,6 +243,82 @@ class DriverBookingCompleteView(APIView):
         send_trip_completed_email(booking)
 
         return Response(BookingSerializer(booking).data)
+
+
+class DriverBookingStartTripView(APIView):
+    """Lets a driver confirm a trip has actually begun (vehicle handed over) - the only real
+    signal of this today is the driver's own say-so, not payment status or dates."""
+
+    permission_classes = [IsDriverUser]
+
+    def post(self, request, pk):
+        driver = request.user.driver_profile
+        booking = get_object_or_404(Booking, pk=pk, driver=driver)
+        try:
+            booking.start_trip()
+        except ValidationError as exc:
+            return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(BookingSerializer(booking).data)
+
+
+class DriverBookingEndTripView(APIView):
+    """Lets a driver confirm the vehicle has been physically returned. If the trip happens to
+    already be fully paid, this completes it immediately; otherwise it stays open until the
+    balance clears (see Booking.end_trip)."""
+
+    permission_classes = [IsDriverUser]
+
+    def post(self, request, pk):
+        driver = request.user.driver_profile
+        booking = get_object_or_404(Booking, pk=pk, driver=driver)
+        try:
+            booking.end_trip()
+        except ValidationError as exc:
+            return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(BookingSerializer(booking).data)
+
+
+class DriverBookingLocationView(APIView):
+    """Lets a driver report their vehicle's current GPS position while a trip is actually in
+    progress - reported by the driver's own browser (no separate hardware), so it only works
+    while they have the portal open. Only the latest fix is kept (on the vehicle, not a history
+    table); the admin fleet map reads it from there."""
+
+    permission_classes = [IsDriverUser]
+
+    def post(self, request, pk):
+        driver = request.user.driver_profile
+        booking = get_object_or_404(Booking, pk=pk, driver=driver)
+
+        today = timezone.localdate()
+        if booking.status not in (BookingStatus.CONFIRMED, BookingStatus.ONGOING):
+            return Response(
+                {'detail': 'This trip is not currently active.'}, status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not (booking.start_date <= today <= booking.end_date):
+            return Response(
+                {'detail': "This trip's dates are not currently active."}, status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            lat = float(request.data.get('lat'))
+            lng = float(request.data.get('lng'))
+        except (TypeError, ValueError):
+            return Response({'detail': 'A valid lat and lng are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+            return Response({'detail': 'lat/lng out of range.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        vehicle = booking.vehicle
+        vehicle.last_location_lat = lat
+        vehicle.last_location_lng = lng
+        vehicle.last_location_at = timezone.now()
+        vehicle.save(update_fields=['last_location_lat', 'last_location_lng', 'last_location_at'])
+
+        return Response({
+            'last_location_lat': vehicle.last_location_lat,
+            'last_location_lng': vehicle.last_location_lng,
+            'last_location_at': vehicle.last_location_at,
+        })
 
 
 class DriverBookingListView(generics.ListAPIView):

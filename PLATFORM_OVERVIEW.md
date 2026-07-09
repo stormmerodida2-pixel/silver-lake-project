@@ -61,6 +61,13 @@ in an **Activity Log** admin staff can review (who did what, and when — see §
 - Each vehicle tracks **insurance and inspection expiry dates**. If either lapses, the vehicle
   automatically disappears from what customers see — no manual step required, so an expired
   vehicle can't accidentally keep taking bookings.
+- **Live location tracking**: while a trip is currently active (confirmed/ongoing, today within
+  the booking's date range), the assigned driver can tap "Share My Location" in the Driver
+  Portal, which reports their browser's GPS position (via the Geolocation API) every 30 seconds.
+  Only the vehicle's latest fix is kept, not a history — admins see it on **Admin → Fleet Map**
+  (Leaflet + OpenStreetMap, no API key needed), with a "live" vs "last seen X ago" distinction.
+  This is browser-based, not dedicated GPS hardware, so it only works while the driver has the
+  portal tab open — there's no background/always-on tracking.
 - A vehicle also disappears from public listings while its assigned driver has marked themselves
   **away**, or if that driver has been suspended (see §4) — the fleet listing always reflects who's
   actually available right now.
@@ -110,9 +117,24 @@ business-model pitch for the economics).
   unrelated edit.
 - Overlapping bookings for the same vehicle (or the same driver) are rejected outright.
 - A booking starts **Pending**, and moves to **Confirmed** automatically once a **30% deposit**
-  is paid. It later becomes **Ongoing**/**Completed** via staff updating status, or the driver
-  marking their own trip complete once it's fully paid (completing a trip is blocked if there's
-  still a balance outstanding).
+  is paid.
+- **Starting/ending a trip is a driver-confirmed fact, not inferred from payment or dates.**
+  Money and physical trip status are deliberately kept separate — the balance is due "on or
+  before pickup," so it can clear well before the trip even starts, which means "fully paid"
+  can never safely mean "trip is over" on its own. From the Driver Portal:
+  - **Start Trip** (only from Confirmed) flips the booking to **Ongoing** and stamps
+    `trip_started_at`.
+  - **End Trip** stamps `trip_ended_at`. If the booking happens to already be fully paid at that
+    point, it completes immediately; otherwise it stays open, showing "awaiting final payment,"
+    until the remaining balance clears — at which point it auto-completes, since a human already
+    confirmed the car is physically back. This is the *only* case a payment is allowed to
+    auto-complete a booking.
+  - A **Complete Trip** button remains as a direct manual override (still blocked if there's an
+    outstanding balance) for drivers who skip the explicit Start/End steps — it stamps
+    `trip_ended_at` too, so the record stays consistent either way.
+  - Bookings past their scheduled end date but still open (nobody confirmed start/end, or it
+    ended but is unpaid) are flagged **Needs Attention** on the admin Bookings page and dashboard
+    — a nudge, never auto-resolved.
 - Once completed, the customer can leave a **review** of the driver/trip (one per booking).
 - A customer (or staff) can **cancel** a booking any time before it's completed. As of today,
   cancelling a booking that already had money paid against it automatically creates a **Refund**
@@ -232,13 +254,18 @@ in one consistent UI:
 - **Drivers** — manage live drivers plus the driver-application and vehicle-submission review
   queues, all in one page.
 - **Bookings** — full oversight, manual status changes, and (superadmin only) editing the
-  booking itself — e.g. fixing a booking assigned to the wrong driver.
+  booking itself — e.g. fixing a booking assigned to the wrong driver. Rows past their scheduled
+  end date but still open are highlighted **Needs Attention** (see §5), and a "Trip" column
+  shows driver-confirmed start/end timestamps.
 - **Fleet** — full vehicle CRUD, toggle availability, assign which driver drives a company-owned
   vehicle (a driver-partner's own submitted car is assigned automatically), and manage a
   vehicle's photo gallery beyond its single cover image.
 - **Fleet Types** — add/edit/remove the vehicle categories offered across the site (used to be a
   fixed enum in code); a type still in use by a vehicle, submission, or application can't be
   deleted, but can be deactivated to stop offering it going forward without losing history.
+- **Fleet Map** — live map of where each vehicle currently is, self-reported by whichever driver
+  has an active trip in it via their browser's GPS; vehicles with no recent fix are listed
+  separately rather than guessed at.
 - **Reviews** — approve/reject, delete.
 - **Payouts** — the driver payout ledger; verify and mark paid.
 - **Refunds** — the refund ledger; mark issued.
@@ -256,7 +283,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-186 automated backend tests currently cover booking validation, payment guards, payout timing and
+208 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -264,8 +291,10 @@ the STK-push retry cooldown, session/token revocation on logout and password cha
 booking notifications/acknowledgment, driver-defaulting, driver-side trip completion, admin driver
 assignment, driver rating recalculation, admin booking edits, vehicle gallery management, payment
 status polling, self-service profile updates, the public reviews API's read-only/no-driver-details
-restrictions, fleet-type CRUD and permission tiers, and the Django admin's own bulk-action
-fixes — run with:
+restrictions, fleet-type CRUD and permission tiers, the Django admin's own bulk-action fixes,
+live vehicle-location reporting (only accepted for the assigned driver's own currently-active
+trip), and the trip start/end lifecycle (including the one case a late payment is allowed to
+auto-complete a booking) — run with:
 ```
 cd silverlake
 python manage.py test

@@ -95,6 +95,10 @@ class AdminStatsView(APIView):
             'bookings': {
                 'by_status': bookings_by_status,
                 'total': Booking.objects.count(),
+                'needing_attention': Booking.objects.filter(
+                    status__in=(BookingStatus.CONFIRMED, BookingStatus.ONGOING),
+                    end_date__lt=timezone.localdate(),
+                ).count(),
             },
             'users': {
                 'total': User.objects.count(),

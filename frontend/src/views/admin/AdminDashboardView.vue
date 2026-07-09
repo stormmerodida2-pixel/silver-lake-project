@@ -95,6 +95,24 @@ onMounted(async () => {
             <p class="mt-1 text-xl font-bold text-white">{{ stats.bookings.by_status[key] || 0 }}</p>
           </div>
         </div>
+        <RouterLink
+          to="/admin/bookings"
+          class="mt-4 block rounded-xl border p-5 transition"
+          :class="
+            stats.bookings.needing_attention
+              ? 'border-red-500/40 bg-red-500/5 hover:border-red-400'
+              : 'border-navy-800 bg-navy-900 hover:border-gold-400'
+          "
+        >
+          <p class="text-sm text-slate-400">Needing Attention</p>
+          <p class="mt-1 text-2xl font-bold" :class="stats.bookings.needing_attention ? 'text-red-400' : 'text-white'">
+            {{ stats.bookings.needing_attention }}
+          </p>
+          <p class="mt-1 text-xs text-slate-500">
+            Past their scheduled end date but still open - nobody confirmed the trip started/ended,
+            or it's unpaid.
+          </p>
+        </RouterLink>
       </section>
 
       <section>

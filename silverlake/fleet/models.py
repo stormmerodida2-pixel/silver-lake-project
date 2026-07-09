@@ -64,6 +64,13 @@ class Vehicle(models.Model):
         'drivers.Driver', null=True, blank=True, on_delete=models.SET_NULL, related_name='vehicles',
     )
 
+    # Last-known GPS position, reported by whichever driver has an active trip in this vehicle
+    # (see bookings.views.DriverBookingLocationView) - not a location history, just the latest
+    # fix, so admins can see roughly where a vehicle is right now on the fleet map.
+    last_location_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    last_location_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    last_location_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
