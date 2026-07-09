@@ -120,7 +120,13 @@ business-model pitch for the economics).
 - **New bookings can't start in the past** — this is checked at creation only, so an existing
   booking that's simply sat pending for a while is never retroactively invalidated by an
   unrelated edit.
-- Overlapping bookings for the same vehicle (or the same driver) are rejected outright.
+- Overlapping bookings for the same vehicle (or the same driver) are rejected outright. **Two
+  requests for the same vehicle arriving at the same moment can't both slip through this check**
+  either — creating a booking locks the vehicle row for the rest of that request (a real write,
+  since `select_for_update()` is a no-op on SQLite), so a second concurrent request has to wait
+  for the first to actually finish before its own conflict check runs. If it can't get the lock
+  in time it gets a clean `409` asking the customer to retry, rather than a crash or a silent
+  double-booking.
 - A booking starts **Pending**, and moves to **Confirmed** automatically once a **30% deposit**
   is paid.
 - **Starting/ending a trip is a driver-confirmed fact, not inferred from payment or dates.**
@@ -304,7 +310,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-235 automated backend tests currently cover booking validation, payment guards, payout timing and
+236 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -316,7 +322,9 @@ restrictions, fleet-type CRUD and permission tiers, the Django admin's own bulk-
 live vehicle-location reporting (only accepted for the assigned driver's own currently-active
 trip), the trip start/end lifecycle (including the one case a late payment is allowed to
 auto-complete a booking), vehicle service-history logging (driver scoped to their own vehicle;
-admin can log for any vehicle), and announcement audience targeting/permissions — run with:
+admin can log for any vehicle), announcement audience targeting/permissions, and (using real
+threads against a live test transaction, not a single-connection simulation) that two
+concurrent booking requests for the same vehicle can't both succeed — run with:
 ```
 cd silverlake
 python manage.py test

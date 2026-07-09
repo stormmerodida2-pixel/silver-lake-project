@@ -1,8 +1,11 @@
 from django.core.exceptions import ValidationError
+from django.db import OperationalError, transaction
+from django.utils import timezone
 from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from fleet.models import Vehicle
 from reviews.models import Review
 from reviews.serializers import BookingReviewCreateSerializer
 
@@ -31,6 +34,43 @@ class BookingViewSet(
         if user.is_staff:
             return Booking.objects.all()
         return Booking.objects.filter(user=user)
+
+    def create(self, request, *args, **kwargs):
+        """BookingSerializer.validate() checks for an overlapping booking on the same vehicle,
+        but that check and the actual insert aren't atomic on their own - two requests for the
+        same vehicle arriving close together (e.g. a popular car, or a double-submit) could both
+        pass the conflict check before either booking exists, creating two confirmed bookings for
+        the same car on the same dates.
+
+        select_for_update() would be the standard fix, but it's a documented no-op on SQLite
+        (this project's current database) - Django's compiler silently drops the FOR UPDATE
+        clause when the backend doesn't support row locking, so it provides zero protection
+        here. Instead, force a real write against the vehicle row as the first statement in the
+        transaction: SQLite acquires a database-level write lock on the first write in a
+        transaction, so a second concurrent request touching the database has to wait for this
+        one to commit or roll back before its own conflict check can even run. This is coarser
+        than real row-level locking (any concurrent write anywhere briefly waits, not just ones
+        for this vehicle) but it's correct, and it's what actually works on SQLite. If this ever
+        moves to Postgres, swap this for select_for_update(), which does provide real per-row
+        locking there.
+
+        SQLite raises OperationalError('database is locked') rather than blocking forever if a
+        competing transaction doesn't free the lock within DATABASES['default']['OPTIONS']
+        ['timeout'] - translate that into a clean, retryable 409 instead of a raw 500."""
+        vehicle_id = request.data.get('vehicle')
+        try:
+            with transaction.atomic():
+                if vehicle_id:
+                    try:
+                        Vehicle.objects.filter(pk=vehicle_id).update(updated_at=timezone.now())
+                    except (ValueError, TypeError):
+                        pass  # malformed id - let normal serializer validation produce a clean 400
+                return super().create(request, *args, **kwargs)
+        except OperationalError:
+            return Response(
+                {'detail': 'This vehicle is being booked by someone else right now. Please try again.'},
+                status=status.HTTP_409_CONFLICT,
+            )
 
     def perform_create(self, serializer):
         booking = serializer.save(user=self.request.user)

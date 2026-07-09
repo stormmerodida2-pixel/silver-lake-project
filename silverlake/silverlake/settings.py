@@ -185,6 +185,12 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        # SQLite locks the whole database on the first write in a transaction (see
+        # BookingViewSet.create(), which deliberately relies on this to prevent double-booking
+        # a vehicle). Without a generous timeout, a second connection hitting that lock fails
+        # immediately with "database is locked" instead of waiting for the first transaction
+        # to finish - bump it well past how long a booking request should ever take.
+        'OPTIONS': {'timeout': 20},
     }
 }
 

@@ -1,13 +1,17 @@
+import threading
+import time
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
-from rest_framework.test import APITestCase
+from django.db import connection
+from django.test import TestCase, TransactionTestCase
+from rest_framework.test import APIClient, APITestCase
 from rest_framework.throttling import ScopedRateThrottle
 
 from drivers.models import Driver
@@ -1098,3 +1102,62 @@ class NeedsAttentionTests(APITestCase):
         response = self.client.get('/api/admin/stats/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['bookings']['needing_attention'], 1)
+
+
+class BookingRaceConditionTests(TransactionTestCase):
+    """Proves two concurrent requests for the same vehicle/dates can't both succeed. Needs
+    TransactionTestCase (not the usual TestCase) and real threads with their own DB connections
+    to reproduce a genuine race - a single-connection test can't. See BookingViewSet.create()
+    for why plain select_for_update() doesn't actually work here (SQLite doesn't support it -
+    Django silently drops the clause rather than locking anything)."""
+
+    def setUp(self):
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.user_a = User.objects.create_user(username='race-a@example.com', password='pass12345!')
+        self.user_b = User.objects.create_user(username='race-b@example.com', password='pass12345!')
+
+    def _payload(self):
+        return {
+            'vehicle': self.vehicle.id, 'service_type': 'with_driver',
+            'customer_name': 'Racer', 'customer_phone': '254700000000',
+            'pickup_location': 'Kisumu', 'start_date': str(TOMORROW), 'end_date': str(NEXT_WEEK),
+        }
+
+    def test_two_concurrent_bookings_for_the_same_vehicle_and_dates_dont_both_succeed(self):
+        # Widen the window between the conflict-check read and the write that follows it, so
+        # the second thread's own conflict check has time to run while the first is still
+        # mid-transaction - this is what actually creates the race in the first place (both
+        # threads see "no conflict" before either has written anything).
+        original_clean = Booking.clean
+
+        def slow_clean(booking, *args, **kwargs):
+            result = original_clean(booking, *args, **kwargs)
+            time.sleep(0.3)
+            return result
+
+        results = {}
+
+        def attempt(user, key):
+            client = APIClient()
+            client.force_authenticate(user=user)
+            response = client.post('/api/bookings/', self._payload(), format='json')
+            results[key] = response.status_code
+            connection.close()
+
+        with patch.object(Booking, 'clean', slow_clean):
+            t1 = threading.Thread(target=attempt, args=(self.user_a, 'a'))
+            t2 = threading.Thread(target=attempt, args=(self.user_b, 'b'))
+            t1.start()
+            time.sleep(0.05)  # give thread 1 a head start into its transaction
+            t2.start()
+            t1.join()
+            t2.join()
+
+        # Whichever thread loses gets either a clean 400 (its own conflict check saw the
+        # winner's already-committed booking) or a 409 (it hit the vehicle lock directly and
+        # gave up rather than waiting forever) - either way, exactly one booking gets created.
+        statuses = sorted(results.values())
+        self.assertEqual(len(statuses), 2, f'expected both requests to get a response, got {results}')
+        self.assertEqual(statuses.count(201), 1, f'expected exactly one booking to succeed, got {results}')
+        self.assertIn(statuses[0] if statuses[1] == 201 else statuses[1], (400, 409))
+        self.assertEqual(Booking.objects.filter(vehicle=self.vehicle).count(), 1)
