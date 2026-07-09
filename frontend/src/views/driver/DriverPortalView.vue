@@ -1,14 +1,29 @@
 <script setup>
-import { onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import apiClient from '../../api/client'
 import AnnouncementBanner from '../../components/AnnouncementBanner.vue'
+import SilverLakeLogo from '../../components/SilverLakeLogo.vue'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
+
+const initials = computed(() => {
+  const name = profile.value?.full_name || ''
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  return (parts[0]?.[0] || '') + (parts[1]?.[0] || '')
+})
+const pendingBookingsCount = computed(() => bookings.value.filter((b) => !b.driver_acknowledged_at).length)
+const activeTripsCount = computed(() => bookings.value.filter((b) => ['confirmed', 'ongoing'].includes(b.status)).length)
+const completedTripsCount = computed(() => bookings.value.filter((b) => b.status === 'completed').length)
+const serviceDueCount = computed(() => (profile.value?.vehicles || []).filter((v) => v.is_service_due).length)
+
+function scrollToSection(id) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 const profile = ref(null)
 const loading = ref(true)
@@ -403,31 +418,54 @@ onMounted(() => {
 <template>
   <div class="min-h-screen bg-navy-950">
     <header class="flex items-center justify-between border-b border-navy-800 bg-navy-950/95 px-4 py-4 backdrop-blur sm:px-8">
-      <div>
-        <h1 class="font-[Georgia] text-lg font-bold text-white">Driver Portal</h1>
-        <p class="text-xs text-slate-400">SilverLake Car Rentals</p>
+      <div class="flex items-center gap-2.5">
+        <SilverLakeLogo :size="26" />
+        <div>
+          <h1 class="font-[Georgia] text-lg font-bold leading-tight text-white">Driver Portal</h1>
+          <p class="text-xs text-slate-400">SilverLake Car Rentals</p>
+        </div>
       </div>
-      <div class="flex items-center gap-4">
-        <RouterLink to="/" class="text-sm font-medium text-slate-300 hover:text-gold-400">Back to Site</RouterLink>
-        <button class="text-sm font-medium text-slate-300 hover:text-gold-400" @click="handleLogout">Log Out</button>
+      <div class="flex items-center gap-3 sm:gap-5">
+        <RouterLink to="/" class="hidden items-center gap-1.5 text-sm font-medium text-slate-300 transition hover:text-gold-400 sm:flex">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to Site
+        </RouterLink>
+        <button class="flex items-center gap-1.5 text-sm font-medium text-slate-300 transition hover:text-gold-400" @click="handleLogout">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 5v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1" />
+          </svg>
+          <span class="hidden sm:inline">Log Out</span>
+        </button>
       </div>
     </header>
 
-    <main class="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+    <main class="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       <AnnouncementBanner class="mb-6" />
 
       <p v-if="loading" class="text-center text-slate-400">Loading...</p>
       <p v-else-if="error" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ error }}</p>
 
       <template v-else-if="profile">
-        <!-- Profile + availability card -->
-        <section class="rounded-2xl border border-navy-800 bg-navy-900 p-6">
-          <div class="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 class="font-[Georgia] text-xl font-bold text-white">{{ profile.full_name }}</h2>
-              <p class="text-sm text-slate-400">
-                {{ profile.years_of_experience }} years experience &middot; Rating {{ Number(profile.rating).toFixed(1) }}
-              </p>
+        <!-- Profile hero -->
+        <section class="overflow-hidden rounded-2xl border border-gold-500/40 bg-gradient-to-br from-navy-900 to-navy-950 p-6 sm:p-8">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="flex items-center gap-4">
+              <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/10 font-[Georgia] text-2xl font-bold text-gold-400">
+                {{ initials || '—' }}
+              </div>
+              <div>
+                <h2 class="font-[Georgia] text-2xl font-bold text-white">{{ profile.full_name }}</h2>
+                <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-400">
+                  <span class="inline-flex items-center gap-1 text-gold-400">
+                    <span v-for="n in 5" :key="n" class="text-sm leading-none">{{ n <= Math.round(profile.rating) ? '★' : '☆' }}</span>
+                    <span class="ml-1 text-slate-300">{{ Number(profile.rating).toFixed(1) }}</span>
+                  </span>
+                  <span class="text-slate-600">&middot;</span>
+                  <span>{{ profile.years_of_experience }} years experience</span>
+                </div>
+              </div>
             </div>
             <span
               class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
@@ -438,10 +476,10 @@ onMounted(() => {
             </span>
           </div>
 
-          <p v-if="profile.is_away && profile.away_reason" class="mt-3 rounded-lg bg-navy-800 px-4 py-3 text-sm text-slate-300">
+          <p v-if="profile.is_away && profile.away_reason" class="mt-4 rounded-lg bg-navy-800 px-4 py-3 text-sm text-slate-300">
             <span class="font-semibold text-slate-400">Your reason: </span>{{ profile.away_reason }}
           </p>
-          <p class="mt-3 text-xs text-slate-500">
+          <p class="mt-4 text-xs text-slate-500">
             While marked away, your vehicle(s) won't show up in the public fleet for customers to book.
             Admins can still see your reason.
           </p>
@@ -449,7 +487,7 @@ onMounted(() => {
           <div class="mt-4">
             <button
               v-if="!profile.is_away && !showAwayForm"
-              class="rounded-md border border-red-400 px-4 py-2 text-sm font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950"
+              class="rounded-md border border-red-400 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-400 hover:text-navy-950"
               @click="openAwayForm"
             >
               Mark Myself Away
@@ -457,7 +495,7 @@ onMounted(() => {
             <button
               v-else-if="profile.is_away"
               :disabled="awaySaving"
-              class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+              class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-50"
               @click="markAvailable"
             >
               {{ awaySaving ? 'Updating...' : "I'm Available Again" }}
@@ -489,18 +527,69 @@ onMounted(() => {
           </div>
         </section>
 
+        <!-- Quick stats -->
+        <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <button
+            class="rounded-xl border border-navy-800 bg-navy-900 p-4 text-left transition hover:border-gold-400"
+            @click="scrollToSection('vehicles-section')"
+          >
+            <p class="text-xs text-slate-400">Live Vehicles</p>
+            <p class="mt-1 text-xl font-bold text-white">{{ profile.vehicles.length }}</p>
+          </button>
+          <button
+            class="rounded-xl border p-4 text-left transition"
+            :class="serviceDueCount ? 'border-gold-500 hover:border-gold-400' : 'border-navy-800 hover:border-gold-400'"
+            @click="scrollToSection('vehicles-section')"
+          >
+            <p class="text-xs text-slate-400">Service Due</p>
+            <p class="mt-1 text-xl font-bold" :class="serviceDueCount ? 'text-gold-400' : 'text-white'">{{ serviceDueCount }}</p>
+          </button>
+          <button
+            class="rounded-xl border p-4 text-left transition"
+            :class="pendingBookingsCount ? 'border-gold-500 hover:border-gold-400' : 'border-navy-800 hover:border-gold-400'"
+            @click="scrollToSection('bookings-section')"
+          >
+            <p class="text-xs text-slate-400">Awaiting Approval</p>
+            <p class="mt-1 text-xl font-bold" :class="pendingBookingsCount ? 'text-gold-400' : 'text-white'">{{ pendingBookingsCount }}</p>
+          </button>
+          <button
+            class="rounded-xl border border-navy-800 bg-navy-900 p-4 text-left transition hover:border-gold-400"
+            @click="scrollToSection('bookings-section')"
+          >
+            <p class="text-xs text-slate-400">Active Trips</p>
+            <p class="mt-1 text-xl font-bold text-white">{{ activeTripsCount }}</p>
+          </button>
+          <button
+            class="rounded-xl border border-navy-800 bg-navy-900 p-4 text-left transition hover:border-gold-400"
+            @click="scrollToSection('bookings-section')"
+          >
+            <p class="text-xs text-slate-400">Completed Trips</p>
+            <p class="mt-1 text-xl font-bold text-white">{{ completedTripsCount }}</p>
+          </button>
+        </div>
+
         <!-- My live vehicles -->
-        <section class="mt-8">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">My Vehicles</h2>
+        <section id="vehicles-section" class="mt-10 scroll-mt-6">
+          <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gold-400">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 17h14M6 17l1.5-5h9L18 17M9 12V8h6v4M10 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm5 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" />
+            </svg>
+            My Vehicles
+          </h2>
           <div class="mt-3 space-y-3">
             <div
               v-for="vehicle in profile.vehicles"
               :key="vehicle.id"
-              class="rounded-xl border border-navy-800 bg-navy-900 p-4"
+              class="rounded-xl border border-navy-800 bg-navy-900 p-4 transition hover:border-navy-700"
             >
               <div class="flex items-center gap-4">
-                <div class="h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-navy-800 bg-navy-800">
+                <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-navy-800 bg-navy-800">
                   <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
+                  <div v-else class="flex h-full w-full items-center justify-center text-slate-600">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 17h14M6 17l1.5-5h9L18 17M9 12V8h6v4" />
+                    </svg>
+                  </div>
                 </div>
                 <div class="flex-1">
                   <p class="font-semibold text-white">{{ vehicle.name }}</p>
@@ -516,6 +605,13 @@ onMounted(() => {
                   {{ vehicle.is_available ? 'Available' : 'Unavailable' }}
                 </span>
               </div>
+
+              <p v-if="vehicle.is_service_due" class="mt-3 flex items-center gap-1.5 rounded-lg bg-gold-500/10 px-3 py-2 text-xs font-semibold text-gold-400">
+                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                </svg>
+                Service due - no service logged in the last 90 days. Log one below.
+              </p>
 
               <!-- Service history -->
               <div class="mt-3 border-t border-navy-800 pt-3">
@@ -581,8 +677,13 @@ onMounted(() => {
         </section>
 
         <!-- My bookings -->
-        <section class="mt-8">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">My Bookings</h2>
+        <section id="bookings-section" class="mt-10 scroll-mt-6">
+          <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gold-400">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 3v4M16 3v4M4 9h16M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z" />
+            </svg>
+            My Bookings
+          </h2>
           <p class="mt-1 text-xs text-slate-500">
             Trips customers have booked with you online - approve a new one to let us know you've seen it.
           </p>
@@ -593,8 +694,8 @@ onMounted(() => {
             <div
               v-for="booking in bookings"
               :key="booking.id"
-              class="rounded-xl border p-4"
-              :class="!booking.driver_acknowledged_at ? 'border-gold-500 bg-navy-900' : 'border-navy-800 bg-navy-900'"
+              class="rounded-xl border p-4 transition"
+              :class="!booking.driver_acknowledged_at ? 'border-gold-500 bg-navy-900' : 'border-navy-800 bg-navy-900 hover:border-navy-700'"
             >
               <div class="flex items-start justify-between gap-3">
                 <div>
@@ -683,12 +784,21 @@ onMounted(() => {
         </section>
 
         <!-- Walk-up client booking -->
-        <section class="mt-8">
-          <div class="flex items-center justify-between">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Walk-Up Client</h2>
+        <section id="walkup-section" class="mt-10 scroll-mt-6">
+          <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gold-400">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 0 0-3-3.87M9 20H4v-2a4 4 0 0 1 3-3.87m5-2.13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-4a4 4 0 0 1-3 3.87" />
+            </svg>
+            Walk-Up Client
+          </h2>
+          <div class="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-navy-800 bg-navy-900 p-4">
+            <p class="max-w-md text-xs text-slate-400">
+              For a client with you right now who doesn't want to register - creates their booking and
+              gives you a payment link to share, no account needed on their end.
+            </p>
             <button
               v-if="profile.vehicles.length"
-              class="flex items-center gap-2 rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400"
+              class="flex shrink-0 items-center gap-2 rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 transition hover:bg-gold-400"
               @click="openOnsiteModal"
             >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -697,18 +807,19 @@ onMounted(() => {
               Book For a Client On-Site
             </button>
           </div>
-          <p class="mt-1 text-xs text-slate-500">
-            For a client with you right now who doesn't want to register - creates their booking and
-            gives you a payment link to share, no account needed on their end.
-          </p>
         </section>
 
         <!-- Vehicle submissions -->
-        <section class="mt-8">
+        <section id="submissions-section" class="mt-10 scroll-mt-6">
           <div class="flex items-center justify-between">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">My Vehicle Submissions</h2>
+            <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gold-400">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V6Z" />
+              </svg>
+              My Vehicle Submissions
+            </h2>
             <button
-              class="flex items-center gap-2 rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400"
+              class="flex items-center gap-2 rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 transition hover:bg-gold-400"
               @click="openModal"
             >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -725,7 +836,7 @@ onMounted(() => {
             <div
               v-for="submission in profile.vehicle_submissions"
               :key="submission.id"
-              class="rounded-xl border border-navy-800 bg-navy-900 p-4"
+              class="rounded-xl border border-navy-800 bg-navy-900 p-4 transition hover:border-navy-700"
             >
               <div class="flex items-center justify-between gap-3">
                 <div>

@@ -1,4 +1,5 @@
 import base64
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -6,11 +7,12 @@ from django.core import mail
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APITestCase
 from rest_framework.throttling import ScopedRateThrottle
 
 from bookings.tests import TODAY, make_vehicle
-from fleet.models import VehicleCategory, VehicleServiceRecord, VehicleSubmission
+from fleet.models import Vehicle, VehicleCategory, VehicleServiceRecord, VehicleSubmission
 
 from .models import ApplicationStatus, Driver, DriverApplication
 from .services import create_driver_login
@@ -304,3 +306,13 @@ class DriverVehicleServiceRecordTests(APITestCase):
         VehicleServiceRecord.objects.create(vehicle=self.vehicle, service_date=TODAY, notes='Oil change')
         response = self.client.get('/api/driver/me/')
         self.assertEqual(response.json()['vehicles'][0]['service_records'][0]['notes'], 'Oil change')
+
+    def test_driver_sees_is_service_due_on_their_own_vehicle(self):
+        old_created_at = timezone.now() - timedelta(days=Vehicle.SERVICE_DUE_INTERVAL_DAYS + 1)
+        Vehicle.objects.filter(pk=self.vehicle.pk).update(created_at=old_created_at)
+        response = self.client.get('/api/driver/me/')
+        self.assertTrue(response.json()['vehicles'][0]['is_service_due'])
+
+        VehicleServiceRecord.objects.create(vehicle=self.vehicle, service_date=TODAY)
+        response = self.client.get('/api/driver/me/')
+        self.assertFalse(response.json()['vehicles'][0]['is_service_due'])

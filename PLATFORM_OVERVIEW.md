@@ -72,7 +72,12 @@ in an **Activity Log** admin staff can review (who did what, and when — see §
   not just a single "last serviced" field — so nothing gets overwritten and admins can see
   everything ever logged. A driver-partner logs one for their own vehicle from the Driver
   Portal; admins can log one for any vehicle (needed for company-owned fleet cars, which have
-  no owning driver to log it themselves) from the Fleet page's edit modal.
+  no owning driver to log it themselves) from the Fleet page's edit modal. There's no
+  mileage/odometer tracking anywhere in the app, so **service due** is purely time-based: a
+  vehicle is flagged once it's been 90 days since its last logged service (or since it went
+  live, if it's never been serviced at all) — visible as a "Service Due" stat on the admin
+  dashboard, a badge on the Fleet page and its edit modal, and a badge on the driver's own
+  vehicle card in the Driver Portal, so both staff and the owning driver see it.
 - A vehicle also disappears from public listings while its assigned driver has marked themselves
   **away**, or if that driver has been suspended (see §4) — the fleet listing always reflects who's
   actually available right now.
@@ -318,7 +323,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-242 automated backend tests currently cover booking validation, payment guards, payout timing and
+250 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -330,7 +335,8 @@ restrictions, fleet-type CRUD and permission tiers, the Django admin's own bulk-
 live vehicle-location reporting (only accepted for the assigned driver's own currently-active
 trip), the trip start/end lifecycle (including the one case a late payment is allowed to
 auto-complete a booking), vehicle service-history logging (driver scoped to their own vehicle;
-admin can log for any vehicle), announcement audience targeting/permissions and the staff-propose
+admin can log for any vehicle), the time-based service-due calculation and its exposure to staff
+and the owning driver, announcement audience targeting/permissions and the staff-propose
 /superadmin-approve workflow for client-facing announcements, and (using real threads against a
 live test transaction, not a single-connection simulation) that two concurrent booking requests
 for the same vehicle can't both succeed — run with:

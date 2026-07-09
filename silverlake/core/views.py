@@ -115,6 +115,12 @@ class AdminStatsView(APIView):
                 'total': Vehicle.objects.count(),
                 'available': Vehicle.objects.filter(is_available=True).count(),
                 'unavailable': Vehicle.objects.filter(is_available=False).count(),
+                # is_service_due is time-based off the latest VehicleServiceRecord (or the
+                # vehicle's created_at if never serviced) - not a single DB column, so this has
+                # to be counted in Python rather than a queryset .filter()/.count().
+                'service_due': sum(
+                    1 for v in Vehicle.objects.prefetch_related('service_records') if v.is_service_due
+                ),
             },
             'reviews': {
                 'pending': Review.objects.filter(is_approved=False).count(),
@@ -473,7 +479,7 @@ class AdminFleetViewSet(viewsets.ModelViewSet):
     Create/update/delete (fleet composition and pricing) are superadmin-only; support
     staff can list/view/toggle availability."""
 
-    queryset = Vehicle.objects.all().select_related('category', 'driver').order_by('name')
+    queryset = Vehicle.objects.all().select_related('category', 'driver').prefetch_related('service_records').order_by('name')
     serializer_class = AdminVehicleSerializer
 
     def get_permissions(self):

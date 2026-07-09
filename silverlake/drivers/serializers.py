@@ -18,9 +18,10 @@ class DriverVehicleSerializer(VehicleSerializer):
     listing, only the driver's own portal view of their own vehicle."""
 
     service_records = VehicleServiceRecordSerializer(many=True, read_only=True)
+    is_service_due = serializers.BooleanField(read_only=True)
 
     class Meta(VehicleSerializer.Meta):
-        fields = VehicleSerializer.Meta.fields + ['service_records']
+        fields = VehicleSerializer.Meta.fields + ['service_records', 'is_service_due']
 
 
 class VehicleSubmissionPhotoSerializer(serializers.ModelSerializer):

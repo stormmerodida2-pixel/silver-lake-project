@@ -156,6 +156,7 @@ class AdminRefundSerializer(serializers.ModelSerializer):
 class AdminVehicleSerializer(serializers.ModelSerializer):
     is_insurance_expired = serializers.BooleanField(read_only=True)
     is_inspection_expired = serializers.BooleanField(read_only=True)
+    is_service_due = serializers.BooleanField(read_only=True)
     driver_name = serializers.SerializerMethodField()
     driver = serializers.PrimaryKeyRelatedField(
         queryset=Driver.objects.filter(is_active=True), allow_null=True, required=False,
@@ -175,7 +176,7 @@ class AdminVehicleSerializer(serializers.ModelSerializer):
             'inspection_expiry_date',
             'is_insurance_expired', 'is_inspection_expired',
             'last_location_lat', 'last_location_lng', 'last_location_at',
-            'service_records',
+            'service_records', 'is_service_due',
             'created_at',
         ]
         read_only_fields = [

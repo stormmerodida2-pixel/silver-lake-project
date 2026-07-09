@@ -2,12 +2,13 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from bookings.models import Booking, BookingStatus, ServiceType
 from drivers.models import Driver
 
-from .models import Vehicle, VehicleCategory
+from .models import Vehicle, VehicleCategory, VehicleServiceRecord
 
 User = get_user_model()
 
@@ -25,6 +26,43 @@ def make_vehicle(**kwargs):
     )
     defaults.update(kwargs)
     return Vehicle.objects.create(**defaults)
+
+
+class VehicleServiceDueTests(APITestCase):
+    """is_service_due is purely time-based (no mileage/odometer tracking exists anywhere) -
+    due once it's been Vehicle.SERVICE_DUE_INTERVAL_DAYS since the last logged service, or
+    since the vehicle went live if it's never been serviced at all."""
+
+    def test_freshly_created_vehicle_with_no_service_history_is_not_yet_due(self):
+        vehicle = make_vehicle()
+        self.assertFalse(vehicle.is_service_due)
+
+    def test_vehicle_never_serviced_becomes_due_after_the_interval_since_creation(self):
+        vehicle = make_vehicle()
+        old_created_at = timezone.now() - timedelta(days=Vehicle.SERVICE_DUE_INTERVAL_DAYS + 1)
+        Vehicle.objects.filter(pk=vehicle.pk).update(created_at=old_created_at)
+        vehicle.refresh_from_db()
+        self.assertTrue(vehicle.is_service_due)
+
+    def test_recently_serviced_vehicle_is_not_due(self):
+        vehicle = make_vehicle()
+        VehicleServiceRecord.objects.create(vehicle=vehicle, service_date=TODAY - timedelta(days=5))
+        self.assertFalse(vehicle.is_service_due)
+
+    def test_vehicle_serviced_long_ago_is_due_even_if_created_recently(self):
+        vehicle = make_vehicle()
+        VehicleServiceRecord.objects.create(
+            vehicle=vehicle, service_date=TODAY - timedelta(days=Vehicle.SERVICE_DUE_INTERVAL_DAYS + 1),
+        )
+        self.assertTrue(vehicle.is_service_due)
+
+    def test_most_recent_of_multiple_service_records_is_used(self):
+        vehicle = make_vehicle()
+        VehicleServiceRecord.objects.create(
+            vehicle=vehicle, service_date=TODAY - timedelta(days=Vehicle.SERVICE_DUE_INTERVAL_DAYS + 30),
+        )
+        VehicleServiceRecord.objects.create(vehicle=vehicle, service_date=TODAY - timedelta(days=2))
+        self.assertFalse(vehicle.is_service_due)
 
 
 class PublicFleetVisibilityTests(APITestCase):

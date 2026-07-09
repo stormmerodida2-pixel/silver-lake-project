@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
@@ -14,6 +14,7 @@ const busyId = ref(null)
 // ── Shared Add / Edit modal ─────────────────────────────────────────────────
 const showModal = ref(false)
 const editingId = ref(null)   // null = create, number = edit
+const editingVehicle = computed(() => vehicles.value.find((v) => v.id === editingId.value))
 const saving = ref(false)
 const formError = ref('')
 const form = reactive({
@@ -288,6 +289,7 @@ onMounted(() => {
             <th class="px-4 py-3">Capacity</th>
             <th class="px-4 py-3">Price/Day</th>
             <th class="px-4 py-3">Services</th>
+            <th class="px-4 py-3">Maintenance</th>
             <th class="px-4 py-3">Insurance</th>
             <th class="px-4 py-3">Inspection</th>
             <th class="px-4 py-3">Status</th>
@@ -313,6 +315,10 @@ onMounted(() => {
             <td class="px-4 py-3 text-xs text-slate-400">
               <span v-if="vehicle.allow_self_drive" class="mr-1 rounded bg-navy-800 px-1.5 py-0.5">Self Drive</span>
               <span v-if="vehicle.allow_with_driver" class="rounded bg-navy-800 px-1.5 py-0.5">With Driver</span>
+            </td>
+            <td class="px-4 py-3">
+              <span v-if="vehicle.is_service_due" class="text-xs font-bold text-gold-400">⚠ Due</span>
+              <span v-else class="text-xs text-slate-500">Up to date</span>
             </td>
             <td class="px-4 py-3">
               <span v-if="vehicle.insurance_expiry_date"
@@ -492,8 +498,11 @@ onMounted(() => {
 
               <!-- Service history (existing vehicles only) -->
               <div v-if="editingId">
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">
+                <label class="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-400">
                   Service History
+                  <span v-if="editingVehicle?.is_service_due" class="rounded-full bg-gold-500/10 px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal text-gold-400">
+                    ⚠ Due (90+ days)
+                  </span>
                 </label>
                 <p v-if="serviceError" class="mb-2 text-xs text-red-400">{{ serviceError }}</p>
                 <ul v-if="serviceRecords.length" class="mb-2 space-y-1 rounded-lg border border-navy-700 p-3">

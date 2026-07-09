@@ -174,7 +174,7 @@ onMounted(async () => {
             Manage fleet &rarr;
           </RouterLink>
         </div>
-        <div class="mt-3 grid gap-4 sm:grid-cols-3">
+        <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <RouterLink
             to="/admin/fleet"
             class="rounded-xl border border-navy-800 bg-navy-900 p-5 transition hover:border-gold-400"
@@ -197,6 +197,21 @@ onMounted(async () => {
             <p class="mt-1 text-2xl font-bold" :class="stats.fleet.unavailable ? 'text-red-400' : 'text-white'">
               {{ stats.fleet.unavailable }}
             </p>
+          </RouterLink>
+          <RouterLink
+            to="/admin/fleet"
+            class="rounded-xl border p-5 transition"
+            :class="
+              stats.fleet.service_due
+                ? 'border-gold-500 bg-navy-900 hover:border-gold-400'
+                : 'border-navy-800 bg-navy-900 hover:border-gold-400'
+            "
+          >
+            <p class="text-sm text-slate-400">Service Due</p>
+            <p class="mt-1 text-2xl font-bold" :class="stats.fleet.service_due ? 'text-gold-400' : 'text-white'">
+              {{ stats.fleet.service_due }}
+            </p>
+            <p class="mt-1 text-xs text-slate-500">No service logged in 90+ days</p>
           </RouterLink>
         </div>
       </section>

@@ -1,15 +1,17 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from bookings.models import BookingStatus
 from bookings.tests import make_booking, make_vehicle
 from drivers.models import Driver, DriverApplication
-from fleet.models import VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
+from fleet.models import Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 
 from .models import AuditLog
@@ -551,6 +553,38 @@ class AdminVehicleServiceRecordTests(APITestCase):
         self.client.force_authenticate(user=self.staff)
         response = self.client.get(f'/api/admin/fleet/{self.vehicle.id}/')
         self.assertEqual(response.json()['service_records'][0]['notes'], 'Oil change')
+
+    def test_is_service_due_is_exposed_on_the_admin_vehicle_detail(self):
+        old_created_at = timezone.now() - timedelta(days=Vehicle.SERVICE_DUE_INTERVAL_DAYS + 1)
+        Vehicle.objects.filter(pk=self.vehicle.pk).update(created_at=old_created_at)
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(f'/api/admin/fleet/{self.vehicle.id}/')
+        self.assertTrue(response.json()['is_service_due'])
+
+        VehicleServiceRecord.objects.create(vehicle=self.vehicle, service_date=timezone.now().date())
+        response = self.client.get(f'/api/admin/fleet/{self.vehicle.id}/')
+        self.assertFalse(response.json()['is_service_due'])
+
+
+class AdminStatsServiceDueTests(APITestCase):
+    """The dashboard's Fleet section surfaces how many vehicles are overdue for service, same
+    tier (any staff can view) as the other "needs attention" stats."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='staff-stats-service@example.com', password='pass12345!', is_staff=True)
+
+    def test_stats_counts_vehicles_overdue_for_service(self):
+        due_vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        old_created_at = timezone.now() - timedelta(days=Vehicle.SERVICE_DUE_INTERVAL_DAYS + 1)
+        Vehicle.objects.filter(pk=due_vehicle.pk).update(created_at=old_created_at)
+
+        not_due_vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        VehicleServiceRecord.objects.create(vehicle=not_due_vehicle, service_date=timezone.now().date())
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/admin/stats/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['fleet']['service_due'], 1)
 
 
 class AdminVehicleCategoryTests(APITestCase):

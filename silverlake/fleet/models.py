@@ -88,6 +88,17 @@ class Vehicle(models.Model):
     def is_inspection_expired(self):
         return bool(self.inspection_expiry_date and self.inspection_expiry_date < timezone.now().date())
 
+    # No mileage/odometer tracking anywhere in the app, so "due" is purely time-based off the
+    # last logged VehicleServiceRecord - or off when the vehicle went live, if it's never been
+    # serviced at all.
+    SERVICE_DUE_INTERVAL_DAYS = 90
+
+    @property
+    def is_service_due(self):
+        records = list(self.service_records.all())  # ordered -service_date, uses prefetch cache if present
+        baseline = records[0].service_date if records else self.created_at.date()
+        return (timezone.now().date() - baseline).days >= self.SERVICE_DUE_INTERVAL_DAYS
+
 
 class VehicleImage(models.Model):
     """Additional gallery photos for a vehicle, beyond its primary `image`."""
