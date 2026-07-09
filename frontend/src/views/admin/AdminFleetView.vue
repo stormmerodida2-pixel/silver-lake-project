@@ -79,6 +79,38 @@ function syncGalleryToList() {
   if (vehicle) vehicle.gallery_images = [...galleryImages.value]
 }
 
+// ── Service history (existing vehicles only) ────────────────────────────────
+const serviceRecords = ref([])
+const serviceDateDraft = ref('')
+const serviceNotesDraft = ref('')
+const serviceSaving = ref(false)
+const serviceError = ref('')
+
+async function addServiceRecord() {
+  if (!editingId.value || !serviceDateDraft.value) return
+  serviceError.value = ''
+  serviceSaving.value = true
+  try {
+    const { data } = await apiClient.post(`/admin/fleet/${editingId.value}/service-records/`, {
+      service_date: serviceDateDraft.value,
+      notes: serviceNotesDraft.value.trim(),
+    })
+    serviceRecords.value = [data, ...serviceRecords.value]
+    syncServiceRecordsToList()
+    serviceDateDraft.value = ''
+    serviceNotesDraft.value = ''
+  } catch (err) {
+    serviceError.value = 'Could not log this service.'
+  } finally {
+    serviceSaving.value = false
+  }
+}
+
+function syncServiceRecordsToList() {
+  const vehicle = vehicles.value.find((v) => v.id === editingId.value)
+  if (vehicle) vehicle.service_records = [...serviceRecords.value]
+}
+
 const modalTitle = () => editingId.value ? 'Edit Vehicle' : 'Add New Vehicle'
 const submitLabel = () => saving.value
   ? (editingId.value ? 'Saving…' : 'Creating…')
@@ -97,6 +129,10 @@ function resetForm() {
   formError.value = ''
   galleryImages.value = []
   galleryError.value = ''
+  serviceRecords.value = []
+  serviceDateDraft.value = ''
+  serviceNotesDraft.value = ''
+  serviceError.value = ''
 }
 
 function openAddModal() {
@@ -109,6 +145,10 @@ function openEditModal(vehicle) {
   editingId.value = vehicle.id
   galleryImages.value = vehicle.gallery_images ? [...vehicle.gallery_images] : []
   galleryError.value = ''
+  serviceRecords.value = vehicle.service_records ? [...vehicle.service_records] : []
+  serviceDateDraft.value = ''
+  serviceNotesDraft.value = ''
+  serviceError.value = ''
   Object.assign(form, {
     name: vehicle.name,
     category: vehicle.category,
@@ -448,6 +488,41 @@ onMounted(() => {
                 <p class="mt-1 text-xs text-slate-500">
                   {{ galleryUploading ? 'Uploading…' : 'Uploads immediately, separate from the fields below.' }}
                 </p>
+              </div>
+
+              <!-- Service history (existing vehicles only) -->
+              <div v-if="editingId">
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Service History
+                </label>
+                <p v-if="serviceError" class="mb-2 text-xs text-red-400">{{ serviceError }}</p>
+                <ul v-if="serviceRecords.length" class="mb-2 space-y-1 rounded-lg border border-navy-700 p-3">
+                  <li v-for="record in serviceRecords" :key="record.id" class="text-xs text-slate-300">
+                    <span class="text-white">{{ record.service_date }}</span>
+                    <span v-if="record.notes" class="text-slate-400"> &middot; {{ record.notes }}</span>
+                    <span v-if="record.logged_by_name" class="text-slate-500"> (logged by {{ record.logged_by_name }})</span>
+                  </li>
+                </ul>
+                <p v-else class="mb-2 text-xs text-slate-500">No service logged yet.</p>
+                <div v-if="auth.user?.is_superuser" class="flex gap-2">
+                  <input
+                    v-model="serviceDateDraft" type="date"
+                    class="rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  />
+                  <input
+                    v-model="serviceNotesDraft" type="text" placeholder="e.g. Oil change + filter"
+                    class="flex-1 rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    :disabled="serviceSaving || !serviceDateDraft"
+                    class="shrink-0 rounded-lg bg-gold-500 px-3 py-2 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                    @click="addServiceRecord"
+                  >
+                    {{ serviceSaving ? 'Saving…' : 'Log' }}
+                  </button>
+                </div>
+                <p class="mt-1 text-xs text-slate-500">Logs immediately, separate from the fields below.</p>
               </div>
 
               <!-- Insurance & Inspection -->

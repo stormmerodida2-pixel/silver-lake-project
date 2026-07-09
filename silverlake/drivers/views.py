@@ -1,7 +1,8 @@
-from rest_framework import generics, mixins, permissions, response, viewsets
+from rest_framework import generics, mixins, permissions, response, serializers, viewsets
 from rest_framework.throttling import ScopedRateThrottle
 
-from fleet.models import VehicleSubmission
+from fleet.models import VehicleServiceRecord, VehicleSubmission
+from fleet.serializers import VehicleServiceRecordSerializer
 
 from .emails import (
     send_driver_away_notification,
@@ -87,3 +88,25 @@ class DriverVehicleSubmissionViewSet(mixins.ListModelMixin, mixins.CreateModelMi
     def perform_create(self, serializer):
         submission = serializer.save(driver=self.request.user.driver_profile)
         send_new_vehicle_submission_notification(submission)
+
+
+class DriverVehicleServiceRecordViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
+    """A driver-partner's own service/maintenance log for their own vehicle(s) - gives admins a
+    shared record of what's been done on a car without anyone having to ask. Scoped to vehicles
+    this driver actually owns; company-owned fleet vehicles (no owning driver) are logged by
+    admin instead, from the Fleet page."""
+
+    serializer_class = VehicleServiceRecordSerializer
+    permission_classes = [IsDriverUser]
+
+    def get_queryset(self):
+        return VehicleServiceRecord.objects.filter(
+            vehicle__driver=self.request.user.driver_profile,
+        ).select_related('vehicle')
+
+    def perform_create(self, serializer):
+        vehicle = serializer.validated_data.get('vehicle')
+        driver = self.request.user.driver_profile
+        if not vehicle or vehicle.driver_id != driver.id:
+            raise serializers.ValidationError({'vehicle': 'You can only log a service for your own vehicle.'})
+        serializer.save(logged_by=driver)

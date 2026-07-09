@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Vehicle, VehicleCategory, VehicleImage
+from .models import Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord
 
 
 class VehicleCategorySerializer(serializers.ModelSerializer):
@@ -14,6 +14,15 @@ class VehicleImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleImage
         fields = ['id', 'image', 'caption', 'order']
+
+
+class VehicleServiceRecordSerializer(serializers.ModelSerializer):
+    logged_by_name = serializers.CharField(source='logged_by.full_name', read_only=True, default=None)
+
+    class Meta:
+        model = VehicleServiceRecord
+        fields = ['id', 'vehicle', 'service_date', 'notes', 'logged_by_name', 'created_at']
+        read_only_fields = ['created_at']
 
 
 class VehicleSerializer(serializers.ModelSerializer):

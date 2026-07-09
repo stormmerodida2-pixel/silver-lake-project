@@ -1,4 +1,5 @@
 import base64
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -8,7 +9,8 @@ from django.test import TestCase
 from rest_framework.test import APITestCase
 from rest_framework.throttling import ScopedRateThrottle
 
-from fleet.models import VehicleCategory, VehicleSubmission
+from bookings.tests import TODAY, make_vehicle
+from fleet.models import VehicleCategory, VehicleServiceRecord, VehicleSubmission
 
 from .models import ApplicationStatus, Driver, DriverApplication
 from .services import create_driver_login
@@ -248,3 +250,57 @@ class DriverApplicationThrottleTests(APITestCase):
         finally:
             ScopedRateThrottle.THROTTLE_RATES['driver-application'] = original
         self.assertEqual(response.status_code, 429)
+
+
+class DriverVehicleServiceRecordTests(APITestCase):
+    """A driver-partner logs their own vehicle's service history from the portal - gives admins
+    a shared record without anyone having to ask. Scoped to vehicles the driver actually owns."""
+
+    def setUp(self):
+        driver_user = User.objects.create_user(username='service-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=driver_user, full_name='Service Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.client.force_authenticate(user=driver_user)
+
+    def test_driver_can_log_a_service_for_their_own_vehicle(self):
+        response = self.client.post('/api/driver/service-records/', {
+            'vehicle': self.vehicle.id, 'service_date': str(TODAY), 'notes': 'Oil change + filter',
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        record = VehicleServiceRecord.objects.get()
+        self.assertEqual(record.vehicle_id, self.vehicle.id)
+        self.assertEqual(record.logged_by_id, self.driver.id)
+        self.assertEqual(record.notes, 'Oil change + filter')
+
+    def test_driver_cannot_log_a_service_for_another_drivers_vehicle(self):
+        other_driver = Driver.objects.create(full_name='Other Driver', is_active=True)
+        other_vehicle = make_vehicle(name='Other Car', driver=other_driver, price_per_day=Decimal('1000'))
+        response = self.client.post('/api/driver/service-records/', {
+            'vehicle': other_vehicle.id, 'service_date': str(TODAY), 'notes': 'Tyre change',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(VehicleServiceRecord.objects.exists())
+
+    def test_driver_cannot_log_a_service_for_a_company_owned_vehicle(self):
+        company_vehicle = make_vehicle(name='Company Car', driver=None, price_per_day=Decimal('1000'))
+        response = self.client.post('/api/driver/service-records/', {
+            'vehicle': company_vehicle.id, 'service_date': str(TODAY), 'notes': 'Brake pads',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(VehicleServiceRecord.objects.exists())
+
+    def test_driver_only_sees_service_records_for_their_own_vehicles(self):
+        other_driver = Driver.objects.create(full_name='Other Driver', is_active=True)
+        other_vehicle = make_vehicle(name='Other Car', driver=other_driver, price_per_day=Decimal('1000'))
+        VehicleServiceRecord.objects.create(vehicle=self.vehicle, service_date=TODAY, notes='Mine')
+        VehicleServiceRecord.objects.create(vehicle=other_vehicle, service_date=TODAY, notes='Not mine')
+
+        response = self.client.get('/api/driver/service-records/')
+        results = response.json()['results'] if 'results' in response.json() else response.json()
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['notes'], 'Mine')
+
+    def test_service_records_appear_nested_on_the_driver_portal_profile(self):
+        VehicleServiceRecord.objects.create(vehicle=self.vehicle, service_date=TODAY, notes='Oil change')
+        response = self.client.get('/api/driver/me/')
+        self.assertEqual(response.json()['vehicles'][0]['service_records'][0]['notes'], 'Oil change')

@@ -1,11 +1,17 @@
 from django.contrib import admin
 
-from .models import Vehicle, VehicleCategory, VehicleImage
+from .models import Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord
 
 
 class VehicleImageInline(admin.TabularInline):
     model = VehicleImage
     extra = 1
+
+
+class VehicleServiceRecordInline(admin.TabularInline):
+    model = VehicleServiceRecord
+    extra = 1
+    fields = ('service_date', 'notes', 'logged_by')
 
 
 @admin.register(VehicleCategory)
@@ -23,7 +29,7 @@ class VehicleAdmin(admin.ModelAdmin):
     )
     list_filter = ('category', 'is_available', 'allow_self_drive', 'allow_with_driver')
     search_fields = ('name',)
-    inlines = [VehicleImageInline]
+    inlines = [VehicleImageInline, VehicleServiceRecordInline]
 
     @admin.display(description='Insurance OK', boolean=True)
     def insurance_valid(self, obj):

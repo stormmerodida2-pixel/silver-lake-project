@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from fleet.serializers import VehicleSerializer
+from fleet.serializers import VehicleSerializer, VehicleServiceRecordSerializer
 from fleet.models import VehicleCategory, VehicleSubmission, VehicleSubmissionPhoto
 
 from .models import Driver, DriverApplication
@@ -10,6 +10,17 @@ class DriverSerializer(serializers.ModelSerializer):
     class Meta:
         model = Driver
         fields = ['id', 'full_name', 'photo', 'years_of_experience', 'bio', 'rating']
+
+
+class DriverVehicleSerializer(VehicleSerializer):
+    """The public VehicleSerializer plus service history - kept separate from the public one
+    so service records (internal maintenance info) never leak into the public /api/vehicles/
+    listing, only the driver's own portal view of their own vehicle."""
+
+    service_records = VehicleServiceRecordSerializer(many=True, read_only=True)
+
+    class Meta(VehicleSerializer.Meta):
+        fields = VehicleSerializer.Meta.fields + ['service_records']
 
 
 class VehicleSubmissionPhotoSerializer(serializers.ModelSerializer):
@@ -46,7 +57,7 @@ class VehicleSubmissionSerializer(serializers.ModelSerializer):
 
 
 class DriverPortalSerializer(serializers.ModelSerializer):
-    vehicles = VehicleSerializer(many=True, read_only=True)
+    vehicles = DriverVehicleSerializer(many=True, read_only=True)
     vehicle_submissions = VehicleSubmissionSerializer(many=True, read_only=True)
 
     class Meta:

@@ -9,7 +9,7 @@ from rest_framework.test import APITestCase
 from bookings.models import BookingStatus
 from bookings.tests import make_booking, make_vehicle
 from drivers.models import Driver, DriverApplication
-from fleet.models import VehicleCategory, VehicleImage, VehicleSubmission
+from fleet.models import VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 
 from .models import AuditLog
@@ -515,6 +515,42 @@ class AdminVehicleGalleryTests(APITestCase):
         response = self.client.delete(f'/api/admin/fleet/{self.vehicle.id}/gallery/{image.id}/')
         self.assertEqual(response.status_code, 404)
         self.assertTrue(VehicleImage.objects.filter(id=image.id).exists())
+
+
+class AdminVehicleServiceRecordTests(APITestCase):
+    """Company-owned vehicles have no owning driver-partner to log a service themselves, so
+    admin needs a way to log one directly - same superadmin tier as other vehicle-data changes
+    (gallery images, category)."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='super10@example.com', password='pass12345!')
+        self.staff = User.objects.create_user(username='staff10@example.com', password='pass12345!', is_staff=True)
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+
+    def test_superadmin_can_log_a_service_record(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(
+            f'/api/admin/fleet/{self.vehicle.id}/service-records/',
+            {'service_date': '2026-01-15', 'notes': 'General service'}, format='json',
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(VehicleServiceRecord.objects.filter(vehicle=self.vehicle).count(), 1)
+        self.assertTrue(AuditLog.objects.filter(action='vehicle.add_service_record').exists())
+
+    def test_support_staff_cannot_log_a_service_record(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(
+            f'/api/admin/fleet/{self.vehicle.id}/service-records/',
+            {'service_date': '2026-01-15', 'notes': 'General service'}, format='json',
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(VehicleServiceRecord.objects.exists())
+
+    def test_service_records_are_nested_on_the_admin_vehicle_detail(self):
+        VehicleServiceRecord.objects.create(vehicle=self.vehicle, service_date='2026-01-15', notes='Oil change')
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(f'/api/admin/fleet/{self.vehicle.id}/')
+        self.assertEqual(response.json()['service_records'][0]['notes'], 'Oil change')
 
 
 class AdminVehicleCategoryTests(APITestCase):

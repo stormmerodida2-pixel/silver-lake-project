@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import apiClient from '../../api/client'
+import AnnouncementBanner from '../../components/AnnouncementBanner.vue'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 
@@ -167,6 +168,42 @@ async function loadProfile() {
     error.value = 'Could not load your driver profile.'
   } finally {
     loading.value = false
+  }
+}
+
+// ── Service history (per vehicle) ────────────────────────────────────────────
+const serviceFormVehicleId = ref(null)
+const serviceDateDraft = ref('')
+const serviceNotesDraft = ref('')
+const loggingServiceId = ref(null)
+const serviceError = ref('')
+
+function openServiceForm(vehicleId) {
+  serviceFormVehicleId.value = vehicleId
+  serviceDateDraft.value = new Date().toISOString().slice(0, 10)
+  serviceNotesDraft.value = ''
+  serviceError.value = ''
+}
+
+async function logService(vehicle) {
+  if (!serviceDateDraft.value) return
+  serviceError.value = ''
+  loggingServiceId.value = vehicle.id
+  try {
+    const { data } = await apiClient.post('/driver/service-records/', {
+      vehicle: vehicle.id,
+      service_date: serviceDateDraft.value,
+      notes: serviceNotesDraft.value.trim(),
+    })
+    vehicle.service_records = [data, ...(vehicle.service_records || [])]
+    serviceFormVehicleId.value = null
+  } catch (err) {
+    const detail = err?.response?.data
+    serviceError.value = typeof detail === 'object'
+      ? Object.values(detail).flat().join(' ')
+      : 'Could not log this service.'
+  } finally {
+    loggingServiceId.value = null
   }
 }
 
@@ -377,6 +414,8 @@ onMounted(() => {
     </header>
 
     <main class="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+      <AnnouncementBanner class="mb-6" />
+
       <p v-if="loading" class="text-center text-slate-400">Loading...</p>
       <p v-else-if="error" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ error }}</p>
 
@@ -457,24 +496,85 @@ onMounted(() => {
             <div
               v-for="vehicle in profile.vehicles"
               :key="vehicle.id"
-              class="flex items-center gap-4 rounded-xl border border-navy-800 bg-navy-900 p-4"
+              class="rounded-xl border border-navy-800 bg-navy-900 p-4"
             >
-              <div class="h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-navy-800 bg-navy-800">
-                <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
+              <div class="flex items-center gap-4">
+                <div class="h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-navy-800 bg-navy-800">
+                  <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
+                </div>
+                <div class="flex-1">
+                  <p class="font-semibold text-white">{{ vehicle.name }}</p>
+                  <p class="text-xs text-slate-400">
+                    {{ vehicle.category_name || vehicle.category }} &middot;
+                    KES {{ Number(vehicle.price_per_day).toLocaleString() }}/day
+                  </p>
+                </div>
+                <span
+                  class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                  :class="vehicle.is_available ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'"
+                >
+                  {{ vehicle.is_available ? 'Available' : 'Unavailable' }}
+                </span>
               </div>
-              <div class="flex-1">
-                <p class="font-semibold text-white">{{ vehicle.name }}</p>
-                <p class="text-xs text-slate-400">
-                  {{ vehicle.category_name || vehicle.category }} &middot;
-                  KES {{ Number(vehicle.price_per_day).toLocaleString() }}/day
+
+              <!-- Service history -->
+              <div class="mt-3 border-t border-navy-800 pt-3">
+                <div class="flex items-center justify-between">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Service History
+                    <span v-if="vehicle.service_records?.length" class="text-slate-600">({{ vehicle.service_records.length }})</span>
+                  </p>
+                  <button
+                    v-if="serviceFormVehicleId !== vehicle.id"
+                    class="text-xs font-semibold text-gold-400 hover:text-gold-300"
+                    @click="openServiceForm(vehicle.id)"
+                  >
+                    + Log Service
+                  </button>
+                  <button
+                    v-else
+                    class="text-xs font-semibold text-slate-400 hover:text-white"
+                    @click="serviceFormVehicleId = null"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <ul v-if="vehicle.service_records?.length" class="mt-2 space-y-1">
+                  <li v-for="record in vehicle.service_records" :key="record.id" class="text-xs text-slate-400">
+                    <span class="text-slate-300">{{ record.service_date }}</span>
+                    <span v-if="record.notes"> &middot; {{ record.notes }}</span>
+                  </li>
+                </ul>
+                <p v-else-if="serviceFormVehicleId !== vehicle.id" class="mt-2 text-xs text-slate-600">
+                  No service logged yet.
                 </p>
+
+                <form
+                  v-if="serviceFormVehicleId === vehicle.id"
+                  class="mt-2 space-y-2 rounded-lg bg-navy-950 p-3"
+                  @submit.prevent="logService(vehicle)"
+                >
+                  <p v-if="serviceError" class="text-xs text-red-400">{{ serviceError }}</p>
+                  <div class="flex gap-2">
+                    <input
+                      v-model="serviceDateDraft" type="date" required
+                      class="rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white focus:border-gold-500 focus:outline-none"
+                    />
+                    <input
+                      v-model="serviceNotesDraft" type="text" placeholder="e.g. Oil change + filter"
+                      class="flex-1 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    :disabled="loggingServiceId === vehicle.id"
+                    class="rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                  >
+                    {{ loggingServiceId === vehicle.id ? 'Saving...' : 'Save' }}
+                  </button>
+                </form>
               </div>
-              <span
-                class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                :class="vehicle.is_available ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'"
-              >
-                {{ vehicle.is_available ? 'Available' : 'Unavailable' }}
-              </span>
             </div>
             <p v-if="!profile.vehicles.length" class="text-sm text-slate-500">No live vehicles yet.</p>
           </div>

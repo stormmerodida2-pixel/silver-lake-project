@@ -6,7 +6,7 @@ from accounts.models import CustomerProfile
 from drivers.models import Driver
 from drivers.serializers import VehicleSubmissionPhotoSerializer
 from fleet.models import Vehicle, VehicleCategory, VehicleSubmission
-from fleet.serializers import VehicleImageSerializer
+from fleet.serializers import VehicleImageSerializer, VehicleServiceRecordSerializer
 from payments.models import DriverPayout, Refund
 from reviews.models import Review
 
@@ -163,6 +163,7 @@ class AdminVehicleSerializer(serializers.ModelSerializer):
     category = serializers.SlugRelatedField(slug_field='slug', queryset=VehicleCategory.objects.all())
     category_name = serializers.CharField(source='category.name', read_only=True)
     gallery_images = VehicleImageSerializer(many=True, read_only=True)
+    service_records = VehicleServiceRecordSerializer(many=True, read_only=True)
 
     class Meta:
         model = Vehicle
@@ -174,6 +175,7 @@ class AdminVehicleSerializer(serializers.ModelSerializer):
             'inspection_expiry_date',
             'is_insurance_expired', 'is_inspection_expired',
             'last_location_lat', 'last_location_lng', 'last_location_at',
+            'service_records',
             'created_at',
         ]
         read_only_fields = [

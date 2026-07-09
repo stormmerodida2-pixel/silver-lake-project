@@ -104,6 +104,28 @@ class VehicleImage(models.Model):
         return f'{self.vehicle.name} photo #{self.pk}'
 
 
+class VehicleServiceRecord(models.Model):
+    """A logged service/maintenance event for a vehicle - a running history, not just a single
+    'last serviced' date, so admins can see everything ever done to a vehicle. A driver-partner
+    logs these for their own vehicle from the Driver Portal; admins can log one for any vehicle
+    (e.g. company-owned fleet cars, which have no owning driver to log it themselves)."""
+
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='service_records')
+    service_date = models.DateField()
+    notes = models.CharField(max_length=255, blank=True, help_text='e.g. "Oil change + filter"')
+    # Null if logged by an admin rather than a driver-partner.
+    logged_by = models.ForeignKey(
+        'drivers.Driver', null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-service_date', '-created_at']
+
+    def __str__(self):
+        return f'{self.vehicle.name} serviced {self.service_date}'
+
+
 class VehicleSubmissionStatus(models.TextChoices):
     PENDING = 'pending', 'Pending'
     APPROVED = 'approved', 'Approved'

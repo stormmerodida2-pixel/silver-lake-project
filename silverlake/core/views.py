@@ -13,8 +13,8 @@ from bookings.models import Booking, BookingStatus
 from bookings.serializers import BookingSerializer
 from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
-from fleet.models import Vehicle, VehicleCategory, VehicleImage, VehicleSubmission
-from fleet.serializers import VehicleCategorySerializer, VehicleImageSerializer
+from fleet.models import Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
+from fleet.serializers import VehicleCategorySerializer, VehicleImageSerializer, VehicleServiceRecordSerializer
 from payments.models import DriverPayout, Payment, PaymentStatus, Refund, RefundStatus
 from reviews.models import Review
 
@@ -40,7 +40,7 @@ User = get_user_model()
 # needs regular staff (IsSupportStaff).
 SUPERADMIN_ONLY_ACTIONS = {
     'create', 'update', 'partial_update', 'destroy', 'mark_paid', 'verify', 'mark_issued',
-    'add_gallery_images', 'remove_gallery_image',
+    'add_gallery_images', 'remove_gallery_image', 'add_service_record',
 }
 
 
@@ -522,6 +522,17 @@ class AdminFleetViewSet(viewsets.ModelViewSet):
         log_admin_action(request, 'vehicle.remove_gallery_image', vehicle)
         image.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'], url_path='service-records')
+    def add_service_record(self, request, pk=None):
+        """Lets admin log a service/maintenance event directly - mainly for company-owned
+        vehicles, which have no owning driver-partner to log one themselves from the portal."""
+        vehicle = self.get_object()
+        serializer = VehicleServiceRecordSerializer(data={**request.data, 'vehicle': vehicle.id})
+        serializer.is_valid(raise_exception=True)
+        record = serializer.save()
+        log_admin_action(request, 'vehicle.add_service_record', vehicle, detail=record.notes)
+        return Response(VehicleServiceRecordSerializer(record).data, status=status.HTTP_201_CREATED)
 
 
 class AdminReviewViewSet(
