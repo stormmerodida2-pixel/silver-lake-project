@@ -40,6 +40,7 @@ onMounted(load)
             <th class="px-4 py-3">Status</th>
             <th class="px-4 py-3">Reference</th>
             <th class="px-4 py-3">Recorded By</th>
+            <th class="px-4 py-3">Paybill Deposit</th>
             <th class="px-4 py-3">Date</th>
           </tr>
         </thead>
@@ -72,6 +73,16 @@ onMounted(load)
             <td class="px-4 py-3 text-xs text-slate-400">
               {{ payment.recorded_by_driver_name || '—' }}
               <div v-if="payment.note" class="italic text-slate-500">{{ payment.note }}</div>
+            </td>
+            <td class="px-4 py-3 text-xs">
+              <template v-if="payment.method === 'cash'">
+                <template v-if="payment.cash_deposit">
+                  <span class="font-semibold text-emerald-400">KES {{ Number(payment.cash_deposit.amount).toLocaleString() }}</span>
+                  <div class="text-slate-500">{{ payment.cash_deposit.mpesa_reference }}</div>
+                </template>
+                <span v-else class="font-semibold text-gold-400">⚠ Not deposited yet</span>
+              </template>
+              <span v-else class="text-slate-600">—</span>
             </td>
             <td class="px-4 py-3 text-xs text-slate-500">{{ new Date(payment.created_at).toLocaleString() }}</td>
           </tr>

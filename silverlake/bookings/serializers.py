@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from fleet.models import Vehicle
+from payments.models import PaymentMethod, PaymentStatus
 from reviews.serializers import ReviewSerializer
 
 from .models import Booking, ServiceType
@@ -24,6 +25,7 @@ class BookingSerializer(serializers.ModelSerializer):
     vehicle_name = serializers.SerializerMethodField()
     driver_name = serializers.SerializerMethodField()
     review = serializers.SerializerMethodField()
+    pending_cash_deposits = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -34,7 +36,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'customer_license_number', 'customer_license_document', 'customer_id_document',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid',
             'status', 'notes', 'review', 'created_at', 'driver_acknowledged_at',
-            'trip_started_at', 'trip_ended_at', 'needs_attention',
+            'trip_started_at', 'trip_ended_at', 'needs_attention', 'pending_cash_deposits',
         ]
         read_only_fields = [
             'status', 'source', 'total_amount', 'created_at', 'driver_acknowledged_at',
@@ -50,6 +52,18 @@ class BookingSerializer(serializers.ModelSerializer):
     def get_review(self, obj):
         review = getattr(obj, 'review', None)
         return ReviewSerializer(review).data if review else None
+
+    def get_pending_cash_deposits(self, obj):
+        # Cash payments the assigned driver has collected but not yet deposited to the
+        # company Paybill - surfaced so the Driver Portal can prompt for the deposit, and so a
+        # payout can't quietly get verified while one of these is still outstanding.
+        payments = obj.payments.filter(
+            method=PaymentMethod.CASH, status=PaymentStatus.SUCCESSFUL, cash_deposit__isnull=True,
+        )
+        return [
+            {'id': p.id, 'amount': p.amount, 'created_at': p.created_at}
+            for p in payments
+        ]
 
 
     def validate(self, attrs):

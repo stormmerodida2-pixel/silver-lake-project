@@ -33,13 +33,20 @@ class AdminPayoutVerificationTests(APITestCase):
         customer = User.objects.create_user(username='client@example.com', password='pass12345!')
         self.booking = make_booking(customer, vehicle, driver=self.driver, status=BookingStatus.PENDING)
 
-        Payment.objects.create(
+        self.cash_payment = Payment.objects.create(
             booking=self.booking, method=PaymentMethod.CASH, amount=self.booking.total_amount,
             status=PaymentStatus.SUCCESSFUL, recorded_by_driver=self.driver,
         )
         self.booking.confirm_if_deposit_met()
         self.payout = DriverPayout.objects.get(booking=self.booking)
         assert self.payout.needs_verification and not self.payout.is_verified
+
+    def _log_deposit(self):
+        from payments.models import CashDeposit
+        CashDeposit.objects.create(
+            payment=self.cash_payment, amount=self.cash_payment.amount,
+            mpesa_reference='QWERTY123', logged_by=self.driver,
+        )
 
     def test_cannot_mark_paid_before_verifying(self):
         self.client.force_authenticate(user=self.superadmin)
@@ -54,6 +61,7 @@ class AdminPayoutVerificationTests(APITestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_superadmin_can_verify_then_mark_paid(self):
+        self._log_deposit()
         self.client.force_authenticate(user=self.superadmin)
 
         verify_response = self.client.post(
@@ -74,6 +82,7 @@ class AdminPayoutVerificationTests(APITestCase):
         self.assertTrue(self.payout.is_paid)
 
     def test_verifying_without_a_note_is_rejected(self):
+        self._log_deposit()
         self.client.force_authenticate(user=self.superadmin)
         response = self.client.post(f'/api/admin/payouts/{self.payout.id}/verify/', {}, format='json')
         self.assertEqual(response.status_code, 400)
@@ -81,11 +90,22 @@ class AdminPayoutVerificationTests(APITestCase):
         self.assertFalse(self.payout.is_verified)
 
     def test_verifying_with_a_blank_note_is_rejected(self):
+        self._log_deposit()
         self.client.force_authenticate(user=self.superadmin)
         response = self.client.post(f'/api/admin/payouts/{self.payout.id}/verify/', {'note': '   '}, format='json')
         self.assertEqual(response.status_code, 400)
 
+    def test_cannot_verify_without_a_matching_cash_deposit(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(
+            f'/api/admin/payouts/{self.payout.id}/verify/', {'note': 'Confirmed with customer.'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.payout.refresh_from_db()
+        self.assertFalse(self.payout.is_verified)
+
     def test_marking_a_payout_paid_emails_the_driver(self):
+        self._log_deposit()
         self.driver.email = 'payout-driver@example.com'
         self.driver.save(update_fields=['email'])
         self.client.force_authenticate(user=self.superadmin)

@@ -6,7 +6,7 @@ from django.utils import timezone
 from bookings.models import BookingStatus
 
 from . import mpesa
-from .models import Payment, PaymentMethod, PaymentStatus
+from .models import CashDeposit, Payment, PaymentMethod, PaymentStatus
 
 logger = logging.getLogger(__name__)
 
@@ -106,3 +106,28 @@ def record_cash_payment(booking, amount, driver, note=''):
     send_cash_payment_driver_confirmation_email(payment)
 
     return payment
+
+
+def log_cash_deposit(payment, amount, mpesa_reference, driver):
+    """A driver logging that they've deposited collected cash into the company Paybill -
+    the second half of the cash-payment trust chain (see CashDeposit). The deposited amount can
+    never be less than what was collected: this is a hard rejection, not a warning, since it's
+    the one automatic check standing between a driver quietly keeping part of the cash and their
+    payout still going through. A superadmin still has to cross-check mpesa_reference against
+    the real Paybill statement by hand (see DriverPayout.verify) - this doesn't replace that,
+    it just makes shortchanging impossible to do silently."""
+    if payment.method != PaymentMethod.CASH:
+        raise PaymentValidationError('Only cash payments need a deposit logged.')
+    if hasattr(payment, 'cash_deposit'):
+        raise PaymentValidationError('A deposit has already been logged for this payment.')
+    if not mpesa_reference.strip():
+        raise PaymentValidationError('The M-Pesa reference for the Paybill deposit is required.')
+    if amount < payment.amount:
+        raise PaymentValidationError(
+            f'Deposited amount (KES {amount}) is less than the cash collected (KES {payment.amount}). '
+            'The full amount collected must be deposited.'
+        )
+
+    return CashDeposit.objects.create(
+        payment=payment, amount=amount, mpesa_reference=mpesa_reference.strip(), logged_by=driver,
+    )

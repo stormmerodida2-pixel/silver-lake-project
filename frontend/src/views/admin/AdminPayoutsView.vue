@@ -133,6 +133,13 @@ onMounted(load)
                   >
                     ⚠ Disputed
                   </span>
+                  <span
+                    v-if="payout.has_undeposited_cash"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-gold-500/10 px-2 py-0.5 text-xs font-semibold text-gold-400"
+                    title="The driver hasn't logged a matching Paybill deposit for a cash payment on this booking yet - required before this can be verified."
+                  >
+                    ⚠ Not Deposited
+                  </span>
                 </div>
               </td>
               <td class="px-4 py-3 text-slate-400">{{ payout.payout_reference || '-' }}</td>
@@ -140,8 +147,9 @@ onMounted(load)
                 <template v-if="!payout.is_paid">
                   <button
                     v-if="payout.needs_verification && !payout.is_verified && auth.user?.is_superuser"
-                    :disabled="busyId === payout.id"
-                    class="rounded-md border border-gold-500 px-2 py-1 text-xs font-semibold text-gold-400 hover:bg-gold-500 hover:text-navy-950 disabled:opacity-50"
+                    :disabled="busyId === payout.id || payout.has_undeposited_cash"
+                    :title="payout.has_undeposited_cash ? 'Waiting on the driver to log a matching Paybill deposit first' : ''"
+                    class="rounded-md border border-gold-500 px-2 py-1 text-xs font-semibold text-gold-400 hover:bg-gold-500 hover:text-navy-950 disabled:cursor-not-allowed disabled:opacity-50"
                     @click="verifyPayout(payout)"
                   >
                     Verify

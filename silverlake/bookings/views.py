@@ -130,7 +130,8 @@ from django.utils import timezone
 
 from accounts.services import get_or_create_customer_account
 from drivers.permissions import IsDriverUser
-from payments.services import PaymentValidationError, record_cash_payment
+from payments.models import Payment
+from payments.services import PaymentValidationError, log_cash_deposit, record_cash_payment
 
 from .models import BookingSource
 from .serializers import DriverOnsiteBookingSerializer
@@ -198,6 +199,33 @@ class DriverBookingCashPaymentView(APIView):
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(BookingSerializer(booking).data)
+
+
+class DriverCashDepositView(APIView):
+    """Lets a driver log that they've deposited cash they collected (see
+    DriverBookingCashPaymentView) into the company Paybill - the payout behind that cash payment
+    can't be verified until this exists, and the deposited amount can never be less than what
+    was collected (see payments.services.log_cash_deposit)."""
+
+    permission_classes = [IsDriverUser]
+
+    def post(self, request, payment_id):
+        driver = request.user.driver_profile
+        payment = get_object_or_404(Payment, pk=payment_id, booking__driver=driver)
+
+        amount = request.data.get('amount')
+        mpesa_reference = request.data.get('mpesa_reference', '')
+        try:
+            amount = float(amount)
+        except (TypeError, ValueError):
+            return Response({'detail': 'A valid amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            log_cash_deposit(payment, amount, mpesa_reference, driver=driver)
+        except PaymentValidationError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(BookingSerializer(payment.booking).data)
 
 
 class DriverBookingCompleteView(APIView):

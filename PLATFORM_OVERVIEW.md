@@ -208,6 +208,16 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
   forces it back to "Needs Verification" even if a superadmin had already verified it, since a
   dispute arriving afterward means that verification needs to be redone. Only cash payments can
   be disputed; M-Pesa/card payments are already independently confirmed by their own gateway.
+- **A driver must deposit the exact cash they collected before their payout can be verified.**
+  Collecting cash from a customer and depositing that cash into the company Paybill are two
+  separate events - only the first was ever tracked. Now a driver logs a `CashDeposit` (amount +
+  M-Pesa reference) for each cash payment from the Driver Portal, and depositing less than what
+  was collected is a hard rejection, not a warning. A payout can't be verified while any of its
+  cash payments still lacks a matching deposit - so a driver can't quietly keep part of the cash
+  and still get their commission released. This still relies on a superadmin cross-checking the
+  M-Pesa reference against the real Paybill statement by hand (the verification note is where
+  that gets recorded) - it isn't a live Safaricom C2B integration, which would be the fully
+  automatic version of this check if/when there's production Paybill API access.
 - **Refunds are tracked, not automated.** There's no live M-Pesa refund API wired up — instead,
   cancelling a paid booking creates a `Refund` record automatically, which shows up on the admin
   Refunds page as "Pending" until a superadmin sends the money back by hand and marks it
@@ -339,7 +349,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-272 automated backend tests currently cover booking validation, payment guards, payout timing and
+281 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -356,9 +366,11 @@ and the owning driver, profile photo upload/removal (including the file-size lim
 appears in the login response), announcement audience targeting/permissions and the staff-propose
 /superadmin-approve workflow for client-facing announcements, the mandatory reconciliation note
 on cash-payout verification and the customer-facing cash-payment dispute flow (including that a
-dispute re-locks an already-verified payout), and (using real threads against a live test
-transaction, not a single-connection simulation) that two concurrent booking requests for the
-same vehicle can't both succeed — run with:
+dispute re-locks an already-verified payout), the driver cash-deposit flow (including that
+depositing less than what was collected is rejected and that a payout can't be verified until a
+matching deposit exists), and (using real threads against a live test transaction, not a
+single-connection simulation) that two concurrent booking requests for the same vehicle can't
+both succeed — run with:
 ```
 cd silverlake
 python manage.py test
