@@ -245,7 +245,7 @@ class AdminDriverViewSet(viewsets.ModelViewSet):
 class AdminVehicleSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
     """Staff-only review queue for vehicles drivers submit themselves via the driver portal."""
 
-    queryset = VehicleSubmission.objects.all().select_related('driver')
+    queryset = VehicleSubmission.objects.all().select_related('driver', 'category')
     serializer_class = AdminVehicleSubmissionSerializer
     permission_classes = [IsSupportStaff]
 
@@ -269,7 +269,7 @@ class AdminDriverApplicationViewSet(viewsets.ReadOnlyModelViewSet):
     """Staff-only review queue for 'become a driver' submissions. Approving/rejecting is
     day-to-day onboarding work, open to support staff."""
 
-    queryset = DriverApplication.objects.all()
+    queryset = DriverApplication.objects.all().select_related('vehicle_category')
     serializer_class = DriverApplicationSerializer
     permission_classes = [IsSupportStaff]
 
@@ -452,7 +452,7 @@ class AdminFleetViewSet(viewsets.ModelViewSet):
     Create/update/delete (fleet composition and pricing) are superadmin-only; support
     staff can list/view/toggle availability."""
 
-    queryset = Vehicle.objects.all().order_by('name')
+    queryset = Vehicle.objects.all().select_related('category', 'driver').order_by('name')
     serializer_class = AdminVehicleSerializer
 
     def get_permissions(self):

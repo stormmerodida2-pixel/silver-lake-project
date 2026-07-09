@@ -80,7 +80,9 @@ class DriverVehicleSubmissionViewSet(mixins.ListModelMixin, mixins.CreateModelMi
     permission_classes = [IsDriverUser]
 
     def get_queryset(self):
-        return VehicleSubmission.objects.filter(driver=self.request.user.driver_profile)
+        return VehicleSubmission.objects.filter(
+            driver=self.request.user.driver_profile,
+        ).select_related('category')
 
     def perform_create(self, serializer):
         submission = serializer.save(driver=self.request.user.driver_profile)

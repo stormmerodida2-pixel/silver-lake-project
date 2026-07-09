@@ -21,7 +21,7 @@ class VehicleCategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class VehicleViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Vehicle.objects.filter(is_available=True)
+    queryset = Vehicle.objects.filter(is_available=True).select_related('category')
     serializer_class = VehicleSerializer
 
     def get_queryset(self):
