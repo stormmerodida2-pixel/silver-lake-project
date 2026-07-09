@@ -100,14 +100,15 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
     ],
     # Rates for the specific public-facing views that set throttle_classes/throttle_scope
-    # themselves (login, registration, password reset, and the M-Pesa STK push triggers) -
-    # everything else is unthrottled.
+    # themselves (login, registration, password reset, the M-Pesa STK push triggers, and the
+    # public driver application form) - everything else is unthrottled.
     'DEFAULT_THROTTLE_RATES': {
         'auth-login': '10/min',
         'auth-register': '5/hour',
         'auth-password-reset': '5/hour',
         'mpesa-stk': '5/min',
         'token-payment-view': '20/min',
+        'driver-application': '5/hour',
     },
 }
 

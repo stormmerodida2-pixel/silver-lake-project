@@ -1,4 +1,5 @@
 from rest_framework import generics, mixins, permissions, response, viewsets
+from rest_framework.throttling import ScopedRateThrottle
 
 from fleet.models import VehicleSubmission
 
@@ -24,11 +25,17 @@ class DriverViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class DriverApplicationCreateView(generics.CreateAPIView):
-    """Public 'become a driver' submission - stays pending until an admin approves it."""
+    """Public 'become a driver' submission - stays pending until an admin approves it.
+
+    Unauthenticated and accepts file uploads (license photo, logbook), so it's throttled
+    like the other public write endpoints (registration, password reset) to stop it being
+    used to spam the review queue or disk with junk submissions."""
 
     queryset = DriverApplication.objects.all()
     serializer_class = DriverApplicationSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'driver-application'
 
     def perform_create(self, serializer):
         application = serializer.save()

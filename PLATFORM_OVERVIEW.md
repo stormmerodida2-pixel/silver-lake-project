@@ -246,7 +246,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-172 automated backend tests currently cover booking validation, payment guards, payout timing and
+173 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -266,7 +266,10 @@ python manage.py test
 Not broken, but worth a conscious decision before going fully live:
 
 - **Real M-Pesa production credentials** — still pointed at Safaricom's sandbox.
-- **`DEBUG=True` by default**, and CORS wide open under DEBUG.
+- **`MPESA_CALLBACK_URL` is still a placeholder domain** — Safaricom's servers need to reach this
+  over the public internet with a valid HTTPS cert before any STK push (sandbox or production)
+  can ever confirm. Same goes for `ALLOWED_HOSTS`/`CORS_ALLOWED_ORIGINS`/`FRONTEND_URL`, still
+  all `localhost`.
 - **File storage is local disk** — uploaded documents/photos won't survive a server redeploy as
   currently configured.
 - **Payment/booking links don't expire** — the no-login payment link and driver trip-completion

@@ -1,9 +1,11 @@
 import base64
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APITestCase
+from rest_framework.throttling import ScopedRateThrottle
 
 from fleet.models import VehicleCategory, VehicleSubmission
 
@@ -173,3 +175,33 @@ class VehicleSubmissionTests(APITestCase):
         self.assertTrue(submission.created_vehicle.is_available)
         # First photo becomes the cover image, the rest become gallery images.
         self.assertEqual(submission.created_vehicle.gallery_images.count(), 1)
+
+
+class DriverApplicationThrottleTests(APITestCase):
+    """Public, unauthenticated, and accepts a file upload - previously had no rate limit at
+    all, unlike registration/login/password-reset. settings.py forces every throttle scope to
+    10000/min under 'test', so dial this one scope back down just to prove it's actually wired
+    up, not just configured (mirrors accounts.tests.LoginThrottleTests)."""
+
+    def _payload(self):
+        category, _ = VehicleCategory.objects.get_or_create(
+            slug='executive_suv', defaults={'name': 'Executive SUV'},
+        )
+        return {
+            'full_name': 'Applicant', 'email': 'applicant@example.com', 'phone_number': '254700000000',
+            'license_number': 'DL1', 'license_document': make_image('license.png'),
+            'vehicle_name': 'Toyota Noah', 'vehicle_category': category.slug,
+            'passenger_capacity': 7, 'price_per_day': 5000,
+        }
+
+    def test_repeated_applications_are_throttled(self):
+        cache.clear()
+        original = ScopedRateThrottle.THROTTLE_RATES.get('driver-application')
+        ScopedRateThrottle.THROTTLE_RATES['driver-application'] = '2/min'
+        try:
+            for _ in range(2):
+                self.client.post('/api/drivers/apply/', self._payload(), format='multipart')
+            response = self.client.post('/api/drivers/apply/', self._payload(), format='multipart')
+        finally:
+            ScopedRateThrottle.THROTTLE_RATES['driver-application'] = original
+        self.assertEqual(response.status_code, 429)
