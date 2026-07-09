@@ -65,6 +65,35 @@ async function completeBooking(booking) {
   }
 }
 
+// ── Start / End trip (separate from payment - confirms what actually happened) ──────────────
+const startingId = ref(null)
+const endingId = ref(null)
+
+async function startTrip(booking) {
+  startingId.value = booking.id
+  try {
+    const { data } = await apiClient.post(`/driver/bookings/${booking.id}/start-trip/`)
+    Object.assign(booking, data)
+  } catch (err) {
+    bookingsError.value = err.response?.data?.detail || 'Could not start this trip.'
+  } finally {
+    startingId.value = null
+  }
+}
+
+async function endTrip(booking) {
+  if (!confirm(`Confirm the vehicle has been returned for ${booking.customer_name}'s trip?`)) return
+  endingId.value = booking.id
+  try {
+    const { data } = await apiClient.post(`/driver/bookings/${booking.id}/end-trip/`)
+    Object.assign(booking, data)
+  } catch (err) {
+    bookingsError.value = err.response?.data?.detail || 'Could not end this trip.'
+  } finally {
+    endingId.value = null
+  }
+}
+
 // ── Live location sharing ────────────────────────────────────────────────────
 // Reported from the driver's own browser via the Geolocation API - only works while this tab
 // stays open, there's no background/native tracking. Only one trip can share at a time.
@@ -482,17 +511,35 @@ onMounted(() => {
                   {{ statusLabels[booking.status] || booking.status }}
                 </span>
               </div>
-              <div class="mt-3 flex items-center justify-between gap-3">
-                <span v-if="booking.driver_acknowledged_at" class="text-xs font-semibold text-emerald-400">
+              <div class="mt-3 flex flex-wrap items-center gap-2">
+                <span v-if="booking.driver_acknowledged_at" class="mr-auto text-xs font-semibold text-emerald-400">
                   Acknowledged
                 </span>
                 <button
                   v-else
                   :disabled="acknowledgingId === booking.id"
-                  class="rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                  class="mr-auto rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
                   @click="acknowledgeBooking(booking)"
                 >
                   {{ acknowledgingId === booking.id ? 'Approving...' : 'Approve' }}
+                </button>
+
+                <button
+                  v-if="booking.status === 'confirmed'"
+                  :disabled="startingId === booking.id"
+                  class="rounded-md border border-navy-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                  @click="startTrip(booking)"
+                >
+                  {{ startingId === booking.id ? 'Starting...' : 'Start Trip' }}
+                </button>
+
+                <button
+                  v-if="['confirmed', 'ongoing'].includes(booking.status) && !booking.trip_ended_at"
+                  :disabled="endingId === booking.id"
+                  class="rounded-md border border-navy-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                  @click="endTrip(booking)"
+                >
+                  {{ endingId === booking.id ? 'Ending...' : 'End Trip' }}
                 </button>
 
                 <button
@@ -515,6 +562,12 @@ onMounted(() => {
                   {{ sharingBookingId === booking.id ? '● Sharing Location' : 'Share My Location' }}
                 </button>
               </div>
+              <p
+                v-if="booking.trip_ended_at && !['completed', 'cancelled'].includes(booking.status)"
+                class="mt-2 text-xs font-semibold text-amber-400"
+              >
+                Vehicle returned - awaiting final payment (KES {{ Number(booking.balance_due).toLocaleString() }}) to complete.
+              </p>
             </div>
             <p v-if="!bookingsLoading && !bookings.length" class="text-sm text-slate-500">No bookings yet.</p>
           </div>

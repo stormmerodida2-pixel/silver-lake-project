@@ -61,10 +61,15 @@ onMounted(() => {
             <th class="px-4 py-3">Total</th>
             <th class="px-4 py-3">Paid</th>
             <th class="px-4 py-3">Status</th>
+            <th class="px-4 py-3">Trip</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-navy-800 bg-navy-950">
-          <tr v-for="booking in bookings" :key="booking.id">
+          <tr
+            v-for="booking in bookings"
+            :key="booking.id"
+            :class="booking.needs_attention ? 'bg-red-500/5' : ''"
+          >
             <td class="px-4 py-3 text-white">
               {{ booking.customer_name }}
               <div class="text-xs text-slate-500">{{ booking.customer_phone }}</div>
@@ -106,6 +111,17 @@ onMounted(() => {
                   {{ option.charAt(0).toUpperCase() + option.slice(1) }}
                 </option>
               </select>
+            </td>
+            <td class="px-4 py-3 text-xs">
+              <span
+                v-if="booking.needs_attention"
+                class="mb-1 inline-block rounded-full bg-red-500/10 px-2 py-0.5 font-semibold text-red-400"
+              >
+                Needs Attention
+              </span>
+              <div v-if="booking.trip_started_at" class="text-slate-500">Started {{ new Date(booking.trip_started_at).toLocaleDateString() }}</div>
+              <div v-if="booking.trip_ended_at" class="text-slate-500">Ended {{ new Date(booking.trip_ended_at).toLocaleDateString() }}</div>
+              <div v-if="!booking.trip_started_at && !booking.trip_ended_at && !booking.needs_attention" class="text-slate-600">—</div>
             </td>
           </tr>
         </tbody>

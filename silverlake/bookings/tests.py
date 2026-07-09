@@ -924,3 +924,151 @@ class DriverBookingLocationTests(APITestCase):
             f'/api/driver/bookings/{self.booking.id}/location/', {'lat': -0.09, 'lng': 34.76}, format='json',
         )
         self.assertEqual(response.status_code, 401)
+
+
+class TripLifecycleTests(APITestCase):
+    """Separates three distinct facts that used to be conflated: money arriving, the driver
+    confirming the car was handed over, and the driver confirming it came back. Paying in full
+    doesn't by itself mean a trip happened - the balance is due 'on or before pickup', so it can
+    clear before the trip even starts."""
+
+    def setUp(self):
+        self.driver_user = User.objects.create_user(username='trip-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=self.driver_user, full_name='Trip Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='trip-client@example.com', password='pass12345!')
+        self.booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+            customer_email='trip-client@example.com',
+        )
+        self.client.force_authenticate(user=self.driver_user)
+
+    def test_start_trip_moves_to_ongoing_and_stamps_a_timestamp(self):
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/start-trip/')
+        self.assertEqual(response.status_code, 200)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.ONGOING)
+        self.assertIsNotNone(self.booking.trip_started_at)
+
+    def test_cannot_start_a_trip_that_is_still_pending(self):
+        self.booking.status = BookingStatus.PENDING
+        self.booking.save(update_fields=['status'])
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/start-trip/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_start_a_trip_twice(self):
+        self.client.post(f'/api/driver/bookings/{self.booking.id}/start-trip/')
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/start-trip/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_ending_an_unpaid_trip_stays_open_but_records_the_end_time(self):
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/end-trip/')
+        self.assertEqual(response.status_code, 200)
+        self.booking.refresh_from_db()
+        self.assertIsNotNone(self.booking.trip_ended_at)
+        self.assertNotEqual(self.booking.status, BookingStatus.COMPLETED)
+
+    def test_ending_a_fully_paid_trip_completes_it_immediately(self):
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        mail.outbox = []
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/end-trip/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'completed')
+        self.assertTrue(any('How was your ride' in m.subject for m in mail.outbox))
+
+    def test_a_late_payment_after_the_trip_already_ended_completes_it(self):
+        # The driver confirms the car is back first, while a balance is still owed.
+        self.client.post(f'/api/driver/bookings/{self.booking.id}/end-trip/')
+        self.booking.refresh_from_db()
+        self.assertNotEqual(self.booking.status, BookingStatus.COMPLETED)
+
+        # The remaining balance clears afterwards - this is the one case where payment alone is
+        # allowed to complete the booking, because the trip was already confirmed physically over.
+        mail.outbox = []
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        self.booking.confirm_if_deposit_met()
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.COMPLETED)
+        self.assertTrue(any('How was your ride' in m.subject for m in mail.outbox))
+
+    def test_paying_in_full_before_the_trip_ends_does_not_auto_complete_it(self):
+        # This is the exact scenario that made payment-triggered completion unsafe on its own -
+        # the balance can clear well before the car has even left.
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        self.booking.confirm_if_deposit_met()
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.CONFIRMED)
+        self.assertIsNone(self.booking.trip_ended_at)
+
+    def test_cannot_end_a_cancelled_trip(self):
+        self.booking.status = BookingStatus.CANCELLED
+        self.booking.save(update_fields=['status'])
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/end-trip/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_driver_cannot_start_or_end_another_drivers_trip(self):
+        other_driver_user = User.objects.create_user(username='other-trip-driver@example.com', password='pass12345!')
+        Driver.objects.create(user=other_driver_user, full_name='Other Driver', is_active=True)
+        self.client.force_authenticate(user=other_driver_user)
+
+        start_response = self.client.post(f'/api/driver/bookings/{self.booking.id}/start-trip/')
+        end_response = self.client.post(f'/api/driver/bookings/{self.booking.id}/end-trip/')
+        self.assertEqual(start_response.status_code, 404)
+        self.assertEqual(end_response.status_code, 404)
+
+    def test_direct_complete_also_stamps_trip_ended_at(self):
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        self.client.post(f'/api/driver/bookings/{self.booking.id}/complete/')
+        self.booking.refresh_from_db()
+        self.assertIsNotNone(self.booking.trip_ended_at)
+
+
+class NeedsAttentionTests(APITestCase):
+    """A booking whose scheduled window has passed but is still open (nobody ever confirmed it
+    started/ended, or it ended but is still unpaid) is surfaced to admins as a nudge - nothing
+    ever resolves it automatically."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='attention-super@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='attention-client@example.com', password='pass12345!')
+
+    def test_a_confirmed_booking_past_its_end_date_needs_attention(self):
+        booking = make_booking(
+            self.customer, self.vehicle, status=BookingStatus.CONFIRMED,
+            start_date=TODAY - timedelta(days=5), end_date=TODAY - timedelta(days=1),
+        )
+        self.assertTrue(booking.needs_attention)
+
+    def test_a_booking_still_within_its_dates_does_not_need_attention(self):
+        booking = make_booking(self.customer, self.vehicle, status=BookingStatus.CONFIRMED)
+        self.assertFalse(booking.needs_attention)
+
+    def test_a_completed_booking_never_needs_attention_regardless_of_dates(self):
+        booking = make_booking(
+            self.customer, self.vehicle, status=BookingStatus.COMPLETED,
+            start_date=TODAY - timedelta(days=5), end_date=TODAY - timedelta(days=1),
+        )
+        self.assertFalse(booking.needs_attention)
+
+    def test_admin_stats_counts_bookings_needing_attention(self):
+        make_booking(
+            self.customer, self.vehicle, status=BookingStatus.CONFIRMED,
+            start_date=TODAY - timedelta(days=5), end_date=TODAY - timedelta(days=1),
+        )
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.get('/api/admin/stats/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['bookings']['needing_attention'], 1)

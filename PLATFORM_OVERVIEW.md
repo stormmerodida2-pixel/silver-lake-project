@@ -117,9 +117,24 @@ business-model pitch for the economics).
   unrelated edit.
 - Overlapping bookings for the same vehicle (or the same driver) are rejected outright.
 - A booking starts **Pending**, and moves to **Confirmed** automatically once a **30% deposit**
-  is paid. It later becomes **Ongoing**/**Completed** via staff updating status, or the driver
-  marking their own trip complete once it's fully paid (completing a trip is blocked if there's
-  still a balance outstanding).
+  is paid.
+- **Starting/ending a trip is a driver-confirmed fact, not inferred from payment or dates.**
+  Money and physical trip status are deliberately kept separate — the balance is due "on or
+  before pickup," so it can clear well before the trip even starts, which means "fully paid"
+  can never safely mean "trip is over" on its own. From the Driver Portal:
+  - **Start Trip** (only from Confirmed) flips the booking to **Ongoing** and stamps
+    `trip_started_at`.
+  - **End Trip** stamps `trip_ended_at`. If the booking happens to already be fully paid at that
+    point, it completes immediately; otherwise it stays open, showing "awaiting final payment,"
+    until the remaining balance clears — at which point it auto-completes, since a human already
+    confirmed the car is physically back. This is the *only* case a payment is allowed to
+    auto-complete a booking.
+  - A **Complete Trip** button remains as a direct manual override (still blocked if there's an
+    outstanding balance) for drivers who skip the explicit Start/End steps — it stamps
+    `trip_ended_at` too, so the record stays consistent either way.
+  - Bookings past their scheduled end date but still open (nobody confirmed start/end, or it
+    ended but is unpaid) are flagged **Needs Attention** on the admin Bookings page and dashboard
+    — a nudge, never auto-resolved.
 - Once completed, the customer can leave a **review** of the driver/trip (one per booking).
 - A customer (or staff) can **cancel** a booking any time before it's completed. As of today,
   cancelling a booking that already had money paid against it automatically creates a **Refund**
@@ -239,7 +254,9 @@ in one consistent UI:
 - **Drivers** — manage live drivers plus the driver-application and vehicle-submission review
   queues, all in one page.
 - **Bookings** — full oversight, manual status changes, and (superadmin only) editing the
-  booking itself — e.g. fixing a booking assigned to the wrong driver.
+  booking itself — e.g. fixing a booking assigned to the wrong driver. Rows past their scheduled
+  end date but still open are highlighted **Needs Attention** (see §5), and a "Trip" column
+  shows driver-confirmed start/end timestamps.
 - **Fleet** — full vehicle CRUD, toggle availability, assign which driver drives a company-owned
   vehicle (a driver-partner's own submitted car is assigned automatically), and manage a
   vehicle's photo gallery beyond its single cover image.
@@ -266,7 +283,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-194 automated backend tests currently cover booking validation, payment guards, payout timing and
+208 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -274,9 +291,10 @@ the STK-push retry cooldown, session/token revocation on logout and password cha
 booking notifications/acknowledgment, driver-defaulting, driver-side trip completion, admin driver
 assignment, driver rating recalculation, admin booking edits, vehicle gallery management, payment
 status polling, self-service profile updates, the public reviews API's read-only/no-driver-details
-restrictions, fleet-type CRUD and permission tiers, the Django admin's own bulk-action fixes, and
+restrictions, fleet-type CRUD and permission tiers, the Django admin's own bulk-action fixes,
 live vehicle-location reporting (only accepted for the assigned driver's own currently-active
-trip) — run with:
+trip), and the trip start/end lifecycle (including the one case a late payment is allowed to
+auto-complete a booking) — run with:
 ```
 cd silverlake
 python manage.py test

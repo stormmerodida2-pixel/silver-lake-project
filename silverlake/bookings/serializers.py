@@ -20,6 +20,7 @@ class BookingSerializer(serializers.ModelSerializer):
     balance_due = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     deposit_amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     is_deposit_paid = serializers.BooleanField(read_only=True)
+    needs_attention = serializers.BooleanField(read_only=True)
     vehicle_name = serializers.SerializerMethodField()
     driver_name = serializers.SerializerMethodField()
     review = serializers.SerializerMethodField()
@@ -33,8 +34,12 @@ class BookingSerializer(serializers.ModelSerializer):
             'customer_license_number', 'customer_license_document', 'customer_id_document',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid',
             'status', 'notes', 'review', 'created_at', 'driver_acknowledged_at',
+            'trip_started_at', 'trip_ended_at', 'needs_attention',
         ]
-        read_only_fields = ['status', 'source', 'total_amount', 'created_at', 'driver_acknowledged_at']
+        read_only_fields = [
+            'status', 'source', 'total_amount', 'created_at', 'driver_acknowledged_at',
+            'trip_started_at', 'trip_ended_at',
+        ]
 
     def get_vehicle_name(self, obj):
         return obj.vehicle.name if obj.vehicle else '—'

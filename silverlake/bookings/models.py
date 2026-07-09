@@ -91,6 +91,13 @@ class Booking(models.Model):
     # (the driver already knows about their own walk-up booking).
     driver_acknowledged_at = models.DateTimeField(null=True, blank=True)
 
+    # Driver-confirmed facts about the physical trip, separate from payment status - paying in
+    # full doesn't mean the car has actually been handed over or returned yet (the balance is
+    # only due "on or before pickup," so it can clear before the trip even starts). See
+    # start_trip()/end_trip().
+    trip_started_at = models.DateTimeField(null=True, blank=True)
+    trip_ended_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -205,6 +212,59 @@ class Booking(models.Model):
             return Decimal('0')
         return self.total_amount - self.platform_fee_amount
 
+    @property
+    def needs_attention(self):
+        """Past its scheduled end date but still open - either nobody ever confirmed it
+        started/ended, or it ended but couldn't auto-complete because it still owes money.
+        Purely a nudge for admins to look into it; nothing ever resolves this automatically -
+        only a human confirming what actually happened (or chasing an unpaid balance) should
+        close a trip out."""
+        return (
+            self.status in (BookingStatus.CONFIRMED, BookingStatus.ONGOING)
+            and self.end_date < timezone.localdate()
+        )
+
+    def start_trip(self):
+        """Driver-confirmed: the vehicle has actually been handed over. Only valid once the
+        deposit has landed (CONFIRMED) - a customer can't be mid-trip on a booking that was
+        never paid for."""
+        if self.status != BookingStatus.CONFIRMED:
+            raise ValidationError(f'Cannot start a trip that is {self.get_status_display().lower()}.')
+        self.status = BookingStatus.ONGOING
+        self.trip_started_at = timezone.now()
+        self.save(update_fields=['status', 'trip_started_at'])
+
+    def end_trip(self):
+        """Driver-confirmed: the vehicle has been physically returned. If the booking happens
+        to already be fully paid at this point, completes it immediately - this is the one
+        place it's actually safe to treat "fully paid" as "trip is done", because a human has
+        just confirmed the car is back, not just that money arrived (money can land before the
+        trip even starts). If there's still a balance due, the trip stays open with
+        trip_ended_at recorded, and _complete_if_ended_and_paid() finishes the job later once
+        the balance clears (see confirm_if_deposit_met)."""
+        if self.status not in (BookingStatus.CONFIRMED, BookingStatus.ONGOING):
+            raise ValidationError(f'Cannot end a trip that is {self.get_status_display().lower()}.')
+        if not self.trip_ended_at:
+            self.trip_ended_at = timezone.now()
+            self.save(update_fields=['trip_ended_at'])
+        self._complete_if_ended_and_paid()
+
+    def _complete_if_ended_and_paid(self):
+        """The only safe place a payment alone is allowed to complete a booking: the driver has
+        already confirmed via end_trip() that the car is physically back, so a payment clearing
+        the balance after that point really does mean the trip is over - not just that the
+        customer happened to pay early. Called from end_trip() (in case it was already fully
+        paid) and from confirm_if_deposit_met() (in case the balance only clears after the trip
+        already ended)."""
+        if self.status == BookingStatus.COMPLETED or not self.trip_ended_at or self.balance_due > 0:
+            return
+        self.status = BookingStatus.COMPLETED
+        self.save(update_fields=['status'])
+
+        from .emails import send_trip_completed_email
+
+        send_trip_completed_email(self)
+
     def confirm_if_deposit_met(self):
         """Confirms the booking once the deposit lands (pending -> confirmed, one-time). The
         driver's payout is handled separately in _ensure_driver_payout, which only queues once
@@ -228,6 +288,7 @@ class Booking(models.Model):
             self._send_confirmation_email()
 
         self._ensure_driver_payout()
+        self._complete_if_ended_and_paid()
 
     def _reconcile_refund_after_late_payment(self):
         """A payment landing on an already-cancelled booking still needs to be accounted for -
