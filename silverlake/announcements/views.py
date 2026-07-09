@@ -1,12 +1,13 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.audit import log_admin_action
-from core.permissions import IsSuperAdmin
+from core.permissions import IsSuperAdmin, IsSupportStaff
 
-from .models import Announcement, AnnouncementAudience
+from .models import Announcement, AnnouncementAudience, AnnouncementStatus
 from .serializers import AdminAnnouncementSerializer, MyAnnouncementSerializer
 
 
@@ -23,16 +24,41 @@ def _audiences_for(user):
     return audiences
 
 
-class AdminAnnouncementViewSet(viewsets.ModelViewSet):
-    """Superadmin-only - broadcasting to a whole audience is significant enough that it
-    shouldn't be a day-to-day support-staff action."""
+# Actions that broadcast directly, change what's already live, or destroy a record -
+# superadmin-only. 'create'/'list'/'retrieve' are open to support staff too (scoped below).
+SUPERADMIN_ONLY_ACTIONS = {'update', 'partial_update', 'destroy', 'approve', 'reject'}
 
-    queryset = Announcement.objects.all().select_related('created_by')
+
+class AdminAnnouncementViewSet(viewsets.ModelViewSet):
+    """A superadmin can broadcast to any audience directly, no review needed. Support staff
+    can only propose client-facing announcements - each proposal starts out pending and
+    invisible until a superadmin approves or rejects it (see perform_create/approve/reject)."""
+
     serializer_class = AdminAnnouncementSerializer
-    permission_classes = [IsSuperAdmin]
+
+    def get_queryset(self):
+        queryset = Announcement.objects.all().select_related('created_by', 'reviewed_by')
+        if self.request.user.is_superuser:
+            return queryset
+        # Support staff only ever manage their own proposals, not the full broadcast history.
+        return queryset.filter(created_by=self.request.user)
+
+    def get_permissions(self):
+        if self.action in SUPERADMIN_ONLY_ACTIONS:
+            return [IsSuperAdmin()]
+        return [IsSupportStaff()]
 
     def perform_create(self, serializer):
-        announcement = serializer.save(created_by=self.request.user)
+        user = self.request.user
+        if user.is_superuser:
+            announcement = serializer.save(created_by=user)
+        else:
+            # Force these regardless of what was submitted - a support-staff proposal is always
+            # client-facing and always starts pending, never live until a superadmin signs off.
+            announcement = serializer.save(
+                created_by=user, audience=AnnouncementAudience.CLIENTS,
+                status=AnnouncementStatus.PENDING, is_active=False,
+            )
         log_admin_action(self.request, 'announcement.create', announcement, detail=announcement.audience)
 
     def perform_update(self, serializer):
@@ -43,9 +69,31 @@ class AdminAnnouncementViewSet(viewsets.ModelViewSet):
         log_admin_action(self.request, 'announcement.delete', instance)
         instance.delete()
 
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        announcement = self.get_object()
+        announcement.status = AnnouncementStatus.APPROVED
+        announcement.is_active = True
+        announcement.reviewed_by = request.user
+        announcement.review_note = ''
+        announcement.save(update_fields=['status', 'is_active', 'reviewed_by', 'review_note'])
+        log_admin_action(self.request, 'announcement.approve', announcement)
+        return Response(self.get_serializer(announcement).data)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        announcement = self.get_object()
+        announcement.status = AnnouncementStatus.REJECTED
+        announcement.is_active = False
+        announcement.reviewed_by = request.user
+        announcement.review_note = request.data.get('review_note', '')
+        announcement.save(update_fields=['status', 'is_active', 'reviewed_by', 'review_note'])
+        log_admin_action(self.request, 'announcement.reject', announcement, detail=announcement.review_note)
+        return Response(self.get_serializer(announcement).data)
+
 
 class MyAnnouncementsView(generics.ListAPIView):
-    """Active announcements aimed at any audience the current user belongs to."""
+    """Active, approved announcements aimed at any audience the current user belongs to."""
 
     serializer_class = MyAnnouncementSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -53,7 +101,8 @@ class MyAnnouncementsView(generics.ListAPIView):
 
     def get_queryset(self):
         return Announcement.objects.filter(
-            is_active=True, audience__in=_audiences_for(self.request.user),
+            is_active=True, status=AnnouncementStatus.APPROVED,
+            audience__in=_audiences_for(self.request.user),
         ).prefetch_related('read_by')
 
 
@@ -62,7 +111,8 @@ class MarkAnnouncementReadView(APIView):
 
     def post(self, request, pk):
         announcement = get_object_or_404(
-            Announcement, pk=pk, is_active=True, audience__in=_audiences_for(request.user),
+            Announcement, pk=pk, is_active=True, status=AnnouncementStatus.APPROVED,
+            audience__in=_audiences_for(request.user),
         )
         announcement.read_by.add(request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)

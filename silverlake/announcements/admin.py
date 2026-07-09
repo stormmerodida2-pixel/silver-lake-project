@@ -5,7 +5,7 @@ from .models import Announcement
 
 @admin.register(Announcement)
 class AnnouncementAdmin(admin.ModelAdmin):
-    list_display = ('title', 'audience', 'is_active', 'created_by', 'created_at')
-    list_filter = ('audience', 'is_active')
+    list_display = ('title', 'audience', 'status', 'is_active', 'created_by', 'reviewed_by', 'created_at')
+    list_filter = ('audience', 'status', 'is_active')
     search_fields = ('title', 'body')
     readonly_fields = ('created_at',)

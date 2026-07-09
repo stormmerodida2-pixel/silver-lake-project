@@ -3,14 +3,15 @@ from rest_framework.test import APITestCase
 
 from drivers.models import Driver
 
-from .models import Announcement, AnnouncementAudience
+from .models import Announcement, AnnouncementAudience, AnnouncementStatus
 
 User = get_user_model()
 
 
 class AdminAnnouncementTests(APITestCase):
-    """Broadcasting to a whole audience is significant enough to be superadmin-only, not a
-    day-to-day support-staff action."""
+    """Superadmins broadcast to any audience directly. Support staff can only propose
+    client-facing announcements, which stay invisible until a superadmin approves them -
+    see AnnouncementApprovalTests for that workflow."""
 
     def setUp(self):
         self.superadmin = User.objects.create_superuser(username='super-announce@example.com', password='pass12345!')
@@ -42,19 +43,13 @@ class AdminAnnouncementTests(APITestCase):
         titles = [a['title'] for a in mine_response.json()]
         self.assertIn('Staff meeting Friday', titles)
 
-    def test_support_staff_cannot_create_an_announcement(self):
+    def test_support_staff_cannot_update_or_delete_an_announcement(self):
+        announcement = Announcement.objects.create(title='X', body='Y', audience=AnnouncementAudience.CLIENTS)
         self.client.force_authenticate(user=self.staff)
-        response = self.client.post('/api/admin/announcements/', {
-            'title': 'Scheduled maintenance', 'body': 'Down tonight.', 'audience': 'clients',
-        })
-        self.assertEqual(response.status_code, 403)
-        self.assertFalse(Announcement.objects.exists())
-
-    def test_support_staff_cannot_list_announcements_in_the_admin_endpoint(self):
-        Announcement.objects.create(title='X', body='Y', audience=AnnouncementAudience.STAFF)
-        self.client.force_authenticate(user=self.staff)
-        response = self.client.get('/api/admin/announcements/')
-        self.assertEqual(response.status_code, 403)
+        patch_response = self.client.patch(f'/api/admin/announcements/{announcement.id}/', {'is_active': False}, format='json')
+        self.assertEqual(patch_response.status_code, 403)
+        delete_response = self.client.delete(f'/api/admin/announcements/{announcement.id}/')
+        self.assertEqual(delete_response.status_code, 403)
 
     def test_superadmin_can_deactivate_an_announcement(self):
         announcement = Announcement.objects.create(title='X', body='Y', audience=AnnouncementAudience.CLIENTS)
@@ -70,6 +65,109 @@ class AdminAnnouncementTests(APITestCase):
         response = self.client.delete(f'/api/admin/announcements/{announcement.id}/')
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Announcement.objects.exists())
+
+
+class AnnouncementApprovalTests(APITestCase):
+    """Support staff can propose a client-facing announcement, but it's pending and invisible
+    to clients until a superadmin approves it - staff can talk to customers without being able
+    to broadcast unreviewed messages to everyone at once."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='super-approve@example.com', password='pass12345!')
+        self.staff = User.objects.create_user(username='staff-approve@example.com', password='pass12345!', is_staff=True)
+        self.other_staff = User.objects.create_user(username='other-staff@example.com', password='pass12345!', is_staff=True)
+        self.client_user = User.objects.create_user(username='plain-approve@example.com', password='pass12345!')
+
+    def test_staff_proposal_is_forced_to_clients_audience_and_pending_status(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post('/api/admin/announcements/', {
+            'title': 'Weekend discount', 'body': '10% off this weekend.', 'audience': 'staff',
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        announcement = Announcement.objects.get()
+        self.assertEqual(announcement.audience, AnnouncementAudience.CLIENTS)
+        self.assertEqual(announcement.status, AnnouncementStatus.PENDING)
+        self.assertFalse(announcement.is_active)
+        self.assertEqual(announcement.created_by_id, self.staff.id)
+
+    def test_pending_proposal_is_not_visible_to_clients(self):
+        self.client.force_authenticate(user=self.staff)
+        self.client.post('/api/admin/announcements/', {
+            'title': 'Weekend discount', 'body': '10% off.', 'audience': 'clients',
+        }, format='json')
+
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.get('/api/announcements/mine/')
+        self.assertNotIn('Weekend discount', [a['title'] for a in response.json()])
+
+    def test_staff_only_sees_their_own_proposals_in_the_admin_list(self):
+        Announcement.objects.create(
+            title='Mine', body='...', audience=AnnouncementAudience.CLIENTS,
+            status=AnnouncementStatus.PENDING, is_active=False, created_by=self.staff,
+        )
+        Announcement.objects.create(
+            title='Theirs', body='...', audience=AnnouncementAudience.CLIENTS,
+            status=AnnouncementStatus.PENDING, is_active=False, created_by=self.other_staff,
+        )
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/admin/announcements/')
+        self.assertEqual(response.status_code, 200)
+        titles = [a['title'] for a in response.json()['results']] if 'results' in response.json() else [a['title'] for a in response.json()]
+        self.assertIn('Mine', titles)
+        self.assertNotIn('Theirs', titles)
+
+    def test_staff_cannot_approve_or_reject(self):
+        announcement = Announcement.objects.create(
+            title='X', body='Y', audience=AnnouncementAudience.CLIENTS,
+            status=AnnouncementStatus.PENDING, is_active=False, created_by=self.staff,
+        )
+        self.client.force_authenticate(user=self.staff)
+        approve_response = self.client.post(f'/api/admin/announcements/{announcement.id}/approve/')
+        self.assertEqual(approve_response.status_code, 403)
+        reject_response = self.client.post(f'/api/admin/announcements/{announcement.id}/reject/')
+        self.assertEqual(reject_response.status_code, 403)
+
+    def test_superadmin_approval_makes_it_visible_to_clients(self):
+        announcement = Announcement.objects.create(
+            title='Weekend discount', body='10% off.', audience=AnnouncementAudience.CLIENTS,
+            status=AnnouncementStatus.PENDING, is_active=False, created_by=self.staff,
+        )
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(f'/api/admin/announcements/{announcement.id}/approve/')
+        self.assertEqual(response.status_code, 200)
+        announcement.refresh_from_db()
+        self.assertEqual(announcement.status, AnnouncementStatus.APPROVED)
+        self.assertTrue(announcement.is_active)
+        self.assertEqual(announcement.reviewed_by_id, self.superadmin.id)
+
+        self.client.force_authenticate(user=self.client_user)
+        mine_response = self.client.get('/api/announcements/mine/')
+        self.assertIn('Weekend discount', [a['title'] for a in mine_response.json()])
+
+    def test_superadmin_rejection_keeps_it_hidden_and_records_a_note(self):
+        announcement = Announcement.objects.create(
+            title='Weekend discount', body='10% off.', audience=AnnouncementAudience.CLIENTS,
+            status=AnnouncementStatus.PENDING, is_active=False, created_by=self.staff,
+        )
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(
+            f'/api/admin/announcements/{announcement.id}/reject/',
+            {'review_note': 'Discount not approved by finance.'}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        announcement.refresh_from_db()
+        self.assertEqual(announcement.status, AnnouncementStatus.REJECTED)
+        self.assertFalse(announcement.is_active)
+        self.assertEqual(announcement.review_note, 'Discount not approved by finance.')
+
+        self.client.force_authenticate(user=self.client_user)
+        mine_response = self.client.get('/api/announcements/mine/')
+        self.assertNotIn('Weekend discount', [a['title'] for a in mine_response.json()])
+
+        self.client.force_authenticate(user=self.staff)
+        own_response = self.client.get(f'/api/admin/announcements/{announcement.id}/')
+        self.assertEqual(own_response.json()['status'], 'rejected')
+        self.assertEqual(own_response.json()['review_note'], 'Discount not approved by finance.')
 
 
 class MyAnnouncementsTests(APITestCase):

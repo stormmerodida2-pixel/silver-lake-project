@@ -1,5 +1,4 @@
 <script setup>
-import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
@@ -71,18 +70,14 @@ const baseNavItems = [
     label: 'Activity Log',
     icon: 'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
   },
+  {
+    to: '/admin/announcements',
+    label: 'Announcements',
+    icon: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z',
+  },
 ]
 
-// Announcements is entirely superadmin-only server-side (unlike every other nav item, which
-// has at least some functionality open to support staff), so it's the one entry actually
-// hidden rather than just gating individual actions within the page.
-const navItems = computed(() => auth.user?.is_superuser
-  ? [...baseNavItems, {
-      to: '/admin/announcements',
-      label: 'Announcements',
-      icon: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z',
-    }]
-  : baseNavItems)
+const navItems = baseNavItems
 
 
 function handleLogout() {

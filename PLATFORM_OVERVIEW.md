@@ -262,9 +262,16 @@ writes a message and picks exactly one audience (**Staff**, **Drivers**, or **Cl
 someone in that audience is in the app (public site header, Driver Portal, or admin dashboard,
 matching their role). A user can belong to more than one audience — e.g. a staff member who's
 also booked a car sees both "staff" and "clients" announcements. Dismissing one just marks it
-read for that user; it doesn't delete or deactivate it for anyone else. Creating, deactivating,
-or deleting an announcement is superadmin-only — broadcasting to a whole group is significant
-enough that it isn't a day-to-day support-staff action.
+read for that user; it doesn't delete or deactivate it for anyone else. Deactivating or deleting
+an announcement is superadmin-only — broadcasting to a whole group (or taking one down) is
+significant enough that it isn't a day-to-day support-staff action.
+
+Support staff *can* propose an announcement, but only to **Clients**, and it doesn't go out
+immediately — it's created **pending**, invisible to anyone, until a superadmin approves or
+rejects it from the same page. Approving flips it live exactly like a superadmin-authored one;
+rejecting keeps it off (optionally with a short note the submitting staff member can see on their
+own submission). Staff only ever see their own proposals in the admin list, not the full
+broadcast history.
 
 ## 10. The Admin Dashboard
 
@@ -296,8 +303,9 @@ in one consistent UI:
 - **Refunds** — the refund ledger; mark issued.
 - **Payments** — the raw payment log.
 - **Activity Log** — who performed which sensitive action, and when.
-- **Announcements** (superadmin only — hidden from support staff in the nav, unlike every other
-  page here) — broadcast an in-app message to staff, drivers, or clients (see §9).
+- **Announcements** — superadmins broadcast to staff, drivers, or clients directly; support staff
+  can propose a client-facing announcement that stays pending until a superadmin approves or
+  rejects it (see §9).
 
 Every page is mobile-responsive: the sidebar collapses to a horizontal scrolling nav, stat grids
 drop to a single column, and every table scrolls horizontally instead of breaking the layout.
@@ -310,7 +318,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-237 automated backend tests currently cover booking validation, payment guards, payout timing and
+242 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -322,9 +330,10 @@ restrictions, fleet-type CRUD and permission tiers, the Django admin's own bulk-
 live vehicle-location reporting (only accepted for the assigned driver's own currently-active
 trip), the trip start/end lifecycle (including the one case a late payment is allowed to
 auto-complete a booking), vehicle service-history logging (driver scoped to their own vehicle;
-admin can log for any vehicle), announcement audience targeting/permissions, and (using real
-threads against a live test transaction, not a single-connection simulation) that two
-concurrent booking requests for the same vehicle can't both succeed — run with:
+admin can log for any vehicle), announcement audience targeting/permissions and the staff-propose
+/superadmin-approve workflow for client-facing announcements, and (using real threads against a
+live test transaction, not a single-connection simulation) that two concurrent booking requests
+for the same vehicle can't both succeed — run with:
 ```
 cd silverlake
 python manage.py test
