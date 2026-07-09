@@ -5,6 +5,13 @@ from .models import Announcement
 
 class AdminAnnouncementSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
+    # DRF's auto-generated BooleanField doesn't inherit the model's default=True - by design,
+    # DRF treats a missing checkbox-style field as False to mimic real HTML forms (see
+    # BooleanField.get_value()/default_empty_html), which only kicks in for form/multipart
+    # requests, not JSON ones. The frontend always sends JSON so it never hit this in practice,
+    # but any form-encoded client (curl -F, Postman form-data) silently created inactive
+    # announcements. Declaring the default explicitly makes it correct for every encoding.
+    is_active = serializers.BooleanField(default=True)
 
     class Meta:
         model = Announcement

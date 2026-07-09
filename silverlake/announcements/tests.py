@@ -26,6 +26,22 @@ class AdminAnnouncementTests(APITestCase):
         announcement = Announcement.objects.get()
         self.assertEqual(announcement.created_by_id, self.superadmin.id)
 
+    def test_superadmin_can_send_a_staff_announcement_and_staff_sees_it(self):
+        """The exact end-to-end flow: superadmin posts a 'staff' announcement through the real
+        admin endpoint, then a separate staff account fetches their own announcements and
+        actually sees it (not just that the two halves work in isolation)."""
+        self.client.force_authenticate(user=self.superadmin)
+        create_response = self.client.post('/api/admin/announcements/', {
+            'title': 'Staff meeting Friday', 'body': 'All hands at 3pm.', 'audience': 'staff',
+        })
+        self.assertEqual(create_response.status_code, 201)
+
+        self.client.force_authenticate(user=self.staff)
+        mine_response = self.client.get('/api/announcements/mine/')
+        self.assertEqual(mine_response.status_code, 200)
+        titles = [a['title'] for a in mine_response.json()]
+        self.assertIn('Staff meeting Friday', titles)
+
     def test_support_staff_cannot_create_an_announcement(self):
         self.client.force_authenticate(user=self.staff)
         response = self.client.post('/api/admin/announcements/', {
