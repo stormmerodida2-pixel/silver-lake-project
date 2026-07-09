@@ -419,6 +419,54 @@ class AdminBookingEditTests(APITestCase):
         self.assertEqual(response.status_code, 200)
 
 
+class AdminSetStatusTripLifecycleTests(APITestCase):
+    """set-status used to assign status directly, bypassing the same trip_started_at/
+    trip_ended_at trail the driver portal's Start Trip/End Trip actions leave - an admin-driven
+    transition left no record of whether the trip actually happened, and silently broke the
+    late-payment auto-complete safety net (which depends on trip_ended_at already being set)."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='status-staff@example.com', password='pass12345!', is_staff=True)
+        self.customer = User.objects.create_user(username='status-client@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.booking = make_booking(
+            self.customer, self.vehicle, status=BookingStatus.CONFIRMED, customer_email='status-client@example.com',
+        )
+        self.client.force_authenticate(user=self.staff)
+
+    def test_setting_ongoing_stamps_trip_started_at(self):
+        response = self.client.post(f'/api/admin/bookings/{self.booking.id}/set-status/', {'status': 'ongoing'})
+        self.assertEqual(response.status_code, 200)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.ONGOING)
+        self.assertIsNotNone(self.booking.trip_started_at)
+
+    def test_setting_completed_stamps_trip_ended_at_and_emails(self):
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        mail.outbox = []
+        response = self.client.post(f'/api/admin/bookings/{self.booking.id}/set-status/', {'status': 'completed'})
+        self.assertEqual(response.status_code, 200)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.COMPLETED)
+        self.assertIsNotNone(self.booking.trip_ended_at)
+        self.assertTrue(any('How was your ride' in m.subject for m in mail.outbox))
+
+    def test_cannot_skip_straight_from_pending_to_ongoing(self):
+        self.booking.status = BookingStatus.PENDING
+        self.booking.save(update_fields=['status'])
+        response = self.client.post(f'/api/admin/bookings/{self.booking.id}/set-status/', {'status': 'ongoing'})
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_skip_straight_from_pending_to_completed_even_with_zero_balance(self):
+        self.booking.status = BookingStatus.PENDING
+        self.booking.save(update_fields=['status'])
+        response = self.client.post(f'/api/admin/bookings/{self.booking.id}/set-status/', {'status': 'completed'})
+        self.assertEqual(response.status_code, 400)
+
+
 class AdminVehicleGalleryTests(APITestCase):
     """A company-created vehicle previously had no way to get more than its single cover photo -
     only a driver's own submission required (and got) a real photo gallery."""

@@ -318,6 +318,11 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
 
     @action(detail=True, methods=['post'], url_path='set-status')
     def set_status(self, request, pk=None):
+        """Routes ONGOING/COMPLETED/CANCELLED through the same Booking methods the driver
+        portal's Start Trip/End Trip/Cancel actions use, instead of assigning status directly -
+        otherwise an admin-driven transition would leave no trip_started_at/trip_ended_at trail,
+        and would silently break the late-payment auto-complete safety net (which depends on
+        trip_ended_at already being set - see Booking._complete_if_ended_and_paid)."""
         booking = self.get_object()
         new_status = request.data.get('status')
         if new_status not in BookingStatus.values:
@@ -325,7 +330,7 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
                 {'detail': f'Invalid status. Choose one of: {", ".join(BookingStatus.values)}.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         # Guard: Cannot complete with outstanding balance
         if new_status == BookingStatus.COMPLETED and booking.balance_due > 0:
             return Response(
@@ -333,22 +338,34 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
         if new_status == BookingStatus.CANCELLED:
-            from django.core.exceptions import ValidationError as DjangoValidationError
             try:
                 booking.mark_cancelled()
             except DjangoValidationError as exc:
                 return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
             return Response(BookingSerializer(booking).data)
 
+        if new_status == BookingStatus.ONGOING:
+            try:
+                booking.start_trip()
+            except DjangoValidationError as exc:
+                return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(BookingSerializer(booking).data)
+
+        if new_status == BookingStatus.COMPLETED:
+            # balance_due <= 0 is already guaranteed by the guard above, so this always
+            # actually completes it (assuming a valid CONFIRMED/ONGOING starting status) and
+            # sends the same review-invite email end_trip() always sends on completion.
+            try:
+                booking.end_trip()
+            except DjangoValidationError as exc:
+                return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(BookingSerializer(booking).data)
+
         booking.status = new_status
         booking.save(update_fields=['status'])
-
-        # Trigger completion email/review invite
-        if new_status == BookingStatus.COMPLETED:
-            from bookings.emails import send_trip_completed_email
-            send_trip_completed_email(booking)
-
         return Response(BookingSerializer(booking).data)
 
 

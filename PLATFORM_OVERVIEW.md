@@ -132,6 +132,10 @@ business-model pitch for the economics).
   - A **Complete Trip** button remains as a direct manual override (still blocked if there's an
     outstanding balance) for drivers who skip the explicit Start/End steps — it stamps
     `trip_ended_at` too, so the record stays consistent either way.
+  - The admin dashboard's own status dropdown routes through these same methods (rather than
+    assigning status directly), so an admin-driven Ongoing/Completed/Cancelled transition leaves
+    the same trail a driver-driven one would — including a hard block on skipping straight from
+    Pending to Ongoing or Completed.
   - Bookings past their scheduled end date but still open (nobody confirmed start/end, or it
     ended but is unpaid) are flagged **Needs Attention** on the admin Bookings page and dashboard
     — a nudge, never auto-resolved.
@@ -283,7 +287,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-208 automated backend tests currently cover booking validation, payment guards, payout timing and
+212 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
