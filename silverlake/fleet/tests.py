@@ -110,3 +110,19 @@ class PublicCategoryApiTests(APITestCase):
         response = self.client.get('/api/vehicles/', {'category': 'sedan'})
         names = [v['name'] for v in response.json().get('results', response.json())]
         self.assertEqual(names, ['A Sedan Car'])
+
+    def test_retired_categories_are_not_publicly_listed(self):
+        VehicleCategory.objects.create(name='Retired Type', is_active=False)
+        response = self.client.get('/api/categories/')
+        data = response.json()
+        results = data['results'] if isinstance(data, dict) and 'results' in data else data
+        names = [c['name'] for c in results]
+        self.assertNotIn('Retired Type', names)
+
+    def test_a_vehicle_using_a_retired_category_still_shows_up_and_names_it_correctly(self):
+        retired = VehicleCategory.objects.create(name='Retired Type', is_active=False)
+        make_vehicle(name='Legacy Car', category=retired)
+        response = self.client.get('/api/vehicles/')
+        results = response.json().get('results', response.json())
+        legacy = next(v for v in results if v['name'] == 'Legacy Car')
+        self.assertEqual(legacy['category_name'], 'Retired Type')

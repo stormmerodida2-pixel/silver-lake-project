@@ -10,7 +10,8 @@ class VehicleImageInline(admin.TabularInline):
 
 @admin.register(VehicleCategory)
 class VehicleCategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'order')
+    list_display = ('name', 'slug', 'order', 'is_active')
+    list_filter = ('is_active',)
     prepopulated_fields = {'slug': ('name',)}
 
 

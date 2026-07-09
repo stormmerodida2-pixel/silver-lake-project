@@ -470,6 +470,24 @@ class AdminVehicleCategoryTests(APITestCase):
         self.assertEqual(response.json()['slug'], 'luxury-convertible')
         self.assertTrue(VehicleCategory.objects.filter(slug='luxury-convertible').exists())
 
+    def test_superadmin_can_retire_a_category_without_deleting_it(self):
+        category = VehicleCategory.objects.create(name='Luxury Convertible')
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.patch(f'/api/admin/fleet-types/{category.id}/', {'is_active': False}, format='json')
+        self.assertEqual(response.status_code, 200)
+        category.refresh_from_db()
+        self.assertFalse(category.is_active)
+        # Still visible on the admin dashboard, just no longer publicly offered.
+        self.assertTrue(VehicleCategory.objects.filter(id=category.id).exists())
+
+    def test_support_staff_cannot_retire_a_category(self):
+        category = VehicleCategory.objects.create(name='Luxury Convertible')
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.patch(f'/api/admin/fleet-types/{category.id}/', {'is_active': False}, format='json')
+        self.assertEqual(response.status_code, 403)
+        category.refresh_from_db()
+        self.assertTrue(category.is_active)
+
     def test_support_staff_cannot_create_a_category(self):
         self.client.force_authenticate(user=self.staff)
         response = self.client.post('/api/admin/fleet-types/', {'name': 'Luxury Convertible'})

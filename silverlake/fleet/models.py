@@ -15,6 +15,11 @@ class VehicleCategory(models.Model):
     name = models.CharField(max_length=50, unique=True)
     slug = models.SlugField(max_length=60, unique=True, blank=True)
     order = models.PositiveSmallIntegerField(default=0, help_text='Lower numbers show first')
+    is_active = models.BooleanField(
+        default=True,
+        help_text='Uncheck to stop offering this type for new vehicles/applications, without '
+                   'deleting it or affecting vehicles that already use it.',
+    )
 
     class Meta:
         ordering = ['order', 'name']

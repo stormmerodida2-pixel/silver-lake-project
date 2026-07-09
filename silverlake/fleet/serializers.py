@@ -6,7 +6,7 @@ from .models import Vehicle, VehicleCategory, VehicleImage
 class VehicleCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleCategory
-        fields = ['id', 'name', 'slug', 'order']
+        fields = ['id', 'name', 'slug', 'order', 'is_active']
         read_only_fields = ['slug']
 
 

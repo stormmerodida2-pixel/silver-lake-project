@@ -6,7 +6,7 @@ import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
-const { items: categories, loading, error, load } = useAdminList('/admin/fleet-types/')
+const { items: categories, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/fleet-types/')
 const busyId = ref(null)
 
 const showModal = ref(false)
@@ -64,6 +64,18 @@ async function saveCategory() {
   }
 }
 
+async function toggleActive(category) {
+  busyId.value = category.id
+  try {
+    const { data } = await apiClient.patch(`/admin/fleet-types/${category.id}/`, { is_active: !category.is_active })
+    Object.assign(category, data)
+  } catch {
+    error.value = 'Could not update this fleet type.'
+  } finally {
+    busyId.value = null
+  }
+}
+
 async function deleteCategory(category) {
   if (!confirm(`Delete "${category.name}"? This cannot be undone.`)) return
   busyId.value = category.id
@@ -90,7 +102,8 @@ onMounted(() => {
         <h1 class="font-[Georgia] text-2xl font-bold text-white">Manage Fleet Types</h1>
         <p class="mt-1 text-sm text-slate-400">
           The vehicle categories shown across the site (e.g. "Executive SUV") - add new ones here instead of
-          editing code.
+          editing code. Deactivate a type to stop offering it for new vehicles/applications without deleting
+          it or affecting vehicles that already use it.
         </p>
       </div>
       <button
@@ -115,6 +128,7 @@ onMounted(() => {
             <th class="px-4 py-3">Name</th>
             <th class="px-4 py-3">Slug</th>
             <th class="px-4 py-3">Order</th>
+            <th class="px-4 py-3">Status</th>
             <th class="px-4 py-3"></th>
           </tr>
         </thead>
@@ -123,6 +137,11 @@ onMounted(() => {
             <td class="px-4 py-3 font-medium text-white">{{ category.name }}</td>
             <td class="px-4 py-3 text-slate-400">{{ category.slug }}</td>
             <td class="px-4 py-3 text-slate-300">{{ category.order }}</td>
+            <td class="px-4 py-3">
+              <span :class="category.is_active ? 'text-gold-400' : 'text-slate-500'">
+                {{ category.is_active ? 'Active' : 'Inactive' }}
+              </span>
+            </td>
             <td class="space-x-2 whitespace-nowrap px-4 py-3">
               <button
                 v-if="auth.user?.is_superuser"
@@ -131,6 +150,14 @@ onMounted(() => {
                 @click="openEditModal(category)"
               >
                 Edit
+              </button>
+              <button
+                v-if="auth.user?.is_superuser"
+                :disabled="busyId === category.id"
+                class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                @click="toggleActive(category)"
+              >
+                {{ category.is_active ? 'Deactivate' : 'Activate' }}
               </button>
               <button
                 v-if="auth.user?.is_superuser"
@@ -145,6 +172,15 @@ onMounted(() => {
         </tbody>
       </table>
       <p v-if="!categories.length" class="p-6 text-center text-slate-400">No fleet types yet.</p>
+      <div v-if="nextUrl" class="border-t border-navy-800 p-3 text-center">
+        <button
+          :disabled="loadingMore"
+          class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+          @click="loadMore"
+        >
+          {{ loadingMore ? 'Loading...' : 'Load More' }}
+        </button>
+      </div>
     </div>
 
     <!-- Add / Edit Modal -->

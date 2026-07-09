@@ -55,7 +55,9 @@ in an **Activity Log** admin staff can review (who did what, and when — see §
   superadmins add/edit/remove them from **Admin → Fleet Types**. Every vehicle, driver-submitted
   car, and "Become a Driver" application picks its category from this same list. A fleet type
   still assigned to any vehicle, submission, or application can't be deleted (blocked, not
-  silently orphaned) — rename or leave it in place instead.
+  silently orphaned) — rename or leave it in place instead. It can be **deactivated** instead,
+  which stops it being offered on the public fleet filter or any driver/application form
+  without touching vehicles that already use it (still fully visible in the admin dashboard).
 - Each vehicle tracks **insurance and inspection expiry dates**. If either lapses, the vehicle
   automatically disappears from what customers see — no manual step required, so an expired
   vehicle can't accidentally keep taking bookings.
@@ -228,7 +230,7 @@ in one consistent UI:
   vehicle's photo gallery beyond its single cover image.
 - **Fleet Types** — add/edit/remove the vehicle categories offered across the site (used to be a
   fixed enum in code); a type still in use by a vehicle, submission, or application can't be
-  deleted.
+  deleted, but can be deactivated to stop offering it going forward without losing history.
 - **Reviews** — approve/reject, delete.
 - **Payouts** — the driver payout ledger; verify and mark paid.
 - **Refunds** — the refund ledger; mark issued.
@@ -246,7 +248,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-173 automated backend tests currently cover booking validation, payment guards, payout timing and
+177 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,

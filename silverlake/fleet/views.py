@@ -11,9 +11,10 @@ from .serializers import VehicleCategorySerializer, VehicleSerializer
 class VehicleCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     """Public read-only list of fleet types, so pages can populate category filters/dropdowns
     without needing admin auth - categories themselves are only ever added/edited/removed
-    from the admin dashboard."""
+    from the admin dashboard. Only active types are offered here; a retired type still works
+    fine for vehicles/applications already using it, it just can't be newly selected."""
 
-    queryset = VehicleCategory.objects.all()
+    queryset = VehicleCategory.objects.filter(is_active=True)
     serializer_class = VehicleCategorySerializer
     permission_classes = [permissions.AllowAny]
     pagination_class = None
