@@ -104,12 +104,18 @@ class MyAvatarView(APIView):
         if not avatar:
             return Response({'avatar': ['No file provided.']}, status=status.HTTP_400_BAD_REQUEST)
         profile, _ = CustomerProfile.objects.get_or_create(user=request.user)
+        # Django never deletes the previous file just because the field got reassigned - capture
+        # it now and only delete it once the new one is validated and saved, so a rejected
+        # (e.g. oversized) replacement never destroys the photo that was already there.
+        previous_avatar = profile.avatar if profile.avatar else None
         profile.avatar = avatar
         try:
             profile.full_clean(validate_unique=False)
         except DjangoValidationError as exc:
             return Response({'avatar': exc.message_dict.get('avatar', exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
         profile.save()
+        if previous_avatar:
+            previous_avatar.delete(save=False)
         return Response(UserSerializer(request.user, context={'request': request}).data)
 
     def delete(self, request):

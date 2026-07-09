@@ -185,11 +185,16 @@ class AvatarUploadTests(APITestCase):
 
     def test_uploading_again_replaces_the_previous_avatar(self):
         self.client.post('/api/auth/me/avatar/', {'avatar': self._png('first.png')}, format='multipart')
-        first_name = self.user.customer_profile.avatar.name
+        self.user.customer_profile.refresh_from_db()
+        first_file = self.user.customer_profile.avatar
+        first_name = first_file.name
+        self.assertTrue(first_file.storage.exists(first_name))
 
         self.client.post('/api/auth/me/avatar/', {'avatar': self._png('second.png')}, format='multipart')
         self.user.customer_profile.refresh_from_db()
         self.assertNotEqual(self.user.customer_profile.avatar.name, first_name)
+        # The old file shouldn't just be orphaned on disk once nothing references it anymore.
+        self.assertFalse(first_file.storage.exists(first_name))
 
     def test_can_remove_an_avatar(self):
         self.client.post('/api/auth/me/avatar/', {'avatar': self._png()}, format='multipart')
@@ -213,6 +218,19 @@ class AvatarUploadTests(APITestCase):
         response = self.client.post('/api/auth/me/avatar/', {'avatar': oversized}, format='multipart')
         self.assertEqual(response.status_code, 400)
         self.assertIn('avatar', response.json())
+
+    def test_a_rejected_replacement_does_not_delete_the_existing_avatar(self):
+        self.client.post('/api/auth/me/avatar/', {'avatar': self._png()}, format='multipart')
+        self.user.customer_profile.refresh_from_db()
+        existing_name = self.user.customer_profile.avatar.name
+
+        oversized = SimpleUploadedFile('big.png', PNG_1PX + b'0' * (6 * 1024 * 1024), content_type='image/png')
+        response = self.client.post('/api/auth/me/avatar/', {'avatar': oversized}, format='multipart')
+        self.assertEqual(response.status_code, 400)
+
+        self.user.customer_profile.refresh_from_db()
+        self.assertEqual(self.user.customer_profile.avatar.name, existing_name)
+        self.assertTrue(self.user.customer_profile.avatar.storage.exists(existing_name))
 
     def test_unauthenticated_request_is_rejected(self):
         self.client.force_authenticate(user=None)
