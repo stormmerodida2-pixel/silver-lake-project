@@ -238,6 +238,49 @@ class DriverBookingCompleteView(APIView):
         return Response(BookingSerializer(booking).data)
 
 
+class DriverBookingLocationView(APIView):
+    """Lets a driver report their vehicle's current GPS position while a trip is actually in
+    progress - reported by the driver's own browser (no separate hardware), so it only works
+    while they have the portal open. Only the latest fix is kept (on the vehicle, not a history
+    table); the admin fleet map reads it from there."""
+
+    permission_classes = [IsDriverUser]
+
+    def post(self, request, pk):
+        driver = request.user.driver_profile
+        booking = get_object_or_404(Booking, pk=pk, driver=driver)
+
+        today = timezone.localdate()
+        if booking.status not in (BookingStatus.CONFIRMED, BookingStatus.ONGOING):
+            return Response(
+                {'detail': 'This trip is not currently active.'}, status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not (booking.start_date <= today <= booking.end_date):
+            return Response(
+                {'detail': "This trip's dates are not currently active."}, status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            lat = float(request.data.get('lat'))
+            lng = float(request.data.get('lng'))
+        except (TypeError, ValueError):
+            return Response({'detail': 'A valid lat and lng are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+            return Response({'detail': 'lat/lng out of range.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        vehicle = booking.vehicle
+        vehicle.last_location_lat = lat
+        vehicle.last_location_lng = lng
+        vehicle.last_location_at = timezone.now()
+        vehicle.save(update_fields=['last_location_lat', 'last_location_lng', 'last_location_at'])
+
+        return Response({
+            'last_location_lat': vehicle.last_location_lat,
+            'last_location_lng': vehicle.last_location_lng,
+            'last_location_at': vehicle.last_location_at,
+        })
+
+
 class DriverBookingListView(generics.ListAPIView):
     """A driver's own assigned bookings - both ones an online customer placed against them and
     their own walk-up ones - so they can see what's coming up and acknowledge new ones."""

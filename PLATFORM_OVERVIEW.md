@@ -61,6 +61,13 @@ in an **Activity Log** admin staff can review (who did what, and when — see §
 - Each vehicle tracks **insurance and inspection expiry dates**. If either lapses, the vehicle
   automatically disappears from what customers see — no manual step required, so an expired
   vehicle can't accidentally keep taking bookings.
+- **Live location tracking**: while a trip is currently active (confirmed/ongoing, today within
+  the booking's date range), the assigned driver can tap "Share My Location" in the Driver
+  Portal, which reports their browser's GPS position (via the Geolocation API) every 30 seconds.
+  Only the vehicle's latest fix is kept, not a history — admins see it on **Admin → Fleet Map**
+  (Leaflet + OpenStreetMap, no API key needed), with a "live" vs "last seen X ago" distinction.
+  This is browser-based, not dedicated GPS hardware, so it only works while the driver has the
+  portal tab open — there's no background/always-on tracking.
 - A vehicle also disappears from public listings while its assigned driver has marked themselves
   **away**, or if that driver has been suspended (see §4) — the fleet listing always reflects who's
   actually available right now.
@@ -239,6 +246,9 @@ in one consistent UI:
 - **Fleet Types** — add/edit/remove the vehicle categories offered across the site (used to be a
   fixed enum in code); a type still in use by a vehicle, submission, or application can't be
   deleted, but can be deactivated to stop offering it going forward without losing history.
+- **Fleet Map** — live map of where each vehicle currently is, self-reported by whichever driver
+  has an active trip in it via their browser's GPS; vehicles with no recent fix are listed
+  separately rather than guessed at.
 - **Reviews** — approve/reject, delete.
 - **Payouts** — the driver payout ledger; verify and mark paid.
 - **Refunds** — the refund ledger; mark issued.
@@ -256,7 +266,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-186 automated backend tests currently cover booking validation, payment guards, payout timing and
+194 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -264,8 +274,9 @@ the STK-push retry cooldown, session/token revocation on logout and password cha
 booking notifications/acknowledgment, driver-defaulting, driver-side trip completion, admin driver
 assignment, driver rating recalculation, admin booking edits, vehicle gallery management, payment
 status polling, self-service profile updates, the public reviews API's read-only/no-driver-details
-restrictions, fleet-type CRUD and permission tiers, and the Django admin's own bulk-action
-fixes — run with:
+restrictions, fleet-type CRUD and permission tiers, the Django admin's own bulk-action fixes, and
+live vehicle-location reporting (only accepted for the assigned driver's own currently-active
+trip) — run with:
 ```
 cd silverlake
 python manage.py test

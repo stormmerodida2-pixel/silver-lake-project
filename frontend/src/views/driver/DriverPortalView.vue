@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import apiClient from '../../api/client'
@@ -64,6 +64,69 @@ async function completeBooking(booking) {
     completingId.value = null
   }
 }
+
+// ── Live location sharing ────────────────────────────────────────────────────
+// Reported from the driver's own browser via the Geolocation API - only works while this tab
+// stays open, there's no background/native tracking. Only one trip can share at a time.
+const LOCATION_INTERVAL_MS = 30000
+const sharingBookingId = ref(null)
+let locationIntervalId = null
+
+function isTripCurrentlyActive(booking) {
+  if (!['confirmed', 'ongoing'].includes(booking.status)) return false
+  const today = new Date().toISOString().slice(0, 10)
+  return booking.start_date <= today && today <= booking.end_date
+}
+
+function reportPosition(bookingId) {
+  if (!navigator.geolocation) return
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      apiClient.post(`/driver/bookings/${bookingId}/location/`, {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      }).catch(() => {
+        // Silently retry on the next interval tick - a single dropped update isn't worth
+        // interrupting the driver over.
+      })
+    },
+    () => {
+      bookingsError.value = 'Could not read your location. Check your browser location permission.'
+      stopSharingLocation()
+    },
+  )
+}
+
+function startSharingLocation(booking) {
+  if (!navigator.geolocation) {
+    bookingsError.value = 'Location sharing is not supported in this browser.'
+    return
+  }
+  stopSharingLocation()
+  sharingBookingId.value = booking.id
+  reportPosition(booking.id)
+  locationIntervalId = setInterval(() => reportPosition(booking.id), LOCATION_INTERVAL_MS)
+}
+
+function stopSharingLocation() {
+  if (locationIntervalId) {
+    clearInterval(locationIntervalId)
+    locationIntervalId = null
+  }
+  sharingBookingId.value = null
+}
+
+function toggleSharingLocation(booking) {
+  if (sharingBookingId.value === booking.id) {
+    stopSharingLocation()
+  } else {
+    startSharingLocation(booking)
+  }
+}
+
+onUnmounted(() => {
+  stopSharingLocation()
+})
 
 async function loadProfile() {
   loading.value = true
@@ -439,6 +502,17 @@ onMounted(() => {
                   @click="completeBooking(booking)"
                 >
                   {{ completingId === booking.id ? 'Completing...' : 'Complete Trip' }}
+                </button>
+
+                <button
+                  v-if="isTripCurrentlyActive(booking)"
+                  class="rounded-md px-3 py-1.5 text-xs font-semibold"
+                  :class="sharingBookingId === booking.id
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/40'
+                    : 'border border-navy-700 text-slate-300 hover:border-gold-400 hover:text-gold-400'"
+                  @click="toggleSharingLocation(booking)"
+                >
+                  {{ sharingBookingId === booking.id ? '● Sharing Location' : 'Share My Location' }}
                 </button>
               </div>
             </div>

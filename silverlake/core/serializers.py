@@ -173,9 +173,13 @@ class AdminVehicleSerializer(serializers.ModelSerializer):
             'insurance_provider', 'insurance_policy_number', 'insurance_expiry_date',
             'inspection_expiry_date',
             'is_insurance_expired', 'is_inspection_expired',
+            'last_location_lat', 'last_location_lng', 'last_location_at',
             'created_at',
         ]
-        read_only_fields = ['created_at', 'is_insurance_expired', 'is_inspection_expired']
+        read_only_fields = [
+            'created_at', 'is_insurance_expired', 'is_inspection_expired',
+            'last_location_lat', 'last_location_lng', 'last_location_at',
+        ]
 
     def get_driver_name(self, obj):
         return obj.driver.full_name if obj.driver_id else None

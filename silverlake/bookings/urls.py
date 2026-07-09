@@ -7,6 +7,7 @@ from .views import (
     DriverBookingCashPaymentView,
     DriverBookingCompleteView,
     DriverBookingListView,
+    DriverBookingLocationView,
     DriverBookingView,
     DriverOnsiteBookingCreateView,
 )
@@ -20,6 +21,7 @@ urlpatterns = [
     path('driver/bookings/<int:pk>/record-cash/', DriverBookingCashPaymentView.as_view(), name='driver-booking-record-cash'),
     path('driver/bookings/<int:pk>/acknowledge/', DriverBookingAcknowledgeView.as_view(), name='driver-booking-acknowledge'),
     path('driver/bookings/<int:pk>/complete/', DriverBookingCompleteView.as_view(), name='driver-booking-complete'),
+    path('driver/bookings/<int:pk>/location/', DriverBookingLocationView.as_view(), name='driver-booking-location'),
     path('driver/bookings/<uuid:token>/', DriverBookingView.as_view(), name='driver-booking'),
 ] + router.urls
 

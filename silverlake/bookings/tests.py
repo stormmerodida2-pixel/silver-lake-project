@@ -845,3 +845,82 @@ class DriverBookingCompleteTests(APITestCase):
 
         response = self.client.post(f'/api/driver/bookings/{self.booking.id}/complete/')
         self.assertEqual(response.status_code, 404)
+
+
+class DriverBookingLocationTests(APITestCase):
+    """A driver's own browser reports the vehicle's live position while a trip is actually in
+    progress - no GPS hardware involved, so this only ever works while they have the portal
+    open. Only the vehicle's latest fix is kept, not a history."""
+
+    def setUp(self):
+        driver_user = User.objects.create_user(username='location-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=driver_user, full_name='Location Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='location-client@example.com', password='pass12345!')
+        self.booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+            start_date=TODAY, end_date=TODAY + timedelta(days=2),
+        )
+        self.client.force_authenticate(user=driver_user)
+
+    def test_driver_can_report_location_for_a_currently_active_trip(self):
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/location/', {'lat': -0.0917, 'lng': 34.7680}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.vehicle.refresh_from_db()
+        self.assertEqual(float(self.vehicle.last_location_lat), -0.0917)
+        self.assertEqual(float(self.vehicle.last_location_lng), 34.7680)
+        self.assertIsNotNone(self.vehicle.last_location_at)
+
+    def test_cannot_report_location_before_the_trip_starts(self):
+        self.booking.start_date = TOMORROW
+        self.booking.end_date = NEXT_WEEK
+        self.booking.save(update_fields=['start_date', 'end_date'])
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/location/', {'lat': -0.09, 'lng': 34.76}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_report_location_for_a_pending_booking(self):
+        self.booking.status = BookingStatus.PENDING
+        self.booking.save(update_fields=['status'])
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/location/', {'lat': -0.09, 'lng': 34.76}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_report_location_for_a_completed_trip(self):
+        self.booking.status = BookingStatus.COMPLETED
+        self.booking.save(update_fields=['status'])
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/location/', {'lat': -0.09, 'lng': 34.76}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_rejects_out_of_range_coordinates(self):
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/location/', {'lat': 999, 'lng': 34.76}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_rejects_missing_coordinates(self):
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/location/', {}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_driver_cannot_report_location_for_another_drivers_trip(self):
+        other_driver_user = User.objects.create_user(username='other-location-driver@example.com', password='pass12345!')
+        Driver.objects.create(user=other_driver_user, full_name='Other Driver', is_active=True)
+        self.client.force_authenticate(user=other_driver_user)
+
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/location/', {'lat': -0.09, 'lng': 34.76}, format='json',
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_unauthenticated_request_is_rejected(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/location/', {'lat': -0.09, 'lng': 34.76}, format='json',
+        )
+        self.assertEqual(response.status_code, 401)

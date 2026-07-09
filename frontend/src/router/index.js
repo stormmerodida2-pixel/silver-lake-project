@@ -171,6 +171,12 @@ const routes = [
         meta: { title: 'Manage Fleet Types | SilverLake Car Rentals', pageTitle: 'Fleet Types' },
       },
       {
+        path: 'fleet-map',
+        name: 'admin-fleet-map',
+        component: () => import('../views/admin/AdminFleetMapView.vue'),
+        meta: { title: 'Fleet Map | SilverLake Car Rentals', pageTitle: 'Fleet Map' },
+      },
+      {
         path: 'drivers',
         name: 'admin-drivers',
         component: () => import('../views/admin/AdminDriversView.vue'),
