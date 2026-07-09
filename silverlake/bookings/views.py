@@ -5,6 +5,7 @@ from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from core.utils import capture_replaced_files, delete_files
 from fleet.models import Vehicle
 from reviews.models import Review
 from reviews.serializers import BookingReviewCreateSerializer
@@ -78,6 +79,14 @@ class BookingViewSet(
             from .emails import send_driver_booking_notification
 
             send_driver_booking_notification(booking)
+
+    def perform_update(self, serializer):
+        # A customer can PATCH their own booking to (re)upload a corrected license/ID document -
+        # capture what's being replaced before save() so the old file gets cleaned up, not just
+        # orphaned in storage forever.
+        old_files = capture_replaced_files(serializer, ['customer_license_document', 'customer_id_document'])
+        serializer.save()
+        delete_files(old_files)
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):

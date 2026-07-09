@@ -712,3 +712,49 @@ class BrandedEmailTests(TestCase):
         raw = mail.outbox[0].message().as_string()
         self.assertIn('cid:logo', raw)
         self.assertIn('Content-ID: <logo>', raw)
+
+
+class ReplacedFileCleanupTests(APITestCase):
+    """Reassigning a FileField/ImageField and saving doesn't make Django delete whatever file
+    used to be there - without an explicit cleanup, replacing a vehicle photo/insurance document
+    or a driver photo via the admin orphans the old file in storage forever (see
+    core.utils.capture_replaced_files/delete_files, and the same fix on the customer-facing
+    booking update endpoint for license/ID documents)."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='super-cleanup@example.com', password='pass12345!')
+
+    def _png(self, name):
+        import base64
+        png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')
+        return SimpleUploadedFile(name, png, content_type='image/png')
+
+    def test_replacing_a_vehicle_image_deletes_the_old_file(self):
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        vehicle.image.save('first.png', self._png('first.png'), save=True)
+        old_name = vehicle.image.name
+        self.assertTrue(vehicle.image.storage.exists(old_name))
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.patch(
+            f'/api/admin/fleet/{vehicle.id}/', {'image': self._png('second.png')}, format='multipart',
+        )
+        self.assertEqual(response.status_code, 200)
+        vehicle.refresh_from_db()
+        self.assertNotEqual(vehicle.image.name, old_name)
+        self.assertFalse(vehicle.image.storage.exists(old_name))
+
+    def test_replacing_a_driver_photo_deletes_the_old_file(self):
+        driver = Driver.objects.create(full_name='Cleanup Driver', is_active=True)
+        driver.photo.save('first.png', self._png('first.png'), save=True)
+        old_name = driver.photo.name
+        self.assertTrue(driver.photo.storage.exists(old_name))
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.patch(
+            f'/api/admin/drivers/{driver.id}/', {'photo': self._png('second.png')}, format='multipart',
+        )
+        self.assertEqual(response.status_code, 200)
+        driver.refresh_from_db()
+        self.assertNotEqual(driver.photo.name, old_name)
+        self.assertFalse(driver.photo.storage.exists(old_name))

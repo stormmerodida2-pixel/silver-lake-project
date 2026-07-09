@@ -1161,3 +1161,36 @@ class BookingRaceConditionTests(TransactionTestCase):
         self.assertEqual(statuses.count(201), 1, f'expected exactly one booking to succeed, got {results}')
         self.assertIn(statuses[0] if statuses[1] == 201 else statuses[1], (400, 409))
         self.assertEqual(Booking.objects.filter(vehicle=self.vehicle).count(), 1)
+
+
+class BookingDocumentReplacementCleanupTests(APITestCase):
+    """A customer can PATCH their own booking to re-upload a corrected license/ID document -
+    reassigning a FileField and saving doesn't make Django delete the file that used to be
+    there, so without explicit cleanup the old document would be orphaned in storage forever
+    every time someone fixes a bad upload."""
+
+    def _png(self, name):
+        import base64
+        png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')
+        return SimpleUploadedFile(name, png, content_type='image/png')
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='doc-cleanup@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.booking = make_booking(self.user, self.vehicle, service_type=ServiceType.SELF_DRIVE)
+        self.booking.customer_license_document.save('first.png', self._png('first.png'), save=False)
+        self.booking.customer_id_document.save('id.png', self._png('id.png'), save=True)
+        self.client.force_authenticate(user=self.user)
+
+    def test_replacing_a_license_document_deletes_the_old_file(self):
+        old_name = self.booking.customer_license_document.name
+        self.assertTrue(self.booking.customer_license_document.storage.exists(old_name))
+
+        response = self.client.patch(
+            f'/api/bookings/{self.booking.id}/',
+            {'customer_license_document': self._png('second.png')}, format='multipart',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.booking.refresh_from_db()
+        self.assertNotEqual(self.booking.customer_license_document.name, old_name)
+        self.assertFalse(self.booking.customer_license_document.storage.exists(old_name))

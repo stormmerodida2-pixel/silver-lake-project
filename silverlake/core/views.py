@@ -32,6 +32,7 @@ from .serializers import (
     AdminVehicleSerializer,
     AdminVehicleSubmissionSerializer,
 )
+from .utils import capture_replaced_files, delete_files
 
 User = get_user_model()
 
@@ -209,6 +210,11 @@ class AdminDriverViewSet(viewsets.ModelViewSet):
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
 
+    def perform_update(self, serializer):
+        old_files = capture_replaced_files(serializer, ['photo'])
+        serializer.save()
+        delete_files(old_files)
+
     def destroy(self, request, *args, **kwargs):
         return _delete_or_block(
             request, self.get_object(), 'driver.delete',
@@ -318,7 +324,9 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
 
     def perform_update(self, serializer):
         old_driver_id = serializer.instance.driver_id
+        old_files = capture_replaced_files(serializer, ['customer_license_document', 'customer_id_document'])
         booking = serializer.save()
+        delete_files(old_files)
         detail = f'driver: {old_driver_id or "none"} -> {booking.driver_id or "none"}' if booking.driver_id != old_driver_id else ''
         log_admin_action(self.request, 'booking.update', booking, detail=detail)
 
@@ -492,7 +500,9 @@ class AdminFleetViewSet(viewsets.ModelViewSet):
         log_admin_action(self.request, 'vehicle.create', vehicle)
 
     def perform_update(self, serializer):
+        old_files = capture_replaced_files(serializer, ['image', 'insurance_document'])
         vehicle = serializer.save()
+        delete_files(old_files)
         log_admin_action(self.request, 'vehicle.update', vehicle)
 
     def destroy(self, request, *args, **kwargs):
