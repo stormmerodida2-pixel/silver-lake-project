@@ -57,6 +57,22 @@ onMounted(async () => {
         <span class="shrink-0 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950">Complete Profile</span>
       </RouterLink>
 
+      <!-- A fresh organization (or, in principle, SilverLake's own account) with no vehicles on
+           file yet can't receive a single booking - nudge straight to adding one. -->
+      <RouterLink
+        v-if="stats.fleet.total === 0"
+        to="/admin/fleet"
+        class="flex items-center justify-between gap-3 rounded-2xl border border-gold-500/40 bg-gold-500/5 p-5 transition hover:border-gold-400"
+      >
+        <div>
+          <p class="font-[Georgia] text-lg font-bold text-white">Add your first vehicle</p>
+          <p class="mt-1 text-sm text-slate-400">
+            {{ auth.user?.organization_name ? 'Your fleet' : 'The fleet' }} is empty - add a vehicle to start receiving bookings.
+          </p>
+        </div>
+        <span class="shrink-0 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950">Add Vehicle</span>
+      </RouterLink>
+
       <section class="rounded-2xl border border-gold-500/40 bg-gradient-to-br from-navy-900 to-navy-950 p-6 sm:p-8">
         <p class="text-sm font-semibold uppercase tracking-wide text-gold-400">Total Revenue Collected</p>
         <p class="mt-2 font-[Georgia] text-4xl font-bold text-white sm:text-5xl">
