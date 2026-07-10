@@ -279,98 +279,166 @@ onMounted(() => {
     <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
     <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
 
-    <div v-if="!loading" class="mt-6 overflow-x-auto rounded-xl border border-navy-800">
-      <table class="w-full text-left text-sm">
-        <thead class="bg-navy-900 text-slate-400">
-          <tr>
-            <th class="px-4 py-3">Photo</th>
-            <th class="px-4 py-3">Vehicle</th>
-            <th class="px-4 py-3">Category</th>
-            <th class="px-4 py-3">Capacity</th>
-            <th class="px-4 py-3">Price/Day</th>
-            <th class="px-4 py-3">Services</th>
-            <th class="px-4 py-3">Maintenance</th>
-            <th class="px-4 py-3">Insurance</th>
-            <th class="px-4 py-3">Inspection</th>
-            <th class="px-4 py-3">Status</th>
-            <th class="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-navy-800 bg-navy-950">
-          <tr v-for="vehicle in vehicles" :key="vehicle.id">
-            <td class="px-4 py-3">
-              <div class="h-12 w-16 overflow-hidden rounded-md border border-navy-800 bg-navy-800">
-                <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
-                <div v-else class="flex h-full items-center justify-center text-xs text-slate-600">—</div>
+    <template v-if="!loading">
+      <!-- Card layout - phones/small tablets, avoids a wide table forcing horizontal scroll -->
+      <div class="mt-6 space-y-3 md:hidden">
+        <div
+          v-for="vehicle in vehicles" :key="vehicle.id"
+          class="rounded-xl border border-navy-800 bg-navy-900 p-4"
+        >
+          <div class="flex gap-3">
+            <div class="h-14 w-20 shrink-0 overflow-hidden rounded-md border border-navy-800 bg-navy-800">
+              <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
+              <div v-else class="flex h-full items-center justify-center text-xs text-slate-600">—</div>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-start justify-between gap-2">
+                <p class="font-medium text-white">{{ vehicle.name }}</p>
+                <span :class="vehicle.is_available ? 'text-gold-400' : 'text-red-400'" class="shrink-0 text-xs font-semibold">
+                  {{ vehicle.is_available ? 'Available' : 'Unavailable' }}
+                </span>
               </div>
-            </td>
-            <td class="px-4 py-3">
-              <p class="font-medium text-white">{{ vehicle.name }}</p>
               <p v-if="vehicle.tagline" class="text-xs text-slate-500">{{ vehicle.tagline }}</p>
               <p v-if="vehicle.driver_name" class="text-xs text-gold-400">Driver: {{ vehicle.driver_name }}</p>
-            </td>
-            <td class="px-4 py-3 text-slate-300">{{ vehicle.category_name || vehicle.category }}</td>
-            <td class="px-4 py-3 text-slate-300">{{ vehicle.passenger_capacity }} pax</td>
-            <td class="px-4 py-3 text-slate-300">KES {{ Number(vehicle.price_per_day).toLocaleString() }}</td>
-            <td class="px-4 py-3 text-xs text-slate-400">
-              <span v-if="vehicle.allow_self_drive" class="mr-1 rounded bg-navy-800 px-1.5 py-0.5">Self Drive</span>
-              <span v-if="vehicle.allow_with_driver" class="rounded bg-navy-800 px-1.5 py-0.5">With Driver</span>
-            </td>
-            <td class="px-4 py-3">
-              <span v-if="vehicle.is_service_due" class="text-xs font-bold text-gold-400">⚠ Due</span>
-              <span v-else class="text-xs text-slate-500">Up to date</span>
-            </td>
-            <td class="px-4 py-3">
-              <span v-if="vehicle.insurance_expiry_date"
-                :class="vehicle.is_insurance_expired ? 'text-red-400' : 'text-slate-400'" class="text-xs">
-                {{ vehicle.insurance_expiry_date }}
-                <span v-if="vehicle.is_insurance_expired" class="ml-1 font-bold">⚠ Expired</span>
-              </span>
-              <span v-else class="text-xs text-slate-600">—</span>
-            </td>
-            <td class="px-4 py-3">
-              <span v-if="vehicle.inspection_expiry_date"
-                :class="vehicle.is_inspection_expired ? 'text-red-400' : 'text-slate-400'" class="text-xs">
-                {{ vehicle.inspection_expiry_date }}
-                <span v-if="vehicle.is_inspection_expired" class="ml-1 font-bold">⚠ Expired</span>
-              </span>
-              <span v-else class="text-xs text-slate-600">—</span>
-            </td>
-            <td class="px-4 py-3">
-              <span :class="vehicle.is_available ? 'text-gold-400' : 'text-red-400'">
-                {{ vehicle.is_available ? 'Available' : 'Unavailable' }}
-              </span>
-            </td>
-            <td class="space-x-2 whitespace-nowrap px-4 py-3">
-              <button
-                v-if="auth.user?.is_superuser"
-                :disabled="busyId === vehicle.id"
-                class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
-                @click="openEditModal(vehicle)"
-              >
-                Edit
-              </button>
-              <button
-                :disabled="busyId === vehicle.id"
-                class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
-                @click="toggleAvailability(vehicle)"
-              >
-                {{ vehicle.is_available ? 'Disable' : 'Enable' }}
-              </button>
-              <button
-                v-if="auth.user?.is_superuser"
-                :disabled="busyId === vehicle.id"
-                class="rounded-md border border-red-400 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
-                @click="deleteVehicle(vehicle)"
-              >
-                Delete
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-if="!vehicles.length" class="p-6 text-center text-slate-400">No vehicles in the fleet yet.</p>
-      <div v-if="nextUrl" class="border-t border-navy-800 p-3 text-center">
+              <p class="mt-1 text-xs text-slate-400">
+                {{ vehicle.category_name || vehicle.category }} &middot; {{ vehicle.passenger_capacity }} pax &middot;
+                KES {{ Number(vehicle.price_per_day).toLocaleString() }}/day
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-navy-800 pt-3 text-xs">
+            <span v-if="vehicle.is_service_due" class="font-bold text-gold-400">⚠ Service due</span>
+            <span v-if="vehicle.is_insurance_expired" class="font-bold text-red-400">⚠ Insurance expired</span>
+            <span v-if="vehicle.is_inspection_expired" class="font-bold text-red-400">⚠ Inspection expired</span>
+          </div>
+
+          <div class="mt-3 flex gap-2 border-t border-navy-800 pt-3">
+            <button
+              v-if="auth.user?.is_superuser"
+              :disabled="busyId === vehicle.id"
+              class="flex-1 rounded-md border border-navy-700 px-2 py-1.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              @click="openEditModal(vehicle)"
+            >
+              Edit
+            </button>
+            <button
+              :disabled="busyId === vehicle.id"
+              class="flex-1 rounded-md border border-navy-700 px-2 py-1.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              @click="toggleAvailability(vehicle)"
+            >
+              {{ vehicle.is_available ? 'Disable' : 'Enable' }}
+            </button>
+            <button
+              v-if="auth.user?.is_superuser"
+              :disabled="busyId === vehicle.id"
+              class="flex-1 rounded-md border border-red-400 px-2 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
+              @click="deleteVehicle(vehicle)"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+        <p v-if="!vehicles.length" class="rounded-xl border border-navy-800 bg-navy-900 p-6 text-center text-slate-400">
+          No vehicles in the fleet yet.
+        </p>
+      </div>
+
+      <!-- Table layout - md and up -->
+      <div class="mt-6 hidden overflow-x-auto rounded-xl border border-navy-800 md:block">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-navy-900 text-slate-400">
+            <tr>
+              <th class="px-4 py-3">Photo</th>
+              <th class="px-4 py-3">Vehicle</th>
+              <th class="px-4 py-3">Category</th>
+              <th class="px-4 py-3">Capacity</th>
+              <th class="px-4 py-3">Price/Day</th>
+              <th class="px-4 py-3">Services</th>
+              <th class="px-4 py-3">Maintenance</th>
+              <th class="px-4 py-3">Insurance</th>
+              <th class="px-4 py-3">Inspection</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-navy-800 bg-navy-950">
+            <tr v-for="vehicle in vehicles" :key="vehicle.id">
+              <td class="px-4 py-3">
+                <div class="h-12 w-16 overflow-hidden rounded-md border border-navy-800 bg-navy-800">
+                  <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
+                  <div v-else class="flex h-full items-center justify-center text-xs text-slate-600">—</div>
+                </div>
+              </td>
+              <td class="px-4 py-3">
+                <p class="font-medium text-white">{{ vehicle.name }}</p>
+                <p v-if="vehicle.tagline" class="text-xs text-slate-500">{{ vehicle.tagline }}</p>
+                <p v-if="vehicle.driver_name" class="text-xs text-gold-400">Driver: {{ vehicle.driver_name }}</p>
+              </td>
+              <td class="px-4 py-3 text-slate-300">{{ vehicle.category_name || vehicle.category }}</td>
+              <td class="px-4 py-3 text-slate-300">{{ vehicle.passenger_capacity }} pax</td>
+              <td class="px-4 py-3 text-slate-300">KES {{ Number(vehicle.price_per_day).toLocaleString() }}</td>
+              <td class="px-4 py-3 text-xs text-slate-400">
+                <span v-if="vehicle.allow_self_drive" class="mr-1 rounded bg-navy-800 px-1.5 py-0.5">Self Drive</span>
+                <span v-if="vehicle.allow_with_driver" class="rounded bg-navy-800 px-1.5 py-0.5">With Driver</span>
+              </td>
+              <td class="px-4 py-3">
+                <span v-if="vehicle.is_service_due" class="text-xs font-bold text-gold-400">⚠ Due</span>
+                <span v-else class="text-xs text-slate-500">Up to date</span>
+              </td>
+              <td class="px-4 py-3">
+                <span v-if="vehicle.insurance_expiry_date"
+                  :class="vehicle.is_insurance_expired ? 'text-red-400' : 'text-slate-400'" class="text-xs">
+                  {{ vehicle.insurance_expiry_date }}
+                  <span v-if="vehicle.is_insurance_expired" class="ml-1 font-bold">⚠ Expired</span>
+                </span>
+                <span v-else class="text-xs text-slate-600">—</span>
+              </td>
+              <td class="px-4 py-3">
+                <span v-if="vehicle.inspection_expiry_date"
+                  :class="vehicle.is_inspection_expired ? 'text-red-400' : 'text-slate-400'" class="text-xs">
+                  {{ vehicle.inspection_expiry_date }}
+                  <span v-if="vehicle.is_inspection_expired" class="ml-1 font-bold">⚠ Expired</span>
+                </span>
+                <span v-else class="text-xs text-slate-600">—</span>
+              </td>
+              <td class="px-4 py-3">
+                <span :class="vehicle.is_available ? 'text-gold-400' : 'text-red-400'">
+                  {{ vehicle.is_available ? 'Available' : 'Unavailable' }}
+                </span>
+              </td>
+              <td class="space-x-2 whitespace-nowrap px-4 py-3">
+                <button
+                  v-if="auth.user?.is_superuser"
+                  :disabled="busyId === vehicle.id"
+                  class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                  @click="openEditModal(vehicle)"
+                >
+                  Edit
+                </button>
+                <button
+                  :disabled="busyId === vehicle.id"
+                  class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                  @click="toggleAvailability(vehicle)"
+                >
+                  {{ vehicle.is_available ? 'Disable' : 'Enable' }}
+                </button>
+                <button
+                  v-if="auth.user?.is_superuser"
+                  :disabled="busyId === vehicle.id"
+                  class="rounded-md border border-red-400 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
+                  @click="deleteVehicle(vehicle)"
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!vehicles.length" class="p-6 text-center text-slate-400">No vehicles in the fleet yet.</p>
+      </div>
+
+      <div v-if="nextUrl" class="mt-3 text-center">
         <button
           :disabled="loadingMore"
           class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
@@ -379,7 +447,7 @@ onMounted(() => {
           {{ loadingMore ? 'Loading...' : 'Load More' }}
         </button>
       </div>
-    </div>
+    </template>
 
     <!-- Add / Edit Vehicle Modal -->
     <Teleport to="body">
