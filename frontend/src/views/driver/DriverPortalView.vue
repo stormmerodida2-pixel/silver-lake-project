@@ -110,35 +110,53 @@ async function endTrip(booking) {
   }
 }
 
-// ── Cash deposits (logging that collected cash was actually deposited to the Paybill) ───────
-const depositFormPaymentId = ref(null)
-const depositAmountDraft = ref('')
-const depositReferenceDraft = ref('')
-const loggingDepositId = ref(null)
-const depositError = ref('')
+// ── Collect payment: client picks cash/card/M-Pesa + the exact amount they're paying; cash/card
+// then need the driver to separately confirm they actually received it (amount locked, not
+// re-entered) - M-Pesa fires an STK Push immediately instead. Shared between "My Bookings" and
+// the walk-up booking success screen, since both just need a `booking` to act on. ───────────────
+const paymentFormBookingId = ref(null)
+const paymentMethodDraft = ref('cash')
+const paymentAmountDraft = ref('')
+const declaringPaymentId = ref(null)
+const declareError = ref('')
+const confirmingPaymentId = ref(null)
+const confirmError = ref('')
 
-function openDepositForm(payment) {
-  depositFormPaymentId.value = payment.id
-  depositAmountDraft.value = payment.amount
-  depositReferenceDraft.value = ''
-  depositError.value = ''
+function openPaymentForm(booking) {
+  paymentFormBookingId.value = booking.id
+  paymentMethodDraft.value = 'cash'
+  paymentAmountDraft.value = booking.balance_due
+  declareError.value = ''
 }
 
-async function logCashDeposit(booking, payment) {
-  if (!depositAmountDraft.value || !depositReferenceDraft.value.trim()) return
-  depositError.value = ''
-  loggingDepositId.value = payment.id
+async function declarePayment(booking) {
+  if (!paymentAmountDraft.value) return
+  declareError.value = ''
+  declaringPaymentId.value = booking.id
   try {
-    const { data } = await apiClient.post(`/driver/payments/${payment.id}/deposit/`, {
-      amount: depositAmountDraft.value,
-      mpesa_reference: depositReferenceDraft.value.trim(),
+    const { data } = await apiClient.post(`/driver/bookings/${booking.id}/declare-payment/`, {
+      method: paymentMethodDraft.value,
+      amount: paymentAmountDraft.value,
     })
     Object.assign(booking, data)
-    depositFormPaymentId.value = null
+    paymentFormBookingId.value = null
   } catch (err) {
-    depositError.value = err.response?.data?.detail || 'Could not log this deposit.'
+    declareError.value = err.response?.data?.detail || 'Could not declare this payment.'
   } finally {
-    loggingDepositId.value = null
+    declaringPaymentId.value = null
+  }
+}
+
+async function confirmPayment(booking, payment) {
+  confirmError.value = ''
+  confirmingPaymentId.value = payment.id
+  try {
+    const { data } = await apiClient.post(`/driver/payments/${payment.id}/confirm/`)
+    Object.assign(booking, data)
+  } catch (err) {
+    confirmError.value = err.response?.data?.detail || 'Could not confirm this payment.'
+  } finally {
+    confirmingPaymentId.value = null
   }
 }
 
@@ -318,10 +336,6 @@ function openOnsiteModal() {
   })
   onsiteError.value = ''
   onsiteResult.value = null
-  cashAmount.value = ''
-  cashNote.value = ''
-  cashError.value = ''
-  cashRecorded.value = false
   showOnsiteModal.value = true
 }
 
@@ -331,6 +345,7 @@ async function submitOnsiteBooking() {
   try {
     const { data } = await apiClient.post('/driver/bookings/create/', onsiteForm)
     onsiteResult.value = data
+    openPaymentForm(onsiteResult.value.booking)
   } catch (err) {
     const detail = err?.response?.data
     onsiteError.value = typeof detail === 'object'
@@ -344,31 +359,6 @@ async function submitOnsiteBooking() {
 async function copyPaymentLink() {
   if (!onsiteResult.value) return
   await navigator.clipboard.writeText(onsiteResult.value.payment_url)
-}
-
-// ── Cash payment for the just-created walk-up booking ───────────────────────
-const cashAmount = ref('')
-const cashNote = ref('')
-const cashSaving = ref(false)
-const cashError = ref('')
-const cashRecorded = ref(false)
-
-async function recordCashPayment() {
-  cashError.value = ''
-  if (!cashAmount.value) return
-  cashSaving.value = true
-  try {
-    const { data } = await apiClient.post(
-      `/driver/bookings/${onsiteResult.value.booking.id}/record-cash/`,
-      { amount: cashAmount.value, note: cashNote.value },
-    )
-    onsiteResult.value.booking = data
-    cashRecorded.value = true
-  } catch (err) {
-    cashError.value = err?.response?.data?.detail || 'Could not record this payment.'
-  } finally {
-    cashSaving.value = false
-  }
 }
 
 // ── Add Vehicle modal ────────────────────────────────────────────────────────
@@ -811,57 +801,75 @@ onMounted(() => {
                 Vehicle returned - awaiting final payment (KES {{ Number(booking.balance_due).toLocaleString() }}) to complete.
               </p>
 
-              <!-- Cash deposits owed to the Paybill -->
-              <div v-if="booking.pending_cash_deposits?.length" class="mt-3 space-y-2 border-t border-navy-800 pt-3">
-                <div v-for="payment in booking.pending_cash_deposits" :key="payment.id" class="rounded-lg bg-gold-500/10 p-3">
-                  <div class="flex flex-wrap items-center justify-between gap-2">
+              <!-- Collect payment: declare (client's chosen method + exact amount), then confirm once actually received -->
+              <div
+                v-if="booking.status !== 'cancelled' && (booking.pending_payments?.length || Number(booking.balance_due) > 0)"
+                class="mt-3 border-t border-navy-800 pt-3"
+              >
+                <div v-if="booking.pending_payments?.length" class="space-y-2">
+                  <div
+                    v-for="payment in booking.pending_payments" :key="payment.id"
+                    class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gold-500/10 p-3"
+                  >
                     <p class="text-xs font-semibold text-gold-400">
-                      KES {{ Number(payment.amount).toLocaleString() }} collected in cash - deposit this to Paybill
-                      400400 (Acc: SILVERLAKE) and log it below.
+                      KES {{ Number(payment.amount).toLocaleString() }} declared via
+                      {{ payment.method === 'mpesa' ? 'M-Pesa' : payment.method === 'card' ? 'card' : 'cash' }} -
+                      confirm once actually received.
                     </p>
                     <button
-                      v-if="depositFormPaymentId !== payment.id"
-                      class="shrink-0 text-xs font-semibold text-gold-400 hover:text-gold-300"
-                      @click="openDepositForm(payment)"
+                      :disabled="confirmingPaymentId === payment.id"
+                      class="shrink-0 rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                      @click="confirmPayment(booking, payment)"
                     >
-                      Log Deposit
-                    </button>
-                    <button
-                      v-else
-                      class="shrink-0 text-xs font-semibold text-slate-400 hover:text-white"
-                      @click="depositFormPaymentId = null"
-                    >
-                      Cancel
+                      {{ confirmingPaymentId === payment.id ? 'Confirming...' : 'Confirm Received' }}
                     </button>
                   </div>
-                  <form
-                    v-if="depositFormPaymentId === payment.id"
-                    class="mt-2 space-y-2"
-                    @submit.prevent="logCashDeposit(booking, payment)"
+                  <p v-if="confirmError" class="text-xs text-red-400">{{ confirmError }}</p>
+                </div>
+
+                <div v-if="Number(booking.balance_due) > 0" class="mt-2">
+                  <button
+                    v-if="paymentFormBookingId !== booking.id"
+                    class="text-xs font-semibold text-gold-400 hover:text-gold-300"
+                    @click="openPaymentForm(booking)"
                   >
-                    <p v-if="depositError" class="text-xs text-red-400">{{ depositError }}</p>
-                    <div class="flex flex-wrap gap-2">
-                      <input
-                        v-model="depositAmountDraft" type="number" min="0" step="0.01" placeholder="Amount deposited" required
-                        class="w-36 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white focus:border-gold-500 focus:outline-none"
-                      />
-                      <input
-                        v-model="depositReferenceDraft" type="text" maxlength="10"
-                        placeholder="M-Pesa reference (e.g. QGH7XXXXXX)" required
-                        class="flex-1 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs uppercase text-white placeholder-slate-500 placeholder:normal-case focus:border-gold-500 focus:outline-none"
-                      />
+                    + Collect Payment (KES {{ Number(booking.balance_due).toLocaleString() }} owed)
+                  </button>
+                  <template v-else>
+                    <div class="flex items-center justify-between">
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Collect Payment</p>
+                      <button class="text-xs font-semibold text-slate-400 hover:text-white" @click="paymentFormBookingId = null">
+                        Cancel
+                      </button>
                     </div>
-                    <p class="text-[11px] text-slate-500">
-                      The 10-character code from your M-Pesa deposit confirmation SMS.
-                    </p>
-                    <button
-                      type="submit"
-                      :disabled="loggingDepositId === payment.id"
-                      class="rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
-                    >
-                      {{ loggingDepositId === payment.id ? 'Saving...' : 'Confirm Deposit' }}
-                    </button>
-                  </form>
+                    <form class="mt-2 space-y-2" @submit.prevent="declarePayment(booking)">
+                      <p v-if="declareError" class="text-xs text-red-400">{{ declareError }}</p>
+                      <div class="grid grid-cols-3 gap-2">
+                        <button
+                          v-for="opt in ['cash', 'card', 'mpesa']" :key="opt" type="button"
+                          class="rounded-md border px-2 py-1.5 text-xs font-semibold capitalize"
+                          :class="paymentMethodDraft === opt ? 'border-gold-500 bg-gold-500 text-navy-950' : 'border-navy-700 text-slate-300'"
+                          @click="paymentMethodDraft = opt"
+                        >
+                          {{ opt === 'mpesa' ? 'M-Pesa' : opt }}
+                        </button>
+                      </div>
+                      <input
+                        v-model="paymentAmountDraft" type="number" min="0" step="0.01" placeholder="Amount" required
+                        class="w-full rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                      />
+                      <button
+                        type="submit"
+                        :disabled="declaringPaymentId === booking.id"
+                        class="w-full rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                      >
+                        {{
+                          declaringPaymentId === booking.id ? 'Saving...'
+                            : paymentMethodDraft === 'mpesa' ? 'Send M-Pesa Prompt' : 'Declare Payment'
+                        }}
+                      </button>
+                    </form>
+                  </template>
                 </div>
               </div>
             </div>
@@ -879,8 +887,8 @@ onMounted(() => {
           </h2>
           <div class="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-navy-800 bg-navy-900 p-4">
             <p class="max-w-md text-xs text-slate-400">
-              For a client with you right now who doesn't want to register - creates their booking and
-              gives you a payment link to share, no account needed on their end.
+              For a client with you right now who doesn't want to register - creates their booking,
+              then lets you collect cash, card, or M-Pesa for the exact amount they tell you.
             </p>
             <button
               v-if="profile.vehicles.length"
@@ -973,53 +981,97 @@ onMounted(() => {
               </button>
             </div>
 
-            <!-- Result: payment link + cash option -->
+            <!-- Result: collect payment (method + exact amount), fall back to sharing the link -->
             <div v-if="onsiteResult" class="space-y-4">
               <p class="text-sm text-slate-300">
-                Booking created for <strong>{{ onsiteResult.booking.customer_name }}</strong>. Share this link so
-                they can pay via M-Pesa on their own phone - no account needed.
+                Booking created for <strong>{{ onsiteResult.booking.customer_name }}</strong>.
+                Ask how they're paying and the exact amount.
               </p>
-              <div class="flex items-center gap-2 rounded-lg border border-navy-700 bg-navy-800 px-3 py-2">
-                <span class="flex-1 truncate text-xs text-slate-300">{{ onsiteResult.payment_url }}</span>
-                <button
-                  class="shrink-0 rounded-md bg-gold-500 px-3 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400"
-                  @click="copyPaymentLink"
-                >
-                  Copy
-                </button>
-              </div>
-              <a
-                :href="`https://wa.me/?text=${encodeURIComponent('Here is your SilverLake payment link: ' + onsiteResult.payment_url)}`"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500 py-2.5 text-sm font-semibold text-emerald-400 hover:bg-emerald-500 hover:text-navy-950"
-              >
-                Share via WhatsApp
-              </a>
 
-              <div class="rounded-lg border border-navy-700 bg-navy-800/50 p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-gold-400">Client Paid Cash Instead?</p>
-                <div v-if="cashRecorded" class="mt-2 text-sm text-emerald-400">Cash payment recorded.</div>
-                <div v-else class="mt-2 space-y-2">
-                  <input
-                    v-model="cashAmount" type="number" min="0" step="0.01"
-                    :placeholder="`Amount (deposit: KES ${Number(onsiteResult.booking.deposit_amount).toLocaleString()})`"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                  />
-                  <input
-                    v-model="cashNote" type="text" placeholder="Note (optional)"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                  />
-                  <p v-if="cashError" class="text-xs text-red-400">{{ cashError }}</p>
+              <div v-if="onsiteResult.booking.pending_payments?.length" class="space-y-2">
+                <div
+                  v-for="payment in onsiteResult.booking.pending_payments" :key="payment.id"
+                  class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gold-500/10 p-3"
+                >
+                  <p class="text-xs font-semibold text-gold-400">
+                    KES {{ Number(payment.amount).toLocaleString() }} declared via
+                    {{ payment.method === 'mpesa' ? 'M-Pesa' : payment.method === 'card' ? 'card' : 'cash' }} -
+                    confirm once actually received.
+                  </p>
                   <button
-                    :disabled="cashSaving || !cashAmount"
-                    class="w-full rounded-lg bg-navy-700 py-2 text-sm font-semibold text-white hover:bg-navy-600 disabled:opacity-50"
-                    @click="recordCashPayment"
+                    :disabled="confirmingPaymentId === payment.id"
+                    class="shrink-0 rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                    @click="confirmPayment(onsiteResult.booking, payment)"
                   >
-                    {{ cashSaving ? 'Recording...' : 'Record Cash Payment' }}
+                    {{ confirmingPaymentId === payment.id ? 'Confirming...' : 'Confirm Received' }}
                   </button>
                 </div>
+                <p v-if="confirmError" class="text-xs text-red-400">{{ confirmError }}</p>
               </div>
+
+              <div v-if="Number(onsiteResult.booking.balance_due) > 0" class="rounded-lg border border-navy-700 bg-navy-800/50 p-4">
+                <div v-if="paymentFormBookingId === onsiteResult.booking.id">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-gold-400">Collect Payment</p>
+                  <form class="mt-2 space-y-2" @submit.prevent="declarePayment(onsiteResult.booking)">
+                    <p v-if="declareError" class="text-xs text-red-400">{{ declareError }}</p>
+                    <div class="grid grid-cols-3 gap-2">
+                      <button
+                        v-for="opt in ['cash', 'card', 'mpesa']" :key="opt" type="button"
+                        class="rounded-md border px-2 py-1.5 text-xs font-semibold capitalize"
+                        :class="paymentMethodDraft === opt ? 'border-gold-500 bg-gold-500 text-navy-950' : 'border-navy-700 text-slate-300'"
+                        @click="paymentMethodDraft = opt"
+                      >
+                        {{ opt === 'mpesa' ? 'M-Pesa' : opt }}
+                      </button>
+                    </div>
+                    <input
+                      v-model="paymentAmountDraft" type="number" min="0" step="0.01"
+                      :placeholder="`Amount (deposit: KES ${Number(onsiteResult.booking.deposit_amount).toLocaleString()})`"
+                      class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      :disabled="declaringPaymentId === onsiteResult.booking.id"
+                      class="w-full rounded-lg bg-gold-500 py-2 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                    >
+                      {{
+                        declaringPaymentId === onsiteResult.booking.id ? 'Saving...'
+                          : paymentMethodDraft === 'mpesa' ? 'Send M-Pesa Prompt' : 'Declare Payment'
+                      }}
+                    </button>
+                  </form>
+                </div>
+                <button
+                  v-else
+                  class="text-xs font-semibold text-gold-400 hover:text-gold-300"
+                  @click="openPaymentForm(onsiteResult.booking)"
+                >
+                  + Collect Payment
+                </button>
+              </div>
+
+              <details class="text-sm text-slate-400">
+                <summary class="cursor-pointer select-none font-semibold text-slate-300">
+                  Or share a payment link instead
+                </summary>
+                <div class="mt-2 flex items-center gap-2 rounded-lg border border-navy-700 bg-navy-800 px-3 py-2">
+                  <span class="flex-1 truncate text-xs text-slate-300">{{ onsiteResult.payment_url }}</span>
+                  <button
+                    class="shrink-0 rounded-md bg-gold-500 px-3 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400"
+                    @click="copyPaymentLink"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <a
+                  :href="`https://wa.me/?text=${encodeURIComponent('Here is your SilverLake payment link: ' + onsiteResult.payment_url)}`"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500 py-2.5 text-sm font-semibold text-emerald-400 hover:bg-emerald-500 hover:text-navy-950"
+                >
+                  Share via WhatsApp
+                </a>
+              </details>
 
               <button
                 class="w-full rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500 hover:text-white"

@@ -363,19 +363,21 @@ class Booking(models.Model):
         be queued for payout while the business has only actually collected a fraction of that
         (e.g. just the 30% deposit). Doesn't pay them - staff mark DriverPayout.is_paid once the
         money has actually been disbursed. If any of the payments behind this were self-reported
-        cash (no independent gateway confirming it, unlike M-Pesa), the payout is flagged for
-        admin to verify before it can be paid out."""
+        cash or card (no independent gateway confirming either, unlike M-Pesa), the payout is
+        flagged for admin to verify before it can be paid out."""
         if self.driver_payout_amount <= 0 or self.balance_due > 0:
             return
         from payments.models import DriverPayout, PaymentMethod, PaymentStatus
 
-        has_cash_payment = self.payments.filter(status=PaymentStatus.SUCCESSFUL, method=PaymentMethod.CASH).exists()
+        has_offline_payment = self.payments.filter(
+            status=PaymentStatus.SUCCESSFUL, method__in=(PaymentMethod.CASH, PaymentMethod.CARD),
+        ).exists()
 
         DriverPayout.objects.get_or_create(
             booking=self,
             defaults={
                 'driver_id': self.driver_id,
                 'amount': self.driver_payout_amount,
-                'needs_verification': has_cash_payment,
+                'needs_verification': has_offline_payment,
             },
         )

@@ -7,7 +7,7 @@ from drivers.models import Driver
 from drivers.serializers import VehicleSubmissionPhotoSerializer
 from fleet.models import Vehicle, VehicleCategory, VehicleSubmission
 from fleet.serializers import VehicleImageSerializer, VehicleServiceRecordSerializer
-from payments.models import DriverPayout, PaymentMethod, PaymentStatus, Refund
+from payments.models import DriverPayout, Refund
 from reviews.models import Review
 
 from .models import AuditLog
@@ -118,7 +118,6 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
     booking_amount_paid = serializers.DecimalField(source='booking.amount_paid', max_digits=10, decimal_places=2, read_only=True)
     booking_balance_due = serializers.DecimalField(source='booking.balance_due', max_digits=10, decimal_places=2, read_only=True)
     has_disputed_payment = serializers.SerializerMethodField()
-    has_undeposited_cash = serializers.SerializerMethodField()
 
     class Meta:
         model = DriverPayout
@@ -127,7 +126,7 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
             'booking_total_amount', 'booking_amount_paid', 'booking_balance_due',
             'amount', 'is_paid', 'paid_at', 'payout_reference', 'notes',
             'needs_verification', 'is_verified', 'verification_note', 'verified_at',
-            'has_disputed_payment', 'has_undeposited_cash', 'created_at',
+            'has_disputed_payment', 'created_at',
         ]
         read_only_fields = [
             'driver', 'amount', 'paid_at', 'needs_verification', 'is_verified',
@@ -136,11 +135,6 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
 
     def get_has_disputed_payment(self, obj):
         return obj.booking.payments.filter(is_disputed=True).exists()
-
-    def get_has_undeposited_cash(self, obj):
-        return obj.booking.payments.filter(
-            method=PaymentMethod.CASH, status=PaymentStatus.SUCCESSFUL, cash_deposit__isnull=True,
-        ).exists()
 
 
 class AdminAuditLogSerializer(serializers.ModelSerializer):

@@ -2,14 +2,14 @@
 {% block content %}
 <p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
 <p style="margin:0 0 16px;">
-  This confirms we've recorded the <strong>cash payment of KES {{ amount }}</strong> you took for
-  {{ customer_name }} on booking #{{ booking_id }}.
+  This confirms we've recorded the <strong>{{ method_label|lower }} payment of KES {{ amount }}</strong>
+  you took for {{ customer_name }} on booking #{{ booking_id }}.
 </p>
 <p style="margin:0 0 16px; font-size:14px; color:#334155;">
   Remaining balance on this booking: <strong>KES {{ balance_due }}</strong>.
 </p>
 <p style="margin:0; padding:12px 16px; background:#eff6ff; border-radius:8px; color:#1e3a8a; font-size:14px;">
-  Since this was cash rather than M-Pesa, an admin needs to verify it before your payout for this
-  trip can be released — you don't need to do anything else for that to happen.
+  Since this wasn't M-Pesa, an admin needs to verify it before your payout for this trip can be
+  released — you don't need to do anything else for that to happen.
 </p>
 {% endblock %}

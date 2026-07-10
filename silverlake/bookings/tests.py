@@ -427,93 +427,176 @@ class DriverOnsiteBookingCreateTests(APITestCase):
         self.assertEqual(first_booking.user_id, second_booking.user_id)
 
 
-class DriverCashPaymentTests(APITestCase):
+class DriverDeclarePaymentTests(APITestCase):
+    """A driver, with the client physically present, declaring exactly how much the client says
+    they're paying and by which method. Cash/card create a pending payment awaiting the driver's
+    confirmation (see DriverConfirmPaymentTests); M-Pesa triggers the existing STK Push flow
+    immediately against the client's own phone."""
+
     def setUp(self):
-        driver_user = User.objects.create_user(username='cash-driver@example.com', password='pass12345!')
-        self.driver = Driver.objects.create(user=driver_user, full_name='Cash Driver', is_active=True)
+        driver_user = User.objects.create_user(username='declare-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=driver_user, full_name='Declare Driver', is_active=True)
         self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
         self.customer = User.objects.create_user(username='client@example.com', password='pass12345!')
-        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        self.booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING,
+            customer_phone='254700000000',
+        )
         self.client.force_authenticate(user=driver_user)
 
-    def test_driver_can_record_cash_for_their_own_booking(self):
+    def _url(self):
+        return f'/api/driver/bookings/{self.booking.id}/declare-payment/'
+
+    def test_driver_can_declare_a_cash_payment(self):
         response = self.client.post(
-            f'/api/driver/bookings/{self.booking.id}/record-cash/',
-            {'amount': str(self.booking.deposit_amount), 'note': 'Paid at pickup'},
-            format='json',
+            self._url(), {'method': 'cash', 'amount': str(self.booking.deposit_amount)}, format='json',
         )
         self.assertEqual(response.status_code, 200)
 
         payment = Payment.objects.get(booking=self.booking)
         self.assertEqual(payment.method, PaymentMethod.CASH)
-        self.assertEqual(payment.status, PaymentStatus.SUCCESSFUL)
+        self.assertEqual(payment.status, PaymentStatus.PENDING)  # not collected yet, just declared
         self.assertEqual(payment.recorded_by_driver_id, self.driver.id)
 
         self.booking.refresh_from_db()
-        self.assertEqual(self.booking.status, BookingStatus.CONFIRMED)  # deposit met -> auto-confirmed
+        self.assertEqual(self.booking.status, BookingStatus.PENDING)  # unconfirmed until actually received
 
-    def test_cannot_record_cash_for_another_drivers_booking(self):
+    def test_driver_can_declare_a_card_payment(self):
+        response = self.client.post(
+            self._url(), {'method': 'card', 'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        payment = Payment.objects.get(booking=self.booking)
+        self.assertEqual(payment.method, PaymentMethod.CARD)
+        self.assertEqual(payment.status, PaymentStatus.PENDING)
+
+    @patch('payments.services.mpesa.initiate_stk_push')
+    def test_declaring_mpesa_triggers_an_stk_push_to_the_clients_phone(self, mock_stk):
+        mock_stk.return_value = {'CheckoutRequestID': 'ws_CO_1'}
+        response = self.client.post(
+            self._url(), {'method': 'mpesa', 'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        mock_stk.assert_called_once()
+        self.assertEqual(mock_stk.call_args.kwargs['phone_number'], '254700000000')
+
+        payment = Payment.objects.get(booking=self.booking)
+        self.assertEqual(payment.method, PaymentMethod.MPESA)
+        self.assertEqual(payment.status, PaymentStatus.PENDING)
+
+    def test_cannot_declare_for_another_drivers_booking(self):
         other_driver_user = User.objects.create_user(username='other-driver@example.com', password='pass12345!')
         Driver.objects.create(user=other_driver_user, full_name='Not This Driver', is_active=True)
         self.client.force_authenticate(user=other_driver_user)
 
-        response = self.client.post(
-            f'/api/driver/bookings/{self.booking.id}/record-cash/', {'amount': '100'}, format='json',
-        )
+        response = self.client.post(self._url(), {'method': 'cash', 'amount': '100'}, format='json')
         self.assertEqual(response.status_code, 404)
 
-    def test_cannot_record_cash_exceeding_the_balance_due(self):
+    def test_cannot_declare_an_amount_exceeding_the_balance_due(self):
         response = self.client.post(
-            f'/api/driver/bookings/{self.booking.id}/record-cash/',
-            {'amount': str(self.booking.total_amount + 1)}, format='json',
+            self._url(), {'method': 'cash', 'amount': str(self.booking.total_amount + 1)}, format='json',
         )
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
 
-    def test_cannot_record_a_zero_or_negative_cash_amount(self):
+    def test_cannot_declare_a_zero_or_negative_amount(self):
         for bad_amount in ('0', '-500'):
-            response = self.client.post(
-                f'/api/driver/bookings/{self.booking.id}/record-cash/', {'amount': bad_amount}, format='json',
-            )
+            response = self.client.post(self._url(), {'method': 'cash', 'amount': bad_amount}, format='json')
             self.assertEqual(response.status_code, 400, f'amount={bad_amount} should have been rejected')
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
 
-    def test_cannot_record_cash_against_a_cancelled_booking(self):
+    def test_cannot_declare_against_a_cancelled_booking(self):
         self.booking.status = BookingStatus.CANCELLED
         self.booking.save(update_fields=['status'])
 
         response = self.client.post(
-            f'/api/driver/bookings/{self.booking.id}/record-cash/',
-            {'amount': str(self.booking.deposit_amount)}, format='json',
+            self._url(), {'method': 'cash', 'amount': str(self.booking.deposit_amount)}, format='json',
         )
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
 
-    def test_cannot_record_cash_against_a_completed_booking(self):
-        self.booking.status = BookingStatus.COMPLETED
-        self.booking.save(update_fields=['status'])
-
-        response = self.client.post(
-            f'/api/driver/bookings/{self.booking.id}/record-cash/',
-            {'amount': str(self.booking.deposit_amount)}, format='json',
-        )
+    def test_invalid_method_is_rejected(self):
+        response = self.client.post(self._url(), {'method': 'bitcoin', 'amount': '100'}, format='json')
         self.assertEqual(response.status_code, 400)
-        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
 
-    def test_cash_payment_flags_its_payout_as_needing_verification(self):
-        # Pays the full amount in one go via cash, so the payout is created (deferred until
-        # fully paid) and its needs_verification flag can be checked.
-        self.client.post(
-            f'/api/driver/bookings/{self.booking.id}/record-cash/',
-            {'amount': str(self.booking.total_amount)}, format='json',
+    def _results(self, response):
+        data = response.json()
+        return data['results'] if 'results' in data else data
+
+    def test_booking_lists_a_declared_cash_payment_as_pending_until_confirmed(self):
+        self.client.post(self._url(), {'method': 'cash', 'amount': str(self.booking.deposit_amount)}, format='json')
+        payment = Payment.objects.get(booking=self.booking)
+
+        response = self.client.get('/api/driver/bookings/mine/')
+        pending = next(b for b in self._results(response) if b['id'] == self.booking.id)['pending_payments']
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]['id'], payment.id)
+        self.assertEqual(pending[0]['method'], 'cash')
+
+        self.client.post(f'/api/driver/payments/{payment.id}/confirm/')
+        response = self.client.get('/api/driver/bookings/mine/')
+        pending = next(b for b in self._results(response) if b['id'] == self.booking.id)['pending_payments']
+        self.assertEqual(len(pending), 0)
+
+
+class DriverConfirmPaymentTests(APITestCase):
+    """A driver confirming a previously-declared cash/card payment was actually received - the
+    amount was already locked in at declaration time, so confirming takes no amount at all."""
+
+    def setUp(self):
+        driver_user = User.objects.create_user(username='confirm-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=driver_user, full_name='Confirm Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='confirm-client@example.com', password='pass12345!')
+        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        self.payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH, amount=self.booking.total_amount,
+            status=PaymentStatus.PENDING, recorded_by_driver=self.driver,
         )
+        self.client.force_authenticate(user=driver_user)
+
+    def _url(self, payment=None):
+        return f'/api/driver/payments/{(payment or self.payment).id}/confirm/'
+
+    def test_driver_can_confirm_a_declared_payment(self):
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 200)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentStatus.SUCCESSFUL)
+
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.CONFIRMED)  # fully paid -> auto-confirmed
+
+    def test_cannot_confirm_the_same_payment_twice(self):
+        self.client.post(self._url())
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_confirm_for_another_drivers_payment(self):
+        other_driver_user = User.objects.create_user(username='other-confirm-driver@example.com', password='pass12345!')
+        Driver.objects.create(user=other_driver_user, full_name='Not This Driver', is_active=True)
+        self.client.force_authenticate(user=other_driver_user)
+
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 404)
+
+    def test_cannot_confirm_an_mpesa_payment_this_way(self):
+        mpesa_payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA, amount=Decimal('100'), status=PaymentStatus.PENDING,
+        )
+        response = self.client.post(self._url(mpesa_payment))
+        self.assertEqual(response.status_code, 400)
+
+    def test_confirming_flags_its_payout_as_needing_verification(self):
+        self.client.post(self._url())
         payout = DriverPayout.objects.get(booking=self.booking)
         self.assertTrue(payout.needs_verification)
         self.assertFalse(payout.is_verified)
 
     def test_mpesa_confirmed_payout_does_not_need_verification(self):
-        # Simulate a successful M-Pesa payment (as the callback would record it) instead of cash,
-        # for the full amount so the payout actually gets created.
+        # Simulate a successful M-Pesa payment (as the callback would record it) instead of
+        # cash, for the full amount, so the payout actually gets created.
+        self.payment.delete()
         Payment.objects.create(
             booking=self.booking, method=PaymentMethod.MPESA,
             amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
@@ -522,162 +605,61 @@ class DriverCashPaymentTests(APITestCase):
         payout = DriverPayout.objects.get(booking=self.booking)
         self.assertFalse(payout.needs_verification)
 
-    def test_cash_payment_emails_the_customer_as_an_independent_check(self):
-        self.booking.customer_email = 'client@example.com'
+    def test_confirming_emails_the_customer_as_an_independent_check(self):
+        self.booking.customer_email = 'confirm-client@example.com'
         self.booking.save(update_fields=['customer_email'])
 
         mail.outbox = []
-        self.client.post(
-            f'/api/driver/bookings/{self.booking.id}/record-cash/',
-            {'amount': str(self.booking.deposit_amount)}, format='json',
-        )
-        # The deposit-confirmation email also fires alongside this one - both legitimately
-        # go to the customer, so just confirm the cash-payment notice is among them.
-        cash_emails = [m for m in mail.outbox if 'Cash payment recorded' in m.subject]
-        self.assertEqual(len(cash_emails), 1)
-        self.assertIn(self.booking.customer_email, cash_emails[0].to)
+        self.client.post(self._url())
+        emails = [m for m in mail.outbox if 'payment recorded' in m.subject]
+        self.assertEqual(len(emails), 1)
+        self.assertIn(self.booking.customer_email, emails[0].to)
 
-    def test_cash_payment_also_emails_the_driver_a_confirmation(self):
-        self.driver.email = 'cash-driver@example.com'
+    def test_confirming_also_emails_the_driver_a_confirmation(self):
+        self.driver.email = 'confirm-driver@example.com'
         self.driver.save(update_fields=['email'])
 
         mail.outbox = []
-        self.client.post(
-            f'/api/driver/bookings/{self.booking.id}/record-cash/',
-            {'amount': str(self.booking.deposit_amount)}, format='json',
-        )
-        driver_emails = [m for m in mail.outbox if 'Cash payment recorded' in m.subject and self.driver.email in m.to]
+        self.client.post(self._url())
+        driver_emails = [m for m in mail.outbox if 'payment recorded' in m.subject and self.driver.email in m.to]
         self.assertEqual(len(driver_emails), 1)
+
+    def test_confirming_a_cash_payment_notifies_staff(self):
+        staff_user = User.objects.create_user(
+            username='confirm-staff@example.com', email='confirm-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        mail.outbox = []
+        self.client.post(self._url())
+        staff_emails = [m for m in mail.outbox if 'Cash payment recorded' in m.subject]
+        self.assertEqual(len(staff_emails), 1)
+        self.assertIn(staff_user.email, staff_emails[0].bcc)
+
+    def test_confirming_a_card_payment_does_not_notify_staff(self):
+        card_payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CARD, amount=self.booking.total_amount,
+            status=PaymentStatus.PENDING, recorded_by_driver=self.driver,
+        )
+        self.payment.delete()
+        User.objects.create_user(
+            username='confirm-staff2@example.com', email='confirm-staff2@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        mail.outbox = []
+        self.client.post(self._url(card_payment))
+        self.assertFalse(any('Cash payment recorded' in m.subject for m in mail.outbox))
 
     def test_no_driver_email_attempted_without_an_email_on_file(self):
         self.assertEqual(self.driver.email, '')
         mail.outbox = []
-        self.client.post(
-            f'/api/driver/bookings/{self.booking.id}/record-cash/',
-            {'amount': str(self.booking.deposit_amount)}, format='json',
-        )
-        self.assertEqual(len(mail.outbox), 0)
+        self.client.post(self._url())
+        driver_emails = [m for m in mail.outbox if self.driver.email and self.driver.email in m.to]
+        self.assertEqual(len(driver_emails), 0)
 
-    def test_no_email_attempted_without_a_customer_email_on_file(self):
+    def test_no_customer_email_attempted_without_one_on_file(self):
         self.assertEqual(self.booking.customer_email, '')
-        mail.outbox = []
-        response = self.client.post(
-            f'/api/driver/bookings/{self.booking.id}/record-cash/',
-            {'amount': str(self.booking.deposit_amount)}, format='json',
-        )
+        response = self.client.post(self._url())
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(mail.outbox), 0)
-
-
-class DriverCashDepositTests(APITestCase):
-    """A driver logging that they've deposited cash they collected into the company Paybill -
-    the second half of the cash-payment trust chain. The deposited amount can never be less
-    than what was collected."""
-
-    def setUp(self):
-        driver_user = User.objects.create_user(username='deposit-driver@example.com', password='pass12345!')
-        self.driver = Driver.objects.create(user=driver_user, full_name='Deposit Driver', is_active=True)
-        vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
-        customer = User.objects.create_user(username='deposit-client@example.com', password='pass12345!')
-        self.booking = make_booking(customer, vehicle, driver=self.driver, status=BookingStatus.PENDING)
-        self.cash_payment = Payment.objects.create(
-            booking=self.booking, method=PaymentMethod.CASH, amount=self.booking.total_amount,
-            status=PaymentStatus.SUCCESSFUL, recorded_by_driver=self.driver,
-        )
-        self.client.force_authenticate(user=driver_user)
-
-    def _url(self):
-        return f'/api/driver/payments/{self.cash_payment.id}/deposit/'
-
-    def test_driver_can_log_a_matching_deposit(self):
-        response = self.client.post(
-            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QWE123RTY9'}, format='json',
-        )
-        self.assertEqual(response.status_code, 200)
-        self.cash_payment.refresh_from_db()
-        self.assertEqual(self.cash_payment.cash_deposit.amount, self.cash_payment.amount)
-        self.assertEqual(self.cash_payment.cash_deposit.mpesa_reference, 'QWE123RTY9')
-        self.assertEqual(self.cash_payment.cash_deposit.logged_by_id, self.driver.id)
-
-    def test_reference_is_normalized_to_uppercase(self):
-        response = self.client.post(
-            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'qwe123rty9'}, format='json',
-        )
-        self.assertEqual(response.status_code, 200)
-        self.cash_payment.refresh_from_db()
-        self.assertEqual(self.cash_payment.cash_deposit.mpesa_reference, 'QWE123RTY9')
-
-    def test_deposit_with_an_invalid_reference_format_is_rejected(self):
-        for bad_reference in ('asdf', '12345', 'TOOLONGCODE123', 'X'):
-            response = self.client.post(
-                self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': bad_reference}, format='json',
-            )
-            self.assertEqual(response.status_code, 400, f'reference={bad_reference!r} should have been rejected')
-        self.cash_payment.refresh_from_db()
-        self.assertFalse(hasattr(self.cash_payment, 'cash_deposit'))
-
-    def test_depositing_less_than_collected_is_rejected(self):
-        short_amount = self.cash_payment.amount - 1
-        response = self.client.post(
-            self._url(), {'amount': str(short_amount), 'mpesa_reference': 'QAMOUNTLOW'}, format='json',
-        )
-        self.assertEqual(response.status_code, 400)
-        self.cash_payment.refresh_from_db()
-        self.assertFalse(hasattr(self.cash_payment, 'cash_deposit'))
-
-    def test_depositing_more_than_collected_is_fine(self):
-        response = self.client.post(
-            self._url(), {'amount': str(self.cash_payment.amount + 50), 'mpesa_reference': 'QEXTRA0001'}, format='json',
-        )
-        self.assertEqual(response.status_code, 200)
-
-    def test_cannot_log_a_deposit_without_a_reference(self):
-        response = self.client.post(
-            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': ''}, format='json',
-        )
-        self.assertEqual(response.status_code, 400)
-
-    def test_cannot_log_a_second_deposit_for_the_same_payment(self):
-        self.client.post(self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QFIRST0001'}, format='json')
-        response = self.client.post(
-            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QSECOND001'}, format='json',
-        )
-        self.assertEqual(response.status_code, 400)
-
-    def test_cannot_log_a_deposit_for_another_drivers_payment(self):
-        other_driver_user = User.objects.create_user(username='other-deposit-driver@example.com', password='pass12345!')
-        Driver.objects.create(user=other_driver_user, full_name='Not This Driver', is_active=True)
-        self.client.force_authenticate(user=other_driver_user)
-
-        response = self.client.post(
-            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'X'}, format='json',
-        )
-        self.assertEqual(response.status_code, 404)
-
-    def test_cannot_log_a_deposit_for_an_mpesa_payment(self):
-        mpesa_payment = Payment.objects.create(
-            booking=self.booking, method=PaymentMethod.MPESA, amount=Decimal('100'), status=PaymentStatus.SUCCESSFUL,
-        )
-        response = self.client.post(
-            f'/api/driver/payments/{mpesa_payment.id}/deposit/',
-            {'amount': '100', 'mpesa_reference': 'X'}, format='json',
-        )
-        self.assertEqual(response.status_code, 400)
-
-    def _results(self, response):
-        data = response.json()
-        return data['results'] if 'results' in data else data
-
-    def test_booking_lists_the_payment_as_a_pending_cash_deposit_until_logged(self):
-        response = self.client.get('/api/driver/bookings/mine/')
-        pending = next(b for b in self._results(response) if b['id'] == self.booking.id)['pending_cash_deposits']
-        self.assertEqual(len(pending), 1)
-        self.assertEqual(pending[0]['id'], self.cash_payment.id)
-
-        self.client.post(self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QCLEARED01'}, format='json')
-        response = self.client.get('/api/driver/bookings/mine/')
-        pending = next(b for b in self._results(response) if b['id'] == self.booking.id)['pending_cash_deposits']
-        self.assertEqual(len(pending), 0)
 
 
 class TokenPaymentPageTests(APITestCase):

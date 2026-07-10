@@ -55,27 +55,6 @@ class Payment(models.Model):
         return f'{self.get_method_display()} - {self.amount} ({self.status})'
 
 
-class CashDeposit(models.Model):
-    """A driver's record of depositing cash they collected from a customer into the company's
-    Paybill - a separate real-world event from record_cash_payment (which only records that the
-    driver collected money from the customer, not that they handed it over to the company).
-    Required before the payout behind a cash Payment can be verified, and the deposited amount
-    can never be less than what was collected (enforced in payments.services.log_cash_deposit) -
-    without this, nothing stops a driver from quietly keeping part of the cash."""
-
-    payment = models.OneToOneField(Payment, on_delete=models.CASCADE, related_name='cash_deposit')
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    mpesa_reference = models.CharField(max_length=50, help_text='M-Pesa transaction code for the Paybill deposit')
-    logged_by = models.ForeignKey(Driver, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f'Deposit of {self.amount} for payment #{self.payment_id} (ref {self.mpesa_reference})'
-
-
 class DriverPayout(models.Model):
     """What SilverLake owes a driver-partner for a with-driver booking, after the platform fee."""
 

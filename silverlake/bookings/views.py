@@ -130,8 +130,13 @@ from django.utils import timezone
 
 from accounts.services import get_or_create_customer_account
 from drivers.permissions import IsDriverUser
-from payments.models import Payment
-from payments.services import PaymentValidationError, log_cash_deposit, record_cash_payment
+from payments.models import Payment, PaymentMethod
+from payments.services import (
+    PaymentValidationError,
+    confirm_offline_payment,
+    declare_offline_payment,
+    initiate_stk_push_payment,
+)
 
 from .models import BookingSource
 from .serializers import DriverOnsiteBookingSerializer
@@ -176,9 +181,13 @@ class DriverOnsiteBookingCreateView(APIView):
         )
 
 
-class DriverBookingCashPaymentView(APIView):
-    """Lets a driver record that a walk-up client paid in cash on the spot, for one of their own
-    bookings - keeps cash payments visible in the same revenue/payout tracking as M-Pesa ones."""
+class DriverDeclarePaymentView(APIView):
+    """Lets a driver, with a client physically present, record exactly how much the client says
+    they're paying right now and by which method - cash, card, or M-Pesa. For M-Pesa this is
+    just the existing STK Push flow triggered against the client's own phone; for cash/card
+    (see payments.services.declare_offline_payment) it creates a pending payment that the driver
+    separately confirms once actually received (see DriverConfirmPaymentView) - the amount is
+    locked in here, not re-entered at confirmation time."""
 
     permission_classes = [IsDriverUser]
 
@@ -186,26 +195,30 @@ class DriverBookingCashPaymentView(APIView):
         driver = request.user.driver_profile
         booking = get_object_or_404(Booking, pk=pk, driver=driver)
 
+        method = request.data.get('method')
         amount = request.data.get('amount')
-        note = request.data.get('note', '')
         try:
             amount = float(amount)
         except (TypeError, ValueError):
             return Response({'detail': 'A valid amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            record_cash_payment(booking, amount, driver=driver, note=note)
+            if method == PaymentMethod.MPESA:
+                if not booking.customer_phone:
+                    return Response({'detail': 'This booking has no phone number on file for M-Pesa.'}, status=status.HTTP_400_BAD_REQUEST)
+                initiate_stk_push_payment(booking, booking.customer_phone, amount)
+            else:
+                declare_offline_payment(booking, method, amount, driver=driver)
         except PaymentValidationError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(BookingSerializer(booking).data)
 
 
-class DriverCashDepositView(APIView):
-    """Lets a driver log that they've deposited cash they collected (see
-    DriverBookingCashPaymentView) into the company Paybill - the payout behind that cash payment
-    can't be verified until this exists, and the deposited amount can never be less than what
-    was collected (see payments.services.log_cash_deposit)."""
+class DriverConfirmPaymentView(APIView):
+    """Lets a driver confirm a previously-declared cash/card payment was actually received (see
+    DriverDeclarePaymentView / payments.services.confirm_offline_payment) - no amount here, it
+    was already locked in when declared."""
 
     permission_classes = [IsDriverUser]
 
@@ -213,15 +226,8 @@ class DriverCashDepositView(APIView):
         driver = request.user.driver_profile
         payment = get_object_or_404(Payment, pk=payment_id, booking__driver=driver)
 
-        amount = request.data.get('amount')
-        mpesa_reference = request.data.get('mpesa_reference', '')
         try:
-            amount = float(amount)
-        except (TypeError, ValueError):
-            return Response({'detail': 'A valid amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            log_cash_deposit(payment, amount, mpesa_reference, driver=driver)
+            confirm_offline_payment(payment)
         except PaymentValidationError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 

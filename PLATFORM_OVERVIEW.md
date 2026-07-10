@@ -105,7 +105,10 @@ business-model pitch for the economics).
      vehicle disappear) and mark themselves available again
    - Create a booking directly for a walk-up client who booked in person, with no login required
      from the customer
-   - Record a **cash payment** for one of their own bookings
+   - **Declare a payment** for one of their own bookings on the client's behalf - the client picks
+     cash, card, or M-Pesa and states the exact amount; cash/card then need the driver to
+     separately **confirm** they actually received it (the amount is locked in at declaration,
+     never re-typed at confirmation), while M-Pesa fires a real STK Push immediately
    - View their own payout history
    - See every booking an online customer has placed against them, and **approve** a new one to
      acknowledge they've seen it — this is informational only, it doesn't block or delay the
@@ -170,8 +173,16 @@ business-model pitch for the economics).
 
 - **M-Pesa STK Push** (Paybill) is the primary payment rail — a customer gets a prompt
   on their phone and pays directly into the till.
-- **Cash payments**: a driver can record a cash payment they collected on the spot (e.g. a
-  walk-up client). This is flagged for admin review before it can trigger a real payout — see §7.
+- **Cash and card payments** go through a two-step **declare → confirm** flow, not a single
+  self-reported "record payment" click. A driver declares exactly what the client says they're
+  paying and by which method - this creates a pending payment with the amount locked in. The
+  driver then separately **confirms** once they've actually received it; confirming takes no
+  amount at all, since it was already fixed at declaration, so a driver can't quietly confirm
+  less than what was agreed. Confirming a **cash** payment also emails every active staff account
+  immediately - unlike M-Pesa (a receipt number lands right away) or card, cash leaves no
+  independent record anywhere until it's actually collected from the driver, so staff get their
+  own heads-up rather than only finding out later while reconciling payouts. Both cash and card
+  are flagged for admin verification before they can trigger a real payout — see §7.
 - Every payment path rejects a **zero or negative amount**, and refuses to accept a payment
   against a booking that's already cancelled or completed.
 - The M-Pesa callback (Safaricom telling us a payment succeeded) is protected by a private secret
@@ -194,35 +205,26 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
   keeps the full amount.
 - **A payout is only created once the booking is fully paid** — not merely deposited — so the
   business never queues a payout for money it hasn't actually collected yet.
-- **Cash-sourced payouts need explicit sign-off.** If any payment behind a payout was cash
-  (self-reported, no bank confirming it), that payout is flagged "Needs Verification" and can't
-  be marked paid until a superadmin explicitly verifies it. M-Pesa-confirmed payouts skip this,
-  since Safaricom's own confirmation already is the verification.
-- **Verifying a cash-sourced payout requires a note.** The verify action rejects an empty note -
-  a superadmin has to record how it was actually reconciled (e.g. "called customer, confirmed
-  KES 5000 received"), so verifying is an attested action with a trail rather than a button
-  clicked on trust.
+- **Cash/card-sourced payouts need explicit sign-off.** If any payment behind a payout was cash
+  or card (self-reported, no bank confirming either), that payout is flagged "Needs Verification"
+  and can't be marked paid until a superadmin explicitly verifies it. M-Pesa-confirmed payouts
+  skip this, since Safaricom's own confirmation already is the verification.
+- **Verifying requires a note.** The verify action rejects an empty note - a superadmin has to
+  record how it was actually reconciled (e.g. "called customer, confirmed KES 5000 received"),
+  so verifying is an attested action with a trail rather than a button clicked on trust.
 - **A customer can dispute a cash payment.** The email notifying them a cash payment was
   recorded includes a no-login "Dispute This Payment" link (same customer_token mechanism as the
   payment page). Filing a dispute flags the payment and - if the payout hasn't been paid out yet -
   forces it back to "Needs Verification" even if a superadmin had already verified it, since a
   dispute arriving afterward means that verification needs to be redone. Only cash payments can
-  be disputed; M-Pesa/card payments are already independently confirmed by their own gateway.
-- **A driver must deposit the exact cash they collected before their payout can be verified.**
-  Collecting cash from a customer and depositing that cash into the company Paybill are two
-  separate events - only the first was ever tracked. Now a driver logs a `CashDeposit` (amount +
-  M-Pesa reference) for each cash payment from the Driver Portal, and depositing less than what
-  was collected is a hard rejection, not a warning. A payout can't be verified while any of its
-  cash payments still lacks a matching deposit - so a driver can't quietly keep part of the cash
-  and still get their commission released. The reference is format-validated (10 characters,
-  starts with a letter, e.g. `QGH7XXXXXX` - real M-Pesa codes always look like this) and
-  normalized to uppercase, so obviously-fake input like "asdf" is rejected outright. That's as
-  far as automatic checking goes without a Safaricom API call, though: it can't confirm the code
-  actually exists or that its real amount matches what was deposited - a superadmin still
-  cross-checks the reference against the real Paybill statement by hand (the verification note
-  is where that gets recorded). The fully automatic version of this check - Safaricom's
-  Transaction Status Query API, looking up a code and confirming its real amount - needs
-  Initiator/security-credential access this project doesn't have yet.
+  be disputed right now; M-Pesa is already independently confirmed by its own gateway, and card
+  doesn't have an equivalent self-service dispute flow yet.
+- **The declare → confirm split (see §6) is itself the main safeguard against a driver
+  shortchanging a client.** Because the amount is fixed the moment the client states it - before
+  the driver ever touches money - there's no step where a driver could quietly confirm receiving
+  less than what was actually collected. This is a process control, not a technical guarantee
+  that the driver's declared amount matches the real world; the customer dispute link and the
+  superadmin verification note are what catch it if it doesn't.
 - **Refunds are tracked, not automated.** There's no live M-Pesa refund API wired up — instead,
   cancelling a paid booking creates a `Refund` record automatically, which shows up on the admin
   Refunds page as "Pending" until a superadmin sends the money back by hand and marks it
@@ -354,7 +356,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-283 automated backend tests currently cover booking validation, payment guards, payout timing and
+282 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -370,10 +372,10 @@ admin can log for any vehicle), the time-based service-due calculation and its e
 and the owning driver, profile photo upload/removal (including the file-size limit and that it
 appears in the login response), announcement audience targeting/permissions and the staff-propose
 /superadmin-approve workflow for client-facing announcements, the mandatory reconciliation note
-on cash-payout verification and the customer-facing cash-payment dispute flow (including that a
-dispute re-locks an already-verified payout), the driver cash-deposit flow (including that
-depositing less than what was collected is rejected and that a payout can't be verified until a
-matching deposit exists), and (using real threads against a live test transaction, not a
+on cash/card-payout verification and the customer-facing cash-payment dispute flow (including
+that a dispute re-locks an already-verified payout), the driver declare/confirm payment flow for
+cash, card, and M-Pesa (including that confirming takes no amount and that a cash confirmation
+notifies staff by email), and (using real threads against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:
 ```

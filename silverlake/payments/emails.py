@@ -1,33 +1,76 @@
 from decouple import config
+from django.conf import settings
+from django.contrib.auth import get_user_model
 
 from core.email_utils import send_branded_email
 
+from .models import PaymentMethod
 
-def send_cash_payment_recorded_email(payment):
-    """Sent the moment a driver records a cash payment - the customer didn't initiate this
-    themselves, so this is their one independent check: if they never actually paid, this
-    email is what tips them off to dispute it. Swallowed silently on failure so a
-    misconfigured SMTP server never blocks the payment from being recorded."""
+User = get_user_model()
+
+
+def send_offline_payment_recorded_email(payment):
+    """Sent the moment a driver confirms a cash or card payment - the customer didn't initiate
+    this confirmation themselves, so this is their one independent check: if they never actually
+    paid (or a different amount), this email is what tips them off to dispute it. Only cash gets
+    a dispute link right now (see payments.views.token_dispute_payment) - card doesn't have an
+    equivalent self-service flow yet. Swallowed silently on failure so a misconfigured SMTP
+    server never blocks the payment from being confirmed."""
     booking = payment.booking
     if not booking.customer_email:
         return
-    frontend_url = config('FRONTEND_URL', default='http://localhost:5173')
+    method_label = payment.get_method_display()
+    context = {
+        'first_name': booking.customer_name.split()[0],
+        'amount': f'{payment.amount:,.2f}',
+        'method_label': method_label,
+        'driver_name': payment.recorded_by_driver.full_name if payment.recorded_by_driver else 'your driver',
+        'booking_id': booking.pk,
+        'balance_due': f'{booking.balance_due:,.2f}',
+    }
+    if payment.method == PaymentMethod.CASH:
+        frontend_url = config('FRONTEND_URL', default='http://localhost:5173')
+        context['dispute_url'] = f'{frontend_url}/dispute-payment/{booking.customer_token}/{payment.pk}'
     try:
         send_branded_email(
-            subject=f'Cash payment recorded on your SilverLake booking #{booking.pk}',
-            template_name='emails/cash_payment_recorded.html',
-            context={
-                'first_name': booking.customer_name.split()[0],
-                'amount': f'{payment.amount:,.2f}',
-                'driver_name': payment.recorded_by_driver.full_name if payment.recorded_by_driver else 'your driver',
-                'booking_id': booking.pk,
-                'balance_due': f'{booking.balance_due:,.2f}',
-                'dispute_url': f'{frontend_url}/dispute-payment/{booking.customer_token}/{payment.pk}',
-            },
+            subject=f'{method_label} payment recorded on your SilverLake booking #{booking.pk}',
+            template_name='emails/offline_payment_recorded.html',
+            context=context,
             recipient_list=[booking.customer_email],
         )
     except Exception:
         pass
+
+
+def send_cash_payment_staff_notification_email(payment):
+    """Notifies every active staff account the moment a driver confirms a cash payment. Unlike
+    M-Pesa (a receipt number lands immediately) or card, cash leaves no independent record
+    anywhere until someone at SilverLake actually collects it from the driver - staff need their
+    own heads-up to keep track of it, not just find out later while reconciling payouts. Cash
+    only: M-Pesa and card already leave their own trail via a gateway."""
+    staff_emails = list(
+        User.objects.filter(is_staff=True, is_active=True).exclude(email='').values_list('email', flat=True)
+    )
+    if not staff_emails:
+        return
+
+    booking = payment.booking
+    send_branded_email(
+        subject=f'Cash payment recorded — SilverLake booking #{booking.pk}',
+        template_name='emails/cash_payment_staff_notification.html',
+        context={
+            'amount': f'{payment.amount:,.2f}',
+            'customer_name': booking.customer_name,
+            'driver_name': payment.recorded_by_driver.full_name if payment.recorded_by_driver else 'Unknown driver',
+            'booking_id': booking.pk,
+            'balance_due': f'{booking.balance_due:,.2f}',
+            'payments_url': f'{settings.FRONTEND_URL}/admin/payments',
+        },
+        # Real staff addresses go in bcc so they don't see each other's emails; the To:
+        # header just needs a placeholder so the message isn't sent with an empty To.
+        recipient_list=[settings.DEFAULT_FROM_EMAIL],
+        bcc=staff_emails,
+    )
 
 
 def send_refund_issued_email(refund):
@@ -80,22 +123,24 @@ def send_payout_paid_email(payout):
         pass
 
 
-def send_cash_payment_driver_confirmation_email(payment):
-    """Confirms to the driver themselves that their recorded cash payment went through, and
-    sets expectations that it needs admin verification before their payout is released. Swallowed
-    silently on failure so a misconfigured SMTP server never blocks the payment from being
-    recorded."""
+def send_offline_payment_driver_confirmation_email(payment):
+    """Confirms to the driver themselves that their confirmed cash/card payment went through,
+    and (for cash) sets expectations that it needs admin verification before their payout is
+    released. Swallowed silently on failure so a misconfigured SMTP server never blocks the
+    payment from being confirmed."""
     driver = payment.recorded_by_driver
     booking = payment.booking
     if not driver or not driver.email:
         return
+    method_label = payment.get_method_display()
     try:
         send_branded_email(
-            subject=f'Cash payment recorded — SilverLake booking #{booking.pk}',
-            template_name='emails/cash_payment_driver_confirmation.html',
+            subject=f'{method_label} payment recorded — SilverLake booking #{booking.pk}',
+            template_name='emails/offline_payment_driver_confirmation.html',
             context={
                 'first_name': driver.full_name.split()[0],
                 'amount': f'{payment.amount:,.2f}',
+                'method_label': method_label,
                 'customer_name': booking.customer_name,
                 'booking_id': booking.pk,
                 'balance_due': f'{booking.balance_due:,.2f}',

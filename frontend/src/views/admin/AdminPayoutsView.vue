@@ -122,9 +122,9 @@ onMounted(load)
                     v-if="payout.needs_verification"
                     class="inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold"
                     :class="payout.is_verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gold-500/10 text-gold-400'"
-                    :title="payout.is_verified ? payout.verification_note : 'Confirmed via a self-reported cash payment - not yet verified'"
+                    :title="payout.is_verified ? payout.verification_note : 'Confirmed via a self-reported cash/card payment - not yet verified'"
                   >
-                    {{ payout.is_verified ? 'Cash · Verified' : 'Cash · Needs Verification' }}
+                    {{ payout.is_verified ? 'Verified' : 'Needs Verification' }}
                   </span>
                   <span
                     v-if="payout.has_disputed_payment"
@@ -133,13 +133,6 @@ onMounted(load)
                   >
                     ⚠ Disputed
                   </span>
-                  <span
-                    v-if="payout.has_undeposited_cash"
-                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-gold-500/10 px-2 py-0.5 text-xs font-semibold text-gold-400"
-                    title="The driver hasn't logged a matching Paybill deposit for a cash payment on this booking yet - required before this can be verified."
-                  >
-                    ⚠ Not Deposited
-                  </span>
                 </div>
               </td>
               <td class="px-4 py-3 text-slate-400">{{ payout.payout_reference || '-' }}</td>
@@ -147,8 +140,7 @@ onMounted(load)
                 <template v-if="!payout.is_paid">
                   <button
                     v-if="payout.needs_verification && !payout.is_verified && auth.user?.is_superuser"
-                    :disabled="busyId === payout.id || payout.has_undeposited_cash"
-                    :title="payout.has_undeposited_cash ? 'Waiting on the driver to log a matching Paybill deposit first' : ''"
+                    :disabled="busyId === payout.id"
                     class="rounded-md border border-gold-500 px-2 py-1 text-xs font-semibold text-gold-400 hover:bg-gold-500 hover:text-navy-950 disabled:cursor-not-allowed disabled:opacity-50"
                     @click="verifyPayout(payout)"
                   >
