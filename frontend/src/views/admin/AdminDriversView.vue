@@ -6,6 +6,7 @@ import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
+const driverFilters = reactive({ search: '' })
 const {
   items: drivers,
   nextUrl: driversNextUrl,
@@ -14,7 +15,7 @@ const {
   error: driversError,
   load: loadDrivers,
   loadMore: loadMoreDrivers,
-} = useAdminList('/admin/drivers/')
+} = useAdminList('/admin/drivers/', driverFilters)
 
 const {
   items: applications,
@@ -377,6 +378,12 @@ onMounted(() => {
 
       <section class="mt-10">
         <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Live Drivers</h2>
+        <input
+          v-model="driverFilters.search"
+          type="text"
+          placeholder="Search by name, email or phone..."
+          class="mt-3 w-full max-w-sm rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-gold-400 focus:outline-none"
+        />
         <div class="mt-3 overflow-x-auto rounded-xl border border-navy-800">
           <table class="w-full text-left text-sm">
             <thead class="bg-navy-900 text-slate-400">

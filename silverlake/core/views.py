@@ -34,7 +34,7 @@ from .serializers import (
     AdminVehicleSerializer,
     AdminVehicleSubmissionSerializer,
 )
-from .utils import capture_replaced_files, delete_files
+from .utils import capture_replaced_files, delete_files, search_filter
 
 User = get_user_model()
 
@@ -218,11 +218,23 @@ class AdminUserViewSet(
     def get_queryset(self):
         organization = get_user_organization(self.request.user)
         if organization is None:
-            return self.queryset
-        # An org-admin manages their own organization's staff here, not customers (a customer
-        # isn't scoped to any one organization - they can book from any partner's fleet) and not
-        # any other organization's or SilverLake's own staff.
-        return self.queryset.filter(staff_organization__organization=organization)
+            queryset = self.queryset
+        else:
+            # An org-admin manages their own organization's staff here, not customers (a
+            # customer isn't scoped to any one organization - they can book from any partner's
+            # fleet) and not any other organization's or SilverLake's own staff.
+            queryset = self.queryset.filter(staff_organization__organization=organization)
+
+        params = self.request.query_params
+        queryset = search_filter(queryset, params.get('search', '').strip(), ['first_name', 'last_name', 'email'])
+        role = params.get('role', '').strip()
+        if role == 'customer':
+            queryset = queryset.filter(is_staff=False)
+        elif role == 'staff':
+            queryset = queryset.filter(is_staff=True, is_superuser=False)
+        elif role == 'superadmin':
+            queryset = queryset.filter(is_superuser=True)
+        return queryset
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -304,11 +316,15 @@ class AdminDriverViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         organization = get_user_organization(self.request.user)
         if organization is None:
-            return self.queryset
-        # Driver has no organization field of its own - scoped via which vehicle(s) they
-        # actually drive for this org. distinct() since a driver could in principle be linked to
-        # more than one of the org's vehicles.
-        return self.queryset.filter(vehicles__owner=organization).distinct()
+            queryset = self.queryset
+        else:
+            # Driver has no organization field of its own - scoped via which vehicle(s) they
+            # actually drive for this org. distinct() since a driver could in principle be linked
+            # to more than one of the org's vehicles.
+            queryset = self.queryset.filter(vehicles__owner=organization).distinct()
+
+        params = self.request.query_params
+        return search_filter(queryset, params.get('search', '').strip(), ['full_name', 'email', 'phone_number'])
 
     def perform_update(self, serializer):
         old_files = capture_replaced_files(serializer, ['photo'])
@@ -428,9 +444,20 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
 
     def get_queryset(self):
         organization = get_user_organization(self.request.user)
-        if organization is None:
-            return self.queryset
-        return self.queryset.filter(vehicle__owner=organization)
+        queryset = self.queryset if organization is None else self.queryset.filter(vehicle__owner=organization)
+
+        params = self.request.query_params
+        queryset = search_filter(
+            queryset, params.get('search', '').strip(),
+            ['customer_name', 'customer_phone', 'customer_email'],
+        )
+        status_param = params.get('status', '').strip()
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        service_type = params.get('service_type', '').strip()
+        if service_type:
+            queryset = queryset.filter(service_type=service_type)
+        return queryset
 
     def perform_update(self, serializer):
         old_driver_id = serializer.instance.driver_id
@@ -719,9 +746,17 @@ class AdminFleetViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         organization = get_user_organization(self.request.user)
-        if organization is None:
-            return self.queryset
-        return self.queryset.filter(owner=organization)
+        queryset = self.queryset if organization is None else self.queryset.filter(owner=organization)
+
+        params = self.request.query_params
+        queryset = search_filter(queryset, params.get('search', '').strip(), ['name', 'tagline'])
+        category = params.get('category', '').strip()
+        if category:
+            queryset = queryset.filter(category__slug=category)
+        is_available = params.get('is_available', '').strip()
+        if is_available in ('true', 'false'):
+            queryset = queryset.filter(is_available=(is_available == 'true'))
+        return queryset
 
     def perform_create(self, serializer):
         organization = get_user_organization(self.request.user)

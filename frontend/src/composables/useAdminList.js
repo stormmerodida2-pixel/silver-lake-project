@@ -1,8 +1,14 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 import apiClient from '../api/client'
 
-export function useAdminList(endpoint) {
+/**
+ * `filters`, if passed, is a `reactive()` object of query params (search text, status, etc.) -
+ * changing it debounces a fresh `load()` automatically, on top of the initial `onMounted(load)`
+ * every view already does. Omit it for a view with no search/filter UI - behaves exactly as
+ * before.
+ */
+export function useAdminList(endpoint, filters = null) {
   const items = ref([])
   const nextUrl = ref(null)
   const loading = ref(true)
@@ -13,7 +19,7 @@ export function useAdminList(endpoint) {
     loading.value = true
     error.value = ''
     try {
-      const { data } = await apiClient.get(endpoint)
+      const { data } = await apiClient.get(endpoint, filters ? { params: filters } : undefined)
       items.value = data.results ?? data
       nextUrl.value = data.next ?? null
     } catch (err) {
@@ -35,6 +41,17 @@ export function useAdminList(endpoint) {
     } finally {
       loadingMore.value = false
     }
+  }
+
+  if (filters) {
+    // A reactive object passed as watch source is deep-watched automatically - no explicit
+    // { deep: true } needed. Debounced so typing in a search box doesn't fire a request per
+    // keystroke.
+    let debounceTimer = null
+    watch(filters, () => {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(load, 300)
+    })
   }
 
   return { items, nextUrl, loading, loadingMore, error, load, loadMore }

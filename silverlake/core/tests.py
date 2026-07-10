@@ -1174,3 +1174,117 @@ class OrganizationScopingTests(APITestCase):
         self.client.force_authenticate(user=self.org_a_admin)
         response = self.client.post(f'/api/admin/fleet-partners/{self.org_a.id}/invite-admin/')
         self.assertEqual(response.status_code, 403)
+
+
+class AdminSearchAndFilterTests(APITestCase):
+    """Every admin list view got a search box and a couple of filter dropdowns - a blank
+    search/filter must always behave exactly like before (org-scoping tests above already cover
+    that), so these only check that a non-blank value actually narrows the result set."""
+
+    def setUp(self):
+        self.staff = User.objects.create_superuser(
+            username='search-staff@example.com', email='search-staff@example.com', password='pass12345!',
+        )
+        self.client.force_authenticate(user=self.staff)
+
+        self.customer = User.objects.create_user(
+            username='alice@example.com', email='alice@example.com',
+            first_name='Alice', last_name='Wonderland', password='pass12345!',
+        )
+        self.other_customer = User.objects.create_user(
+            username='bob@example.com', email='bob@example.com',
+            first_name='Bob', last_name='Builder', password='pass12345!',
+        )
+
+        self.driver = Driver.objects.create(full_name='Kip Keino', email='kip@example.com', phone_number='254711111111', is_active=True)
+        self.other_driver = Driver.objects.create(full_name='Wanjiru Njoroge', is_active=True)
+
+        self.vehicle = make_vehicle(name='Toyota Prado', price_per_day=Decimal('5000'))
+        self.other_vehicle = make_vehicle(name='Nissan Note', price_per_day=Decimal('2000'))
+
+        self.booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver,
+            customer_name='Alice Wonderland', customer_phone='254700111222', customer_email='alice@example.com',
+        )
+        self.other_booking = make_booking(
+            self.other_customer, self.other_vehicle,
+            customer_name='Bob Builder', customer_phone='254700333444', customer_email='bob@example.com',
+        )
+
+    # ── Bookings ─────────────────────────────────────────────────────────────
+    def test_booking_search_matches_customer_name(self):
+        response = self.client.get('/api/admin/bookings/', {'search': 'Wonderland'})
+        ids = [b['id'] for b in response.json().get('results', response.json())]
+        self.assertEqual(ids, [self.booking.id])
+
+    def test_booking_filter_by_status(self):
+        self.other_booking.status = BookingStatus.CANCELLED
+        self.other_booking.save(update_fields=['status'])
+        response = self.client.get('/api/admin/bookings/', {'status': BookingStatus.CANCELLED})
+        ids = [b['id'] for b in response.json().get('results', response.json())]
+        self.assertEqual(ids, [self.other_booking.id])
+
+    def test_booking_blank_search_returns_everything(self):
+        response = self.client.get('/api/admin/bookings/', {'search': ''})
+        ids = {b['id'] for b in response.json().get('results', response.json())}
+        self.assertEqual(ids, {self.booking.id, self.other_booking.id})
+
+    # ── Users ────────────────────────────────────────────────────────────────
+    def test_user_search_matches_email(self):
+        response = self.client.get('/api/admin/users/', {'search': 'alice@example.com'})
+        emails = [u['email'] for u in response.json().get('results', response.json())]
+        self.assertEqual(emails, ['alice@example.com'])
+
+    def test_user_filter_by_role_superadmin(self):
+        response = self.client.get('/api/admin/users/', {'role': 'superadmin'})
+        emails = [u['email'] for u in response.json().get('results', response.json())]
+        self.assertEqual(emails, ['search-staff@example.com'])
+
+    def test_user_filter_by_role_customer(self):
+        response = self.client.get('/api/admin/users/', {'role': 'customer'})
+        emails = {u['email'] for u in response.json().get('results', response.json())}
+        self.assertEqual(emails, {'alice@example.com', 'bob@example.com'})
+
+    # ── Fleet ────────────────────────────────────────────────────────────────
+    def test_fleet_search_matches_name(self):
+        response = self.client.get('/api/admin/fleet/', {'search': 'Prado'})
+        names = [v['name'] for v in response.json().get('results', response.json())]
+        self.assertEqual(names, ['Toyota Prado'])
+
+    def test_fleet_filter_by_availability(self):
+        self.other_vehicle.is_available = False
+        self.other_vehicle.save(update_fields=['is_available'])
+        response = self.client.get('/api/admin/fleet/', {'is_available': 'false'})
+        names = [v['name'] for v in response.json().get('results', response.json())]
+        self.assertEqual(names, ['Nissan Note'])
+
+    # ── Drivers ──────────────────────────────────────────────────────────────
+    def test_driver_search_matches_name(self):
+        response = self.client.get('/api/admin/drivers/', {'search': 'Keino'})
+        names = [d['full_name'] for d in response.json().get('results', response.json())]
+        self.assertEqual(names, ['Kip Keino'])
+
+    def test_driver_search_matches_email(self):
+        response = self.client.get('/api/admin/drivers/', {'search': 'kip@example.com'})
+        names = [d['full_name'] for d in response.json().get('results', response.json())]
+        self.assertEqual(names, ['Kip Keino'])
+
+    # ── Payments ─────────────────────────────────────────────────────────────
+    def test_payment_search_matches_mpesa_receipt(self):
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA, amount=Decimal('100'),
+            status=PaymentStatus.SUCCESSFUL, mpesa_receipt_number='ABC123XYZ',
+        )
+        Payment.objects.create(
+            booking=self.other_booking, method=PaymentMethod.MPESA, amount=Decimal('100'), status=PaymentStatus.SUCCESSFUL,
+        )
+        response = self.client.get('/api/payments/', {'search': 'ABC123XYZ'})
+        receipts = [p['mpesa_receipt_number'] for p in response.json().get('results', response.json())]
+        self.assertEqual(receipts, ['ABC123XYZ'])
+
+    def test_payment_filter_by_method(self):
+        Payment.objects.create(booking=self.booking, method=PaymentMethod.CASH, amount=Decimal('100'), status=PaymentStatus.SUCCESSFUL)
+        Payment.objects.create(booking=self.other_booking, method=PaymentMethod.MPESA, amount=Decimal('100'), status=PaymentStatus.SUCCESSFUL)
+        response = self.client.get('/api/payments/', {'method': PaymentMethod.CASH})
+        methods = {p['method'] for p in response.json().get('results', response.json())}
+        self.assertEqual(methods, {PaymentMethod.CASH})

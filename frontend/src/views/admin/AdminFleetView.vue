@@ -6,7 +6,8 @@ import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
-const { items: vehicles, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/fleet/')
+const filters = reactive({ search: '', category: '', is_available: '' })
+const { items: vehicles, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/fleet/', filters)
 const { items: driverOptions, load: loadDriverOptions } = useAdminList('/admin/drivers/')
 const { items: fleetTypes, load: loadFleetTypes } = useAdminList('/admin/fleet-types/')
 const { items: partnerOptions, load: loadPartnerOptions } = useAdminList('/admin/fleet-partners/')
@@ -282,6 +283,30 @@ onMounted(() => {
         </svg>
         Add Vehicle
       </button>
+    </div>
+
+    <div class="mt-4 flex flex-wrap gap-3">
+      <input
+        v-model="filters.search"
+        type="text"
+        placeholder="Search by name or tagline..."
+        class="min-w-64 flex-1 rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-gold-400 focus:outline-none"
+      />
+      <select
+        v-model="filters.category"
+        class="rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white focus:border-gold-400 focus:outline-none"
+      >
+        <option value="">All types</option>
+        <option v-for="cat in fleetTypes" :key="cat.slug" :value="cat.slug">{{ cat.name }}</option>
+      </select>
+      <select
+        v-model="filters.is_available"
+        class="rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white focus:border-gold-400 focus:outline-none"
+      >
+        <option value="">All availability</option>
+        <option value="true">Available</option>
+        <option value="false">Unavailable</option>
+      </select>
     </div>
 
     <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>

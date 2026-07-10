@@ -13,6 +13,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from bookings.models import Booking
 from core.audit import log_admin_action
 from core.permissions import IsSupportStaff, get_user_organization
+from core.utils import search_filter
 
 from .emails import send_cash_deposit_reminder_email, send_payment_reminder_email
 from .models import Payment, PaymentMethod, PaymentStatus
@@ -40,9 +41,20 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         organization = get_user_organization(self.request.user)
-        if organization is None:
-            return self.queryset
-        return self.queryset.filter(booking__vehicle__owner=organization)
+        queryset = self.queryset if organization is None else self.queryset.filter(booking__vehicle__owner=organization)
+
+        params = self.request.query_params
+        queryset = search_filter(
+            queryset, params.get('search', '').strip(),
+            ['mpesa_receipt_number', 'card_transaction_ref', 'booking__customer_name'],
+        )
+        method = params.get('method', '').strip()
+        if method:
+            queryset = queryset.filter(method=method)
+        payment_status = params.get('status', '').strip()
+        if payment_status:
+            queryset = queryset.filter(status=payment_status)
+        return queryset
 
     def get_object(self):
         obj = super().get_object()

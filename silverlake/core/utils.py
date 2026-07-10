@@ -1,3 +1,19 @@
+from django.db.models import Q
+
+
+def search_filter(queryset, search, fields):
+    """Case-insensitive OR search across the given fields (dotted lookups like
+    'booking__customer_name' work fine) - a no-op when search is blank, so callers can always
+    run this unconditionally rather than guarding it themselves. Shared by every admin viewset
+    that has a search box (core/views.py, payments/views.py)."""
+    if not search:
+        return queryset
+    query = Q()
+    for field in fields:
+        query |= Q(**{f'{field}__icontains': search})
+    return queryset.filter(query)
+
+
 def capture_replaced_files(serializer, field_names):
     """Call before serializer.save() on an update. Django never deletes a FileField/ImageField's
     previous file just because it's been reassigned to something else (a new upload, or None to

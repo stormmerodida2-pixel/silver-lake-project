@@ -1,10 +1,11 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
 
-const { items: payments, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/payments/')
+const filters = reactive({ search: '', method: '', status: '' })
+const { items: payments, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/payments/', filters)
 const busyId = ref(null)
 
 const methodBadge = {
@@ -70,6 +71,33 @@ onMounted(load)
     <p class="mt-1 text-sm text-slate-400">
       Every payment recorded against a booking - M-Pesa, card, or cash a driver reported on-site.
     </p>
+
+    <div class="mt-4 flex flex-wrap gap-3">
+      <input
+        v-model="filters.search"
+        type="text"
+        placeholder="Search by M-Pesa receipt, card ref or customer..."
+        class="min-w-64 flex-1 rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-gold-400 focus:outline-none"
+      />
+      <select
+        v-model="filters.method"
+        class="rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white focus:border-gold-400 focus:outline-none"
+      >
+        <option value="">All methods</option>
+        <option value="mpesa">M-Pesa</option>
+        <option value="cash">Cash</option>
+        <option value="card">Card</option>
+      </select>
+      <select
+        v-model="filters.status"
+        class="rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white focus:border-gold-400 focus:outline-none"
+      >
+        <option value="">All statuses</option>
+        <option value="successful">Successful</option>
+        <option value="pending">Pending</option>
+        <option value="failed">Failed</option>
+      </select>
+    </div>
 
     <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
     <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>

@@ -386,7 +386,8 @@ hand. Leaving it on "Never expires" keeps the old always-on behavior.
 ## 10. The Admin Dashboard
 
 A custom Vue dashboard at `/admin` (not Django's built-in admin) — everything staff need lives
-in one consistent UI:
+in one consistent UI. Bookings, Users, Fleet, Payments, and Drivers each have a debounced search
+box plus a couple of exact-match filter dropdowns, layered on top of org-scoping server-side:
 
 - **Dashboard** — revenue collected, platform fees earned, payouts owed/paid, bookings by status,
   user/driver counts (including pending applications and drivers currently away), fleet counts,
@@ -428,7 +429,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-366 automated backend tests currently cover booking validation, payment guards, payout timing and
+378 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -466,7 +467,10 @@ vehicle creation and staff invites, and is rejected from every SilverLake-only r
 Partners, fleet-type mutation, driver applications, vehicle submissions, the Activity Log - while
 a genuine SilverLake superadmin keeps unrestricted access to everything), the partner-registration
 and invite-staff email flows (auto-invite on registration, no-op without a contact email, resend
-via Invite Admin), and (using real threads
+via Invite Admin), the admin list search/filtering (a shared case-insensitive `search_filter`
+helper reused across Bookings, Users, Fleet, Payments, and Drivers, plus each view's own
+exact-match filters - status/service type, role, category/availability, method/status - always
+layered on top of, never instead of, org-scoping), and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:
