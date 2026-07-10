@@ -18,7 +18,7 @@ class AdminAnnouncementSerializer(serializers.ModelSerializer):
         model = Announcement
         fields = [
             'id', 'title', 'body', 'audience', 'is_active', 'status', 'review_note',
-            'created_by_name', 'reviewed_by_name', 'created_at',
+            'expires_at', 'created_by_name', 'reviewed_by_name', 'created_at',
         ]
         # status/review_note/reviewed_by are only ever set by the view (perform_create forces
         # them for staff proposals; approve/reject set them for a superadmin's decision) - never

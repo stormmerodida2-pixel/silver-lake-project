@@ -30,21 +30,24 @@ onMounted(load)
 </script>
 
 <template>
-  <div v-if="unread.length" class="space-y-2">
+  <div v-if="unread.length" class="space-y-3">
     <div
       v-for="announcement in unread"
       :key="announcement.id"
-      class="flex items-start gap-3 rounded-xl border border-gold-500/40 bg-gold-500/5 p-4"
+      class="flex items-start gap-3 rounded-xl border-l-4 border-gold-500 bg-white p-4 shadow-lg shadow-black/10"
     >
-      <svg class="mt-0.5 h-5 w-5 shrink-0 text-gold-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-      </svg>
+      <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-500/15 text-gold-600">
+        <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+        </svg>
+      </div>
       <div class="min-w-0 flex-1">
-        <p class="font-semibold text-white">{{ announcement.title }}</p>
-        <p class="mt-1 whitespace-pre-line text-sm text-slate-300">{{ announcement.body }}</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gold-600">Announcement</p>
+        <p class="mt-0.5 font-semibold text-navy-900">{{ announcement.title }}</p>
+        <p class="mt-1 whitespace-pre-line text-sm text-slate-600">{{ announcement.body }}</p>
       </div>
       <button
-        class="shrink-0 text-slate-400 transition-colors hover:text-white"
+        class="shrink-0 text-slate-400 transition-colors hover:text-navy-900"
         aria-label="Dismiss"
         @click="dismiss(announcement)"
       >

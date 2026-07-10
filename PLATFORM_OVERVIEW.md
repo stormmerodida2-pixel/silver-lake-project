@@ -319,6 +319,11 @@ rejecting keeps it off (optionally with a short note the submitting staff member
 own submission). Staff only ever see their own proposals in the admin list, not the full
 broadcast history.
 
+An announcement can optionally be given a **duration** ("Show For" in the creation form — 1/3/7/14/30
+days, or never) which sets `expires_at`; past that time it silently stops being served to its
+audience (and can no longer be marked read) without anyone having to remember to deactivate it by
+hand. Leaving it on "Never expires" keeps the old always-on behavior.
+
 ## 10. The Admin Dashboard
 
 A custom Vue dashboard at `/admin` (not Django's built-in admin) — everything staff need lives
@@ -364,7 +369,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-289 automated backend tests currently cover booking validation, payment guards, payout timing and
+294 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -378,8 +383,9 @@ trip), the trip start/end lifecycle (including the one case a late payment is al
 auto-complete a booking), vehicle service-history logging (driver scoped to their own vehicle;
 admin can log for any vehicle), the time-based service-due calculation and its exposure to staff
 and the owning driver, profile photo upload/removal (including the file-size limit and that it
-appears in the login response), announcement audience targeting/permissions and the staff-propose
-/superadmin-approve workflow for client-facing announcements, the mandatory reconciliation note
+appears in the login response), announcement audience targeting/permissions, the staff-propose
+/superadmin-approve workflow for client-facing announcements, and announcement expiry (past
+expires_at stops it showing or being markable read; no expires_at never expires), the mandatory reconciliation note
 on cash/card-payout verification and the customer-facing cash-payment dispute flow (including
 that a dispute re-locks an already-verified payout), the driver declare/confirm payment flow for
 cash, card, and M-Pesa (including that confirming takes no amount and that a cash confirmation

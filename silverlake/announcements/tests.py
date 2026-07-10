@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from drivers.models import Driver
@@ -238,3 +241,55 @@ class MyAnnouncementsTests(APITestCase):
         self.client.force_authenticate(user=self.client_user)
         response = self.client.post(f'/api/announcements/{self.for_staff.id}/mark-read/')
         self.assertEqual(response.status_code, 404)
+
+
+class AnnouncementExpiryTests(APITestCase):
+    """expires_at is optional - null means it never expires on its own. Past expires_at should
+    stop an otherwise-active, approved announcement from showing up at all."""
+
+    def setUp(self):
+        self.client_user = User.objects.create_user(username='expiry-client@example.com', password='pass12345!')
+        self.superadmin = User.objects.create_superuser(username='expiry-super@example.com', password='pass12345!')
+
+    def test_expired_announcement_is_not_visible(self):
+        Announcement.objects.create(
+            title='Expired', body='...', audience=AnnouncementAudience.CLIENTS,
+            expires_at=timezone.now() - timedelta(hours=1),
+        )
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.get('/api/announcements/mine/')
+        self.assertNotIn('Expired', [a['title'] for a in response.json()])
+
+    def test_future_expiry_still_visible(self):
+        Announcement.objects.create(
+            title='Not yet expired', body='...', audience=AnnouncementAudience.CLIENTS,
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.get('/api/announcements/mine/')
+        self.assertIn('Not yet expired', [a['title'] for a in response.json()])
+
+    def test_no_expiry_set_is_always_visible(self):
+        Announcement.objects.create(title='No expiry', body='...', audience=AnnouncementAudience.CLIENTS)
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.get('/api/announcements/mine/')
+        self.assertIn('No expiry', [a['title'] for a in response.json()])
+
+    def test_cannot_mark_read_an_expired_announcement(self):
+        expired = Announcement.objects.create(
+            title='Expired', body='...', audience=AnnouncementAudience.CLIENTS,
+            expires_at=timezone.now() - timedelta(hours=1),
+        )
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.post(f'/api/announcements/{expired.id}/mark-read/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_superadmin_can_set_expires_at_on_create(self):
+        self.client.force_authenticate(user=self.superadmin)
+        expiry = (timezone.now() + timedelta(days=7)).isoformat()
+        response = self.client.post('/api/admin/announcements/', {
+            'title': 'Sale ends soon', 'body': '...', 'audience': 'clients', 'expires_at': expiry,
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        announcement = Announcement.objects.get()
+        self.assertIsNotNone(announcement.expires_at)

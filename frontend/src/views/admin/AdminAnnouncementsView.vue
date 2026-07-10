@@ -26,6 +26,10 @@ const statusLabels = {
 const pending = computed(() => announcements.value.filter((a) => a.status === 'pending'))
 const decided = computed(() => announcements.value.filter((a) => a.status !== 'pending'))
 
+function isExpired(announcement) {
+  return !!announcement.expires_at && new Date(announcement.expires_at) <= new Date()
+}
+
 const showModal = ref(false)
 const saving = ref(false)
 const formError = ref('')
@@ -33,10 +37,20 @@ const form = reactive({
   title: '',
   body: '',
   audience: 'clients',
+  durationDays: '', // '' = never expires on its own
 })
 
+const durationOptions = [
+  { value: '', label: 'Never expires' },
+  { value: '1', label: '1 day' },
+  { value: '3', label: '3 days' },
+  { value: '7', label: '7 days' },
+  { value: '14', label: '14 days' },
+  { value: '30', label: '30 days' },
+]
+
 function openAddModal() {
-  Object.assign(form, { title: '', body: '', audience: 'clients' })
+  Object.assign(form, { title: '', body: '', audience: 'clients', durationDays: '' })
   formError.value = ''
   showModal.value = true
 }
@@ -49,7 +63,12 @@ async function saveAnnouncement() {
   }
   saving.value = true
   try {
-    const { data } = await apiClient.post('/admin/announcements/', form)
+    const expires_at = form.durationDays
+      ? new Date(Date.now() + Number(form.durationDays) * 24 * 60 * 60 * 1000).toISOString()
+      : null
+    const { data } = await apiClient.post('/admin/announcements/', {
+      title: form.title, body: form.body, audience: form.audience, expires_at,
+    })
     announcements.value.unshift(data)
     showModal.value = false
   } catch (err) {
@@ -219,6 +238,9 @@ onMounted(() => {
                 <span v-else-if="!announcement.is_active" class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                   Inactive
                 </span>
+                <span v-if="isExpired(announcement)" class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  Expired
+                </span>
               </div>
               <p class="mt-1 whitespace-pre-line text-sm text-slate-300">{{ announcement.body }}</p>
               <p v-if="announcement.status === 'rejected' && announcement.review_note" class="mt-2 text-xs text-red-400">
@@ -229,6 +251,9 @@ onMounted(() => {
                 {{ new Date(announcement.created_at).toLocaleString() }}
                 <template v-if="announcement.reviewed_by_name">
                   &middot; reviewed by {{ announcement.reviewed_by_name }}
+                </template>
+                <template v-if="announcement.expires_at">
+                  &middot; {{ isExpired(announcement) ? 'expired' : 'expires' }} {{ new Date(announcement.expires_at).toLocaleString() }}
                 </template>
               </p>
             </div>
@@ -304,6 +329,14 @@ onMounted(() => {
                   v-model="form.body" rows="4" required placeholder="What do they need to know?"
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 ></textarea>
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Show For</label>
+                <select v-model="form.durationDays"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                  <option v-for="opt in durationOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                <p class="mt-1 text-xs text-slate-500">Stops showing to its audience automatically after this - you can still deactivate it sooner by hand.</p>
               </div>
 
               <div class="flex justify-end gap-3 pt-2">

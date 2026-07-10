@@ -1,4 +1,6 @@
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -9,6 +11,9 @@ from core.permissions import IsSuperAdmin, IsSupportStaff
 
 from .models import Announcement, AnnouncementAudience, AnnouncementStatus
 from .serializers import AdminAnnouncementSerializer, MyAnnouncementSerializer
+
+# Not expired = no expires_at at all, or one that hasn't passed yet.
+_NOT_EXPIRED = Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
 
 
 def _audiences_for(user):
@@ -101,7 +106,7 @@ class MyAnnouncementsView(generics.ListAPIView):
 
     def get_queryset(self):
         return Announcement.objects.filter(
-            is_active=True, status=AnnouncementStatus.APPROVED,
+            _NOT_EXPIRED, is_active=True, status=AnnouncementStatus.APPROVED,
             audience__in=_audiences_for(self.request.user),
         ).prefetch_related('read_by')
 
@@ -111,7 +116,7 @@ class MarkAnnouncementReadView(APIView):
 
     def post(self, request, pk):
         announcement = get_object_or_404(
-            Announcement, pk=pk, is_active=True, status=AnnouncementStatus.APPROVED,
+            Announcement.objects.filter(_NOT_EXPIRED), pk=pk, is_active=True, status=AnnouncementStatus.APPROVED,
             audience__in=_audiences_for(request.user),
         )
         announcement.read_by.add(request.user)

@@ -42,6 +42,8 @@ class Announcement(models.Model):
     review_note = models.CharField(max_length=255, blank=True, help_text='Optional reason, shown to the submitter if rejected.')
     # Who has seen it - just presence, not a timestamped read-receipt log.
     read_by = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name='read_announcements')
+    # Null means it never expires on its own - still has to be deactivated/deleted by hand.
+    expires_at = models.DateTimeField(null=True, blank=True, help_text='Stops showing to its audience after this time. Leave blank to never expire on its own.')
 
     created_at = models.DateTimeField(auto_now_add=True)
 
