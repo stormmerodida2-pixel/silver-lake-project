@@ -233,7 +233,9 @@ onMounted(async () => {
                 <th class="px-4 py-3">Bookings</th>
                 <th class="px-4 py-3">Revenue</th>
                 <th class="px-4 py-3">Collected</th>
-                <th class="px-4 py-3">Fee Owed to SilverLake</th>
+                <th class="px-4 py-3">Platform Fee Earned</th>
+                <th class="px-4 py-3">Payout Owed</th>
+                <th class="px-4 py-3">Payout Paid</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-navy-800 bg-navy-950">
@@ -243,14 +245,17 @@ onMounted(async () => {
                 <td class="px-4 py-3 text-slate-300">{{ partner.bookings_count }}</td>
                 <td class="px-4 py-3 text-slate-300">{{ fmt(partner.total_revenue) }}</td>
                 <td class="px-4 py-3 text-slate-300">{{ fmt(partner.total_collected) }}</td>
-                <td class="px-4 py-3 font-semibold text-gold-400">{{ fmt(partner.fee_owed) }}</td>
+                <td class="px-4 py-3 font-semibold text-gold-400">{{ fmt(partner.platform_fee_earned) }}</td>
+                <td class="px-4 py-3 font-semibold text-red-400">{{ fmt(partner.payout_owed) }}</td>
+                <td class="px-4 py-3 text-slate-300">{{ fmt(partner.payout_paid) }}</td>
               </tr>
             </tbody>
           </table>
         </div>
         <p class="mt-2 text-xs text-slate-500">
-          "Fee Owed" isn't collected automatically yet - direct Paybill routing and a settlement
-          ledger aren't built, so this is visibility only for now.
+          SilverLake keeps the Platform Fee as revenue; the rest is owed back to the partner via
+          Admin → Payouts, same disbursement flow as an individual driver-partner's payout - money
+          still lands in SilverLake's own Paybill either way (no per-partner routing is wired up).
         </p>
       </section>
 

@@ -88,7 +88,7 @@ onMounted(load)
         <table class="w-full text-left text-sm">
           <thead class="bg-navy-900 text-slate-400">
             <tr>
-              <th class="px-4 py-3">Driver</th>
+              <th class="px-4 py-3">Recipient</th>
               <th class="px-4 py-3">Booking</th>
               <th class="px-4 py-3">Payout Amount</th>
               <th class="px-4 py-3">Booking Paid</th>
@@ -99,7 +99,12 @@ onMounted(load)
           </thead>
           <tbody class="divide-y divide-navy-800 bg-navy-950">
             <tr v-for="payout in filteredPayouts" :key="payout.id">
-              <td class="px-4 py-3 text-white">{{ payout.driver_name }}</td>
+              <td class="px-4 py-3 text-white">
+                {{ payout.driver_name || payout.organization_name }}
+                <span v-if="payout.organization_name" class="ml-1 rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-blue-400">
+                  Org
+                </span>
+              </td>
               <td class="px-4 py-3 text-slate-300">
                 #{{ payout.booking_id }}
                 <div class="text-xs text-slate-500">{{ payout.customer_name }}</div>

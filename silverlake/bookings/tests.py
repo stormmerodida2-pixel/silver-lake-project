@@ -223,16 +223,20 @@ class PlatformFeeOwnershipTests(TestCase):
         self.assertEqual(booking.driver_payout_amount, booking.total_amount - booking.platform_fee_amount)
         self.assertTrue(DriverPayout.objects.filter(booking=booking).exists())
 
-    def test_fleet_partner_owned_vehicle_creates_no_driver_payout_either(self):
-        # Settlement for a FleetPartner-owned vehicle isn't a DriverPayout at all (see
-        # fleet.models.FleetPartner) - not built yet, but a driver operating one of these
-        # shouldn't get an individual 85% cut regardless.
-        partner = FleetPartner.objects.create(name='Some Fleet Co')
+    def test_fleet_partner_owned_vehicle_pays_out_to_the_organization_not_the_driver(self):
+        # A driver merely operating a FleetPartner's vehicle never gets an individual cut - the
+        # payout goes to the organization, at that partner's own negotiated rate, not the fixed
+        # 15% individual driver-partner rate.
+        partner = FleetPartner.objects.create(name='Some Fleet Co', platform_fee_percent=Decimal('10'))
         vehicle = make_vehicle(name='Partner Car', driver=self.driver, is_company_owned=False, owner=partner)
         booking = self._paid_booking(vehicle)
-        self.assertEqual(booking.platform_fee_amount, 0)
-        self.assertEqual(booking.driver_payout_amount, 0)
-        self.assertFalse(DriverPayout.objects.filter(booking=booking).exists())
+        self.assertEqual(booking.platform_fee_amount, booking.total_amount * Decimal('10') / Decimal('100'))
+        self.assertEqual(booking.driver_payout_amount, booking.total_amount - booking.platform_fee_amount)
+
+        payout = DriverPayout.objects.get(booking=booking)
+        self.assertIsNone(payout.driver_id)
+        self.assertEqual(payout.organization_id, partner.id)
+        self.assertEqual(payout.amount, booking.driver_payout_amount)
 
     def test_self_drive_booking_never_creates_a_payout_regardless_of_ownership(self):
         vehicle = make_vehicle(name='Self Drive Car', driver=self.driver, is_company_owned=False)

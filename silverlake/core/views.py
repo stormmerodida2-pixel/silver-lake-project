@@ -121,7 +121,15 @@ class AdminStatsView(APIView):
                 partner_collected = Payment.objects.filter(
                     status=PaymentStatus.SUCCESSFUL, booking__vehicle__owner=partner,
                 ).exclude(booking__status=BookingStatus.CANCELLED).aggregate(total=Sum('amount'))['total'] or 0
-                fee_owed = (Decimal(partner_collected) * partner.platform_fee_percent / Decimal('100')).quantize(Decimal('0.01'))
+                # SilverLake's own cut, kept as revenue. The remainder is owed BACK to the
+                # partner via a real DriverPayout (organization=partner, see
+                # Booking._ensure_driver_payout) - money currently still lands in SilverLake's
+                # own Paybill regardless of ownership, so this is a real payable, not a
+                # speculative estimate.
+                platform_fee_earned = (Decimal(partner_collected) * partner.platform_fee_percent / Decimal('100')).quantize(Decimal('0.01'))
+                partner_payouts = DriverPayout.objects.filter(organization=partner)
+                payout_owed = partner_payouts.filter(is_paid=False).aggregate(total=Sum('amount'))['total'] or 0
+                payout_paid = partner_payouts.filter(is_paid=True).aggregate(total=Sum('amount'))['total'] or 0
                 fleet_partners.append({
                     'id': partner.id,
                     'name': partner.name,
@@ -129,7 +137,9 @@ class AdminStatsView(APIView):
                     'bookings_count': partner_bookings.count(),
                     'total_revenue': partner_revenue,
                     'total_collected': partner_collected,
-                    'fee_owed': fee_owed,
+                    'platform_fee_earned': platform_fee_earned,
+                    'payout_owed': payout_owed,
+                    'payout_paid': payout_paid,
                 })
 
         return Response({
@@ -512,7 +522,7 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
     """Staff-only view of what's owed to drivers. Everyone can see the ledger; only
     superadmins can actually mark a payout as disbursed, since that's real money moving."""
 
-    queryset = DriverPayout.objects.all().select_related('driver', 'booking').order_by('is_paid', '-created_at')
+    queryset = DriverPayout.objects.all().select_related('driver', 'organization', 'booking').order_by('is_paid', '-created_at')
     serializer_class = AdminDriverPayoutSerializer
 
     def get_permissions(self):

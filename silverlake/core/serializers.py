@@ -114,7 +114,8 @@ class AdminVehicleSubmissionSerializer(serializers.ModelSerializer):
 
 
 class AdminDriverPayoutSerializer(serializers.ModelSerializer):
-    driver_name = serializers.CharField(source='driver.full_name', read_only=True)
+    driver_name = serializers.SerializerMethodField()
+    organization_name = serializers.SerializerMethodField()
     booking_id = serializers.IntegerField(source='booking.id', read_only=True)
     customer_name = serializers.CharField(source='booking.customer_name', read_only=True)
     # Payouts are only ever created once a booking is fully paid (see Booking._ensure_driver_payout),
@@ -129,16 +130,22 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
     class Meta:
         model = DriverPayout
         fields = [
-            'id', 'driver', 'driver_name', 'booking_id', 'customer_name',
+            'id', 'driver', 'driver_name', 'organization', 'organization_name', 'booking_id', 'customer_name',
             'booking_total_amount', 'booking_amount_paid', 'booking_balance_due',
             'amount', 'is_paid', 'paid_at', 'payout_reference', 'notes',
             'needs_verification', 'is_verified', 'verification_note', 'verified_at',
             'has_disputed_payment', 'has_undeposited_cash', 'created_at',
         ]
         read_only_fields = [
-            'driver', 'amount', 'paid_at', 'needs_verification', 'is_verified',
+            'driver', 'organization', 'amount', 'paid_at', 'needs_verification', 'is_verified',
             'verification_note', 'verified_at', 'created_at',
         ]
+
+    def get_driver_name(self, obj):
+        return obj.driver.full_name if obj.driver_id else None
+
+    def get_organization_name(self, obj):
+        return obj.organization.name if obj.organization_id else None
 
     def get_has_disputed_payment(self, obj):
         return obj.booking.payments.filter(is_disputed=True).exists()

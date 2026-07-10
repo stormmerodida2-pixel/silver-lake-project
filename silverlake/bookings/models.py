@@ -204,30 +204,44 @@ class Booking(models.Model):
         return self.amount_paid >= self.deposit_amount
 
     @property
-    def _driver_owns_the_vehicle(self):
-        """Whether there's actually a driver payout to compute at all - only true for an
-        individual driver-partner's own car (Vehicle.is_company_owned=False, no FleetPartner
-        owner). A company-owned vehicle's assigned driver is an employee/operator, not an owner,
-        so the full fare is SilverLake's - no payout. A FleetPartner-owned vehicle's cut goes to
-        the partner, not the driver operating it, and isn't a DriverPayout at all (see
-        FleetPartner) - not handled here yet, since routing/settlement for that case isn't built."""
-        if self.service_type != ServiceType.WITH_DRIVER or not self.driver_id or not self.vehicle_id:
+    def _has_payout_recipient(self):
+        """Whether *someone* actually earns a cut of this with-driver booking - an individual
+        driver-partner's own car (Vehicle.is_company_owned=False, no FleetPartner owner), or a
+        FleetPartner-owned vehicle (regardless of who's assigned to drive it). A company-owned
+        vehicle's assigned driver is an employee/operator, not an owner, so the full fare is
+        SilverLake's - no payout at all."""
+        if self.service_type != ServiceType.WITH_DRIVER or not self.vehicle_id:
             return False
-        return not self.vehicle.is_company_owned and not self.vehicle.owner_id
+        vehicle = self.vehicle
+        if vehicle.owner_id:
+            return True
+        return not vehicle.is_company_owned and bool(self.driver_id)
+
+    @property
+    def _payout_fee_percent(self):
+        """SilverLake's cut - the fixed platform rate for an individual driver-partner, or that
+        specific FleetPartner's own negotiated rate. Zero (meaningless) when there's no payout
+        recipient at all - callers should check _has_payout_recipient first, not rely on this
+        alone, since a partner can legitimately negotiate a real 0% rate."""
+        if not self._has_payout_recipient:
+            return Decimal('0')
+        return self.vehicle.owner.platform_fee_percent if self.vehicle.owner_id else self.PLATFORM_FEE_PERCENT
 
     @property
     def platform_fee_amount(self):
-        """SilverLake's cut, taken from the driver's payout - only meaningful when the assigned
-        driver actually owns the vehicle (see _driver_owns_the_vehicle)."""
-        if not self._driver_owns_the_vehicle:
+        """SilverLake's cut, taken from the payout - only meaningful when someone actually earns
+        a cut of this booking (see _has_payout_recipient)."""
+        if not self._has_payout_recipient:
             return Decimal('0')
-        return (self.total_amount * self.PLATFORM_FEE_PERCENT / Decimal('100')).quantize(Decimal('0.01'))
+        return (self.total_amount * self._payout_fee_percent / Decimal('100')).quantize(Decimal('0.01'))
 
     @property
     def driver_payout_amount(self):
-        """What the assigned driver is actually paid out, after the platform fee - zero unless
-        they own the vehicle (see _driver_owns_the_vehicle)."""
-        if not self._driver_owns_the_vehicle:
+        """What's actually paid out, after the platform fee - to the driver-partner who owns the
+        vehicle, or to the FleetPartner organization that does (see Booking._ensure_driver_payout
+        for which). Zero unless someone earns a cut at all (see _has_payout_recipient) - note
+        this can still be the full total_amount if a partner's own rate happens to be 0%."""
+        if not self._has_payout_recipient:
             return Decimal('0')
         return self.total_amount - self.platform_fee_amount
 
@@ -378,13 +392,16 @@ class Booking(models.Model):
             pass  # Never crash a booking over email
 
     def _ensure_driver_payout(self):
-        """Records what's owed to the driver once the booking is fully paid - not merely
-        deposited, since the driver's cut is calculated on the whole trip value and shouldn't
-        be queued for payout while the business has only actually collected a fraction of that
-        (e.g. just the 30% deposit). Doesn't pay them - staff mark DriverPayout.is_paid once the
-        money has actually been disbursed. If any of the payments behind this were self-reported
-        cash or card (no independent gateway confirming either, unlike M-Pesa), the payout is
-        flagged for admin to verify before it can be paid out."""
+        """Records what's owed once the booking is fully paid - not merely deposited, since the
+        payout is calculated on the whole trip value and shouldn't be queued while the business
+        has only actually collected a fraction of that (e.g. just the 30% deposit). Owed to the
+        driver-partner who owns the vehicle, or to the FleetPartner organization that does (see
+        _has_payout_recipient) - money for either currently still lands in SilverLake's own
+        Paybill regardless (no per-partner routing is wired up), so this is the same kind of "we
+        owe you, staff disburse by hand" record either way. Doesn't pay anyone - staff mark
+        DriverPayout.is_paid once the money has actually been sent out. If any of the payments
+        behind this were self-reported cash or card (no independent gateway confirming either,
+        unlike M-Pesa), the payout is flagged for admin to verify before it can be paid out."""
         if self.driver_payout_amount <= 0 or self.balance_due > 0:
             return
         from payments.models import DriverPayout, PaymentMethod, PaymentStatus
@@ -393,11 +410,10 @@ class Booking(models.Model):
             status=PaymentStatus.SUCCESSFUL, method__in=(PaymentMethod.CASH, PaymentMethod.CARD),
         ).exists()
 
-        DriverPayout.objects.get_or_create(
-            booking=self,
-            defaults={
-                'driver_id': self.driver_id,
-                'amount': self.driver_payout_amount,
-                'needs_verification': has_offline_payment,
-            },
-        )
+        defaults = {'amount': self.driver_payout_amount, 'needs_verification': has_offline_payment}
+        if self.vehicle.owner_id:
+            defaults['organization_id'] = self.vehicle.owner_id
+        else:
+            defaults['driver_id'] = self.driver_id
+
+        DriverPayout.objects.get_or_create(booking=self, defaults=defaults)

@@ -249,13 +249,17 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
   hand a partner a password directly. If `contact_email` wasn't set at registration, the
   **Invite Admin** button sends it once it's added; a partner's own org-admin can also invite more
   staff into their own organization from Admin → Users → Invite Staff, same secure email flow.
-  A partner's own Paybill credentials and platform fee percentage (default 10%, configurable per
-  partner) are captured now (`fleet.FleetPartner`), but **payment routing to a partner's own
-  Paybill isn't wired up yet** — client STK pushes still go through SilverLake's own Paybill for
-  every vehicle, partner-owned or not, until that's built. A FleetPartner-owned vehicle
-  (`Vehicle.owner` set) also creates no `DriverPayout` — the eventual settlement for these is a
-  partner owing SilverLake the fee (the reverse of a driver payout, since the money would land
-  directly in the partner's own account), not yet implemented.
+  Every client payment — for SilverLake's own fleet, an individual driver-partner's car, or a
+  FleetPartner's own vehicle — goes through **SilverLake's single Paybill**, by design: a
+  partner's own Paybill/Till number is captured for record-keeping (`fleet.FleetPartner`) but
+  deliberately isn't used to route real payments, since routing money away from SilverLake's own
+  account would make the platform fee harder to actually collect, not easier. A FleetPartner-owned
+  vehicle's booking creates a real `DriverPayout` — same mechanism as an individual driver-partner,
+  just with `organization` set instead of `driver`, and at that partner's own negotiated
+  `platform_fee_percent` instead of the fixed 15% individual rate. SilverLake keeps the fee as
+  revenue immediately (`platform_fees_earned`/the dashboard's "Platform Fee Earned"); the remainder
+  is owed back to the partner and disbursed by staff through the exact same Admin → Payouts
+  verify/mark-paid flow as any driver payout.
 - **A payout is only created once the booking is fully paid** — not merely deposited — so the
   business never queues a payout for money it hasn't actually collected yet.
 - **Cash/card-sourced payouts need explicit sign-off.** If any payment behind a payout was cash
@@ -424,7 +428,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-366 automated backend tests currently cover booking validation, payment guards, payout timing and
+367 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -450,16 +454,19 @@ booking-balance-reminder, and cash-deposit-reminder actions and their one-per-ho
 cash-to-Paybill deposit logging (amount can't be less than collected, reference format-validated
 and normalized to uppercase, one deposit per payment) and its payout-verification gate (cash needs
 a matching deposit; card doesn't), fleet-partner CRUD (superadmin-only, write-only Paybill
-secret/passkey) and the ownership-aware payout split (company-owned and FleetPartner-owned
-vehicles create no driver payout; a driver-partner's own car still does), the superadmin-only
-per-partner dashboard breakdown (bookings/revenue/collected/fee-owed, cancelled bookings
+secret/passkey, and that an org-admin can never change even their own platform fee), the
+ownership-aware payout split routed to the right recipient (company-owned vehicles create no
+payout at all; a driver-partner's own car pays the driver at the fixed 15% rate; a
+FleetPartner-owned vehicle pays the *organization*, not the driver operating it, at that
+partner's own negotiated rate), the superadmin-only per-partner dashboard breakdown
+(bookings/revenue/collected/platform-fee-earned/payout-owed/payout-paid, cancelled bookings
 excluded, inactive partners excluded), the full organization-scoping sweep (an Org Admin sees only
-their own vehicles/bookings/payments/refunds/staff, is forced into their own org on vehicle
-creation and staff invites, and is rejected from every SilverLake-only resource - Fleet Partners,
-fleet-type mutation, driver applications, vehicle submissions, the Activity Log - while a genuine
-SilverLake superadmin keeps unrestricted access to everything), the partner-registration and
-invite-staff email flows (auto-invite on registration, no-op without a contact email, resend via
-Invite Admin), and (using real threads
+their own vehicles/bookings/payments/payouts/refunds/staff, is forced into their own org on
+vehicle creation and staff invites, and is rejected from every SilverLake-only resource - Fleet
+Partners, fleet-type mutation, driver applications, vehicle submissions, the Activity Log - while
+a genuine SilverLake superadmin keeps unrestricted access to everything), the partner-registration
+and invite-staff email flows (auto-invite on registration, no-op without a contact email, resend
+via Invite Admin), and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:
@@ -491,12 +498,11 @@ Not broken, but worth a conscious decision before going fully live:
   customers browse one shared fleet across every organization; see §3). Reviews scope via a
   booking's vehicle, so older free-form testimonials with no booking attached never show up in an
   org's own queue.
-- **A `FleetPartner`'s own Paybill isn't actually used for payment routing yet** — their
-  credentials are captured but every client payment still goes through SilverLake's single
-  configured Paybill regardless of which vehicle it's for. Real multi-tenant M-Pesa routing needs
-  each partner to have their own Safaricom Daraja API app/shortcode (a business step with
-  Safaricom, not just code) and `payments/mpesa.py` to resolve which credentials to use per
-  booking at STK-push time.
+- **A `FleetPartner`'s own Paybill/Daraja credentials are captured but deliberately unused** —
+  confirmed with the user (2026-07-10) that this stays this way: every client payment routes
+  through SilverLake's single Paybill regardless of vehicle ownership, precisely so the platform
+  fee is never at risk of not being collected. Don't build per-partner STK-push routing unless the
+  user explicitly asks for it again - it was proposed, then deliberately reversed.
 
 See `PAYMENT_SECURITY.md` for a deeper dive specifically on the payment-trust fixes, and the
 separate business-model document for the revenue/growth reasoning behind the driver-partner

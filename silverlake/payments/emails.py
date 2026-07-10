@@ -124,12 +124,17 @@ def send_refund_issued_email(refund):
 
 
 def send_payout_paid_email(payout):
-    """Sent when a driver-partner's payout is marked paid - their one confirmation/receipt that
-    the money actually went out, beyond checking their own account. No-ops if the driver has no
-    email on file; swallowed silently on failure so a misconfigured SMTP server never blocks the
-    payout from being marked paid."""
-    driver = payout.driver
-    if not driver.email:
+    """Sent when a payout is marked paid - the recipient's one confirmation/receipt that the
+    money actually went out, beyond checking their own account. The recipient is either the
+    individual driver-partner who owns the vehicle, or the FleetPartner organization that does
+    (see payments.models.DriverPayout) - whichever it is, this is their notification. No-ops if
+    they have no email on file; swallowed silently on failure so a misconfigured SMTP server
+    never blocks the payout from being marked paid."""
+    if payout.driver_id:
+        recipient_name, recipient_email = payout.driver.full_name, payout.driver.email
+    else:
+        recipient_name, recipient_email = payout.organization.name, payout.organization.contact_email
+    if not recipient_email:
         return
     booking = payout.booking
     try:
@@ -137,13 +142,13 @@ def send_payout_paid_email(payout):
             subject=f'Your payout has been paid — SilverLake booking #{booking.pk}',
             template_name='emails/payout_paid.html',
             context={
-                'first_name': driver.full_name.split()[0],
+                'first_name': recipient_name.split()[0],
                 'amount': f'{payout.amount:,.2f}',
                 'booking_id': booking.pk,
                 'customer_name': booking.customer_name,
                 'reference': payout.payout_reference,
             },
-            recipient_list=[driver.email],
+            recipient_list=[recipient_email],
         )
     except Exception:
         pass

@@ -84,12 +84,21 @@ class CashDeposit(models.Model):
 
 
 class DriverPayout(models.Model):
-    """What SilverLake owes a driver-partner for a with-driver booking, after the platform fee."""
+    """What SilverLake owes for a with-driver booking, after the platform fee - to the
+    individual driver-partner who owns the vehicle, or to the FleetPartner organization that
+    owns it (exactly one of `driver`/`organization` is ever set, not enforced at the DB level -
+    see Booking._ensure_driver_payout, the only place these get created). Same mechanism either
+    way: staff verify (if the booking's payment was self-reported cash/card) then mark it paid
+    with a reference once the money's actually been sent out by hand."""
 
     booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name='driver_payout')
-    # PROTECT, not CASCADE - deleting a driver shouldn't silently take their payout history
-    # (paid or not) with them. A driver with payouts on file has to be suspended, not deleted.
-    driver = models.ForeignKey(Driver, on_delete=models.PROTECT, related_name='payouts')
+    # PROTECT, not CASCADE - deleting a driver/partner shouldn't silently take their payout
+    # history (paid or not) with them. A driver with payouts on file has to be suspended, not
+    # deleted; a FleetPartner with payouts on file can't be deleted at all (no suspend concept).
+    driver = models.ForeignKey(Driver, null=True, blank=True, on_delete=models.PROTECT, related_name='payouts')
+    organization = models.ForeignKey(
+        'fleet.FleetPartner', null=True, blank=True, on_delete=models.PROTECT, related_name='payouts',
+    )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     is_paid = models.BooleanField(default=False)
     paid_at = models.DateTimeField(null=True, blank=True)
@@ -120,7 +129,8 @@ class DriverPayout(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f'{self.driver.full_name} - KES {self.amount} ({"paid" if self.is_paid else "pending"})'
+        recipient = self.driver.full_name if self.driver_id else self.organization.name
+        return f'{recipient} - KES {self.amount} ({"paid" if self.is_paid else "pending"})'
 
     def verify(self, note):
         self.is_verified = True

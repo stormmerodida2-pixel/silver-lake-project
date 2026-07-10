@@ -735,6 +735,7 @@ class AdminStatsFleetPartnerTests(APITestCase):
     def test_superadmin_sees_fleet_partner_breakdown(self):
         booking = make_booking(self.customer, self.vehicle, status=BookingStatus.PENDING)
         Payment.objects.create(booking=booking, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL)
+        booking.confirm_if_deposit_met()  # triggers the real DriverPayout(organization=partner)
 
         self.client.force_authenticate(user=self.superadmin)
         response = self.client.get('/api/admin/stats/')
@@ -747,7 +748,10 @@ class AdminStatsFleetPartnerTests(APITestCase):
         self.assertEqual(entry['bookings_count'], 1)
         self.assertEqual(Decimal(str(entry['total_revenue'])), booking.total_amount)
         self.assertEqual(Decimal(str(entry['total_collected'])), booking.total_amount)
-        self.assertEqual(Decimal(str(entry['fee_owed'])), (booking.total_amount * Decimal('10') / Decimal('100')).quantize(Decimal('0.01')))
+        expected_fee = (booking.total_amount * Decimal('10') / Decimal('100')).quantize(Decimal('0.01'))
+        self.assertEqual(Decimal(str(entry['platform_fee_earned'])), expected_fee)
+        self.assertEqual(Decimal(str(entry['payout_owed'])), booking.total_amount - expected_fee)
+        self.assertEqual(Decimal(str(entry['payout_paid'])), 0)
 
     def test_cancelled_bookings_are_excluded_from_partner_totals(self):
         booking = make_booking(self.customer, self.vehicle, status=BookingStatus.CANCELLED)
@@ -1041,6 +1045,17 @@ class OrganizationScopingTests(APITestCase):
         self.client.force_authenticate(user=self.org_a_admin)
         response = self.client.get('/api/admin/fleet-partners/')
         self.assertEqual(response.status_code, 403)
+
+    def test_org_admin_cannot_change_their_own_platform_fee(self):
+        # Only a genuine SilverLake superadmin can ever touch platform_fee_percent - not even an
+        # org-admin editing their own organization's record.
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.patch(
+            f'/api/admin/fleet-partners/{self.org_a.id}/', {'platform_fee_percent': '0'}, format='json',
+        )
+        self.assertEqual(response.status_code, 403)
+        self.org_a.refresh_from_db()
+        self.assertEqual(self.org_a.platform_fee_percent, Decimal('10'))
 
     def test_org_admin_cannot_create_a_fleet_type(self):
         self.client.force_authenticate(user=self.org_a_admin)
