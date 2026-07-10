@@ -2,7 +2,9 @@
 import { onMounted, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import { useAuthStore } from '../../stores/auth'
 
+const auth = useAuthStore()
 const stats = ref(null)
 const loading = ref(true)
 const error = ref('')
@@ -39,6 +41,22 @@ onMounted(async () => {
     <div v-else class="space-y-10">
       <!-- Page title -->
       <h1 class="font-[Georgia] text-2xl font-bold text-white">Dashboard</h1>
+
+      <!-- Prompts a freshly-invited account (see core.services.invite_staff_account) to fill in
+           their name - registration only ever collects the organization's own details, never
+           the actual person's, so this stays without them until they do. -->
+      <RouterLink
+        v-if="!auth.user?.first_name"
+        to="/account/profile"
+        class="flex items-center justify-between gap-3 rounded-2xl border border-gold-500/40 bg-gold-500/5 p-5 transition hover:border-gold-400"
+      >
+        <div>
+          <p class="font-[Georgia] text-lg font-bold text-white">Welcome{{ auth.user?.organization_name ? ` to ${auth.user.organization_name}'s dashboard` : '' }}!</p>
+          <p class="mt-1 text-sm text-slate-400">Complete your profile with your name and phone number to get started.</p>
+        </div>
+        <span class="shrink-0 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950">Complete Profile</span>
+      </RouterLink>
+
       <section class="rounded-2xl border border-gold-500/40 bg-gradient-to-br from-navy-900 to-navy-950 p-6 sm:p-8">
         <p class="text-sm font-semibold uppercase tracking-wide text-gold-400">Total Revenue Collected</p>
         <p class="mt-2 font-[Georgia] text-4xl font-bold text-white sm:text-5xl">
