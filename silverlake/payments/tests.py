@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase
 
 from bookings.models import BookingStatus
 from bookings.tests import make_booking, make_vehicle
@@ -311,4 +311,83 @@ class DisputeCashPaymentTests(APITestCase):
         other_vehicle = make_vehicle(name='Other Car', price_per_day=Decimal('1000'))
         other_booking = make_booking(other_customer, other_vehicle, status=BookingStatus.PENDING)
         response = self.client.get(f'/api/pay/{other_booking.customer_token}/payments/{self.cash_payment.id}/dispute/')
+        self.assertEqual(response.status_code, 404)
+
+
+class ClientDeclareCashPaymentTests(APITestCase):
+    """The client themselves declaring they're paying in cash, from the same no-login page used
+    for M-Pesa - the self-service equivalent of a driver typing the amount on the client's
+    behalf. Only records what the client says they're paying; the driver still has to separately
+    confirm it was actually received before it counts toward the balance."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(user=User.objects.create_user(
+            username='declare-driver@example.com', password='pass12345!',
+        ), full_name='Declare Driver', is_active=True)
+        vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='declare-client@example.com', password='pass12345!')
+        self.booking = make_booking(customer, vehicle, driver=self.driver, status=BookingStatus.PENDING)
+
+    def _url(self, booking=None):
+        return f'/api/pay/{(booking or self.booking).customer_token}/declare-cash/'
+
+    def test_client_can_declare_a_cash_payment(self):
+        response = self.client.post(self._url(), {'amount': str(self.booking.deposit_amount)}, format='json')
+        self.assertEqual(response.status_code, 201)
+
+        payment = Payment.objects.get(booking=self.booking)
+        self.assertEqual(payment.method, PaymentMethod.CASH)
+        self.assertEqual(payment.status, PaymentStatus.PENDING)
+        self.assertEqual(payment.recorded_by_driver_id, self.driver.id)
+        self.assertEqual(Decimal(str(payment.amount)), self.booking.deposit_amount)
+
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.PENDING)  # not confirmed until the driver confirms
+
+    def test_declared_payment_appears_as_pending_on_the_pay_page(self):
+        self.client.post(self._url(), {'amount': str(self.booking.deposit_amount)}, format='json')
+        response = self.client.get(f'/api/pay/{self.booking.customer_token}/')
+        pending = response.json()['pending_payments']
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]['method'], 'cash')
+
+    def test_driver_can_then_confirm_the_clients_declared_payment(self):
+        self.client.post(self._url(), {'amount': str(self.booking.total_amount)}, format='json')
+        payment = Payment.objects.get(booking=self.booking)
+
+        driver_client = APIClient()
+        driver_client.force_authenticate(user=self.driver.user)
+        response = driver_client.post(f'/api/driver/payments/{payment.id}/confirm/')
+        self.assertEqual(response.status_code, 200)
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, PaymentStatus.SUCCESSFUL)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.CONFIRMED)
+
+    def test_cannot_declare_cash_on_a_booking_with_no_driver(self):
+        other_customer = User.objects.create_user(username='no-driver-client@example.com', password='pass12345!')
+        other_vehicle = make_vehicle(name='No Driver Car', price_per_day=Decimal('1000'))
+        other_booking = make_booking(other_customer, other_vehicle, status=BookingStatus.PENDING)
+        response = self.client.post(self._url(other_booking), {'amount': '100'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=other_booking).exists())
+
+    def test_cannot_declare_an_amount_exceeding_the_balance_due(self):
+        response = self.client.post(
+            self._url(), {'amount': str(self.booking.total_amount + 1)}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_cannot_declare_a_zero_or_negative_amount(self):
+        for bad_amount in ('0', '-500'):
+            response = self.client.post(self._url(), {'amount': bad_amount}, format='json')
+            self.assertEqual(response.status_code, 400, f'amount={bad_amount} should have been rejected')
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_wrong_token_is_a_404(self):
+        response = self.client.post(
+            f'/api/pay/{uuid.uuid4()}/declare-cash/', {'amount': '100'}, format='json',
+        )
         self.assertEqual(response.status_code, 404)

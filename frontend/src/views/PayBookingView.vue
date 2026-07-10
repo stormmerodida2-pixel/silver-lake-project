@@ -12,10 +12,20 @@ const loadError = ref('')
 
 const phoneNumber = ref('')
 const payOption = ref('deposit') // 'deposit' | 'full'
+const paymentMethod = ref('mpesa') // 'mpesa' | 'cash'
 const submitting = ref(false)
 const error = ref('')
 const requested = ref(false)
 const paymentOutcome = ref(null) // null (waiting) | 'successful' | 'failed' | 'timeout'
+
+const cashAcknowledged = ref(false)
+const declaringCash = ref(false)
+const cashError = ref('')
+
+const pendingCashPayment = computed(() => {
+  if (!booking.value) return null
+  return (booking.value.pending_payments || []).find((p) => p.method === 'cash') || null
+})
 
 async function loadBooking() {
   loading.value = true
@@ -97,6 +107,22 @@ function retryPayment() {
   requested.value = false
 }
 
+async function declareCash() {
+  declaringCash.value = true
+  cashError.value = ''
+  try {
+    await apiClient.post(`/pay/${route.params.token}/declare-cash/`, {
+      amount: amountToPay.value,
+    })
+    await loadBooking()
+    cashAcknowledged.value = false
+  } catch (err) {
+    cashError.value = err.response?.data?.detail || 'Could not record your cash payment. Please try again.'
+  } finally {
+    declaringCash.value = false
+  }
+}
+
 onMounted(loadBooking)
 </script>
 
@@ -143,6 +169,19 @@ onMounted(loadBooking)
         </div>
         <div v-else-if="Number(booking.balance_due) <= 0" class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center text-emerald-700">
           This booking is fully paid. Thank you!
+        </div>
+
+        <div v-else-if="pendingCashPayment" class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+          <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold-500/10 text-gold-500">
+            <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          </div>
+          <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Awaiting Driver Confirmation</h2>
+          <p class="mt-2 text-sm text-slate-600">
+            You've recorded a cash payment of KES {{ Number(pendingCashPayment.amount).toLocaleString() }} to
+            {{ booking.driver_name }}. Once your driver confirms receiving it, your balance will be updated.
+          </p>
         </div>
 
         <div v-else-if="requested" class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
@@ -236,26 +275,72 @@ onMounted(loadBooking)
             KES {{ Number(booking.balance_due).toLocaleString() }}.
           </div>
 
-          <div>
-            <label class="mb-1 block text-sm text-slate-600">M-Pesa Phone Number</label>
-            <input
-              v-model="phoneNumber"
-              type="tel"
-              placeholder="2547XXXXXXXX"
-              required
-              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
-            />
+          <div v-if="booking.driver_name">
+            <label class="mb-1 block text-sm text-slate-600">How would you like to pay?</label>
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                class="rounded-md border px-3 py-2 text-sm font-semibold"
+                :class="paymentMethod === 'mpesa' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
+                @click="paymentMethod = 'mpesa'"
+              >
+                M-Pesa
+              </button>
+              <button
+                type="button"
+                class="rounded-md border px-3 py-2 text-sm font-semibold"
+                :class="paymentMethod === 'cash' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
+                @click="paymentMethod = 'cash'"
+              >
+                Cash
+              </button>
+            </div>
           </div>
 
-          <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+          <template v-if="paymentMethod === 'cash' && booking.driver_name">
+            <div class="rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">
+              <label class="flex items-start gap-2">
+                <input v-model="cashAcknowledged" type="checkbox" class="mt-0.5" />
+                <span>
+                  I confirm I am giving KES {{ amountToPay.toLocaleString() }} in cash directly to my driver,
+                  {{ booking.driver_name }}.
+                </span>
+              </label>
+            </div>
 
-          <button
-            :disabled="submitting || !phoneNumber"
-            class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
-            @click="payWithMpesa"
-          >
-            {{ submitting ? 'Sending prompt...' : `Pay KES ${amountToPay.toLocaleString()} via M-Pesa` }}
-          </button>
+            <p v-if="cashError" class="text-sm text-red-600">{{ cashError }}</p>
+
+            <button
+              :disabled="declaringCash || !cashAcknowledged"
+              class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+              @click="declareCash"
+            >
+              {{ declaringCash ? 'Recording...' : `Record KES ${amountToPay.toLocaleString()} Cash Payment` }}
+            </button>
+          </template>
+
+          <template v-else>
+            <div>
+              <label class="mb-1 block text-sm text-slate-600">M-Pesa Phone Number</label>
+              <input
+                v-model="phoneNumber"
+                type="tel"
+                placeholder="2547XXXXXXXX"
+                required
+                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+
+            <button
+              :disabled="submitting || !phoneNumber"
+              class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+              @click="payWithMpesa"
+            >
+              {{ submitting ? 'Sending prompt...' : `Pay KES ${amountToPay.toLocaleString()} via M-Pesa` }}
+            </button>
+          </template>
         </div>
       </template>
     </div>

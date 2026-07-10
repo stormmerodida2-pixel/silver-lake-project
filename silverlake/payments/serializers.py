@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from bookings.models import Booking
 
-from .models import Payment
+from .models import Payment, PaymentMethod, PaymentStatus
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -46,13 +46,27 @@ class PublicBookingPaymentSerializer(serializers.ModelSerializer):
     balance_due = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     deposit_amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     is_deposit_paid = serializers.BooleanField(read_only=True)
+    pending_payments = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
         fields = [
             'id', 'vehicle_name', 'driver_name', 'customer_name', 'start_date', 'end_date',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid', 'status',
+            'pending_payments',
         ]
 
     def get_driver_name(self, obj):
         return obj.driver.full_name if obj.driver else None
+
+    def get_pending_payments(self, obj):
+        # A cash payment the client has already declared but their driver hasn't yet confirmed
+        # receiving - shown so the client sees "declared, awaiting confirmation" rather than
+        # being able to declare the same cash payment twice.
+        payments = obj.payments.filter(
+            method__in=(PaymentMethod.CASH, PaymentMethod.CARD), status=PaymentStatus.PENDING,
+        )
+        return [
+            {'id': p.id, 'method': p.method, 'amount': p.amount, 'created_at': p.created_at}
+            for p in payments
+        ]

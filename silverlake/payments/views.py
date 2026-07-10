@@ -13,7 +13,7 @@ from bookings.models import Booking
 
 from .models import Payment, PaymentMethod, PaymentStatus
 from .serializers import PublicBookingPaymentSerializer, PaymentSerializer, StkPushRequestSerializer, TokenStkPushRequestSerializer
-from .services import PaymentValidationError, initiate_stk_push_payment
+from .services import PaymentValidationError, declare_offline_payment, initiate_stk_push_payment
 
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
@@ -95,6 +95,40 @@ def token_stk_push(request, token):
 
 
 token_stk_push.cls.throttle_scope = 'mpesa-stk'
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([ScopedRateThrottle])
+def token_declare_cash_payment(request, token):
+    """Lets the client themselves declare they're paying in cash, from the same no-login page
+    used for M-Pesa - the self-service equivalent of a driver typing the amount on the client's
+    behalf (see bookings.views.DriverDeclarePaymentView). Only valid for a with-driver booking:
+    cash is handed to the assigned driver in person, so there's no one to eventually confirm
+    receiving it without one. This only records what the client says they're paying - the
+    driver still has to separately confirm they actually received it (see
+    bookings.views.DriverConfirmPaymentView) before it counts toward the balance."""
+    booking = get_object_or_404(Booking, customer_token=token)
+    if not booking.driver_id:
+        return Response(
+            {'detail': 'This booking has no driver assigned to hand cash to.'}, status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    amount = request.data.get('amount')
+    try:
+        amount = float(amount)
+    except (TypeError, ValueError):
+        return Response({'detail': 'A valid amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        declare_offline_payment(booking, PaymentMethod.CASH, amount, driver=booking.driver)
+    except PaymentValidationError as exc:
+        return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(PublicBookingPaymentSerializer(booking).data, status=status.HTTP_201_CREATED)
+
+
+token_declare_cash_payment.cls.throttle_scope = 'token-payment-view'
 
 
 @api_view(['GET'])

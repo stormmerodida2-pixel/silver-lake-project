@@ -183,6 +183,14 @@ business-model pitch for the economics).
   independent record anywhere until it's actually collected from the driver, so staff get their
   own heads-up rather than only finding out later while reconciling payouts. Both cash and card
   are flagged for admin verification before they can trigger a real payout — see §7.
+- **The client can also self-declare a cash payment**, from the same no-login `/pay/:token` page
+  used for M-Pesa, instead of waiting for the driver to type the amount on their behalf. The
+  client picks Cash, ticks an explicit acknowledgment ("I confirm I am giving KES X in cash
+  directly to my driver, {name}"), and submits - this creates the same pending declare-then-confirm
+  Payment a driver-side declaration would, so the driver still has to separately confirm receiving
+  it before it counts toward the balance. Only available on bookings with a driver assigned (cash
+  has to be handed to someone), and the page shows an "Awaiting Driver Confirmation" state once
+  declared so the client can't declare the same payment twice.
 - Every payment path rejects a **zero or negative amount**, and refuses to accept a payment
   against a booking that's already cancelled or completed.
 - The M-Pesa callback (Safaricom telling us a payment succeeded) is protected by a private secret
@@ -356,7 +364,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-282 automated backend tests currently cover booking validation, payment guards, payout timing and
+289 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -375,7 +383,9 @@ appears in the login response), announcement audience targeting/permissions and 
 on cash/card-payout verification and the customer-facing cash-payment dispute flow (including
 that a dispute re-locks an already-verified payout), the driver declare/confirm payment flow for
 cash, card, and M-Pesa (including that confirming takes no amount and that a cash confirmation
-notifies staff by email), and (using real threads against a live test transaction, not a
+notifies staff by email), the client's own no-login cash self-declaration (rejected without a
+driver assigned, showing up as pending until the driver confirms it), and (using real threads
+against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:
 ```
