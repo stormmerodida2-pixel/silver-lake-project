@@ -13,7 +13,7 @@ from bookings.models import Booking, BookingStatus
 from bookings.serializers import BookingSerializer
 from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
-from fleet.models import Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
+from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
 from fleet.serializers import VehicleCategorySerializer, VehicleImageSerializer, VehicleServiceRecordSerializer
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund, RefundStatus
 from reviews.models import Review
@@ -26,6 +26,7 @@ from .serializers import (
     AdminCreateUserSerializer,
     AdminDriverPayoutSerializer,
     AdminDriverSerializer,
+    AdminFleetPartnerSerializer,
     AdminRefundSerializer,
     AdminReviewSerializer,
     AdminUserSerializer,
@@ -496,6 +497,32 @@ class AdminRefundViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
         refund.mark_issued(reference=request.data.get('reference', ''))
         log_admin_action(request, 'refund.mark_issued', refund, detail=request.data.get('reference', ''))
         return Response(AdminRefundSerializer(refund).data)
+
+
+class AdminFleetPartnerViewSet(viewsets.ModelViewSet):
+    """Superadmin-only management of registered fleet-owning companies (see FleetPartner) -
+    holds their own Paybill credentials and platform fee rate, so every action here is
+    financial/fleet-composition-adjacent, unlike most other admin viewsets which open list/view
+    to support staff. Deleting one a vehicle still references is blocked (Vehicle.owner is
+    PROTECT) rather than silently orphaning that vehicle's ownership."""
+
+    queryset = FleetPartner.objects.all()
+    serializer_class = AdminFleetPartnerSerializer
+    permission_classes = [IsSuperAdmin]
+
+    def perform_create(self, serializer):
+        partner = serializer.save()
+        log_admin_action(self.request, 'fleet_partner.create', partner)
+
+    def perform_update(self, serializer):
+        partner = serializer.save()
+        log_admin_action(self.request, 'fleet_partner.update', partner)
+
+    def destroy(self, request, *args, **kwargs):
+        return _delete_or_block(
+            request, self.get_object(), 'fleet_partner.delete',
+            'This partner still owns a vehicle - reassign it before deleting the partner.',
+        )
 
 
 class AdminVehicleCategoryViewSet(viewsets.ModelViewSet):

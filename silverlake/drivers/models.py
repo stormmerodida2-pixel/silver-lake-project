@@ -132,6 +132,7 @@ class DriverApplication(models.Model):
             image=self.vehicle_photo or None,
             is_available=True,
             driver=self.created_driver,
+            is_company_owned=False,
         )
         self.status = ApplicationStatus.APPROVED
         self.reviewed_at = timezone.now()

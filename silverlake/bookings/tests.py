@@ -15,7 +15,7 @@ from rest_framework.test import APIClient, APITestCase
 from rest_framework.throttling import ScopedRateThrottle
 
 from drivers.models import Driver
-from fleet.models import Vehicle, VehicleCategory
+from fleet.models import FleetPartner, Vehicle, VehicleCategory
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 from reviews.models import Review
 
@@ -37,6 +37,11 @@ def make_vehicle(**kwargs):
         name='Test Car', passenger_capacity=4,
         price_per_day=Decimal('1000'), is_available=True,
     )
+    # A vehicle created with a driver is assumed to be that driver's own car (matching the
+    # driver-onboarding flow, where is_company_owned=False), unless a test says otherwise -
+    # most existing tests rely on this to exercise the driver-payout path.
+    if kwargs.get('driver') is not None and 'is_company_owned' not in kwargs:
+        defaults['is_company_owned'] = False
     defaults.update(kwargs)
     return Vehicle.objects.create(**defaults)
 
@@ -118,8 +123,11 @@ class BookingValidationTests(TestCase):
 class BookingMoneyMathTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='jane@example.com', password='pass12345!')
-        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
         self.driver = Driver.objects.create(full_name='Driver One', is_active=True)
+        # Driver-owned (is_company_owned=False via make_vehicle's driver-kwarg default) - this
+        # class is testing payout math itself, which only applies when the driver owns the
+        # vehicle; see PlatformFeeOwnershipTests for the company-owned/FleetPartner-owned cases.
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'), driver=self.driver)
 
     def test_deposit_is_30_percent_of_total(self):
         booking = make_booking(self.user, self.vehicle, driver=self.driver)
@@ -185,6 +193,71 @@ class BookingMoneyMathTests(TestCase):
         self.assertEqual(booking.driver.payouts.filter(booking=booking).count(), 1)
 
 
+class PlatformFeeOwnershipTests(TestCase):
+    """SilverLake owns most of its own fleet - a driver merely assigned to drive a
+    company-owned vehicle is an employee/operator, not an owner, so there's no 85% payout to
+    them; the full fare is SilverLake's. Only an individual driver-partner's own car (or,
+    eventually, a FleetPartner-owned one) creates a payout at all."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='ownership@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(full_name='Ownership Driver', is_active=True)
+
+    def _paid_booking(self, vehicle):
+        booking = make_booking(self.user, vehicle, driver=self.driver, service_type=ServiceType.WITH_DRIVER)
+        Payment.objects.create(booking=booking, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL)
+        booking.confirm_if_deposit_met()
+        return booking
+
+    def test_company_owned_vehicle_creates_no_payout(self):
+        vehicle = make_vehicle(name='Company Car', driver=self.driver, is_company_owned=True)
+        booking = self._paid_booking(vehicle)
+        self.assertEqual(booking.platform_fee_amount, 0)
+        self.assertEqual(booking.driver_payout_amount, 0)
+        self.assertFalse(DriverPayout.objects.filter(booking=booking).exists())
+
+    def test_driver_owned_vehicle_still_creates_the_85_15_payout(self):
+        vehicle = make_vehicle(name='Own Car', driver=self.driver, is_company_owned=False)
+        booking = self._paid_booking(vehicle)
+        self.assertGreater(booking.platform_fee_amount, 0)
+        self.assertEqual(booking.driver_payout_amount, booking.total_amount - booking.platform_fee_amount)
+        self.assertTrue(DriverPayout.objects.filter(booking=booking).exists())
+
+    def test_fleet_partner_owned_vehicle_creates_no_driver_payout_either(self):
+        # Settlement for a FleetPartner-owned vehicle isn't a DriverPayout at all (see
+        # fleet.models.FleetPartner) - not built yet, but a driver operating one of these
+        # shouldn't get an individual 85% cut regardless.
+        partner = FleetPartner.objects.create(name='Some Fleet Co')
+        vehicle = make_vehicle(name='Partner Car', driver=self.driver, is_company_owned=False, owner=partner)
+        booking = self._paid_booking(vehicle)
+        self.assertEqual(booking.platform_fee_amount, 0)
+        self.assertEqual(booking.driver_payout_amount, 0)
+        self.assertFalse(DriverPayout.objects.filter(booking=booking).exists())
+
+    def test_self_drive_booking_never_creates_a_payout_regardless_of_ownership(self):
+        vehicle = make_vehicle(name='Self Drive Car', driver=self.driver, is_company_owned=False)
+        booking = make_booking(
+            self.user, vehicle, driver=None, service_type=ServiceType.SELF_DRIVE,
+            customer_license_document=SimpleUploadedFile('l.pdf', b'x'),
+            customer_id_document=SimpleUploadedFile('i.pdf', b'x'),
+        )
+        self.assertEqual(booking.platform_fee_amount, 0)
+        self.assertEqual(booking.driver_payout_amount, 0)
+
+    def test_vehicles_created_via_driver_onboarding_are_not_company_owned(self):
+        from drivers.models import ApplicationStatus, DriverApplication
+
+        application = DriverApplication.objects.create(
+            full_name='Onboard Driver', email='onboard@example.com', phone_number='254700000000',
+            years_of_experience=3, vehicle_name='Onboard Car',
+            vehicle_category=VehicleCategory.objects.create(name='Onboard Category'),
+            passenger_capacity=4, price_per_day=Decimal('1000'),
+            status=ApplicationStatus.PENDING,
+        )
+        application.approve()
+        self.assertFalse(application.created_vehicle.is_company_owned)
+
+
 class BookingCancelActionTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='jane@example.com', password='pass12345!')
@@ -242,7 +315,8 @@ class BookingCancelActionTests(APITestCase):
 
     def test_cancelling_a_fully_paid_booking_voids_its_unpaid_driver_payout(self):
         driver = Driver.objects.create(full_name='Cancel Driver', is_active=True)
-        booking = make_booking(self.user, self.vehicle, driver=driver, status=BookingStatus.PENDING)
+        driver_owned_vehicle = make_vehicle(name='Cancel Driver Car', driver=driver)
+        booking = make_booking(self.user, driver_owned_vehicle, driver=driver, status=BookingStatus.PENDING)
         Payment.objects.create(
             booking=booking, method=PaymentMethod.MPESA,
             amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL,

@@ -187,6 +187,7 @@ class VehicleSubmissionTests(APITestCase):
         self.assertEqual(submission.status, 'approved')
         self.assertEqual(submission.created_vehicle.driver_id, self.driver.id)
         self.assertTrue(submission.created_vehicle.is_available)
+        self.assertFalse(submission.created_vehicle.is_company_owned)
         # First photo becomes the cover image, the rest become gallery images.
         self.assertEqual(submission.created_vehicle.gallery_images.count(), 1)
 

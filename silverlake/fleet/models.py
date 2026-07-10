@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
@@ -34,6 +36,43 @@ class VehicleCategory(models.Model):
         super().save(*args, **kwargs)
 
 
+class FleetPartner(models.Model):
+    """A company (or eventually an individual) that has registered its own fleet with
+    SilverLake - distinct from an individual driver-partner (drivers.Driver), since one
+    FleetPartner can own many vehicles, possibly driven by different people who aren't
+    necessarily the owner themselves. Money for their vehicles' bookings is meant to go
+    straight into the partner's own Paybill, not SilverLake's - SilverLake only takes
+    platform_fee_percent as a cut, owed back by the partner rather than paid out by
+    SilverLake (the reverse of how an individual driver-partner's payout works). The actual
+    STK-push routing to a partner's own shortcode is not wired up yet - see PLATFORM_OVERVIEW.md."""
+
+    name = models.CharField(max_length=150)
+    contact_email = models.EmailField(blank=True)
+    contact_phone = models.CharField(max_length=20, blank=True)
+
+    # Where this partner's own Paybill lives - captured now so the credentials exist once
+    # STK-push routing is built, even though nothing reads these yet. Same plaintext-in-DB
+    # posture as the single-tenant MPESA_* settings today; harden before real credentials
+    # ever go in either place.
+    mpesa_shortcode = models.CharField(max_length=20, blank=True, help_text="Partner's own Paybill number")
+    mpesa_consumer_key = models.CharField(max_length=200, blank=True)
+    mpesa_consumer_secret = models.CharField(max_length=200, blank=True)
+    mpesa_passkey = models.CharField(max_length=200, blank=True)
+
+    platform_fee_percent = models.DecimalField(
+        max_digits=4, decimal_places=2, default=Decimal('10'),
+        help_text="SilverLake's cut of this partner's bookings, owed back by the partner.",
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class Vehicle(models.Model):
     name = models.CharField(max_length=100, help_text='e.g. Toyota Prado TZG')
     category = models.ForeignKey(VehicleCategory, on_delete=models.PROTECT, related_name='vehicles')
@@ -59,9 +98,37 @@ class Vehicle(models.Model):
     )
 
     # The driver-partner who owns/drives this car, if it came from the driver-onboarding
-    # or driver-submitted-vehicle flow. Company-owned fleet vehicles leave this blank.
+    # or driver-submitted-vehicle flow. Company-owned fleet vehicles leave this blank - but see
+    # is_company_owned below, since `driver` alone is also set for a company vehicle that just
+    # has an employee assigned to drive it, which is a different case ownership-wise.
     driver = models.ForeignKey(
         'drivers.Driver', null=True, blank=True, on_delete=models.SET_NULL, related_name='vehicles',
+    )
+
+    # Set automatically to False by DriverApplication.approve()/VehicleSubmission.approve() - a
+    # driver-partner's own submitted car is never company-owned. Defaults True for anything
+    # admin adds directly via Admin -> Fleet. Drives whether a with-driver booking on this
+    # vehicle creates a driver payout at all (see Booking.driver_payout_amount) - a company
+    # vehicle's assigned driver is an employee/operator, not an owner, so there's no payout to
+    # them; the full fare is SilverLake's. Existing vehicles created before this field existed
+    # all default to True on migration and were NOT re-classified - if any of them are actually
+    # driver-owned, that needs fixing by hand in Admin -> Fleet, since there's no reliable way to
+    # infer it retroactively (both cases just had `driver` set, indistinguishably, until now).
+    is_company_owned = models.BooleanField(
+        default=True,
+        help_text='Uncheck if this vehicle is owned by its assigned driver, not by SilverLake - '
+                   'affects whether a with-driver booking on it creates a driver payout.',
+    )
+    # A registered fleet-owning company - a different ownership case from an individual
+    # driver-partner (see FleetPartner docstring). Null means either company-owned
+    # (is_company_owned=True) or an individual driver-partner's own car (is_company_owned=False,
+    # owned by `driver` above) - mutually exclusive in practice, not enforced at the DB level.
+    # PROTECT, not SET_NULL: losing this silently would make the vehicle indistinguishable from
+    # an individually driver-owned one (both would read owner=None, is_company_owned=False),
+    # misattributing payout economics - a partner with vehicles on file has to have those
+    # reassigned first, not just get deleted out from under them.
+    owner = models.ForeignKey(
+        FleetPartner, null=True, blank=True, on_delete=models.PROTECT, related_name='vehicles',
     )
 
     # Last-known GPS position, reported by whichever driver has an active trip in this vehicle
@@ -191,6 +258,7 @@ class VehicleSubmission(models.Model):
             allow_self_drive=False,
             allow_with_driver=True,
             driver=self.driver,
+            is_company_owned=False,
         )
         for photo in photos[1:]:
             VehicleImage.objects.create(vehicle=self.created_vehicle, image=photo.image, order=photo.order)

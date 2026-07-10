@@ -5,7 +5,7 @@ from rest_framework import serializers
 from accounts.models import CustomerProfile
 from drivers.models import Driver
 from drivers.serializers import VehicleSubmissionPhotoSerializer
-from fleet.models import Vehicle, VehicleCategory, VehicleSubmission
+from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleSubmission
 from fleet.serializers import VehicleImageSerializer, VehicleServiceRecordSerializer
 from payments.models import DriverPayout, PaymentMethod, PaymentStatus, Refund
 from reviews.models import Review
@@ -167,6 +167,25 @@ class AdminRefundSerializer(serializers.ModelSerializer):
         read_only_fields = ['amount', 'status', 'issued_at', 'created_at']
 
 
+class AdminFleetPartnerSerializer(serializers.ModelSerializer):
+    vehicle_count = serializers.IntegerField(source='vehicles.count', read_only=True)
+
+    class Meta:
+        model = FleetPartner
+        fields = [
+            'id', 'name', 'contact_email', 'contact_phone',
+            'mpesa_shortcode', 'mpesa_consumer_key', 'mpesa_consumer_secret', 'mpesa_passkey',
+            'platform_fee_percent', 'is_active', 'vehicle_count', 'created_at',
+        ]
+        read_only_fields = ['created_at']
+        extra_kwargs = {
+            # Write-only: no reason to echo a partner's own API secret/passkey back in every
+            # subsequent list/retrieve response once it's been set.
+            'mpesa_consumer_secret': {'write_only': True},
+            'mpesa_passkey': {'write_only': True},
+        }
+
+
 class AdminVehicleSerializer(serializers.ModelSerializer):
     is_insurance_expired = serializers.BooleanField(read_only=True)
     is_inspection_expired = serializers.BooleanField(read_only=True)
@@ -174,6 +193,10 @@ class AdminVehicleSerializer(serializers.ModelSerializer):
     driver_name = serializers.SerializerMethodField()
     driver = serializers.PrimaryKeyRelatedField(
         queryset=Driver.objects.filter(is_active=True), allow_null=True, required=False,
+    )
+    owner_name = serializers.CharField(source='owner.name', read_only=True, default=None)
+    owner = serializers.PrimaryKeyRelatedField(
+        queryset=FleetPartner.objects.filter(is_active=True), allow_null=True, required=False,
     )
     category = serializers.SlugRelatedField(slug_field='slug', queryset=VehicleCategory.objects.all())
     category_name = serializers.CharField(source='category.name', read_only=True)
@@ -186,6 +209,7 @@ class AdminVehicleSerializer(serializers.ModelSerializer):
             'id', 'name', 'category', 'category_name', 'tagline', 'passenger_capacity',
             'price_per_day', 'description', 'image', 'gallery_images', 'is_available',
             'allow_self_drive', 'allow_with_driver', 'driver', 'driver_name',
+            'is_company_owned', 'owner', 'owner_name',
             'insurance_provider', 'insurance_policy_number', 'insurance_expiry_date',
             'inspection_expiry_date',
             'is_insurance_expired', 'is_inspection_expired',

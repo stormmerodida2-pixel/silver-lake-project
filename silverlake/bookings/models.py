@@ -204,16 +204,30 @@ class Booking(models.Model):
         return self.amount_paid >= self.deposit_amount
 
     @property
+    def _driver_owns_the_vehicle(self):
+        """Whether there's actually a driver payout to compute at all - only true for an
+        individual driver-partner's own car (Vehicle.is_company_owned=False, no FleetPartner
+        owner). A company-owned vehicle's assigned driver is an employee/operator, not an owner,
+        so the full fare is SilverLake's - no payout. A FleetPartner-owned vehicle's cut goes to
+        the partner, not the driver operating it, and isn't a DriverPayout at all (see
+        FleetPartner) - not handled here yet, since routing/settlement for that case isn't built."""
+        if self.service_type != ServiceType.WITH_DRIVER or not self.driver_id or not self.vehicle_id:
+            return False
+        return not self.vehicle.is_company_owned and not self.vehicle.owner_id
+
+    @property
     def platform_fee_amount(self):
-        """SilverLake's cut, taken from the driver's payout on with-driver bookings only."""
-        if self.service_type != ServiceType.WITH_DRIVER or not self.driver_id:
+        """SilverLake's cut, taken from the driver's payout - only meaningful when the assigned
+        driver actually owns the vehicle (see _driver_owns_the_vehicle)."""
+        if not self._driver_owns_the_vehicle:
             return Decimal('0')
         return (self.total_amount * self.PLATFORM_FEE_PERCENT / Decimal('100')).quantize(Decimal('0.01'))
 
     @property
     def driver_payout_amount(self):
-        """What the assigned driver is actually paid out, after the platform fee."""
-        if self.service_type != ServiceType.WITH_DRIVER or not self.driver_id:
+        """What the assigned driver is actually paid out, after the platform fee - zero unless
+        they own the vehicle (see _driver_owns_the_vehicle)."""
+        if not self._driver_owns_the_vehicle:
             return Decimal('0')
         return self.total_amount - self.platform_fee_amount
 

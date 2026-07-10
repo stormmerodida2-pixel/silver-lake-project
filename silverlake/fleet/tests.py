@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase
 from bookings.models import Booking, BookingStatus, ServiceType
 from drivers.models import Driver
 
-from .models import Vehicle, VehicleCategory, VehicleServiceRecord
+from .models import FleetPartner, Vehicle, VehicleCategory, VehicleServiceRecord
 
 User = get_user_model()
 
@@ -164,3 +164,69 @@ class PublicCategoryApiTests(APITestCase):
         results = response.json().get('results', response.json())
         legacy = next(v for v in results if v['name'] == 'Legacy Car')
         self.assertEqual(legacy['category_name'], 'Retired Type')
+
+
+class AdminFleetPartnerTests(APITestCase):
+    """Superadmin-only CRUD for registered fleet-owning companies - holds their own Paybill
+    credentials and platform fee rate, so unlike most admin list endpoints, even viewing is
+    restricted (not opened to regular support staff)."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='partner-super@example.com', password='pass12345!')
+        self.staff = User.objects.create_user(username='partner-staff@example.com', password='pass12345!', is_staff=True)
+
+    def test_superadmin_can_register_a_partner(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post('/api/admin/fleet-partners/', {
+            'name': 'Coastline Rentals Ltd', 'contact_email': 'ops@coastline.co.ke',
+            'mpesa_shortcode': '555555', 'platform_fee_percent': '10',
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        partner = FleetPartner.objects.get()
+        self.assertEqual(partner.name, 'Coastline Rentals Ltd')
+        self.assertEqual(partner.platform_fee_percent, Decimal('10'))
+
+    def test_support_staff_cannot_view_or_create_partners(self):
+        self.client.force_authenticate(user=self.staff)
+        list_response = self.client.get('/api/admin/fleet-partners/')
+        self.assertEqual(list_response.status_code, 403)
+        create_response = self.client.post('/api/admin/fleet-partners/', {'name': 'X'}, format='json')
+        self.assertEqual(create_response.status_code, 403)
+
+    def test_secret_and_passkey_are_write_only(self):
+        self.client.force_authenticate(user=self.superadmin)
+        create_response = self.client.post('/api/admin/fleet-partners/', {
+            'name': 'Secret Test Co', 'mpesa_consumer_secret': 'shh', 'mpesa_passkey': 'alsoshh',
+        }, format='json')
+        self.assertNotIn('mpesa_consumer_secret', create_response.json())
+        self.assertNotIn('mpesa_passkey', create_response.json())
+
+        partner_id = create_response.json()['id']
+        list_response = self.client.get('/api/admin/fleet-partners/')
+        data = list_response.json()
+        results = data['results'] if isinstance(data, dict) and 'results' in data else data
+        partner = next(p for p in results if p['id'] == partner_id)
+        self.assertNotIn('mpesa_consumer_secret', partner)
+        self.assertNotIn('mpesa_passkey', partner)
+
+    def test_deleting_a_partner_with_a_vehicle_is_blocked(self):
+        partner = FleetPartner.objects.create(name='Has A Car')
+        make_vehicle(name='Partner Car', owner=partner, is_company_owned=False)
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/fleet-partners/{partner.id}/')
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(FleetPartner.objects.filter(id=partner.id).exists())
+
+    def test_deleting_a_partner_with_no_vehicles_succeeds(self):
+        partner = FleetPartner.objects.create(name='No Cars Yet')
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.delete(f'/api/admin/fleet-partners/{partner.id}/')
+        self.assertEqual(response.status_code, 204)
+
+    def test_vehicle_count_reflects_assigned_vehicles(self):
+        partner = FleetPartner.objects.create(name='Counted Co')
+        make_vehicle(name='Car One', owner=partner, is_company_owned=False)
+        make_vehicle(name='Car Two', owner=partner, is_company_owned=False)
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.get(f'/api/admin/fleet-partners/{partner.id}/')
+        self.assertEqual(response.json()['vehicle_count'], 2)

@@ -218,9 +218,24 @@ mnm
 This is the part of the system most exposed to someone's word being wrong, since a driver
 self-reporting a cash payment isn't independently verified the way M-Pesa is.
 
-- **Driver payout math:** for a with-driver booking, SilverLake keeps a **15% platform fee**;
-  the driver is owed the remaining **85%**. Self-drive bookings have no driver payout — SilverLake
-  keeps the full amount.
+- **Driver payout math only applies when the driver actually owns the vehicle.** For an
+  individual driver-partner's own car (`Vehicle.is_company_owned=False`, no `owner`), SilverLake
+  keeps a **15% platform fee** and the driver is owed the remaining **85%**, same as before. For a
+  **company-owned vehicle** (`is_company_owned=True`, the default for anything added directly via
+  Admin → Fleet) with an employee driver merely assigned to it, there's no payout at all — the
+  driver is an operator, not an owner, so the full fare is SilverLake's revenue. Self-drive
+  bookings likewise have no driver payout. A vehicle created via the driver-onboarding/vehicle-
+  submission approval flow is automatically marked `is_company_owned=False`, since it's the
+  driver-partner's own car by definition.
+- **Fleet Partners** (Admin → Fleet Partners, superadmin-only) are registered companies with their
+  own fleet, distinct from an individual driver-partner — one partner can own many vehicles,
+  possibly driven by different people. A partner's own Paybill credentials and platform fee
+  percentage (default 10%, configurable per partner) are captured now (`fleet.FleetPartner`), but
+  **payment routing to a partner's own Paybill isn't wired up yet** — client STK pushes still go
+  through SilverLake's own Paybill for every vehicle, partner-owned or not, until that's built. A
+  FleetPartner-owned vehicle (`Vehicle.owner` set) also creates no `DriverPayout` — the eventual
+  settlement for these is a partner owing SilverLake the fee (the reverse of a driver payout,
+  since the money would land directly in the partner's own account), not yet implemented.
 - **A payout is only created once the booking is fully paid** — not merely deposited — so the
   business never queues a payout for money it hasn't actually collected yet.
 - **Cash/card-sourced payouts need explicit sign-off.** If any payment behind a payout was cash
@@ -389,7 +404,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-326 automated backend tests currently cover booking validation, payment guards, payout timing and
+337 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -414,7 +429,9 @@ driver assigned, showing up as pending until the driver confirms it), the staff 
 booking-balance-reminder, and cash-deposit-reminder actions and their one-per-hour cooldowns, the
 cash-to-Paybill deposit logging (amount can't be less than collected, reference format-validated
 and normalized to uppercase, one deposit per payment) and its payout-verification gate (cash needs
-a matching deposit; card doesn't), and (using real threads
+a matching deposit; card doesn't), fleet-partner CRUD (superadmin-only, write-only Paybill
+secret/passkey) and the ownership-aware payout split (company-owned and FleetPartner-owned
+vehicles create no driver payout; a driver-partner's own car still does), and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:
@@ -438,9 +455,20 @@ Not broken, but worth a conscious decision before going fully live:
   link are permanent once issued.
 - **Refund disbursement is manual** — there's no automated M-Pesa refund API integration, only a
   tracked record of what's owed.
-- Whether **company-employed drivers** should be paid the same 85% commission as driver-partners
-  who own their own vehicle is a business decision the system doesn't currently distinguish
-  between (both are just "the assigned driver" today).
+- **SilverLake is meant to become a multi-tenant platform** — other car rental organizations
+  registering their own fleet, with their own admin/staff accounts scoped to just their
+  organization's data (not just a passive `FleetPartner` record SilverLake's own staff edit on
+  their behalf). Not built: `User.organization`, org-scoped admin/staff roles, and filtering
+  every money/fleet-relevant admin viewset (bookings, payments, payouts, refunds, fleet...) down
+  to "belongs to my org" for a tenant user vs. unfiltered for a real SilverLake superadmin - a
+  substantial, multi-phase change, not a small tweak. What exists today (`fleet.FleetPartner`,
+  `Vehicle.owner`) is the fleet-ownership half only.
+- **A `FleetPartner`'s own Paybill isn't actually used for payment routing yet** — their
+  credentials are captured but every client payment still goes through SilverLake's single
+  configured Paybill regardless of which vehicle it's for. Real multi-tenant M-Pesa routing needs
+  each partner to have their own Safaricom Daraja API app/shortcode (a business step with
+  Safaricom, not just code) and `payments/mpesa.py` to resolve which credentials to use per
+  booking at STK-push time.
 
 See `PAYMENT_SECURITY.md` for a deeper dive specifically on the payment-trust fixes, and the
 separate business-model document for the revenue/growth reasoning behind the driver-partner

@@ -9,6 +9,7 @@ const auth = useAuthStore()
 const { items: vehicles, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/fleet/')
 const { items: driverOptions, load: loadDriverOptions } = useAdminList('/admin/drivers/')
 const { items: fleetTypes, load: loadFleetTypes } = useAdminList('/admin/fleet-types/')
+const { items: partnerOptions, load: loadPartnerOptions } = useAdminList('/admin/fleet-partners/')
 const busyId = ref(null)
 
 // ── Shared Add / Edit modal ─────────────────────────────────────────────────
@@ -28,6 +29,8 @@ const form = reactive({
   allow_with_driver: true,
   is_available: true,
   driver: '',
+  is_company_owned: true,
+  owner: '',
   insurance_provider: '',
   insurance_policy_number: '',
   insurance_expiry_date: '',
@@ -161,6 +164,8 @@ function openEditModal(vehicle) {
     allow_with_driver: vehicle.allow_with_driver,
     is_available: vehicle.is_available,
     driver: vehicle.driver || '',
+    is_company_owned: vehicle.is_company_owned,
+    owner: vehicle.owner || '',
     insurance_provider: vehicle.insurance_provider || '',
     insurance_policy_number: vehicle.insurance_policy_number || '',
     insurance_expiry_date: vehicle.insurance_expiry_date || '',
@@ -190,6 +195,8 @@ function buildPayload() {
   payload.append('allow_with_driver', form.allow_with_driver)
   payload.append('is_available', form.is_available)
   payload.append('driver', form.driver)
+  payload.append('is_company_owned', form.is_company_owned)
+  payload.append('owner', form.owner)
   payload.append('insurance_provider', form.insurance_provider)
   payload.append('insurance_policy_number', form.insurance_policy_number)
   payload.append('insurance_expiry_date', form.insurance_expiry_date)
@@ -255,6 +262,7 @@ onMounted(() => {
   load()
   loadDriverOptions()
   loadFleetTypes()
+  loadPartnerOptions()
 })
 </script>
 
@@ -631,6 +639,33 @@ onMounted(() => {
                 </div>
               </div>
 
+              <!-- Ownership -->
+              <div class="rounded-xl border border-navy-700 p-4">
+                <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Ownership</p>
+                <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
+                  <input v-model="form.is_company_owned" type="checkbox" class="accent-gold-500" />
+                  Company-owned (SilverLake owns this vehicle)
+                </label>
+                <p class="mt-1 text-xs text-slate-500">
+                  Uncheck if a driver-partner or fleet partner owns this vehicle instead - affects
+                  whether a with-driver booking on it creates a driver payout. A driver-partner's
+                  own submitted car is set correctly automatically; this only matters for vehicles
+                  added directly here.
+                </p>
+                <div v-if="!form.is_company_owned" class="mt-3">
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Fleet Partner</label>
+                  <select v-model="form.owner"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                    <option value="">None - owned by the assigned driver themselves</option>
+                    <option v-for="p in partnerOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
+                  </select>
+                  <p class="mt-1 text-xs text-slate-500">
+                    Leave as "None" for an individual driver-partner's own car. Pick a registered
+                    company if this vehicle belongs to their fleet instead.
+                  </p>
+                </div>
+              </div>
+
               <!-- Driver assignment -->
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Assigned Driver</label>
@@ -640,8 +675,8 @@ onMounted(() => {
                   <option v-for="d in driverOptions" :key="d.id" :value="d.id">{{ d.full_name }}</option>
                 </select>
                 <p class="mt-1 text-xs text-slate-500">
-                  Who drives this vehicle on "with driver" bookings. Only needed for company-owned
-                  vehicles — a driver-partner's own submitted car is assigned automatically.
+                  Who physically drives this vehicle on "with driver" bookings - separate from
+                  ownership above.
                 </p>
               </div>
 
