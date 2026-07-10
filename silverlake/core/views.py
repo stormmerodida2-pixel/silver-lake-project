@@ -44,6 +44,10 @@ SUPERADMIN_ONLY_ACTIONS = {
     'add_gallery_images', 'remove_gallery_image', 'add_service_record',
 }
 
+# Mirrors payments.views.REMINDER_COOLDOWN - long enough that it isn't spam, short enough that a
+# driver who genuinely forgot can be re-poked same day.
+BALANCE_REMINDER_COOLDOWN = timedelta(hours=1)
+
 
 def _delete_or_block(request, instance, action, blocked_message):
     """Deletes instance, logging who did it - or returns a clean 400 instead of a raw 500 if
@@ -382,7 +386,30 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         booking.save(update_fields=['status'])
         return Response(BookingSerializer(booking).data)
 
+    @action(detail=True, methods=['post'])
+    def remind_balance(self, request, pk=None):
+        """Nudges the assigned driver that this booking still has an outstanding balance -
+        distinct from PaymentViewSet.remind, which is about a specific already-declared payment
+        sitting unconfirmed. This covers a booking that's simply underpaid, whether or not the
+        driver (or client) has declared anything yet. Any staff account can do this - it's just
+        an email nudge, not a destructive or financial action."""
+        from bookings.emails import send_booking_balance_reminder_email
 
+        booking = self.get_object()
+        if booking.status == BookingStatus.CANCELLED:
+            return Response({'detail': 'This booking is cancelled.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not booking.driver_id:
+            return Response({'detail': 'This booking has no driver assigned to remind.'}, status=status.HTTP_400_BAD_REQUEST)
+        if booking.balance_due <= 0:
+            return Response({'detail': 'This booking has no outstanding balance.'}, status=status.HTTP_400_BAD_REQUEST)
+        if booking.last_balance_reminder_at and timezone.now() - booking.last_balance_reminder_at < BALANCE_REMINDER_COOLDOWN:
+            return Response({'detail': 'A reminder was already sent recently. Please wait before sending another.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        booking.last_balance_reminder_at = timezone.now()
+        booking.save(update_fields=['last_balance_reminder_at'])
+        send_booking_balance_reminder_email(booking)
+        log_admin_action(request, 'booking.remind_balance', booking)
+        return Response(BookingSerializer(booking).data)
 
 
 class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):

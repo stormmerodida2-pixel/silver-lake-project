@@ -37,6 +37,32 @@ async function changeDriver(booking, driverId) {
   }
 }
 
+function isUnderpaid(booking) {
+  return Number(booking.balance_due) > 0 && booking.status !== 'cancelled'
+}
+
+function canRemindBalance(booking) {
+  return isUnderpaid(booking) && !!booking.driver_name
+}
+
+function balanceRemindDisabledReason(booking) {
+  if (!booking.last_balance_reminder_at) return null
+  const elapsedMs = Date.now() - new Date(booking.last_balance_reminder_at).getTime()
+  return elapsedMs < 60 * 60 * 1000 ? 'Reminded recently - please wait before sending another.' : null
+}
+
+async function remindBalance(booking) {
+  busyId.value = booking.id
+  try {
+    const { data } = await apiClient.post(`/admin/bookings/${booking.id}/remind_balance/`)
+    Object.assign(booking, data)
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Could not send a reminder for this booking.'
+  } finally {
+    busyId.value = null
+  }
+}
+
 onMounted(() => {
   load()
   loadDriverOptions()
@@ -99,7 +125,24 @@ onMounted(() => {
             </td>
             <td class="px-4 py-3 text-slate-400">{{ booking.start_date }} to {{ booking.end_date }}</td>
             <td class="px-4 py-3 text-slate-300">KES {{ Number(booking.total_amount).toLocaleString() }}</td>
-            <td class="px-4 py-3 text-slate-300">KES {{ Number(booking.amount_paid).toLocaleString() }}</td>
+            <td class="px-4 py-3 text-slate-300">
+              KES {{ Number(booking.amount_paid).toLocaleString() }}
+              <div v-if="isUnderpaid(booking)" class="mt-1">
+                <div class="text-xs font-semibold text-red-400">
+                  Balance due: KES {{ Number(booking.balance_due).toLocaleString() }}
+                </div>
+                <button
+                  v-if="canRemindBalance(booking)"
+                  :disabled="busyId === booking.id || !!balanceRemindDisabledReason(booking)"
+                  :title="balanceRemindDisabledReason(booking) || ''"
+                  class="mt-1 rounded-md border border-navy-700 px-2 py-0.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                  @click="remindBalance(booking)"
+                >
+                  {{ busyId === booking.id ? 'Sending...' : (booking.last_balance_reminder_at ? 'Remind Again' : 'Remind Driver') }}
+                </button>
+                <p v-else-if="!booking.driver_name" class="text-xs text-slate-600">No driver to remind</p>
+              </div>
+            </td>
             <td class="px-4 py-3">
               <select
                 :value="booking.status"

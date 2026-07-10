@@ -54,6 +54,32 @@ def send_booking_cancelled_email(booking):
         pass
 
 
+def send_booking_balance_reminder_email(booking):
+    """Nudges the assigned driver that this booking still has an outstanding balance - see
+    core.views.AdminBookingViewSet.remind_balance. No-ops if the driver has no email on file. Swallowed
+    silently on failure so a misconfigured SMTP server never blocks the reminder from being
+    recorded as sent."""
+    driver = booking.driver
+    if not driver or not driver.email:
+        return
+    try:
+        from django.conf import settings
+        send_branded_email(
+            subject=f'Reminder: outstanding balance on booking #{booking.pk}',
+            template_name='emails/booking_balance_reminder.html',
+            context={
+                'driver_name': driver.full_name,
+                'booking': booking,
+                'customer_name': booking.customer_name,
+                'balance_due': f'{booking.balance_due:,.2f}',
+                'portal_url': f'{settings.FRONTEND_URL}/driver',
+            },
+            recipient_list=[driver.email],
+        )
+    except Exception:
+        pass
+
+
 def send_trip_completed_email(booking):
     """Sends a review request email to the customer on trip completion."""
     try:

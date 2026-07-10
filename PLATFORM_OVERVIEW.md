@@ -196,6 +196,11 @@ business-model pitch for the economics).
   emails the driver directly, pointing them back to their portal to confirm it. Capped to once an
   hour per payment so the button can't be used to spam a driver, and it's a no-op nudge only -
   it doesn't touch the payment's amount, status, or balance itself.
+- Separately, **Admin → Bookings** flags any non-cancelled booking with an outstanding balance and
+  a "Remind Driver" button next to it - this covers a booking that's simply underpaid, whether or
+  not anything has actually been declared yet (the Payments-page reminder above only works once a
+  specific cash/card payment is already sitting pending). Same one-per-hour cooldown, same no-op
+  nudge behavior.
 - Every payment path rejects a **zero or negative amount**, and refuses to accept a payment
   against a booking that's already cancelled or completed.
 - The M-Pesa callback (Safaricom telling us a payment succeeded) is protected by a private secret
@@ -374,7 +379,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-301 automated backend tests currently cover booking validation, payment guards, payout timing and
+308 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -396,7 +401,7 @@ that a dispute re-locks an already-verified payout), the driver declare/confirm 
 cash, card, and M-Pesa (including that confirming takes no amount and that a cash confirmation
 notifies staff by email), the client's own no-login cash self-declaration (rejected without a
 driver assigned, showing up as pending until the driver confirms it), the staff payment-reminder
-action and its one-per-hour cooldown, and (using real threads
+and booking-balance-reminder actions and their one-per-hour cooldowns, and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:

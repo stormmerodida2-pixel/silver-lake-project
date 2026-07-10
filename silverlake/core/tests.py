@@ -451,6 +451,76 @@ class AdminBookingEditTests(APITestCase):
         self.assertEqual(response.status_code, 200)
 
 
+class AdminBookingBalanceReminderTests(APITestCase):
+    """Staff can nudge the assigned driver that a booking still has an outstanding balance -
+    distinct from PaymentViewSet.remind (payments app), which is about a specific already-declared
+    payment sitting unconfirmed. This works even if nothing has been declared yet."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='balance-staff@example.com', password='pass12345!', is_staff=True)
+        self.superadmin = User.objects.create_superuser(username='balance-super@example.com', password='pass12345!')
+        self.plain_user = User.objects.create_user(username='balance-plain@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(full_name='Balance Driver', is_active=True, email='balance-driver@example.com')
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='balance-customer@example.com', password='pass12345!')
+        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)
+
+    def _url(self, booking=None):
+        return f'/api/admin/bookings/{(booking or self.booking).id}/remind_balance/'
+
+    def test_staff_can_remind_driver_of_outstanding_balance(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 200)
+        self.booking.refresh_from_db()
+        self.assertIsNotNone(self.booking.last_balance_reminder_at)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('balance-driver@example.com', mail.outbox[0].to)
+
+    def test_superadmin_can_also_remind(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_cannot_remind_a_booking_with_no_outstanding_balance(self):
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH, amount=self.booking.total_amount,
+            status=PaymentStatus.SUCCESSFUL,
+        )
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_cannot_remind_a_booking_with_no_driver(self):
+        other_vehicle = make_vehicle(name='No Driver Car', price_per_day=Decimal('1000'))
+        other_booking = make_booking(self.customer, other_vehicle, status=BookingStatus.PENDING)
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(self._url(other_booking))
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_remind_a_cancelled_booking(self):
+        self.booking.status = BookingStatus.CANCELLED
+        self.booking.save(update_fields=['status'])
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 400)
+
+    def test_cooldown_blocks_an_immediate_second_reminder(self):
+        self.client.force_authenticate(user=self.staff)
+        first = self.client.post(self._url())
+        self.assertEqual(first.status_code, 200)
+        second = self.client.post(self._url())
+        self.assertEqual(second.status_code, 400)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_non_staff_cannot_remind(self):
+        self.client.force_authenticate(user=self.plain_user)
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 403)
+
+
 class AdminSetStatusTripLifecycleTests(APITestCase):
     """set-status used to assign status directly, bypassing the same trip_started_at/
     trip_ended_at trail the driver portal's Start Trip/End Trip actions leave - an admin-driven

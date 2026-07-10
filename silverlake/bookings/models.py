@@ -97,6 +97,12 @@ class Booking(models.Model):
     trip_started_at = models.DateTimeField(null=True, blank=True)
     trip_ended_at = models.DateTimeField(null=True, blank=True)
 
+    # Set when staff nudge the driver about this booking's outstanding balance - see
+    # core.views.AdminBookingViewSet.remind_balance. Separate from Payment.last_reminded_at, which is about a
+    # specific already-declared payment; this is about the booking simply not being fully paid
+    # yet, whether or not anything has been declared.
+    last_balance_reminder_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

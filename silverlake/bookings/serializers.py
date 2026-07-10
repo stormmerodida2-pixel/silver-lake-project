@@ -37,10 +37,11 @@ class BookingSerializer(serializers.ModelSerializer):
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid',
             'status', 'notes', 'review', 'created_at', 'driver_acknowledged_at',
             'trip_started_at', 'trip_ended_at', 'needs_attention', 'pending_payments',
+            'last_balance_reminder_at',
         ]
         read_only_fields = [
             'status', 'source', 'total_amount', 'created_at', 'driver_acknowledged_at',
-            'trip_started_at', 'trip_ended_at',
+            'trip_started_at', 'trip_ended_at', 'last_balance_reminder_at',
         ]
 
     def get_vehicle_name(self, obj):
