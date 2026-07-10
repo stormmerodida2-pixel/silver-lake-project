@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.db.models import Count, ProtectedError, Sum
@@ -90,6 +91,30 @@ class AdminStatsView(APIView):
             Booking.objects.values_list('status').annotate(count=Count('id')).order_by()
         )
 
+        # Superadmin-only, like everything else about a FleetPartner (Paybill credentials, fee
+        # rate) - a per-partner breakdown of what's flowing through their fleet, and what
+        # SilverLake is owed as a platform fee once real settlement is built (see
+        # fleet.models.FleetPartner - there's no automated collection of this yet, just visibility).
+        fleet_partners = []
+        if request.user.is_superuser:
+            live_bookings = Booking.objects.exclude(status=BookingStatus.CANCELLED)
+            for partner in FleetPartner.objects.filter(is_active=True).order_by('name'):
+                partner_bookings = live_bookings.filter(vehicle__owner=partner)
+                total_revenue = partner_bookings.aggregate(total=Sum('total_amount'))['total'] or 0
+                total_collected = Payment.objects.filter(
+                    status=PaymentStatus.SUCCESSFUL, booking__vehicle__owner=partner,
+                ).exclude(booking__status=BookingStatus.CANCELLED).aggregate(total=Sum('amount'))['total'] or 0
+                fee_owed = (Decimal(total_collected) * partner.platform_fee_percent / Decimal('100')).quantize(Decimal('0.01'))
+                fleet_partners.append({
+                    'id': partner.id,
+                    'name': partner.name,
+                    'vehicle_count': partner.vehicles.count(),
+                    'bookings_count': partner_bookings.count(),
+                    'total_revenue': total_revenue,
+                    'total_collected': total_collected,
+                    'fee_owed': fee_owed,
+                })
+
         return Response({
             'revenue': {
                 'total_collected': total_revenue,
@@ -134,6 +159,7 @@ class AdminStatsView(APIView):
             'refunds': {
                 'pending': Refund.objects.filter(status=RefundStatus.PENDING).count(),
             },
+            'fleet_partners': fleet_partners,
         })
 
 

@@ -11,7 +11,7 @@ from rest_framework.test import APITestCase
 from bookings.models import BookingStatus
 from bookings.tests import make_booking, make_vehicle
 from drivers.models import Driver, DriverApplication
-from fleet.models import Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
+from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 
 from .models import AuditLog
@@ -713,6 +713,59 @@ class AdminStatsServiceDueTests(APITestCase):
         response = self.client.get('/api/admin/stats/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['fleet']['service_due'], 1)
+
+
+class AdminStatsFleetPartnerTests(APITestCase):
+    """The dashboard's per-partner breakdown (bookings, revenue, fee owed on their vehicles) is
+    superadmin-only, like everything else about a FleetPartner."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='super-stats-partner@example.com', password='pass12345!')
+        self.staff = User.objects.create_user(username='staff-stats-partner@example.com', password='pass12345!', is_staff=True)
+        self.partner = FleetPartner.objects.create(name='Stats Partner Co', platform_fee_percent=Decimal('10'))
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'), owner=self.partner, is_company_owned=False)
+        self.customer = User.objects.create_user(username='stats-partner-client@example.com', password='pass12345!')
+
+    def test_support_staff_does_not_see_fleet_partner_breakdown(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/admin/stats/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['fleet_partners'], [])
+
+    def test_superadmin_sees_fleet_partner_breakdown(self):
+        booking = make_booking(self.customer, self.vehicle, status=BookingStatus.PENDING)
+        Payment.objects.create(booking=booking, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL)
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.get('/api/admin/stats/')
+        self.assertEqual(response.status_code, 200)
+        partners = response.json()['fleet_partners']
+        self.assertEqual(len(partners), 1)
+        entry = partners[0]
+        self.assertEqual(entry['name'], 'Stats Partner Co')
+        self.assertEqual(entry['vehicle_count'], 1)
+        self.assertEqual(entry['bookings_count'], 1)
+        self.assertEqual(Decimal(str(entry['total_revenue'])), booking.total_amount)
+        self.assertEqual(Decimal(str(entry['total_collected'])), booking.total_amount)
+        self.assertEqual(Decimal(str(entry['fee_owed'])), (booking.total_amount * Decimal('10') / Decimal('100')).quantize(Decimal('0.01')))
+
+    def test_cancelled_bookings_are_excluded_from_partner_totals(self):
+        booking = make_booking(self.customer, self.vehicle, status=BookingStatus.CANCELLED)
+        Payment.objects.create(booking=booking, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL)
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.get('/api/admin/stats/')
+        entry = response.json()['fleet_partners'][0]
+        self.assertEqual(entry['bookings_count'], 0)
+        self.assertEqual(Decimal(str(entry['total_revenue'])), 0)
+        self.assertEqual(Decimal(str(entry['total_collected'])), 0)
+
+    def test_inactive_partner_is_excluded(self):
+        self.partner.is_active = False
+        self.partner.save(update_fields=['is_active'])
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.get('/api/admin/stats/')
+        self.assertEqual(response.json()['fleet_partners'], [])
 
 
 class AdminVehicleCategoryTests(APITestCase):

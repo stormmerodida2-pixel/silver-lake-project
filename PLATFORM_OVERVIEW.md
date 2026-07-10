@@ -404,7 +404,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-337 automated backend tests currently cover booking validation, payment guards, payout timing and
+341 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -431,7 +431,9 @@ cash-to-Paybill deposit logging (amount can't be less than collected, reference 
 and normalized to uppercase, one deposit per payment) and its payout-verification gate (cash needs
 a matching deposit; card doesn't), fleet-partner CRUD (superadmin-only, write-only Paybill
 secret/passkey) and the ownership-aware payout split (company-owned and FleetPartner-owned
-vehicles create no driver payout; a driver-partner's own car still does), and (using real threads
+vehicles create no driver payout; a driver-partner's own car still does), the superadmin-only
+per-partner dashboard breakdown (bookings/revenue/collected/fee-owed, cancelled bookings
+excluded, inactive partners excluded), and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:
@@ -462,7 +464,9 @@ Not broken, but worth a conscious decision before going fully live:
   every money/fleet-relevant admin viewset (bookings, payments, payouts, refunds, fleet...) down
   to "belongs to my org" for a tenant user vs. unfiltered for a real SilverLake superadmin - a
   substantial, multi-phase change, not a small tweak. What exists today (`fleet.FleetPartner`,
-  `Vehicle.owner`) is the fleet-ownership half only.
+  `Vehicle.owner`, and a superadmin-only per-partner breakdown on the main dashboard - bookings,
+  revenue, collected, fee owed) is the fleet-ownership + visibility half only; partners still have
+  no login of their own.
 - **A `FleetPartner`'s own Paybill isn't actually used for payment routing yet** — their
   credentials are captured but every client payment still goes through SilverLake's single
   configured Paybill regardless of which vehicle it's for. Real multi-tenant M-Pesa routing needs

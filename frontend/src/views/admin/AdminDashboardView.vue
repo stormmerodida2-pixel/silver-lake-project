@@ -216,6 +216,44 @@ onMounted(async () => {
         </div>
       </section>
 
+      <!-- Fleet Partners (superadmin-only, empty for everyone else) -->
+      <section v-if="stats.fleet_partners?.length">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Fleet Partners</h2>
+          <RouterLink to="/admin/fleet-partners" class="text-sm font-semibold text-gold-400 hover:text-gold-300">
+            Manage partners &rarr;
+          </RouterLink>
+        </div>
+        <div class="mt-3 overflow-x-auto rounded-xl border border-navy-800">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-navy-900 text-slate-400">
+              <tr>
+                <th class="px-4 py-3">Partner</th>
+                <th class="px-4 py-3">Vehicles</th>
+                <th class="px-4 py-3">Bookings</th>
+                <th class="px-4 py-3">Revenue</th>
+                <th class="px-4 py-3">Collected</th>
+                <th class="px-4 py-3">Fee Owed to SilverLake</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-navy-800 bg-navy-950">
+              <tr v-for="partner in stats.fleet_partners" :key="partner.id">
+                <td class="px-4 py-3 font-medium text-white">{{ partner.name }}</td>
+                <td class="px-4 py-3 text-slate-300">{{ partner.vehicle_count }}</td>
+                <td class="px-4 py-3 text-slate-300">{{ partner.bookings_count }}</td>
+                <td class="px-4 py-3 text-slate-300">{{ fmt(partner.total_revenue) }}</td>
+                <td class="px-4 py-3 text-slate-300">{{ fmt(partner.total_collected) }}</td>
+                <td class="px-4 py-3 font-semibold text-gold-400">{{ fmt(partner.fee_owed) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="mt-2 text-xs text-slate-500">
+          "Fee Owed" isn't collected automatically yet - direct Paybill routing and a settlement
+          ledger aren't built, so this is visibility only for now.
+        </p>
+      </section>
+
       <!-- Reviews & Refunds stats -->
       <section>
         <div class="flex items-center justify-between">
