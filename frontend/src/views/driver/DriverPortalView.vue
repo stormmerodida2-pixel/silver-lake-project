@@ -160,6 +160,38 @@ async function confirmPayment(booking, payment) {
   }
 }
 
+// ── Cash deposits (logging that collected cash was actually deposited to the Paybill) ───────
+const depositFormPaymentId = ref(null)
+const depositAmountDraft = ref('')
+const depositReferenceDraft = ref('')
+const loggingDepositId = ref(null)
+const depositError = ref('')
+
+function openDepositForm(payment) {
+  depositFormPaymentId.value = payment.id
+  depositAmountDraft.value = payment.amount
+  depositReferenceDraft.value = ''
+  depositError.value = ''
+}
+
+async function logCashDeposit(booking, payment) {
+  if (!depositAmountDraft.value || !depositReferenceDraft.value.trim()) return
+  depositError.value = ''
+  loggingDepositId.value = payment.id
+  try {
+    const { data } = await apiClient.post(`/driver/payments/${payment.id}/deposit/`, {
+      amount: depositAmountDraft.value,
+      mpesa_reference: depositReferenceDraft.value.trim(),
+    })
+    Object.assign(booking, data)
+    depositFormPaymentId.value = null
+  } catch (err) {
+    depositError.value = err.response?.data?.detail || 'Could not log this deposit.'
+  } finally {
+    loggingDepositId.value = null
+  }
+}
+
 // ── Live location sharing ────────────────────────────────────────────────────
 // Reported from the driver's own browser via the Geolocation API - only works while this tab
 // stays open, there's no background/native tracking. Only one trip can share at a time.
@@ -870,6 +902,56 @@ onMounted(() => {
                       </button>
                     </form>
                   </template>
+                </div>
+              </div>
+
+              <!-- Cash deposits owed to the Paybill -->
+              <div v-if="booking.pending_cash_deposits?.length" class="mt-3 space-y-2 border-t border-navy-800 pt-3">
+                <div v-for="payment in booking.pending_cash_deposits" :key="payment.id" class="rounded-lg bg-gold-500/10 p-3">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <p class="text-xs font-semibold text-gold-400">
+                      KES {{ Number(payment.amount).toLocaleString() }} collected in cash - deposit this to Paybill
+                      400400 (Acc: SILVERLAKE) and log it below.
+                    </p>
+                    <button
+                      v-if="depositFormPaymentId !== payment.id"
+                      class="shrink-0 text-xs font-semibold text-gold-400 hover:text-gold-300"
+                      @click="openDepositForm(payment)"
+                    >
+                      Log Deposit
+                    </button>
+                    <button
+                      v-else
+                      class="shrink-0 text-xs font-semibold text-slate-400 hover:text-white"
+                      @click="depositFormPaymentId = null"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <form
+                    v-if="depositFormPaymentId === payment.id"
+                    class="mt-2 space-y-2"
+                    @submit.prevent="logCashDeposit(booking, payment)"
+                  >
+                    <p v-if="depositError" class="text-xs text-red-400">{{ depositError }}</p>
+                    <div class="flex flex-wrap gap-2">
+                      <input
+                        v-model="depositAmountDraft" type="number" min="0" step="0.01" placeholder="Amount deposited" required
+                        class="w-36 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white focus:border-gold-500 focus:outline-none"
+                      />
+                      <input
+                        v-model="depositReferenceDraft" type="text" placeholder="M-Pesa reference (e.g. QWE123RTY)" required
+                        class="flex-1 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      :disabled="loggingDepositId === payment.id"
+                      class="rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                    >
+                      {{ loggingDepositId === payment.id ? 'Saving...' : 'Confirm Deposit' }}
+                    </button>
+                  </form>
                 </div>
               </div>
             </div>

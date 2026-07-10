@@ -4,11 +4,20 @@ from rest_framework import serializers
 
 from bookings.models import Booking
 
-from .models import Payment, PaymentMethod, PaymentStatus
+from .models import CashDeposit, Payment, PaymentMethod, PaymentStatus
+
+
+class CashDepositSerializer(serializers.ModelSerializer):
+    logged_by_name = serializers.CharField(source='logged_by.full_name', read_only=True, default=None)
+
+    class Meta:
+        model = CashDeposit
+        fields = ['id', 'amount', 'mpesa_reference', 'logged_by_name', 'created_at']
 
 
 class PaymentSerializer(serializers.ModelSerializer):
     recorded_by_driver_name = serializers.SerializerMethodField()
+    cash_deposit = CashDepositSerializer(read_only=True)
 
     class Meta:
         model = Payment
@@ -16,7 +25,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             'id', 'booking', 'method', 'amount', 'status',
             'mpesa_receipt_number', 'phone_number', 'card_transaction_ref',
             'recorded_by_driver_name', 'note', 'is_disputed', 'disputed_at', 'dispute_note',
-            'last_reminded_at', 'created_at',
+            'cash_deposit', 'last_reminded_at', 'created_at',
         ]
         read_only_fields = ['status', 'mpesa_receipt_number', 'last_reminded_at', 'created_at']
 

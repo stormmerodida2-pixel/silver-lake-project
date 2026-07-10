@@ -38,8 +38,10 @@ class Payment(models.Model):
     )
     note = models.CharField(max_length=200, blank=True)
 
-    # Set when staff nudge the driver to confirm a pending payment - lets the admin UI show
-    # "already reminded" and stops the button being spammed (see REMINDER_COOLDOWN in views.py).
+    # Set when staff nudge the driver about this payment - either to confirm it while still
+    # PENDING, or to redeposit the cash into the Paybill once it's SUCCESSFUL but still
+    # undeposited (see PaymentViewSet.remind / .remind_deposit). Safe to share one field since a
+    # payment is only ever in one of those two states at a time, never both.
     last_reminded_at = models.DateTimeField(null=True, blank=True)
 
     # A customer can flag a self-reported cash payment as wrong/never received, via the no-login
@@ -57,6 +59,28 @@ class Payment(models.Model):
 
     def __str__(self):
         return f'{self.get_method_display()} - {self.amount} ({self.status})'
+
+
+class CashDeposit(models.Model):
+    """A driver's record of depositing cash they collected from a customer into the company's
+    Paybill - a separate real-world event from confirming the cash payment itself (confirming
+    only records that the driver received money from the customer, not that they've handed it
+    over to the company). Required before the payout behind a cash Payment can be verified, and
+    the deposited amount can never be less than what was collected (enforced in
+    payments.services.log_cash_deposit) - without this, nothing stops a driver from quietly
+    keeping part of the cash."""
+
+    payment = models.OneToOneField(Payment, on_delete=models.CASCADE, related_name='cash_deposit')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    mpesa_reference = models.CharField(max_length=50, help_text='M-Pesa transaction code for the Paybill deposit')
+    logged_by = models.ForeignKey(Driver, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Deposit of {self.amount} for payment #{self.payment_id} (ref {self.mpesa_reference})'
 
 
 class DriverPayout(models.Model):

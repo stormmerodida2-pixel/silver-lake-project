@@ -12,7 +12,7 @@ from bookings.models import BookingStatus
 from bookings.tests import make_booking, make_vehicle
 from drivers.models import Driver
 
-from .models import DriverPayout, Payment, PaymentMethod, PaymentStatus
+from .models import CashDeposit, DriverPayout, Payment, PaymentMethod, PaymentStatus
 from .services import PaymentValidationError, initiate_stk_push_payment
 
 User = get_user_model()
@@ -464,3 +464,74 @@ class PaymentReminderTests(APITestCase):
         self.client.force_authenticate(user=self.staff)
         response = self.client.post(f'/api/payments/{self.payment.id}/remind/')
         self.assertEqual(response.status_code, 400)
+
+
+class CashDepositReminderTests(APITestCase):
+    """Staff can nudge a driver who's confirmed collecting cash but hasn't yet redeposited it
+    into the company Paybill - distinct from PaymentReminderTests, which is about confirming
+    receipt in the first place."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='depremind-staff@example.com', password='pass12345!', is_staff=True)
+        self.plain_user = User.objects.create_user(username='depremind-plain@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(
+            user=User.objects.create_user(username='depremind-driver@example.com', password='pass12345!'),
+            full_name='DepRemind Driver', is_active=True, email='depremind-driver@example.com',
+        )
+        vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='depremind-customer@example.com', password='pass12345!')
+        self.booking = make_booking(customer, vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        self.payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH, amount=Decimal('500'),
+            status=PaymentStatus.SUCCESSFUL, recorded_by_driver=self.driver,
+        )
+
+    def _url(self):
+        return f'/api/payments/{self.payment.id}/remind-deposit/'
+
+    def test_staff_can_remind_driver_to_deposit_cash(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 200)
+        self.payment.refresh_from_db()
+        self.assertIsNotNone(self.payment.last_reminded_at)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('depremind-driver@example.com', mail.outbox[0].to)
+
+    def test_cannot_remind_once_already_deposited(self):
+        CashDeposit.objects.create(
+            payment=self.payment, amount=self.payment.amount, mpesa_reference='QWE1234567', logged_by=self.driver,
+        )
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_cannot_remind_about_a_pending_cash_payment(self):
+        self.payment.status = PaymentStatus.PENDING
+        self.payment.save(update_fields=['status'])
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_remind_about_a_card_payment(self):
+        card_payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CARD, amount=Decimal('500'),
+            status=PaymentStatus.SUCCESSFUL, recorded_by_driver=self.driver,
+        )
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/payments/{card_payment.id}/remind-deposit/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_cooldown_blocks_an_immediate_second_reminder(self):
+        self.client.force_authenticate(user=self.staff)
+        first = self.client.post(self._url())
+        self.assertEqual(first.status_code, 200)
+        second = self.client.post(self._url())
+        self.assertEqual(second.status_code, 400)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_non_staff_cannot_remind(self):
+        self.client.force_authenticate(user=self.plain_user)
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 403)

@@ -26,6 +26,7 @@ class BookingSerializer(serializers.ModelSerializer):
     driver_name = serializers.SerializerMethodField()
     review = serializers.SerializerMethodField()
     pending_payments = serializers.SerializerMethodField()
+    pending_cash_deposits = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -37,7 +38,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid',
             'status', 'notes', 'review', 'created_at', 'driver_acknowledged_at',
             'trip_started_at', 'trip_ended_at', 'needs_attention', 'pending_payments',
-            'last_balance_reminder_at',
+            'pending_cash_deposits', 'last_balance_reminder_at',
         ]
         read_only_fields = [
             'status', 'source', 'total_amount', 'created_at', 'driver_acknowledged_at',
@@ -66,6 +67,17 @@ class BookingSerializer(serializers.ModelSerializer):
             for p in payments
         ]
 
+    def get_pending_cash_deposits(self, obj):
+        # Confirmed cash payments the assigned driver has collected but not yet deposited to the
+        # company Paybill - surfaced so the Driver Portal can prompt for the deposit, and so a
+        # payout can't quietly get verified while one of these is still outstanding.
+        payments = obj.payments.filter(
+            method=PaymentMethod.CASH, status=PaymentStatus.SUCCESSFUL, cash_deposit__isnull=True,
+        )
+        return [
+            {'id': p.id, 'amount': p.amount, 'created_at': p.created_at}
+            for p in payments
+        ]
 
     def validate(self, attrs):
         # Delegate to Booking.clean() so the same date-order/vehicle/driver-conflict/self-drive-

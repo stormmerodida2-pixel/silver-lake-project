@@ -230,6 +230,16 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
 - **Verifying requires a note.** The verify action rejects an empty note - a superadmin has to
   record how it was actually reconciled (e.g. "called customer, confirmed KES 5000 received"),
   so verifying is an attested action with a trail rather than a button clicked on trust.
+- **Cash specifically also requires a matching Paybill deposit before its payout can be verified.**
+  Collecting cash from a client and depositing that cash into the company's own Paybill (400400)
+  are two separate real-world events - a driver confirming they received cash doesn't by itself
+  mean the company actually has that money. The driver logs the deposit themselves from the
+  Driver Portal (amount + M-Pesa reference for the Paybill deposit itself); the deposited amount
+  can never be less than what was collected. `verify()` hard-rejects while any cash payment on
+  the booking is still missing a matching deposit - not just a UI convention, enforced server-side.
+  Card payments skip this (no physical cash involved). Staff can nudge a driver who's sitting on
+  undeposited cash with a "Remind Deposit" button on Admin → Payments, same one-hour cooldown as
+  the other payment reminders.
 - **A customer can dispute a cash payment.** The email notifying them a cash payment was
   recorded includes a no-login "Dispute This Payment" link (same customer_token mechanism as the
   payment page). Filing a dispute flags the payment and - if the payout hasn't been paid out yet -
@@ -379,7 +389,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-308 automated backend tests currently cover booking validation, payment guards, payout timing and
+326 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -400,8 +410,11 @@ on cash/card-payout verification and the customer-facing cash-payment dispute fl
 that a dispute re-locks an already-verified payout), the driver declare/confirm payment flow for
 cash, card, and M-Pesa (including that confirming takes no amount and that a cash confirmation
 notifies staff by email), the client's own no-login cash self-declaration (rejected without a
-driver assigned, showing up as pending until the driver confirms it), the staff payment-reminder
-and booking-balance-reminder actions and their one-per-hour cooldowns, and (using real threads
+driver assigned, showing up as pending until the driver confirms it), the staff payment-reminder,
+booking-balance-reminder, and cash-deposit-reminder actions and their one-per-hour cooldowns, the
+cash-to-Paybill deposit logging (amount can't be less than collected, reference format-validated
+and normalized to uppercase, one deposit per payment) and its payout-verification gate (cash needs
+a matching deposit; card doesn't), and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:

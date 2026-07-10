@@ -662,6 +662,121 @@ class DriverConfirmPaymentTests(APITestCase):
         self.assertEqual(response.status_code, 200)
 
 
+class DriverCashDepositTests(APITestCase):
+    """A driver logging that they've deposited cash they collected into the company Paybill -
+    the second half of the cash-payment trust chain. The deposited amount can never be less
+    than what was collected."""
+
+    def setUp(self):
+        driver_user = User.objects.create_user(username='deposit-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=driver_user, full_name='Deposit Driver', is_active=True)
+        vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='deposit-client@example.com', password='pass12345!')
+        self.booking = make_booking(customer, vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        self.cash_payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH, amount=self.booking.total_amount,
+            status=PaymentStatus.SUCCESSFUL, recorded_by_driver=self.driver,
+        )
+        self.client.force_authenticate(user=driver_user)
+
+    def _url(self, payment=None):
+        return f'/api/driver/payments/{(payment or self.cash_payment).id}/deposit/'
+
+    def test_driver_can_log_a_matching_deposit(self):
+        response = self.client.post(
+            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QWE1234567'}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.cash_payment.refresh_from_db()
+        self.assertEqual(self.cash_payment.cash_deposit.amount, self.cash_payment.amount)
+        self.assertEqual(self.cash_payment.cash_deposit.mpesa_reference, 'QWE1234567')
+        self.assertEqual(self.cash_payment.cash_deposit.logged_by_id, self.driver.id)
+
+    def test_depositing_less_than_collected_is_rejected(self):
+        short_amount = self.cash_payment.amount - 1
+        response = self.client.post(
+            self._url(), {'amount': str(short_amount), 'mpesa_reference': 'QWE1234568'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.cash_payment.refresh_from_db()
+        self.assertFalse(hasattr(self.cash_payment, 'cash_deposit'))
+
+    def test_depositing_more_than_collected_is_fine(self):
+        response = self.client.post(
+            self._url(), {'amount': str(self.cash_payment.amount + 50), 'mpesa_reference': 'QWE1234569'}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_cannot_log_a_deposit_without_a_reference(self):
+        response = self.client.post(
+            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': ''}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_reference_must_look_like_a_real_mpesa_code(self):
+        for bad_reference in ('asdf', '1234567890', 'QGH7X'):
+            response = self.client.post(
+                self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': bad_reference}, format='json',
+            )
+            self.assertEqual(response.status_code, 400, f'reference={bad_reference} should have been rejected')
+
+    def test_reference_is_normalized_to_uppercase(self):
+        self.client.post(self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'qwe1234567'}, format='json')
+        self.cash_payment.refresh_from_db()
+        self.assertEqual(self.cash_payment.cash_deposit.mpesa_reference, 'QWE1234567')
+
+    def test_cannot_log_a_second_deposit_for_the_same_payment(self):
+        self.client.post(self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QWE1234570'}, format='json')
+        response = self.client.post(
+            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QWE1234571'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_log_a_deposit_for_another_drivers_payment(self):
+        other_driver_user = User.objects.create_user(username='other-deposit-driver@example.com', password='pass12345!')
+        Driver.objects.create(user=other_driver_user, full_name='Not This Driver', is_active=True)
+        self.client.force_authenticate(user=other_driver_user)
+
+        response = self.client.post(
+            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QWE1234572'}, format='json',
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_cannot_log_a_deposit_for_an_mpesa_payment(self):
+        mpesa_payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA, amount=Decimal('100'), status=PaymentStatus.SUCCESSFUL,
+        )
+        response = self.client.post(
+            self._url(mpesa_payment), {'amount': '100', 'mpesa_reference': 'QWE1234572'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_log_a_deposit_for_a_still_pending_cash_payment(self):
+        pending_payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH, amount=Decimal('100'),
+            status=PaymentStatus.PENDING, recorded_by_driver=self.driver,
+        )
+        response = self.client.post(
+            self._url(pending_payment), {'amount': '100', 'mpesa_reference': 'QWE1234572'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def _results(self, response):
+        data = response.json()
+        return data['results'] if 'results' in data else data
+
+    def test_booking_lists_the_payment_as_a_pending_cash_deposit_until_logged(self):
+        response = self.client.get('/api/driver/bookings/mine/')
+        pending = next(b for b in self._results(response) if b['id'] == self.booking.id)['pending_cash_deposits']
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]['id'], self.cash_payment.id)
+
+        self.client.post(self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QWE1234572'}, format='json')
+        response = self.client.get('/api/driver/bookings/mine/')
+        pending = next(b for b in self._results(response) if b['id'] == self.booking.id)['pending_cash_deposits']
+        self.assertEqual(len(pending), 0)
+
+
 class TokenPaymentPageTests(APITestCase):
     """Covers the no-login /api/pay/<token>/ page a walk-up client uses to pay."""
 

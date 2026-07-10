@@ -38,6 +38,29 @@ function remindDisabledReason(payment) {
   return elapsedMs < 60 * 60 * 1000 ? 'Reminded recently - please wait before sending another.' : null
 }
 
+function needsDeposit(payment) {
+  return payment.method === 'cash' && payment.status === 'successful' && !payment.cash_deposit
+}
+
+async function remindDeposit(payment) {
+  busyId.value = payment.id
+  try {
+    const { data } = await apiClient.post(`/payments/${payment.id}/remind-deposit/`)
+    Object.assign(payment, data)
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Could not send a deposit reminder for this payment.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+function remindDepositDisabledReason(payment) {
+  if (!needsDeposit(payment) || !payment.recorded_by_driver_name) return null
+  if (!payment.last_reminded_at) return null
+  const elapsedMs = Date.now() - new Date(payment.last_reminded_at).getTime()
+  return elapsedMs < 60 * 60 * 1000 ? 'Reminded recently - please wait before sending another.' : null
+}
+
 onMounted(load)
 </script>
 
@@ -61,6 +84,7 @@ onMounted(load)
             <th class="px-4 py-3">Status</th>
             <th class="px-4 py-3">Reference</th>
             <th class="px-4 py-3">Recorded By</th>
+            <th class="px-4 py-3">Paybill Deposit</th>
             <th class="px-4 py-3">Date</th>
             <th class="px-4 py-3">Actions</th>
           </tr>
@@ -95,6 +119,17 @@ onMounted(load)
               {{ payment.recorded_by_driver_name || '—' }}
               <div v-if="payment.note" class="italic text-slate-500">{{ payment.note }}</div>
             </td>
+            <td class="px-4 py-3 text-xs">
+              <template v-if="payment.method === 'cash'">
+                <template v-if="payment.cash_deposit">
+                  <span class="font-semibold text-emerald-400">KES {{ Number(payment.cash_deposit.amount).toLocaleString() }}</span>
+                  <div class="text-slate-500">{{ payment.cash_deposit.mpesa_reference }}</div>
+                </template>
+                <span v-else-if="payment.status === 'successful'" class="font-semibold text-gold-400">⚠ Not deposited yet</span>
+                <span v-else class="text-slate-600">—</span>
+              </template>
+              <span v-else class="text-slate-600">—</span>
+            </td>
             <td class="px-4 py-3 text-xs text-slate-500">{{ new Date(payment.created_at).toLocaleString() }}</td>
             <td class="px-4 py-3">
               <button
@@ -105,6 +140,15 @@ onMounted(load)
                 @click="remindDriver(payment)"
               >
                 {{ busyId === payment.id ? 'Sending...' : (payment.last_reminded_at ? 'Remind Again' : 'Remind Driver') }}
+              </button>
+              <button
+                v-else-if="needsDeposit(payment) && payment.recorded_by_driver_name"
+                :disabled="busyId === payment.id || !!remindDepositDisabledReason(payment)"
+                :title="remindDepositDisabledReason(payment) || ''"
+                class="rounded-md border border-navy-700 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                @click="remindDeposit(payment)"
+              >
+                {{ busyId === payment.id ? 'Sending...' : (payment.last_reminded_at ? 'Remind Again' : 'Remind Deposit') }}
               </button>
             </td>
           </tr>

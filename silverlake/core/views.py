@@ -15,7 +15,7 @@ from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
 from fleet.models import Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
 from fleet.serializers import VehicleCategorySerializer, VehicleImageSerializer, VehicleServiceRecordSerializer
-from payments.models import DriverPayout, Payment, PaymentStatus, Refund, RefundStatus
+from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund, RefundStatus
 from reviews.models import Review
 
 from .audit import log_admin_action
@@ -445,7 +445,10 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
     def verify(self, request, pk=None):
         """Confirms a cash/card-sourced payout is legitimate, after reconciling with the driver
         or customer - requires a short note describing how it was reconciled, so verifying is an
-        attested action with a trail, not just a button clicked on trust."""
+        attested action with a trail, not just a button clicked on trust. Also requires every
+        cash payment behind this booking to have a matching Paybill deposit logged (see
+        payments.services.log_cash_deposit) - a driver can't get their payout verified while
+        still holding onto (some of) the cash they collected."""
         note = request.data.get('note', '').strip()
         if not note:
             return Response(
@@ -453,6 +456,14 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
                 status=status.HTTP_400_BAD_REQUEST,
             )
         payout = self.get_object()
+        undeposited = payout.booking.payments.filter(
+            method=PaymentMethod.CASH, status=PaymentStatus.SUCCESSFUL, cash_deposit__isnull=True,
+        )
+        if undeposited.exists():
+            return Response(
+                {'detail': 'Every cash payment on this booking needs a matching Paybill deposit logged before this payout can be verified.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         payout.verify(note)
         log_admin_action(request, 'payout.verify', payout, detail=note)
         return Response(AdminDriverPayoutSerializer(payout).data)

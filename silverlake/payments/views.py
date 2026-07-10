@@ -14,7 +14,7 @@ from bookings.models import Booking
 from core.audit import log_admin_action
 from core.permissions import IsSupportStaff
 
-from .emails import send_payment_reminder_email
+from .emails import send_cash_deposit_reminder_email, send_payment_reminder_email
 from .models import Payment, PaymentMethod, PaymentStatus
 from .serializers import PublicBookingPaymentSerializer, PaymentSerializer, StkPushRequestSerializer, TokenStkPushRequestSerializer
 from .services import PaymentValidationError, declare_offline_payment, initiate_stk_push_payment
@@ -63,6 +63,27 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         payment.save(update_fields=['last_reminded_at'])
         send_payment_reminder_email(payment)
         log_admin_action(request, 'payment.remind', payment)
+        return Response(self.get_serializer(payment).data)
+
+    @action(detail=True, methods=['post'], url_path='remind-deposit', permission_classes=[IsSupportStaff])
+    def remind_deposit(self, request, pk=None):
+        """Nudges the driver who's collected cash but hasn't yet redeposited it into the company
+        Paybill (see payments.services.log_cash_deposit) - distinct from `remind` above, which is
+        about confirming receipt in the first place. Any staff account can do this."""
+        payment = self.get_object()
+        if payment.method != PaymentMethod.CASH or payment.status != PaymentStatus.SUCCESSFUL:
+            return Response({'detail': 'Only a confirmed cash payment can be reminded about a deposit.'}, status=status.HTTP_400_BAD_REQUEST)
+        if hasattr(payment, 'cash_deposit'):
+            return Response({'detail': 'This cash payment has already been deposited.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not payment.recorded_by_driver_id:
+            return Response({'detail': 'This payment has no driver to remind.'}, status=status.HTTP_400_BAD_REQUEST)
+        if payment.last_reminded_at and timezone.now() - payment.last_reminded_at < REMINDER_COOLDOWN:
+            return Response({'detail': 'A reminder was already sent recently. Please wait before sending another.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        payment.last_reminded_at = timezone.now()
+        payment.save(update_fields=['last_reminded_at'])
+        send_cash_deposit_reminder_email(payment)
+        log_admin_action(request, 'payment.remind_deposit', payment)
         return Response(self.get_serializer(payment).data)
 
 
