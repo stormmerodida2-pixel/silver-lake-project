@@ -846,10 +846,14 @@ onMounted(() => {
                         class="w-36 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white focus:border-gold-500 focus:outline-none"
                       />
                       <input
-                        v-model="depositReferenceDraft" type="text" placeholder="M-Pesa reference (e.g. QWE123RTY)" required
-                        class="flex-1 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                        v-model="depositReferenceDraft" type="text" maxlength="10"
+                        placeholder="M-Pesa reference (e.g. QGH7XXXXXX)" required
+                        class="flex-1 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs uppercase text-white placeholder-slate-500 placeholder:normal-case focus:border-gold-500 focus:outline-none"
                       />
                     </div>
+                    <p class="text-[11px] text-slate-500">
+                      The 10-character code from your M-Pesa deposit confirmation SMS.
+                    </p>
                     <button
                       type="submit"
                       :disabled="loggingDepositId === payment.id"

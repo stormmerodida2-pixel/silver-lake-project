@@ -591,18 +591,35 @@ class DriverCashDepositTests(APITestCase):
 
     def test_driver_can_log_a_matching_deposit(self):
         response = self.client.post(
-            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QWE123RTY'}, format='json',
+            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QWE123RTY9'}, format='json',
         )
         self.assertEqual(response.status_code, 200)
         self.cash_payment.refresh_from_db()
         self.assertEqual(self.cash_payment.cash_deposit.amount, self.cash_payment.amount)
-        self.assertEqual(self.cash_payment.cash_deposit.mpesa_reference, 'QWE123RTY')
+        self.assertEqual(self.cash_payment.cash_deposit.mpesa_reference, 'QWE123RTY9')
         self.assertEqual(self.cash_payment.cash_deposit.logged_by_id, self.driver.id)
+
+    def test_reference_is_normalized_to_uppercase(self):
+        response = self.client.post(
+            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'qwe123rty9'}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.cash_payment.refresh_from_db()
+        self.assertEqual(self.cash_payment.cash_deposit.mpesa_reference, 'QWE123RTY9')
+
+    def test_deposit_with_an_invalid_reference_format_is_rejected(self):
+        for bad_reference in ('asdf', '12345', 'TOOLONGCODE123', 'X'):
+            response = self.client.post(
+                self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': bad_reference}, format='json',
+            )
+            self.assertEqual(response.status_code, 400, f'reference={bad_reference!r} should have been rejected')
+        self.cash_payment.refresh_from_db()
+        self.assertFalse(hasattr(self.cash_payment, 'cash_deposit'))
 
     def test_depositing_less_than_collected_is_rejected(self):
         short_amount = self.cash_payment.amount - 1
         response = self.client.post(
-            self._url(), {'amount': str(short_amount), 'mpesa_reference': 'SHORT1'}, format='json',
+            self._url(), {'amount': str(short_amount), 'mpesa_reference': 'QAMOUNTLOW'}, format='json',
         )
         self.assertEqual(response.status_code, 400)
         self.cash_payment.refresh_from_db()
@@ -610,7 +627,7 @@ class DriverCashDepositTests(APITestCase):
 
     def test_depositing_more_than_collected_is_fine(self):
         response = self.client.post(
-            self._url(), {'amount': str(self.cash_payment.amount + 50), 'mpesa_reference': 'EXTRA1'}, format='json',
+            self._url(), {'amount': str(self.cash_payment.amount + 50), 'mpesa_reference': 'QEXTRA0001'}, format='json',
         )
         self.assertEqual(response.status_code, 200)
 
@@ -621,9 +638,9 @@ class DriverCashDepositTests(APITestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_cannot_log_a_second_deposit_for_the_same_payment(self):
-        self.client.post(self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'FIRST1'}, format='json')
+        self.client.post(self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QFIRST0001'}, format='json')
         response = self.client.post(
-            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'SECOND1'}, format='json',
+            self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QSECOND001'}, format='json',
         )
         self.assertEqual(response.status_code, 400)
 
@@ -657,7 +674,7 @@ class DriverCashDepositTests(APITestCase):
         self.assertEqual(len(pending), 1)
         self.assertEqual(pending[0]['id'], self.cash_payment.id)
 
-        self.client.post(self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'X'}, format='json')
+        self.client.post(self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QCLEARED01'}, format='json')
         response = self.client.get('/api/driver/bookings/mine/')
         pending = next(b for b in self._results(response) if b['id'] == self.booking.id)['pending_cash_deposits']
         self.assertEqual(len(pending), 0)

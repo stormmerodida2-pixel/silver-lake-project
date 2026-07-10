@@ -214,10 +214,15 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
   M-Pesa reference) for each cash payment from the Driver Portal, and depositing less than what
   was collected is a hard rejection, not a warning. A payout can't be verified while any of its
   cash payments still lacks a matching deposit - so a driver can't quietly keep part of the cash
-  and still get their commission released. This still relies on a superadmin cross-checking the
-  M-Pesa reference against the real Paybill statement by hand (the verification note is where
-  that gets recorded) - it isn't a live Safaricom C2B integration, which would be the fully
-  automatic version of this check if/when there's production Paybill API access.
+  and still get their commission released. The reference is format-validated (10 characters,
+  starts with a letter, e.g. `QGH7XXXXXX` - real M-Pesa codes always look like this) and
+  normalized to uppercase, so obviously-fake input like "asdf" is rejected outright. That's as
+  far as automatic checking goes without a Safaricom API call, though: it can't confirm the code
+  actually exists or that its real amount matches what was deposited - a superadmin still
+  cross-checks the reference against the real Paybill statement by hand (the verification note
+  is where that gets recorded). The fully automatic version of this check - Safaricom's
+  Transaction Status Query API, looking up a code and confirming its real amount - needs
+  Initiator/security-credential access this project doesn't have yet.
 - **Refunds are tracked, not automated.** There's no live M-Pesa refund API wired up — instead,
   cancelling a paid booking creates a `Refund` record automatically, which shows up on the admin
   Refunds page as "Pending" until a superadmin sends the money back by hand and marks it
@@ -349,7 +354,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-281 automated backend tests currently cover booking validation, payment guards, payout timing and
+283 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,

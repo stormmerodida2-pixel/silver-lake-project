@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import timedelta
 
 from django.utils import timezone
@@ -9,6 +10,14 @@ from . import mpesa
 from .models import CashDeposit, Payment, PaymentMethod, PaymentStatus
 
 logger = logging.getLogger(__name__)
+
+# Real M-Pesa transaction codes are always exactly 10 characters, start with a letter, and
+# contain only uppercase letters/digits after that (e.g. QGH7XXXXXX) - this doesn't confirm the
+# code actually exists or matches the deposited amount (that needs Safaricom's Transaction
+# Status Query API, which needs Initiator credentials this project doesn't have yet), but it
+# does reject obviously-fake input like "asdf" or "12345" before it gets treated as a real
+# reference a superadmin might later try to look up.
+MPESA_REFERENCE_PATTERN = re.compile(r'^[A-Z][A-Z0-9]{9}$')
 
 
 class PaymentValidationError(Exception):
@@ -120,8 +129,14 @@ def log_cash_deposit(payment, amount, mpesa_reference, driver):
         raise PaymentValidationError('Only cash payments need a deposit logged.')
     if hasattr(payment, 'cash_deposit'):
         raise PaymentValidationError('A deposit has already been logged for this payment.')
-    if not mpesa_reference.strip():
+    mpesa_reference = mpesa_reference.strip().upper()
+    if not mpesa_reference:
         raise PaymentValidationError('The M-Pesa reference for the Paybill deposit is required.')
+    if not MPESA_REFERENCE_PATTERN.match(mpesa_reference):
+        raise PaymentValidationError(
+            f'"{mpesa_reference}" doesn\'t look like a real M-Pesa reference (should be 10 characters, '
+            'starting with a letter, e.g. QGH7XXXXXX). Check the deposit confirmation SMS and try again.'
+        )
     if amount < payment.amount:
         raise PaymentValidationError(
             f'Deposited amount (KES {amount}) is less than the cash collected (KES {payment.amount}). '
@@ -129,5 +144,5 @@ def log_cash_deposit(payment, amount, mpesa_reference, driver):
         )
 
     return CashDeposit.objects.create(
-        payment=payment, amount=amount, mpesa_reference=mpesa_reference.strip(), logged_by=driver,
+        payment=payment, amount=amount, mpesa_reference=mpesa_reference, logged_by=driver,
     )
