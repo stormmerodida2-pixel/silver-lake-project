@@ -167,9 +167,11 @@ class PublicCategoryApiTests(APITestCase):
 
 
 class AdminFleetPartnerTests(APITestCase):
-    """Superadmin-only CRUD for registered fleet-owning companies - holds their own Paybill
-    credentials and platform fee rate, so unlike most admin list endpoints, even viewing is
-    restricted (not opened to regular support staff)."""
+    """Superadmin-only CRUD for registered fleet-owning companies - holds their platform fee
+    rate (which only a genuine SilverLake superadmin can ever set, not even their own org-admin),
+    so unlike most admin list endpoints, even viewing is restricted (not opened to regular
+    support staff). Deliberately holds no payment details of its own - every client payment goes
+    through SilverLake's single Paybill regardless of vehicle ownership."""
 
     def setUp(self):
         self.superadmin = User.objects.create_superuser(username='partner-super@example.com', password='pass12345!')
@@ -179,7 +181,7 @@ class AdminFleetPartnerTests(APITestCase):
         self.client.force_authenticate(user=self.superadmin)
         response = self.client.post('/api/admin/fleet-partners/', {
             'name': 'Coastline Rentals Ltd', 'contact_email': 'ops@coastline.co.ke',
-            'mpesa_shortcode': '555555', 'platform_fee_percent': '10',
+            'platform_fee_percent': '10',
         }, format='json')
         self.assertEqual(response.status_code, 201)
         partner = FleetPartner.objects.get()
@@ -192,22 +194,6 @@ class AdminFleetPartnerTests(APITestCase):
         self.assertEqual(list_response.status_code, 403)
         create_response = self.client.post('/api/admin/fleet-partners/', {'name': 'X'}, format='json')
         self.assertEqual(create_response.status_code, 403)
-
-    def test_secret_and_passkey_are_write_only(self):
-        self.client.force_authenticate(user=self.superadmin)
-        create_response = self.client.post('/api/admin/fleet-partners/', {
-            'name': 'Secret Test Co', 'mpesa_consumer_secret': 'shh', 'mpesa_passkey': 'alsoshh',
-        }, format='json')
-        self.assertNotIn('mpesa_consumer_secret', create_response.json())
-        self.assertNotIn('mpesa_passkey', create_response.json())
-
-        partner_id = create_response.json()['id']
-        list_response = self.client.get('/api/admin/fleet-partners/')
-        data = list_response.json()
-        results = data['results'] if isinstance(data, dict) and 'results' in data else data
-        partner = next(p for p in results if p['id'] == partner_id)
-        self.assertNotIn('mpesa_consumer_secret', partner)
-        self.assertNotIn('mpesa_passkey', partner)
 
     def test_deleting_a_partner_with_a_vehicle_is_blocked(self):
         partner = FleetPartner.objects.create(name='Has A Car')

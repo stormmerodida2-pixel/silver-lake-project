@@ -187,17 +187,9 @@ class AdminFleetPartnerSerializer(serializers.ModelSerializer):
         model = FleetPartner
         fields = [
             'id', 'name', 'contact_email', 'contact_phone',
-            'mpesa_shortcode', 'mpesa_till_number',
-            'mpesa_consumer_key', 'mpesa_consumer_secret', 'mpesa_passkey',
             'platform_fee_percent', 'is_active', 'vehicle_count', 'created_at',
         ]
         read_only_fields = ['created_at']
-        extra_kwargs = {
-            # Write-only: no reason to echo a partner's own API secret/passkey back in every
-            # subsequent list/retrieve response once it's been set.
-            'mpesa_consumer_secret': {'write_only': True},
-            'mpesa_passkey': {'write_only': True},
-        }
 
 
 class AdminVehicleSerializer(serializers.ModelSerializer):

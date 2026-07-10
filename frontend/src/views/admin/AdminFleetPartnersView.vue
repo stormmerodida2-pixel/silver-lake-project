@@ -15,11 +15,6 @@ const form = reactive({
   name: '',
   contact_email: '',
   contact_phone: '',
-  mpesa_shortcode: '',
-  mpesa_till_number: '',
-  mpesa_consumer_key: '',
-  mpesa_consumer_secret: '',
-  mpesa_passkey: '',
   platform_fee_percent: '10',
 })
 
@@ -29,12 +24,7 @@ const submitLabel = () => saving.value
   : (editingId.value ? 'Save Changes' : 'Register Partner')
 
 function resetForm() {
-  Object.assign(form, {
-    name: '', contact_email: '', contact_phone: '',
-    mpesa_shortcode: '', mpesa_till_number: '',
-    mpesa_consumer_key: '', mpesa_consumer_secret: '', mpesa_passkey: '',
-    platform_fee_percent: '10',
-  })
+  Object.assign(form, { name: '', contact_email: '', contact_phone: '', platform_fee_percent: '10' })
 }
 
 function openAddModal() {
@@ -48,9 +38,6 @@ function openEditModal(partner) {
   editingId.value = partner.id
   Object.assign(form, {
     name: partner.name, contact_email: partner.contact_email, contact_phone: partner.contact_phone,
-    mpesa_shortcode: partner.mpesa_shortcode, mpesa_till_number: partner.mpesa_till_number,
-    mpesa_consumer_key: partner.mpesa_consumer_key,
-    mpesa_consumer_secret: '', mpesa_passkey: '', // write-only fields - never echoed back, leave blank to keep unchanged
     platform_fee_percent: partner.platform_fee_percent,
   })
   formError.value = ''
@@ -65,17 +52,12 @@ async function savePartner() {
   }
   saving.value = true
   try {
-    // Don't overwrite a saved secret/passkey with blanks just because the field was left empty.
-    const payload = { ...form }
-    if (!payload.mpesa_consumer_secret) delete payload.mpesa_consumer_secret
-    if (!payload.mpesa_passkey) delete payload.mpesa_passkey
-
     if (editingId.value) {
-      const { data } = await apiClient.patch(`/admin/fleet-partners/${editingId.value}/`, payload)
+      const { data } = await apiClient.patch(`/admin/fleet-partners/${editingId.value}/`, form)
       const idx = partners.value.findIndex((p) => p.id === editingId.value)
       if (idx !== -1) partners.value[idx] = data
     } else {
-      const { data } = await apiClient.post('/admin/fleet-partners/', payload)
+      const { data } = await apiClient.post('/admin/fleet-partners/', form)
       partners.value.unshift(data)
     }
     showModal.value = false
@@ -148,7 +130,6 @@ onMounted(load)
           <tr>
             <th class="px-4 py-3">Partner</th>
             <th class="px-4 py-3">Contact</th>
-            <th class="px-4 py-3">Payment</th>
             <th class="px-4 py-3">Platform Fee</th>
             <th class="px-4 py-3">Vehicles</th>
             <th class="px-4 py-3">Status</th>
@@ -161,11 +142,6 @@ onMounted(load)
             <td class="px-4 py-3 text-xs text-slate-400">
               <div>{{ partner.contact_email || '—' }}</div>
               <div>{{ partner.contact_phone }}</div>
-            </td>
-            <td class="px-4 py-3 text-slate-300">
-              <div v-if="partner.mpesa_shortcode">Paybill {{ partner.mpesa_shortcode }}</div>
-              <div v-if="partner.mpesa_till_number">Till {{ partner.mpesa_till_number }}</div>
-              <span v-if="!partner.mpesa_shortcode && !partner.mpesa_till_number">—</span>
             </td>
             <td class="px-4 py-3 text-slate-300">{{ partner.platform_fee_percent }}%</td>
             <td class="px-4 py-3 text-slate-300">{{ partner.vehicle_count }}</td>
@@ -257,54 +233,17 @@ onMounted(load)
                 </div>
               </div>
 
-              <div class="rounded-xl border border-navy-700 p-4">
-                <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Partner's Payment Details</p>
-                <div class="grid grid-cols-2 gap-3">
-                  <input
-                    v-model="form.mpesa_shortcode" type="text" placeholder="Paybill number"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                  />
-                  <input
-                    v-model="form.mpesa_till_number" type="text" placeholder="Till / Buy Goods number"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                  />
-                </div>
-                <p class="mt-2 text-xs text-slate-500">
-                  Whatever the partner actually has - most register with just one of these.
-                </p>
-
-                <p class="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Daraja API Credentials <span class="normal-case font-normal text-slate-500">(optional - add once available)</span>
-                </p>
-                <div class="space-y-3">
-                  <input
-                    v-model="form.mpesa_consumer_key" type="text" placeholder="Consumer key"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                  />
-                  <input
-                    v-model="form.mpesa_consumer_secret" type="password" :placeholder="editingId ? 'Leave blank to keep existing' : 'Consumer secret'"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                  />
-                  <input
-                    v-model="form.mpesa_passkey" type="password" :placeholder="editingId ? 'Leave blank to keep existing' : 'Passkey'"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                  />
-                </div>
-                <p class="mt-2 text-xs text-slate-500">
-                  Most partners won't have these yet - a Daraja app needs a separate signup with
-                  Safaricom. Not required to register, and not yet used to route real payments
-                  either way - client STK pushes still go through SilverLake's own Paybill until
-                  direct routing is built.
-                </p>
-              </div>
-
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Platform Fee (%)</label>
                 <input
                   v-model="form.platform_fee_percent" type="number" min="0" max="100" step="0.01"
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                 />
-                <p class="mt-1 text-xs text-slate-500">SilverLake's cut, owed back by this partner - not deducted from a payout.</p>
+                <p class="mt-1 text-xs text-slate-500">
+                  SilverLake's cut, kept as revenue. The rest is owed back to this partner via a
+                  normal payout (Admin → Payouts) once a booking on their vehicle is fully paid -
+                  every payment still goes through SilverLake's own Paybill, not the partner's.
+                </p>
               </div>
 
               <div class="flex justify-end gap-3 pt-2">

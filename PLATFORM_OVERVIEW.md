@@ -251,9 +251,9 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
   staff into their own organization from Admin → Users → Invite Staff, same secure email flow.
   Every client payment — for SilverLake's own fleet, an individual driver-partner's car, or a
   FleetPartner's own vehicle — goes through **SilverLake's single Paybill**, by design: a
-  partner's own Paybill/Till number is captured for record-keeping (`fleet.FleetPartner`) but
-  deliberately isn't used to route real payments, since routing money away from SilverLake's own
-  account would make the platform fee harder to actually collect, not easier. A FleetPartner-owned
+  `FleetPartner` holds no payment details of its own at all (no Paybill/Till/Daraja fields exist
+  on the model), since routing money away from SilverLake's own account would make the platform
+  fee harder to actually collect, not easier. A FleetPartner-owned
   vehicle's booking creates a real `DriverPayout` — same mechanism as an individual driver-partner,
   just with `organization` set instead of `driver`, and at that partner's own negotiated
   `platform_fee_percent` instead of the fixed 15% individual rate. SilverLake keeps the fee as
@@ -428,7 +428,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-367 automated backend tests currently cover booking validation, payment guards, payout timing and
+366 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -453,8 +453,8 @@ driver assigned, showing up as pending until the driver confirms it), the staff 
 booking-balance-reminder, and cash-deposit-reminder actions and their one-per-hour cooldowns, the
 cash-to-Paybill deposit logging (amount can't be less than collected, reference format-validated
 and normalized to uppercase, one deposit per payment) and its payout-verification gate (cash needs
-a matching deposit; card doesn't), fleet-partner CRUD (superadmin-only, write-only Paybill
-secret/passkey, and that an org-admin can never change even their own platform fee), the
+a matching deposit; card doesn't), fleet-partner CRUD (superadmin-only, and that an org-admin can
+never change even their own platform fee), the
 ownership-aware payout split routed to the right recipient (company-owned vehicles create no
 payout at all; a driver-partner's own car pays the driver at the fixed 15% rate; a
 FleetPartner-owned vehicle pays the *organization*, not the driver operating it, at that

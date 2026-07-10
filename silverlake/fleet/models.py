@@ -40,30 +40,16 @@ class FleetPartner(models.Model):
     """A company (or eventually an individual) that has registered its own fleet with
     SilverLake - distinct from an individual driver-partner (drivers.Driver), since one
     FleetPartner can own many vehicles, possibly driven by different people who aren't
-    necessarily the owner themselves. Money for their vehicles' bookings is meant to go
-    straight into the partner's own Paybill, not SilverLake's - SilverLake only takes
-    platform_fee_percent as a cut, owed back by the partner rather than paid out by
-    SilverLake (the reverse of how an individual driver-partner's payout works). The actual
-    STK-push routing to a partner's own shortcode is not wired up yet - see PLATFORM_OVERVIEW.md."""
+    necessarily the owner themselves. Deliberately holds no payment details of its own - every
+    client payment, for any vehicle regardless of ownership, goes through SilverLake's single
+    Paybill (see MPESA_* settings), specifically so the platform fee is never at risk of not
+    being collected. SilverLake keeps platform_fee_percent as revenue; the rest is owed back to
+    the partner via the normal DriverPayout mechanism (organization set instead of driver) -
+    see PLATFORM_OVERVIEW.md."""
 
     name = models.CharField(max_length=150)
     contact_email = models.EmailField(blank=True)
     contact_phone = models.CharField(max_length=20, blank=True)
-
-    # Where this partner's own money lives. Most partners register with just a Paybill/Till
-    # number and no Daraja API access yet (that needs a separate Safaricom developer/production
-    # app) - all of these are optional for exactly that reason, filled in as they become
-    # available rather than required up front. Only mpesa_shortcode/mpesa_consumer_key/
-    # mpesa_consumer_secret/mpesa_passkey are actually usable for STK-push routing once that's
-    # built; mpesa_till_number is record-keeping only (Till/Buy Goods isn't the STK Push flow
-    # this app speaks - see payment-mpesa-paybill in project memory). Same plaintext-in-DB
-    # posture as the single-tenant MPESA_* settings today; harden before real credentials ever
-    # go in either place.
-    mpesa_shortcode = models.CharField(max_length=20, blank=True, help_text="Partner's own Paybill number")
-    mpesa_till_number = models.CharField(max_length=20, blank=True, help_text="Partner's own Till/Buy Goods number, if that's what they use instead of a Paybill")
-    mpesa_consumer_key = models.CharField(max_length=200, blank=True, help_text='Daraja API key - fill in once the partner has one, not required to register')
-    mpesa_consumer_secret = models.CharField(max_length=200, blank=True, help_text='Daraja API secret - fill in once the partner has one, not required to register')
-    mpesa_passkey = models.CharField(max_length=200, blank=True, help_text='Daraja passkey - fill in once the partner has one, not required to register')
 
     platform_fee_percent = models.DecimalField(
         max_digits=4, decimal_places=2, default=Decimal('10'),
