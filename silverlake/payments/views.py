@@ -1,19 +1,28 @@
 import hmac
+from datetime import timedelta
 
 from decouple import config
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
-from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
 from bookings.models import Booking
+from core.audit import log_admin_action
+from core.permissions import IsSupportStaff
 
+from .emails import send_payment_reminder_email
 from .models import Payment, PaymentMethod, PaymentStatus
 from .serializers import PublicBookingPaymentSerializer, PaymentSerializer, StkPushRequestSerializer, TokenStkPushRequestSerializer
 from .services import PaymentValidationError, declare_offline_payment, initiate_stk_push_payment
+
+# How often staff can re-nudge the same driver about the same pending payment - long enough that
+# a reminder isn't just spam, short enough that a driver who genuinely forgot can be re-poked
+# same day.
+REMINDER_COOLDOWN = timedelta(hours=1)
 
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
@@ -34,6 +43,27 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         if not self.request.user.is_staff and obj.booking.user_id != self.request.user.id:
             raise Http404
         return obj
+
+    @action(detail=True, methods=['post'], permission_classes=[IsSupportStaff])
+    def remind(self, request, pk=None):
+        """Nudges the driver who's sitting on an unconfirmed payment - the client (or the driver
+        themselves) declared it, but nothing counts toward the booking's balance until the
+        driver actually confirms receiving it, and there's otherwise no prompt for them to do
+        that beyond checking their own portal. Any staff account can do this (support staff or
+        superadmin) - it's just an email nudge, not a destructive or financial action."""
+        payment = self.get_object()
+        if payment.status != PaymentStatus.PENDING:
+            return Response({'detail': 'Only a pending payment can be reminded about.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not payment.recorded_by_driver_id:
+            return Response({'detail': 'This payment has no driver to remind.'}, status=status.HTTP_400_BAD_REQUEST)
+        if payment.last_reminded_at and timezone.now() - payment.last_reminded_at < REMINDER_COOLDOWN:
+            return Response({'detail': 'A reminder was already sent recently. Please wait before sending another.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        payment.last_reminded_at = timezone.now()
+        payment.save(update_fields=['last_reminded_at'])
+        send_payment_reminder_email(payment)
+        log_admin_action(request, 'payment.remind', payment)
+        return Response(self.get_serializer(payment).data)
 
 
 @api_view(['POST'])

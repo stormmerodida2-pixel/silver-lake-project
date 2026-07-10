@@ -1,9 +1,11 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 
+import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
 
 const { items: payments, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/payments/')
+const busyId = ref(null)
 
 const methodBadge = {
   mpesa: 'bg-emerald-500/10 text-emerald-400',
@@ -15,6 +17,25 @@ const statusBadge = {
   successful: 'bg-emerald-500/10 text-emerald-400',
   pending: 'bg-navy-800 text-slate-400',
   failed: 'bg-red-500/10 text-red-400',
+}
+
+async function remindDriver(payment) {
+  busyId.value = payment.id
+  try {
+    const { data } = await apiClient.post(`/payments/${payment.id}/remind/`)
+    Object.assign(payment, data)
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Could not send a reminder for this payment.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+function remindDisabledReason(payment) {
+  if (payment.status !== 'pending' || !payment.recorded_by_driver_name) return null
+  if (!payment.last_reminded_at) return null
+  const elapsedMs = Date.now() - new Date(payment.last_reminded_at).getTime()
+  return elapsedMs < 60 * 60 * 1000 ? 'Reminded recently - please wait before sending another.' : null
 }
 
 onMounted(load)
@@ -41,6 +62,7 @@ onMounted(load)
             <th class="px-4 py-3">Reference</th>
             <th class="px-4 py-3">Recorded By</th>
             <th class="px-4 py-3">Date</th>
+            <th class="px-4 py-3">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-navy-800 bg-navy-950">
@@ -74,6 +96,17 @@ onMounted(load)
               <div v-if="payment.note" class="italic text-slate-500">{{ payment.note }}</div>
             </td>
             <td class="px-4 py-3 text-xs text-slate-500">{{ new Date(payment.created_at).toLocaleString() }}</td>
+            <td class="px-4 py-3">
+              <button
+                v-if="payment.status === 'pending' && payment.recorded_by_driver_name"
+                :disabled="busyId === payment.id || !!remindDisabledReason(payment)"
+                :title="remindDisabledReason(payment) || ''"
+                class="rounded-md border border-navy-700 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                @click="remindDriver(payment)"
+              >
+                {{ busyId === payment.id ? 'Sending...' : (payment.last_reminded_at ? 'Remind Again' : 'Remind Driver') }}
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>

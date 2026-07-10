@@ -1,0 +1,13 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  Just a reminder that you have a <strong>{{ method_label|lower }} payment of KES {{ amount }}</strong>
+  from {{ customer_name }} on booking #{{ booking_id }} that still needs your confirmation.
+</p>
+<p style="margin:0 0 16px; font-size:14px; color:#334155;">
+  Nothing counts toward the booking's balance until you confirm you actually received it - please
+  do so as soon as you can.
+</p>
+{% include "emails/_button.html" with url=driver_portal_url label="Confirm in Driver Portal" %}
+{% endblock %}

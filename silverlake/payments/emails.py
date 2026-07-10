@@ -123,6 +123,34 @@ def send_payout_paid_email(payout):
         pass
 
 
+def send_payment_reminder_email(payment):
+    """Sent when staff nudge a driver about a payment they declared (or a client declared on
+    their behalf) but haven't yet confirmed receiving - see PaymentViewSet.remind. Swallowed
+    silently on failure so a misconfigured SMTP server never blocks the reminder from being
+    recorded as sent."""
+    driver = payment.recorded_by_driver
+    booking = payment.booking
+    if not driver or not driver.email:
+        return
+    method_label = payment.get_method_display()
+    try:
+        send_branded_email(
+            subject=f'Reminder: confirm a {method_label} payment — SilverLake booking #{booking.pk}',
+            template_name='emails/payment_reminder.html',
+            context={
+                'first_name': driver.full_name.split()[0],
+                'amount': f'{payment.amount:,.2f}',
+                'method_label': method_label,
+                'customer_name': booking.customer_name,
+                'booking_id': booking.pk,
+                'driver_portal_url': f'{settings.FRONTEND_URL}/driver',
+            },
+            recipient_list=[driver.email],
+        )
+    except Exception:
+        pass
+
+
 def send_offline_payment_driver_confirmation_email(payment):
     """Confirms to the driver themselves that their confirmed cash/card payment went through,
     and (for cash) sets expectations that it needs admin verification before their payout is

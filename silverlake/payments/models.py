@@ -38,6 +38,10 @@ class Payment(models.Model):
     )
     note = models.CharField(max_length=200, blank=True)
 
+    # Set when staff nudge the driver to confirm a pending payment - lets the admin UI show
+    # "already reminded" and stops the button being spammed (see REMINDER_COOLDOWN in views.py).
+    last_reminded_at = models.DateTimeField(null=True, blank=True)
+
     # A customer can flag a self-reported cash payment as wrong/never received, via the no-login
     # link in their cash_payment_recorded email - the one independent check on a driver's own
     # word, since there's no gateway confirming a cash handoff the way M-Pesa confirms itself.

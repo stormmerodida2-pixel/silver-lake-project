@@ -4,6 +4,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.utils import timezone
 from rest_framework.test import APIClient, APITestCase
 
@@ -391,3 +392,75 @@ class ClientDeclareCashPaymentTests(APITestCase):
             f'/api/pay/{uuid.uuid4()}/declare-cash/', {'amount': '100'}, format='json',
         )
         self.assertEqual(response.status_code, 404)
+
+
+class PaymentReminderTests(APITestCase):
+    """Staff can nudge a driver who's sitting on a pending (declared but unconfirmed) payment -
+    the only prompt otherwise is the driver noticing it in their own portal."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='remind-staff@example.com', password='pass12345!', is_staff=True)
+        self.superadmin = User.objects.create_superuser(username='remind-super@example.com', password='pass12345!')
+        self.plain_user = User.objects.create_user(username='remind-plain@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(
+            user=User.objects.create_user(username='remind-driver@example.com', password='pass12345!'),
+            full_name='Remind Driver', is_active=True, email='remind-driver@example.com',
+        )
+        vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='remind-customer@example.com', password='pass12345!')
+        self.booking = make_booking(customer, vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        self.payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH, amount=Decimal('500'),
+            status=PaymentStatus.PENDING, recorded_by_driver=self.driver,
+        )
+
+    def test_staff_can_remind_driver_of_a_pending_payment(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/payments/{self.payment.id}/remind/')
+        self.assertEqual(response.status_code, 200)
+        self.payment.refresh_from_db()
+        self.assertIsNotNone(self.payment.last_reminded_at)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('remind-driver@example.com', mail.outbox[0].to)
+
+    def test_cannot_remind_about_an_already_confirmed_payment(self):
+        self.payment.status = PaymentStatus.SUCCESSFUL
+        self.payment.save(update_fields=['status'])
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/payments/{self.payment.id}/remind/')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_cooldown_blocks_an_immediate_second_reminder(self):
+        self.client.force_authenticate(user=self.staff)
+        first = self.client.post(f'/api/payments/{self.payment.id}/remind/')
+        self.assertEqual(first.status_code, 200)
+        second = self.client.post(f'/api/payments/{self.payment.id}/remind/')
+        self.assertEqual(second.status_code, 400)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_reminder_allowed_again_once_cooldown_has_passed(self):
+        self.payment.last_reminded_at = timezone.now() - timedelta(hours=2)
+        self.payment.save(update_fields=['last_reminded_at'])
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/payments/{self.payment.id}/remind/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_superadmin_can_also_remind_driver(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(f'/api/payments/{self.payment.id}/remind/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_non_staff_cannot_remind(self):
+        self.client.force_authenticate(user=self.plain_user)
+        response = self.client.post(f'/api/payments/{self.payment.id}/remind/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_cannot_remind_a_payment_with_no_driver(self):
+        self.payment.recorded_by_driver = None
+        self.payment.save(update_fields=['recorded_by_driver'])
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/payments/{self.payment.id}/remind/')
+        self.assertEqual(response.status_code, 400)
