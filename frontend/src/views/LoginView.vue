@@ -2,6 +2,7 @@
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import SilverLakeLogo from '../components/SilverLakeLogo.vue'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -37,7 +38,10 @@ async function submit() {
 <template>
   <div class="bg-white">
     <div class="mx-auto max-w-md px-4 py-16 sm:px-6">
-      <h1 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">Log In</h1>
+      <RouterLink to="/" class="flex justify-center">
+        <SilverLakeLogo :size="48" />
+      </RouterLink>
+      <h1 class="mt-4 text-center font-[Georgia] text-3xl font-bold text-navy-900">Log In</h1>
 
       <form class="mt-8 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-6" @submit.prevent="submit">
         <div>

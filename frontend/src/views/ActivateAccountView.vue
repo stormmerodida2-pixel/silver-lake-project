@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import SilverLakeLogo from '../components/SilverLakeLogo.vue'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
@@ -25,7 +26,10 @@ onMounted(async () => {
 <template>
   <div class="bg-white">
     <div class="mx-auto max-w-md px-4 py-16 text-center sm:px-6">
-      <div class="rounded-xl border border-slate-200 bg-slate-50 p-6">
+      <RouterLink to="/" class="flex justify-center">
+        <SilverLakeLogo :size="48" />
+      </RouterLink>
+      <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-6">
         <h1 class="font-[Georgia] text-2xl font-bold text-navy-900">
           {{ status === 'activating' ? 'Activating your account...' : status === 'success' ? 'You\'re all set!' : 'Activation failed' }}
         </h1>
