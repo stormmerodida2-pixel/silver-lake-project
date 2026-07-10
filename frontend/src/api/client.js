@@ -35,10 +35,11 @@ apiClient.interceptors.response.use(
     if (status === 401 && !original._retry && !isAuthRequest) {
       const refresh = localStorage.getItem('sl_refresh')
       if (!refresh) {
-        // No refresh token — clear state and go to login
+        // No refresh token — clear state and go home, same as an explicit logout
+        localStorage.removeItem('sl_user')
         localStorage.removeItem('sl_access')
         localStorage.removeItem('sl_refresh')
-        window.location.href = '/login'
+        window.location.href = '/'
         return Promise.reject(error)
       }
 
@@ -67,9 +68,10 @@ apiClient.interceptors.response.use(
         return apiClient(original)
       } catch (refreshError) {
         processQueue(refreshError)
+        localStorage.removeItem('sl_user')
         localStorage.removeItem('sl_access')
         localStorage.removeItem('sl_refresh')
-        window.location.href = '/login'
+        window.location.href = '/'
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false
