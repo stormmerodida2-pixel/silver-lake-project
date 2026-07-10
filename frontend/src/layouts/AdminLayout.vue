@@ -45,6 +45,7 @@ const baseNavItems = [
     to: '/admin/fleet-partners',
     label: 'Fleet Partners',
     superAdminOnly: true,
+    platformOnly: true,
     icon: 'M17 20h5v-2a4 4 0 0 0-3-3.87M9 20H4v-2a4 4 0 0 1 3-3.87m5-2.13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-4a4 4 0 0 1-3 3.87M3 7l3-3m0 0 3 3M6 4v9',
   },
   {
@@ -75,6 +76,7 @@ const baseNavItems = [
   {
     to: '/admin/audit-log',
     label: 'Activity Log',
+    platformOnly: true,
     icon: 'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
   },
   {
@@ -84,7 +86,14 @@ const baseNavItems = [
   },
 ]
 
-const navItems = computed(() => baseNavItems.filter((item) => !item.superAdminOnly || auth.user?.is_superuser))
+const navItems = computed(() => baseNavItems.filter((item) => {
+  if (item.superAdminOnly && !auth.user?.is_superuser) return false
+  // platformOnly hides it from a FleetPartner's own org-admin too, even though they're also
+  // is_superuser=True - organization_name is only set for an org-scoped account (see
+  // core.models.StaffOrganization / accounts.serializers.UserSerializer.get_organization_name).
+  if (item.platformOnly && auth.user?.organization_name) return false
+  return true
+}))
 
 
 function handleLogout() {
@@ -161,10 +170,17 @@ function handleLogout() {
         <div class="hidden text-sm text-slate-400 md:block">{{ route.meta.pageTitle || 'Admin Panel' }}</div>
         <div class="flex items-center gap-3 text-sm text-slate-300">
           <span
+            v-if="auth.user?.organization_name"
+            class="rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-xs font-semibold text-brand-blue-400"
+            :title="`Scoped to ${auth.user.organization_name}'s own data only`"
+          >
+            {{ auth.user.organization_name }}
+          </span>
+          <span
             class="rounded-full px-2 py-0.5 text-xs font-semibold"
             :class="auth.user?.is_superuser ? 'bg-gold-500/10 text-gold-400' : 'bg-navy-800 text-slate-400'"
           >
-            {{ auth.user?.is_superuser ? 'Super Admin' : 'Support Staff' }}
+            {{ auth.user?.is_superuser ? (auth.user?.organization_name ? 'Org Admin' : 'Super Admin') : 'Support Staff' }}
           </span>
           <RouterLink to="/account/profile" class="font-[Georgia] text-base tracking-wide transition hover:text-gold-400">
             Hi, {{ auth.user?.first_name || 'Admin' }}

@@ -53,6 +53,39 @@ async function createUser() {
   }
 }
 
+// ── Invite Staff modal ───────────────────────────────────────────────────────
+const showInviteModal = ref(false)
+const inviting = ref(false)
+const inviteError = ref('')
+const inviteForm = reactive({ first_name: '', last_name: '', email: '', is_superuser: false })
+
+function openInviteModal() {
+  Object.assign(inviteForm, { first_name: '', last_name: '', email: '', is_superuser: false })
+  inviteError.value = ''
+  showInviteModal.value = true
+}
+
+async function inviteStaff() {
+  inviteError.value = ''
+  if (!inviteForm.email) {
+    inviteError.value = 'Email is required.'
+    return
+  }
+  inviting.value = true
+  try {
+    const { data } = await apiClient.post('/admin/users/invite-staff/', inviteForm)
+    users.value.unshift(data)
+    showInviteModal.value = false
+  } catch (err) {
+    const detail = err?.response?.data
+    inviteError.value = typeof detail === 'object'
+      ? Object.values(detail).flat().join(' ')
+      : 'Could not send this invite. Please try again.'
+  } finally {
+    inviting.value = false
+  }
+}
+
 // ── Existing actions ────────────────────────────────────────────────────────
 async function toggleActive(user) {
   busyId.value = user.id
@@ -134,18 +167,33 @@ onMounted(load)
   <div>
     <!-- Header -->
     <div class="flex items-center justify-between">
-      <h1 class="font-[Georgia] text-2xl font-bold text-white">Manage Users</h1>
-      <button
-        v-if="auth.user?.is_superuser"
-        id="add-user-btn"
-        class="flex items-center gap-2 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400"
-        @click="openModal"
-      >
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        Add User
-      </button>
+      <div>
+        <h1 class="font-[Georgia] text-2xl font-bold text-white">Manage Users</h1>
+        <p v-if="auth.user?.organization_name" class="mt-1 text-sm text-slate-400">
+          Showing {{ auth.user.organization_name }}'s own staff only.
+        </p>
+      </div>
+      <div v-if="auth.user?.is_superuser" class="flex gap-2">
+        <button
+          class="flex items-center gap-2 rounded-lg border border-navy-700 px-4 py-2 text-sm font-semibold text-slate-300 transition-colors hover:border-gold-400 hover:text-gold-400"
+          @click="openInviteModal"
+        >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0Zm-8 8a6 6 0 0 1 12 0M20 8v6M23 11h-6" />
+          </svg>
+          Invite Staff
+        </button>
+        <button
+          id="add-user-btn"
+          class="flex items-center gap-2 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400"
+          @click="openModal"
+        >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Add User
+        </button>
+      </div>
     </div>
 
     <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
@@ -172,9 +220,10 @@ onMounted(load)
             <td class="px-4 py-3 text-slate-300">{{ user.phone_number || '-' }}</td>
             <td class="px-4 py-3 text-slate-300">{{ user.bookings_count }}</td>
             <td class="px-4 py-3 text-slate-300">
-              <span v-if="user.is_superuser" class="text-gold-400">Super Admin</span>
+              <span v-if="user.is_superuser" class="text-gold-400">{{ user.organization_name ? 'Org Admin' : 'Super Admin' }}</span>
               <span v-else-if="user.is_staff">Support Staff</span>
               <span v-else>Customer</span>
+              <div v-if="user.organization_name" class="text-xs text-slate-500">{{ user.organization_name }}</div>
             </td>
             <td class="px-4 py-3">
               <span
@@ -427,6 +476,82 @@ onMounted(load)
                   class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
                 >
                   {{ editSaving ? 'Saving…' : 'Save Changes' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Invite Staff Modal -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="showInviteModal"
+          class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
+          @click.self="showInviteModal = false"
+        >
+          <div class="w-full max-w-md rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+            <div class="mb-6 flex items-center justify-between">
+              <h2 class="font-[Georgia] text-xl font-bold text-white">Invite Staff</h2>
+              <button class="text-slate-400 transition-colors hover:text-white" @click="showInviteModal = false">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p v-if="inviteError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ inviteError }}</p>
+
+            <form class="space-y-4" @submit.prevent="inviteStaff">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">First Name</label>
+                  <input
+                    v-model="inviteForm.first_name" type="text"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Last Name</label>
+                  <input
+                    v-model="inviteForm.last_name" type="text"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Email *</label>
+                <input
+                  v-model="inviteForm.email" type="email" placeholder="jane@example.com" required
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                />
+              </div>
+              <label class="flex items-center gap-2 text-sm text-slate-300">
+                <input v-model="inviteForm.is_superuser" type="checkbox" class="h-4 w-4 rounded border-navy-700 bg-navy-800" />
+                {{ auth.user?.organization_name ? `Give full admin access to ${auth.user.organization_name}` : 'Super Admin (full platform access)' }}
+              </label>
+              <p class="text-xs text-slate-500">
+                They'll get an email with a link to set their own password - nothing is emailed in
+                plain text.
+                <template v-if="auth.user?.organization_name">Scoped to {{ auth.user.organization_name }} only.</template>
+              </p>
+
+              <div class="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                  @click="showInviteModal = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  :disabled="inviting"
+                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
+                >
+                  {{ inviting ? 'Sending…' : 'Send Invite' }}
                 </button>
               </div>
             </form>

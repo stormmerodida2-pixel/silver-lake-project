@@ -5,6 +5,7 @@ from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from core.permissions import get_user_organization
 from core.utils import capture_replaced_files, delete_files
 from fleet.models import Vehicle
 from reviews.models import Review
@@ -21,7 +22,8 @@ class BookingViewSet(
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Requires login. Customers only see/manage their own bookings; staff see all.
+    """Requires login. Customers only see/manage their own bookings; a genuine SilverLake staff
+    account sees all; a FleetPartner's own org staff only sees bookings on their own vehicles.
 
     Deliberately no destroy - a booking's payments/payouts/refund would cascade-delete with it,
     silently destroying financial history. "Removing" a booking is always cancel(), which keeps
@@ -32,9 +34,12 @@ class BookingViewSet(
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff:
+        if not user.is_staff:
+            return Booking.objects.filter(user=user)
+        organization = get_user_organization(user)
+        if organization is None:
             return Booking.objects.all()
-        return Booking.objects.filter(user=user)
+        return Booking.objects.filter(vehicle__owner=organization)
 
     def create(self, request, *args, **kwargs):
         """BookingSerializer.validate() checks for an overlapping booking on the same vehicle,

@@ -21,7 +21,7 @@ from reviews.models import Review
 
 from .audit import log_admin_action
 from .models import AuditLog
-from .permissions import IsSuperAdmin, IsSupportStaff
+from .permissions import IsPlatformStaff, IsPlatformSuperAdmin, IsSuperAdmin, IsSupportStaff, get_user_organization
 from .serializers import (
     AdminAuditLogSerializer,
     AdminCreateUserSerializer,
@@ -43,7 +43,7 @@ User = get_user_model()
 # needs regular staff (IsSupportStaff).
 SUPERADMIN_ONLY_ACTIONS = {
     'create', 'update', 'partial_update', 'destroy', 'mark_paid', 'verify', 'mark_issued',
-    'add_gallery_images', 'remove_gallery_image', 'add_service_record',
+    'add_gallery_images', 'remove_gallery_image', 'add_service_record', 'invite_staff',
 }
 
 # Mirrors payments.views.REMINDER_COOLDOWN - long enough that it isn't spam, short enough that a
@@ -71,47 +71,64 @@ class AdminStatsView(APIView):
     def get(self, request):
         now = timezone.now()
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        organization = get_user_organization(request.user)
 
-        successful_payments = Payment.objects.filter(status=PaymentStatus.SUCCESSFUL)
-        total_revenue = successful_payments.aggregate(total=Sum('amount'))['total'] or 0
-        revenue_this_month = successful_payments.filter(created_at__gte=month_start).aggregate(
+        # An org-scoped requester (a FleetPartner's own admin/staff) only ever sees numbers for
+        # their own organization's vehicles/bookings - never SilverLake's own or another
+        # partner's. A genuine SilverLake platform account sees everything, unchanged.
+        payments_qs = Payment.objects.filter(status=PaymentStatus.SUCCESSFUL)
+        bookings_qs = Booking.objects.all()
+        payouts_qs = DriverPayout.objects.all()
+        vehicles_qs = Vehicle.objects.all()
+        reviews_qs = Review.objects.all()
+        refunds_qs = Refund.objects.all()
+        users_qs = User.objects.all()
+        if organization is not None:
+            payments_qs = payments_qs.filter(booking__vehicle__owner=organization)
+            bookings_qs = bookings_qs.filter(vehicle__owner=organization)
+            payouts_qs = payouts_qs.filter(booking__vehicle__owner=organization)
+            vehicles_qs = vehicles_qs.filter(owner=organization)
+            reviews_qs = reviews_qs.filter(booking__vehicle__owner=organization)
+            refunds_qs = refunds_qs.filter(booking__vehicle__owner=organization)
+            users_qs = users_qs.filter(staff_organization__organization=organization)
+
+        total_revenue = payments_qs.aggregate(total=Sum('amount'))['total'] or 0
+        revenue_this_month = payments_qs.filter(created_at__gte=month_start).aggregate(
             total=Sum('amount')
         )['total'] or 0
 
-        confirmed_or_later = Booking.objects.exclude(status=BookingStatus.CANCELLED)
+        confirmed_or_later = bookings_qs.exclude(status=BookingStatus.CANCELLED)
         platform_fees_earned = sum(
             (b.platform_fee_amount for b in confirmed_or_later.exclude(status=BookingStatus.PENDING)),
             start=0,
         )
 
-        payouts_owed = DriverPayout.objects.filter(is_paid=False).aggregate(total=Sum('amount'))['total'] or 0
-        payouts_paid = DriverPayout.objects.filter(is_paid=True).aggregate(total=Sum('amount'))['total'] or 0
+        payouts_owed = payouts_qs.filter(is_paid=False).aggregate(total=Sum('amount'))['total'] or 0
+        payouts_paid = payouts_qs.filter(is_paid=True).aggregate(total=Sum('amount'))['total'] or 0
 
         bookings_by_status = dict(
-            Booking.objects.values_list('status').annotate(count=Count('id')).order_by()
+            bookings_qs.values_list('status').annotate(count=Count('id')).order_by()
         )
 
-        # Superadmin-only, like everything else about a FleetPartner (Paybill credentials, fee
-        # rate) - a per-partner breakdown of what's flowing through their fleet, and what
-        # SilverLake is owed as a platform fee once real settlement is built (see
-        # fleet.models.FleetPartner - there's no automated collection of this yet, just visibility).
+        # A genuine SilverLake platform superadmin only - never an org-admin, who'd otherwise see
+        # every other organization's (and SilverLake's own) Paybill credentials and revenue.
         fleet_partners = []
-        if request.user.is_superuser:
+        if request.user.is_superuser and organization is None:
             live_bookings = Booking.objects.exclude(status=BookingStatus.CANCELLED)
             for partner in FleetPartner.objects.filter(is_active=True).order_by('name'):
                 partner_bookings = live_bookings.filter(vehicle__owner=partner)
-                total_revenue = partner_bookings.aggregate(total=Sum('total_amount'))['total'] or 0
-                total_collected = Payment.objects.filter(
+                partner_revenue = partner_bookings.aggregate(total=Sum('total_amount'))['total'] or 0
+                partner_collected = Payment.objects.filter(
                     status=PaymentStatus.SUCCESSFUL, booking__vehicle__owner=partner,
                 ).exclude(booking__status=BookingStatus.CANCELLED).aggregate(total=Sum('amount'))['total'] or 0
-                fee_owed = (Decimal(total_collected) * partner.platform_fee_percent / Decimal('100')).quantize(Decimal('0.01'))
+                fee_owed = (Decimal(partner_collected) * partner.platform_fee_percent / Decimal('100')).quantize(Decimal('0.01'))
                 fleet_partners.append({
                     'id': partner.id,
                     'name': partner.name,
                     'vehicle_count': partner.vehicles.count(),
                     'bookings_count': partner_bookings.count(),
-                    'total_revenue': total_revenue,
-                    'total_collected': total_collected,
+                    'total_revenue': partner_revenue,
+                    'total_collected': partner_collected,
                     'fee_owed': fee_owed,
                 })
 
@@ -125,39 +142,43 @@ class AdminStatsView(APIView):
             },
             'bookings': {
                 'by_status': bookings_by_status,
-                'total': Booking.objects.count(),
-                'needing_attention': Booking.objects.filter(
+                'total': bookings_qs.count(),
+                'needing_attention': bookings_qs.filter(
                     status__in=(BookingStatus.CONFIRMED, BookingStatus.ONGOING),
                     end_date__lt=timezone.localdate(),
                 ).count(),
             },
             'users': {
-                'total': User.objects.count(),
-                'active': User.objects.filter(is_active=True).count(),
-                'new_last_7_days': User.objects.filter(date_joined__gte=now - timedelta(days=7)).count(),
+                'total': users_qs.count(),
+                'active': users_qs.filter(is_active=True).count(),
+                'new_last_7_days': users_qs.filter(date_joined__gte=now - timedelta(days=7)).count(),
             },
             'drivers': {
-                'pending_applications': DriverApplication.objects.filter(
+                # SilverLake's own onboarding pipeline - not meaningful for a single organization.
+                'pending_applications': 0 if organization is not None else DriverApplication.objects.filter(
                     status=ApplicationStatus.PENDING
                 ).count(),
-                'away': Driver.objects.filter(is_active=True, is_away=True).count(),
+                'away': Driver.objects.filter(
+                    id__in=vehicles_qs.exclude(driver__isnull=True).values('driver_id'),
+                    is_active=True, is_away=True,
+                ).count() if organization is not None else Driver.objects.filter(is_active=True, is_away=True).count(),
             },
             'fleet': {
-                'total': Vehicle.objects.count(),
-                'available': Vehicle.objects.filter(is_available=True).count(),
-                'unavailable': Vehicle.objects.filter(is_available=False).count(),
+                'total': vehicles_qs.count(),
+                'available': vehicles_qs.filter(is_available=True).count(),
+                'unavailable': vehicles_qs.filter(is_available=False).count(),
                 # is_service_due is time-based off the latest VehicleServiceRecord (or the
                 # vehicle's created_at if never serviced) - not a single DB column, so this has
                 # to be counted in Python rather than a queryset .filter()/.count().
                 'service_due': sum(
-                    1 for v in Vehicle.objects.prefetch_related('service_records') if v.is_service_due
+                    1 for v in vehicles_qs.prefetch_related('service_records') if v.is_service_due
                 ),
             },
             'reviews': {
-                'pending': Review.objects.filter(is_approved=False).count(),
+                'pending': reviews_qs.filter(is_approved=False).count(),
             },
             'refunds': {
-                'pending': Refund.objects.filter(status=RefundStatus.PENDING).count(),
+                'pending': refunds_qs.filter(status=RefundStatus.PENDING).count(),
             },
             'fleet_partners': fleet_partners,
         })
@@ -183,6 +204,15 @@ class AdminUserViewSet(
         if self.action in SUPERADMIN_ONLY_ACTIONS:
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
+
+    def get_queryset(self):
+        organization = get_user_organization(self.request.user)
+        if organization is None:
+            return self.queryset
+        # An org-admin manages their own organization's staff here, not customers (a customer
+        # isn't scoped to any one organization - they can book from any partner's fleet) and not
+        # any other organization's or SilverLake's own staff.
+        return self.queryset.filter(staff_organization__organization=organization)
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -227,6 +257,26 @@ class AdminUserViewSet(
         log_admin_action(request, 'user.activate', user)
         return Response(AdminUserSerializer(user).data)
 
+    @action(detail=False, methods=['post'], url_path='invite-staff')
+    def invite_staff(self, request):
+        """Invites a new staff account and emails them a way to set their password - a
+        SilverLake superadmin invites their own team; an org-admin invites their own
+        organization's staff (forced, regardless of what's submitted - never a different org,
+        never SilverLake's own team)."""
+        from .services import invite_staff_account
+
+        email = request.data.get('email', '').strip()
+        if not email:
+            return Response({'email': ['This field is required.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        organization = get_user_organization(request.user)
+        user = invite_staff_account(
+            email, organization=organization, is_superuser=bool(request.data.get('is_superuser')),
+            first_name=request.data.get('first_name', ''), last_name=request.data.get('last_name', ''),
+        )
+        log_admin_action(request, 'user.invite_staff', user, detail=f'organization={organization}')
+        return Response(AdminUserSerializer(user).data, status=status.HTTP_201_CREATED)
+
 
 class AdminDriverViewSet(viewsets.ModelViewSet):
     """Staff-only full management of live Driver records (suspend = set is_active False).
@@ -240,6 +290,15 @@ class AdminDriverViewSet(viewsets.ModelViewSet):
         if self.action in SUPERADMIN_ONLY_ACTIONS:
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
+
+    def get_queryset(self):
+        organization = get_user_organization(self.request.user)
+        if organization is None:
+            return self.queryset
+        # Driver has no organization field of its own - scoped via which vehicle(s) they
+        # actually drive for this org. distinct() since a driver could in principle be linked to
+        # more than one of the org's vehicles.
+        return self.queryset.filter(vehicles__owner=organization).distinct()
 
     def perform_update(self, serializer):
         old_files = capture_replaced_files(serializer, ['photo'])
@@ -294,7 +353,9 @@ class AdminVehicleSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = VehicleSubmission.objects.all().select_related('driver', 'category')
     serializer_class = AdminVehicleSubmissionSerializer
-    permission_classes = [IsSupportStaff]
+    # SilverLake's own individual driver-partner onboarding pipeline - unrelated to any
+    # FleetPartner organization, so no org staff account should see it.
+    permission_classes = [IsPlatformStaff]
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
@@ -318,7 +379,9 @@ class AdminDriverApplicationViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = DriverApplication.objects.all().select_related('vehicle_category')
     serializer_class = DriverApplicationSerializer
-    permission_classes = [IsSupportStaff]
+    # SilverLake's own individual driver-partner onboarding pipeline - unrelated to any
+    # FleetPartner organization, so no org staff account should see it.
+    permission_classes = [IsPlatformStaff]
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
@@ -352,6 +415,12 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         if self.action in ('update', 'partial_update'):
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
+
+    def get_queryset(self):
+        organization = get_user_organization(self.request.user)
+        if organization is None:
+            return self.queryset
+        return self.queryset.filter(vehicle__owner=organization)
 
     def perform_update(self, serializer):
         old_driver_id = serializer.instance.driver_id
@@ -451,6 +520,15 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
 
+    def get_queryset(self):
+        organization = get_user_organization(self.request.user)
+        if organization is None:
+            return self.queryset
+        # A FleetPartner-owned vehicle's booking never actually creates a DriverPayout (see
+        # Booking._driver_owns_the_vehicle) - settlement for those is a different, not-yet-built
+        # mechanism - so this is empty for an org today, not wrong, just not useful yet.
+        return self.queryset.filter(booking__vehicle__owner=organization)
+
     @action(detail=True, methods=['post'], url_path='mark-paid')
     def mark_paid(self, request, pk=None):
         payout = self.get_object()
@@ -502,7 +580,10 @@ class AdminAuditLogViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, vie
 
     queryset = AuditLog.objects.all().select_related('actor')
     serializer_class = AdminAuditLogSerializer
-    permission_classes = [IsSupportStaff]
+    # Entries don't record which organization an action belonged to, so there's no way to scope
+    # this to just a partner's own actions yet - platform-only for now rather than showing a
+    # FleetPartner's org staff every other org's (and SilverLake's own) admin activity.
+    permission_classes = [IsPlatformStaff]
 
 
 class AdminRefundViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
@@ -516,6 +597,12 @@ class AdminRefundViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
         if self.action in SUPERADMIN_ONLY_ACTIONS:
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
+
+    def get_queryset(self):
+        organization = get_user_organization(self.request.user)
+        if organization is None:
+            return self.queryset
+        return self.queryset.filter(booking__vehicle__owner=organization)
 
     @action(detail=True, methods=['post'], url_path='mark-issued')
     def mark_issued(self, request, pk=None):
@@ -534,15 +621,39 @@ class AdminFleetPartnerViewSet(viewsets.ModelViewSet):
 
     queryset = FleetPartner.objects.all()
     serializer_class = AdminFleetPartnerSerializer
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsPlatformSuperAdmin]
 
     def perform_create(self, serializer):
         partner = serializer.save()
         log_admin_action(self.request, 'fleet_partner.create', partner)
+        if partner.contact_email:
+            # Their first org-admin account, scoped to just this organization - see
+            # core.services.invite_staff_account for why this emails a "set your password" link
+            # rather than a raw password. No-ops (silently) if contact_email wasn't given at
+            # registration - use the invite_admin action below once it's added.
+            from .services import invite_staff_account
+
+            invite_staff_account(partner.contact_email, organization=partner, is_superuser=True)
 
     def perform_update(self, serializer):
         partner = serializer.save()
         log_admin_action(self.request, 'fleet_partner.update', partner)
+
+    @action(detail=True, methods=['post'], url_path='invite-admin')
+    def invite_admin(self, request, pk=None):
+        """Sends (or re-sends) this partner's org-admin invite - for when contact_email wasn't
+        set at registration, or the original invite needs resending."""
+        from .services import invite_staff_account
+
+        partner = self.get_object()
+        if not partner.contact_email:
+            return Response(
+                {'detail': 'This partner has no contact email on file to send an invite to.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        invite_staff_account(partner.contact_email, organization=partner, is_superuser=True)
+        log_admin_action(request, 'fleet_partner.invite_admin', partner)
+        return Response(AdminFleetPartnerSerializer(partner).data)
 
     def destroy(self, request, *args, **kwargs):
         return _delete_or_block(
@@ -560,8 +671,11 @@ class AdminVehicleCategoryViewSet(viewsets.ModelViewSet):
     serializer_class = VehicleCategorySerializer
 
     def get_permissions(self):
+        # Shared platform-wide taxonomy - readable by any staff (including a FleetPartner's own
+        # org staff, who need it to populate their own vehicle forms), but mutating it is
+        # SilverLake-only, not delegated to any single partner even at the superadmin tier.
         if self.action in SUPERADMIN_ONLY_ACTIONS:
-            return [IsSuperAdmin()]
+            return [IsPlatformSuperAdmin()]
         return [IsSupportStaff()]
 
     def perform_create(self, serializer):
@@ -593,13 +707,32 @@ class AdminFleetViewSet(viewsets.ModelViewSet):
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
 
+    def get_queryset(self):
+        organization = get_user_organization(self.request.user)
+        if organization is None:
+            return self.queryset
+        return self.queryset.filter(owner=organization)
+
     def perform_create(self, serializer):
-        vehicle = serializer.save()
+        organization = get_user_organization(self.request.user)
+        if organization is not None:
+            # An org-admin can only ever add a vehicle to their own organization's fleet - never
+            # SilverLake's own, never a different partner's, regardless of what was submitted.
+            vehicle = serializer.save(owner=organization, is_company_owned=False)
+        else:
+            vehicle = serializer.save()
         log_admin_action(self.request, 'vehicle.create', vehicle)
 
     def perform_update(self, serializer):
         old_files = capture_replaced_files(serializer, ['image', 'insurance_document'])
-        vehicle = serializer.save()
+        organization = get_user_organization(self.request.user)
+        if organization is not None:
+            # Can't reassign their own vehicle away to a different organization or flip it to
+            # company-owned - get_queryset() already stops them reaching a vehicle they don't
+            # own, this stops them editing one they do own out of their own scope.
+            vehicle = serializer.save(owner=organization, is_company_owned=False)
+        else:
+            vehicle = serializer.save()
         delete_files(old_files)
         log_admin_action(self.request, 'vehicle.update', vehicle)
 
@@ -665,6 +798,14 @@ class AdminReviewViewSet(
         if self.action in SUPERADMIN_ONLY_ACTIONS:
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
+
+    def get_queryset(self):
+        organization = get_user_organization(self.request.user)
+        if organization is None:
+            return self.queryset
+        # Free-form testimonials with no booking (booking is nullable) aren't tied to any
+        # vehicle/org, so they're correctly excluded here, not just the ones for other orgs.
+        return self.queryset.filter(booking__vehicle__owner=organization)
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):

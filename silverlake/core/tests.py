@@ -14,7 +14,7 @@ from drivers.models import Driver, DriverApplication
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 
-from .models import AuditLog
+from .models import AuditLog, StaffOrganization
 
 User = get_user_model()
 
@@ -939,3 +939,223 @@ class ReplacedFileCleanupTests(APITestCase):
         driver.refresh_from_db()
         self.assertNotEqual(driver.photo.name, old_name)
         self.assertFalse(driver.photo.storage.exists(old_name))
+
+
+class OrganizationScopingTests(APITestCase):
+    """A FleetPartner's own org-admin (is_staff=True, is_superuser=True, with a
+    StaffOrganization pointing at their org) gets the same tier of action a real SilverLake
+    superadmin does, but strictly scoped to their own organization's data - never another
+    org's, never SilverLake's own platform-only resources."""
+
+    def setUp(self):
+        self.platform_super = User.objects.create_superuser(username='platform-super@example.com', password='pass12345!')
+
+        self.org_a = FleetPartner.objects.create(name='Org A', platform_fee_percent=Decimal('10'))
+        self.org_b = FleetPartner.objects.create(name='Org B', platform_fee_percent=Decimal('10'))
+
+        self.org_a_admin = User.objects.create_user(
+            username='org-a-admin@example.com', email='org-a-admin@example.com',
+            password='pass12345!', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=self.org_a_admin, organization=self.org_a)
+
+        self.org_a_driver = Driver.objects.create(full_name='Org A Driver', is_active=True)
+        self.org_a_vehicle = make_vehicle(
+            name='Org A Car', price_per_day=Decimal('1000'),
+            owner=self.org_a, is_company_owned=False, driver=self.org_a_driver,
+        )
+
+        self.org_b_admin = User.objects.create_user(
+            username='org-b-admin@example.com', password='pass12345!', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=self.org_b_admin, organization=self.org_b)
+        self.org_b_vehicle = make_vehicle(
+            name='Org B Car', price_per_day=Decimal('1000'), owner=self.org_b, is_company_owned=False,
+        )
+
+        self.customer = User.objects.create_user(username='scoping-customer@example.com', password='pass12345!')
+        self.org_a_booking = make_booking(
+            self.customer, self.org_a_vehicle, driver=self.org_a_driver, status=BookingStatus.PENDING,
+        )
+        self.org_b_booking = make_booking(self.customer, self.org_b_vehicle, status=BookingStatus.PENDING)
+
+    # ── Fleet ────────────────────────────────────────────────────────────────
+    def test_org_admin_only_sees_their_own_vehicles(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/admin/fleet/')
+        names = [v['name'] for v in response.json().get('results', response.json())]
+        self.assertEqual(names, ['Org A Car'])
+
+    def test_org_admin_creating_a_vehicle_is_forced_into_their_own_org(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.post('/api/admin/fleet/', {
+            'name': 'New Org A Car', 'category': 'compact_sedan', 'passenger_capacity': 4,
+            'price_per_day': '2000', 'owner': self.org_b.id, 'is_company_owned': True,
+        }, format='multipart')
+        self.assertEqual(response.status_code, 201)
+        vehicle = Vehicle.objects.get(name='New Org A Car')
+        self.assertEqual(vehicle.owner_id, self.org_a.id)
+        self.assertFalse(vehicle.is_company_owned)
+
+    def test_org_admin_cannot_reach_another_orgs_vehicle(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get(f'/api/admin/fleet/{self.org_b_vehicle.id}/')
+        self.assertEqual(response.status_code, 404)
+
+    # ── Bookings / Payments / Payouts / Refunds ─────────────────────────────
+    def test_org_admin_only_sees_their_own_bookings(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/admin/bookings/')
+        ids = [b['id'] for b in response.json().get('results', response.json())]
+        self.assertEqual(ids, [self.org_a_booking.id])
+
+    def test_org_admin_cannot_reach_another_orgs_booking(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get(f'/api/admin/bookings/{self.org_b_booking.id}/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_general_booking_endpoint_is_also_org_scoped_for_staff(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/bookings/')
+        ids = [b['id'] for b in response.json().get('results', response.json())]
+        self.assertEqual(ids, [self.org_a_booking.id])
+
+    def test_org_admin_only_sees_payments_on_their_own_bookings(self):
+        Payment.objects.create(booking=self.org_a_booking, method=PaymentMethod.MPESA, amount=Decimal('100'), status=PaymentStatus.SUCCESSFUL)
+        Payment.objects.create(booking=self.org_b_booking, method=PaymentMethod.MPESA, amount=Decimal('100'), status=PaymentStatus.SUCCESSFUL)
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/payments/')
+        bookings_seen = {p['booking'] for p in response.json().get('results', response.json())}
+        self.assertEqual(bookings_seen, {self.org_a_booking.id})
+
+    def test_org_admin_only_sees_their_own_refunds(self):
+        Refund.objects.create(booking=self.org_a_booking, amount=Decimal('100'))
+        Refund.objects.create(booking=self.org_b_booking, amount=Decimal('100'))
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/admin/refunds/')
+        booking_ids = [r['booking_id'] for r in response.json().get('results', response.json())]
+        self.assertEqual(booking_ids, [self.org_a_booking.id])
+
+    # ── Platform-only resources ──────────────────────────────────────────────
+    def test_org_admin_cannot_view_fleet_partners(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/admin/fleet-partners/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_org_admin_cannot_create_a_fleet_type(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.post('/api/admin/fleet-types/', {'name': 'Rogue Type'}, format='json')
+        self.assertEqual(response.status_code, 403)
+
+    def test_org_admin_can_still_read_fleet_types(self):
+        VehicleCategory.objects.create(name='Shared Type')
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/admin/fleet-types/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_org_admin_cannot_view_driver_applications(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/admin/driver-applications/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_org_admin_cannot_view_vehicle_submissions(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/admin/vehicle-submissions/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_org_admin_cannot_view_audit_log(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/admin/audit-log/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_platform_superadmin_still_has_full_access_to_platform_only_resources(self):
+        self.client.force_authenticate(user=self.platform_super)
+        self.assertEqual(self.client.get('/api/admin/fleet-partners/').status_code, 200)
+        self.assertEqual(self.client.get('/api/admin/driver-applications/').status_code, 200)
+        self.assertEqual(self.client.get('/api/admin/audit-log/').status_code, 200)
+
+    # ── Stats ────────────────────────────────────────────────────────────────
+    def test_org_admin_stats_are_scoped_to_their_own_org(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/admin/stats/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['bookings']['total'], 1)
+        self.assertEqual(data['fleet']['total'], 1)
+        self.assertEqual(data['fleet_partners'], [])
+
+    def test_platform_superadmin_stats_include_all_orgs_fleet_partner_breakdown(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.get('/api/admin/stats/')
+        data = response.json()
+        self.assertEqual(data['bookings']['total'], 2)
+        names = {p['name'] for p in data['fleet_partners']}
+        self.assertEqual(names, {'Org A', 'Org B'})
+
+    # ── Staff/users ──────────────────────────────────────────────────────────
+    def test_org_admin_only_sees_their_own_orgs_staff(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/admin/users/')
+        emails = [u['email'] for u in response.json().get('results', response.json())]
+        self.assertEqual(emails, ['org-a-admin@example.com'])
+
+    def test_org_admin_invites_staff_into_their_own_org_only(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.post('/api/admin/users/invite-staff/', {
+            'email': 'new-org-a-staff@example.com', 'first_name': 'New', 'last_name': 'Staffer',
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        new_user = User.objects.get(username='new-org-a-staff@example.com')
+        self.assertTrue(new_user.is_staff)
+        self.assertEqual(new_user.staff_organization.organization_id, self.org_a.id)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('new-org-a-staff@example.com', mail.outbox[0].to)
+
+    def test_platform_superadmin_invited_staff_has_no_organization(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post('/api/admin/users/invite-staff/', {
+            'email': 'new-platform-staff@example.com',
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        new_user = User.objects.get(username='new-platform-staff@example.com')
+        self.assertFalse(hasattr(new_user, 'staff_organization'))
+
+    def test_non_superadmin_cannot_invite_staff(self):
+        staff = User.objects.create_user(username='plain-staff@example.com', password='pass12345!', is_staff=True)
+        self.client.force_authenticate(user=staff)
+        response = self.client.post('/api/admin/users/invite-staff/', {'email': 'x@example.com'}, format='json')
+        self.assertEqual(response.status_code, 403)
+
+    # ── FleetPartner registration auto-invite ───────────────────────────────
+    def test_registering_a_partner_with_contact_email_sends_an_invite(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post('/api/admin/fleet-partners/', {
+            'name': 'Invited Co', 'contact_email': 'admin@invitedco.co.ke',
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        new_user = User.objects.get(username='admin@invitedco.co.ke')
+        self.assertTrue(new_user.is_staff)
+        self.assertTrue(new_user.is_superuser)
+        partner = FleetPartner.objects.get(name='Invited Co')
+        self.assertEqual(new_user.staff_organization.organization_id, partner.id)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_registering_a_partner_without_contact_email_sends_no_invite(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post('/api/admin/fleet-partners/', {'name': 'No Email Co'}, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_invite_admin_action_sends_invite_after_the_fact(self):
+        partner = FleetPartner.objects.create(name='Late Email Co', contact_email='late@lateco.co.ke')
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post(f'/api/admin/fleet-partners/{partner.id}/invite-admin/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        new_user = User.objects.get(username='late@lateco.co.ke')
+        self.assertEqual(new_user.staff_organization.organization_id, partner.id)
+
+    def test_org_admin_cannot_invite_admin_for_a_partner(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.post(f'/api/admin/fleet-partners/{self.org_a.id}/invite-admin/')
+        self.assertEqual(response.status_code, 403)

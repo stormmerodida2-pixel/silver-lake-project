@@ -12,7 +12,7 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from bookings.models import Booking
 from core.audit import log_admin_action
-from core.permissions import IsSupportStaff
+from core.permissions import IsSupportStaff, get_user_organization
 
 from .emails import send_cash_deposit_reminder_email, send_payment_reminder_email
 from .models import Payment, PaymentMethod, PaymentStatus
@@ -37,6 +37,12 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == 'retrieve':
             return [permissions.IsAuthenticated()]
         return [permissions.IsAdminUser()]
+
+    def get_queryset(self):
+        organization = get_user_organization(self.request.user)
+        if organization is None:
+            return self.queryset
+        return self.queryset.filter(booking__vehicle__owner=organization)
 
     def get_object(self):
         obj = super().get_object()

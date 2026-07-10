@@ -48,10 +48,23 @@ decision before launch, it's called out explicitly rather than glossed over.
 | **Driver-partner** | Approved via the "Become a Driver" flow | Everything a customer can do, plus: submit their own vehicle(s) for approval, mark themselves away/available, log walk-up bookings and cash payments for their own vehicle, see their own payout history |
 | **Support Staff** (`is_staff`) | Internal team | Day-to-day admin: view users/bookings/payments, moderate reviews, approve driver applications & vehicle submissions, suspend/activate accounts |
 | **Super Admin** (`is_superuser`) | Owner/seniogr staff | Everything Support Staff can do, **plus** anything that moves money or changes fleet composition: create/edit/delete users, create/edit/delete vehicles, verify & pay out driver payouts, issue refunds, permanently delete reviews |
+| **Org Staff** (`is_staff`, scoped to a `FleetPartner`) | A registered partner company's team | Same tier as Support Staff, but every list/detail is filtered down to just their own organization's vehicles/bookings/payments - they never see SilverLake's own data or another partner's |
+| **Org Admin** (`is_superuser`, scoped to a `FleetPartner`) | A registered partner company's admin | Same tier as Super Admin, scoped the same way as Org Staff - full control of their own organization (fleet, bookings, payouts, refunds) plus inviting their own org's staff, but can never touch another organization's data, SilverLake's own platform-only resources (registering partners, shared fleet-type taxonomy, SilverLake's own driver-onboarding pipeline, the Activity Log), or literally everyone's data the way a real SilverLake superadmin can |
 
 The split exists so day-to-day operations don't require the same access as financial actions.
 Every action in the second column that touches money or someone's access level is now recorded
 in an **Activity Log** admin staff can review (who did what, and when — see §10).
+
+**How org scoping actually works:** `is_staff`/`is_superuser` keep meaning exactly what they mean
+for SilverLake's own team - the difference is *whose* data those tiers apply to. A
+`core.StaffOrganization` row (one-to-one on the user, pointing at a `FleetPartner`) marks an
+account as organization-scoped; its absence means a genuine, unrestricted SilverLake account. This
+mirrors how `accounts.CustomerProfile` already adds fields to Django's built-in `User` without
+subclassing it. Every admin endpoint that touches fleet/booking/payment/payout/refund data filters
+its queryset down to the requester's own organization when one is set (see
+`core.permissions.get_user_organization` and `IsPlatformStaff`/`IsPlatformSuperAdmin` for the
+handful of endpoints - Fleet Partners, fleet-type taxonomy mutation, driver applications, vehicle
+submissions, the Activity Log - that stay SilverLake-only regardless of tier).
 
 ## 3. The Fleet
 
@@ -227,15 +240,22 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
   bookings likewise have no driver payout. A vehicle created via the driver-onboarding/vehicle-
   submission approval flow is automatically marked `is_company_owned=False`, since it's the
   driver-partner's own car by definition.
-- **Fleet Partners** (Admin → Fleet Partners, superadmin-only) are registered companies with their
-  own fleet, distinct from an individual driver-partner — one partner can own many vehicles,
-  possibly driven by different people. A partner's own Paybill credentials and platform fee
-  percentage (default 10%, configurable per partner) are captured now (`fleet.FleetPartner`), but
-  **payment routing to a partner's own Paybill isn't wired up yet** — client STK pushes still go
-  through SilverLake's own Paybill for every vehicle, partner-owned or not, until that's built. A
-  FleetPartner-owned vehicle (`Vehicle.owner` set) also creates no `DriverPayout` — the eventual
-  settlement for these is a partner owing SilverLake the fee (the reverse of a driver payout,
-  since the money would land directly in the partner's own account), not yet implemented.
+- **Fleet Partners** (Admin → Fleet Partners, SilverLake-superadmin-only — see §2) are registered
+  companies with their own fleet, distinct from an individual driver-partner — one partner can own
+  many vehicles, possibly driven by different people. Registering one with a `contact_email`
+  **automatically creates and invites their first Org Admin account**: the new account gets a
+  "set your password" email (the same token-based reset-link mechanism as a regular password
+  reset — nothing is ever emailed as plain text) rather than existing SilverLake staff having to
+  hand a partner a password directly. If `contact_email` wasn't set at registration, the
+  **Invite Admin** button sends it once it's added; a partner's own org-admin can also invite more
+  staff into their own organization from Admin → Users → Invite Staff, same secure email flow.
+  A partner's own Paybill credentials and platform fee percentage (default 10%, configurable per
+  partner) are captured now (`fleet.FleetPartner`), but **payment routing to a partner's own
+  Paybill isn't wired up yet** — client STK pushes still go through SilverLake's own Paybill for
+  every vehicle, partner-owned or not, until that's built. A FleetPartner-owned vehicle
+  (`Vehicle.owner` set) also creates no `DriverPayout` — the eventual settlement for these is a
+  partner owing SilverLake the fee (the reverse of a driver payout, since the money would land
+  directly in the partner's own account), not yet implemented.
 - **A payout is only created once the booking is fully paid** — not merely deposited — so the
   business never queues a payout for money it hasn't actually collected yet.
 - **Cash/card-sourced payouts need explicit sign-off.** If any payment behind a payout was cash
@@ -404,7 +424,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-341 automated backend tests currently cover booking validation, payment guards, payout timing and
+366 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -433,7 +453,13 @@ a matching deposit; card doesn't), fleet-partner CRUD (superadmin-only, write-on
 secret/passkey) and the ownership-aware payout split (company-owned and FleetPartner-owned
 vehicles create no driver payout; a driver-partner's own car still does), the superadmin-only
 per-partner dashboard breakdown (bookings/revenue/collected/fee-owed, cancelled bookings
-excluded, inactive partners excluded), and (using real threads
+excluded, inactive partners excluded), the full organization-scoping sweep (an Org Admin sees only
+their own vehicles/bookings/payments/refunds/staff, is forced into their own org on vehicle
+creation and staff invites, and is rejected from every SilverLake-only resource - Fleet Partners,
+fleet-type mutation, driver applications, vehicle submissions, the Activity Log - while a genuine
+SilverLake superadmin keeps unrestricted access to everything), the partner-registration and
+invite-staff email flows (auto-invite on registration, no-op without a contact email, resend via
+Invite Admin), and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:
@@ -457,16 +483,14 @@ Not broken, but worth a conscious decision before going fully live:
   link are permanent once issued.
 - **Refund disbursement is manual** — there's no automated M-Pesa refund API integration, only a
   tracked record of what's owed.
-- **SilverLake is meant to become a multi-tenant platform** — other car rental organizations
-  registering their own fleet, with their own admin/staff accounts scoped to just their
-  organization's data (not just a passive `FleetPartner` record SilverLake's own staff edit on
-  their behalf). Not built: `User.organization`, org-scoped admin/staff roles, and filtering
-  every money/fleet-relevant admin viewset (bookings, payments, payouts, refunds, fleet...) down
-  to "belongs to my org" for a tenant user vs. unfiltered for a real SilverLake superadmin - a
-  substantial, multi-phase change, not a small tweak. What exists today (`fleet.FleetPartner`,
-  `Vehicle.owner`, and a superadmin-only per-partner breakdown on the main dashboard - bookings,
-  revenue, collected, fee owed) is the fleet-ownership + visibility half only; partners still have
-  no login of their own.
+- **Multi-tenancy is built for the core admin surface, not exhaustively everywhere.** An Org
+  Admin/Org Staff account (see §2) is correctly scoped for fleet, bookings, payments, payouts,
+  refunds, reviews, drivers, and their own staff. Not scoped: the Activity Log (entries don't
+  record which organization an action belonged to, so it's SilverLake-only for now rather than
+  showing a partner every other org's admin activity) and the public-facing site (deliberately —
+  customers browse one shared fleet across every organization; see §3). Reviews scope via a
+  booking's vehicle, so older free-form testimonials with no booking attached never show up in an
+  org's own queue.
 - **A `FleetPartner`'s own Paybill isn't actually used for payment routing yet** — their
   credentials are captured but every client payment still goes through SilverLake's single
   configured Paybill regardless of which vehicle it's for. Real multi-tenant M-Pesa routing needs

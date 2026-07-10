@@ -37,12 +37,13 @@ class UserSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
     is_driver = serializers.SerializerMethodField()
     driver_status = serializers.SerializerMethodField()
+    organization_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'first_name', 'last_name', 'email', 'phone_number', 'avatar',
-            'is_staff', 'is_superuser', 'is_driver', 'driver_status',
+            'is_staff', 'is_superuser', 'is_driver', 'driver_status', 'organization_name',
         ]
 
     def get_phone_number(self, user):
@@ -70,6 +71,13 @@ class UserSerializer(serializers.ModelSerializer):
         if not driver:
             return None
         return 'active' if driver.is_active else 'suspended'
+
+    def get_organization_name(self, user):
+        # None for a genuine SilverLake platform account - see core.models.StaffOrganization.
+        # Lets the admin frontend tell a real superadmin apart from a FleetPartner's own
+        # org-admin, who's also is_superuser=True but scoped to just their own organization.
+        staff_org = getattr(user, 'staff_organization', None)
+        return staff_org.organization.name if staff_org else None
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):

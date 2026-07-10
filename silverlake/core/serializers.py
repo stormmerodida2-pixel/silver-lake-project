@@ -18,18 +18,24 @@ User = get_user_model()
 class AdminUserSerializer(serializers.ModelSerializer):
     phone_number = serializers.SerializerMethodField()
     bookings_count = serializers.IntegerField(source='bookings.count', read_only=True)
+    organization_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'first_name', 'last_name', 'email', 'phone_number',
-            'is_active', 'is_staff', 'is_superuser', 'date_joined', 'bookings_count',
+            'is_active', 'is_staff', 'is_superuser', 'organization_name', 'date_joined', 'bookings_count',
         ]
-        read_only_fields = ['email', 'date_joined']
+        read_only_fields = ['email', 'date_joined', 'organization_name']
 
     def get_phone_number(self, user):
         profile = getattr(user, 'customer_profile', None)
         return profile.phone_number if profile else ''
+
+    def get_organization_name(self, user):
+        # None for a genuine SilverLake platform account - see core.models.StaffOrganization.
+        staff_org = getattr(user, 'staff_organization', None)
+        return staff_org.organization.name if staff_org else None
 
     def validate(self, attrs):
         request = self.context.get('request')
