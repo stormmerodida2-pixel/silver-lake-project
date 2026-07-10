@@ -16,6 +16,7 @@ const form = reactive({
   contact_email: '',
   contact_phone: '',
   mpesa_shortcode: '',
+  mpesa_till_number: '',
   mpesa_consumer_key: '',
   mpesa_consumer_secret: '',
   mpesa_passkey: '',
@@ -30,7 +31,8 @@ const submitLabel = () => saving.value
 function resetForm() {
   Object.assign(form, {
     name: '', contact_email: '', contact_phone: '',
-    mpesa_shortcode: '', mpesa_consumer_key: '', mpesa_consumer_secret: '', mpesa_passkey: '',
+    mpesa_shortcode: '', mpesa_till_number: '',
+    mpesa_consumer_key: '', mpesa_consumer_secret: '', mpesa_passkey: '',
     platform_fee_percent: '10',
   })
 }
@@ -46,7 +48,8 @@ function openEditModal(partner) {
   editingId.value = partner.id
   Object.assign(form, {
     name: partner.name, contact_email: partner.contact_email, contact_phone: partner.contact_phone,
-    mpesa_shortcode: partner.mpesa_shortcode, mpesa_consumer_key: partner.mpesa_consumer_key,
+    mpesa_shortcode: partner.mpesa_shortcode, mpesa_till_number: partner.mpesa_till_number,
+    mpesa_consumer_key: partner.mpesa_consumer_key,
     mpesa_consumer_secret: '', mpesa_passkey: '', // write-only fields - never echoed back, leave blank to keep unchanged
     platform_fee_percent: partner.platform_fee_percent,
   })
@@ -145,7 +148,7 @@ onMounted(load)
           <tr>
             <th class="px-4 py-3">Partner</th>
             <th class="px-4 py-3">Contact</th>
-            <th class="px-4 py-3">Paybill</th>
+            <th class="px-4 py-3">Payment</th>
             <th class="px-4 py-3">Platform Fee</th>
             <th class="px-4 py-3">Vehicles</th>
             <th class="px-4 py-3">Status</th>
@@ -159,7 +162,11 @@ onMounted(load)
               <div>{{ partner.contact_email || '—' }}</div>
               <div>{{ partner.contact_phone }}</div>
             </td>
-            <td class="px-4 py-3 text-slate-300">{{ partner.mpesa_shortcode || '—' }}</td>
+            <td class="px-4 py-3 text-slate-300">
+              <div v-if="partner.mpesa_shortcode">Paybill {{ partner.mpesa_shortcode }}</div>
+              <div v-if="partner.mpesa_till_number">Till {{ partner.mpesa_till_number }}</div>
+              <span v-if="!partner.mpesa_shortcode && !partner.mpesa_till_number">—</span>
+            </td>
             <td class="px-4 py-3 text-slate-300">{{ partner.platform_fee_percent }}%</td>
             <td class="px-4 py-3 text-slate-300">{{ partner.vehicle_count }}</td>
             <td class="px-4 py-3">
@@ -251,28 +258,43 @@ onMounted(load)
               </div>
 
               <div class="rounded-xl border border-navy-700 p-4">
-                <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Partner's Own Paybill</p>
-                <div class="space-y-3">
+                <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Partner's Payment Details</p>
+                <div class="grid grid-cols-2 gap-3">
                   <input
                     v-model="form.mpesa_shortcode" type="text" placeholder="Paybill number"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                   <input
-                    v-model="form.mpesa_consumer_key" type="text" placeholder="Daraja consumer key"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                  />
-                  <input
-                    v-model="form.mpesa_consumer_secret" type="password" :placeholder="editingId ? 'Leave blank to keep existing' : 'Daraja consumer secret'"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                  />
-                  <input
-                    v-model="form.mpesa_passkey" type="password" :placeholder="editingId ? 'Leave blank to keep existing' : 'Daraja passkey'"
+                    v-model="form.mpesa_till_number" type="text" placeholder="Till / Buy Goods number"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                 </div>
                 <p class="mt-2 text-xs text-slate-500">
-                  Not yet used to route real payments - client STK pushes still go through
-                  SilverLake's own Paybill until direct routing is built.
+                  Whatever the partner actually has - most register with just one of these.
+                </p>
+
+                <p class="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Daraja API Credentials <span class="normal-case font-normal text-slate-500">(optional - add once available)</span>
+                </p>
+                <div class="space-y-3">
+                  <input
+                    v-model="form.mpesa_consumer_key" type="text" placeholder="Consumer key"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  />
+                  <input
+                    v-model="form.mpesa_consumer_secret" type="password" :placeholder="editingId ? 'Leave blank to keep existing' : 'Consumer secret'"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  />
+                  <input
+                    v-model="form.mpesa_passkey" type="password" :placeholder="editingId ? 'Leave blank to keep existing' : 'Passkey'"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  />
+                </div>
+                <p class="mt-2 text-xs text-slate-500">
+                  Most partners won't have these yet - a Daraja app needs a separate signup with
+                  Safaricom. Not required to register, and not yet used to route real payments
+                  either way - client STK pushes still go through SilverLake's own Paybill until
+                  direct routing is built.
                 </p>
               </div>
 
