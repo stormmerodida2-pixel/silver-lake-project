@@ -172,7 +172,15 @@ from .serializers import DriverOnsiteBookingSerializer
 class DriverOnsiteBookingCreateView(APIView):
     """Lets a driver create a booking on the spot for a walk-up client who won't be registering
     or logging in themselves - a lightweight customer account is created behind the scenes, and
-    a no-login payment link is handed back for the driver to share with the client directly."""
+    a no-login payment link is handed back for the driver to share with the client directly.
+
+    Confirmed immediately rather than starting Pending-until-a-30%-deposit-lands like an online
+    booking does - the deposit exists to get some commitment from a customer SilverLake has never
+    met, but a walk-in client is standing right there with the driver, so that trust problem
+    doesn't apply. In practice this means full payment is typically collected only once the trip
+    itself is over (see Booking._complete_if_ended_and_paid, which already requires the full
+    balance - not just a deposit - regardless of how a booking was created), and the client can
+    start their trip immediately without paying anything upfront."""
 
     permission_classes = [IsDriverUser]
 
@@ -188,7 +196,7 @@ class DriverOnsiteBookingCreateView(APIView):
 
         booking = Booking(
             user=customer, vehicle=data['vehicle'], driver=driver, service_type='with_driver',
-            source=BookingSource.DRIVER_ONSITE,
+            source=BookingSource.DRIVER_ONSITE, status=BookingStatus.CONFIRMED,
             customer_name=data['customer_name'], customer_phone=data['customer_phone'],
             customer_email=data['customer_email'], pickup_location=data['pickup_location'],
             dropoff_location=data['dropoff_location'], start_date=data['start_date'],

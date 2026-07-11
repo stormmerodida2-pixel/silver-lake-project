@@ -66,7 +66,7 @@ class PublicBookingPaymentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'vehicle_name', 'driver_name', 'customer_name', 'start_date', 'end_date',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid', 'status',
-            'pending_payments',
+            'source', 'pending_payments',
         ]
 
     def get_driver_name(self, obj):

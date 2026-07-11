@@ -117,7 +117,17 @@ business-model pitch for the economics).
    - Mark themselves **away** with a reason (visible only to admin — customers just see the
      vehicle disappear) and mark themselves available again
    - Create a booking directly for a walk-up client who booked in person, with no login required
-     from the customer
+     from the customer - **confirmed immediately, with no upfront deposit required** (unlike an
+     online booking, which stays Pending until a 30% deposit lands): the client is standing right
+     there with the driver, so there's no remote-trust problem to solve. In practice this means
+     the trip can start with nothing paid yet, and full payment is typically only collected once
+     it's over - trip completion already requires the *full* balance regardless of how a booking
+     was created, so nothing else about the payment/payout/completion flow needed to change.
+     `total_amount` is fixed at booking time (`price_per_day × booked days`) and never
+     recalculated from the trip's actual duration - a customer who books 10 days but returns the
+     vehicle on day 9 still owes the full 10, the same way most car rentals work: the vehicle was
+     held and unavailable to anyone else for the full reserved period regardless of when it's
+     actually handed back
    - **Declare a payment** for one of their own bookings on the client's behalf - the client picks
      cash, card, or M-Pesa and states the exact amount; cash/card then need the driver to
      separately **confirm** they actually received it (the amount is locked in at declaration,
@@ -494,7 +504,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-507 automated backend tests currently cover booking validation, payment guards, payout timing and
+509 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -570,7 +580,9 @@ actually applies auto-sent, respecting the same one-hour cooldown fields the man
 so the two never double up; a booking with no driver, one that isn't yet overdue, or one that's
 fully paid and just needs a trip-lifecycle confirmation is left alone entirely; staff get a
 one-time email/notification of their own once a booking is still unresolved 3+ days past its
-scheduled end date, and never a second time for the same booking), the per-user notification
+scheduled end date, and never a second time for the same booking), a walk-in booking confirming
+immediately with nothing paid and being able to start its trip right away (no deposit gate the
+way an online booking has), the per-user notification
 mute/preferences system shared across all three bells (muting an
 event hides it from that one user's own feed, unread count, and mark-all-read immediately, but
 never from another user who'd otherwise see the exact same underlying notification - e.g. two

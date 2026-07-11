@@ -636,6 +636,22 @@ class DriverOnsiteBookingCreateTests(APITestCase):
         self.assertEqual(booking.service_type, ServiceType.WITH_DRIVER)
         self.assertIn(str(booking.customer_token), response.json()['payment_url'])
 
+    def test_a_walk_in_booking_is_confirmed_immediately_with_no_deposit_required(self):
+        # Unlike an online booking (Pending until a 30% deposit lands), a walk-in client is
+        # standing right there with the driver, so there's no remote-trust problem to solve -
+        # full payment is typically only collected once the trip itself is over.
+        response = self.client.post('/api/driver/bookings/create/', self._payload(), format='json')
+        booking = Booking.objects.get(pk=response.json()['booking']['id'])
+        self.assertEqual(booking.status, BookingStatus.CONFIRMED)
+        self.assertEqual(booking.amount_paid, Decimal('0'))
+
+    def test_a_walk_in_booking_can_start_its_trip_immediately_with_no_payment(self):
+        response = self.client.post('/api/driver/bookings/create/', self._payload(), format='json')
+        booking_id = response.json()['booking']['id']
+
+        start_response = self.client.post(f'/api/driver/bookings/{booking_id}/start-trip/')
+        self.assertEqual(start_response.status_code, 200)
+
     def test_driver_cannot_book_a_vehicle_that_isnt_theirs(self):
         response = self.client.post(
             '/api/driver/bookings/create/', self._payload(vehicle=self.other_vehicle.id), format='json',

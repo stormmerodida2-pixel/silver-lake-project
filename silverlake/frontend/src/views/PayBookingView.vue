@@ -27,12 +27,18 @@ const pendingCashPayment = computed(() => {
   return (booking.value.pending_payments || []).find((p) => p.method === 'cash') || null
 })
 
+// A walk-in booking (created on the spot by a driver) starts Confirmed with nothing paid and
+// no deposit requirement at all - full payment is typically only collected once the trip is
+// over, so there's no "deposit vs full" choice to make here the way an online booking has.
+const isWalkIn = computed(() => booking.value?.source === 'driver_onsite')
+
 async function loadBooking() {
   loading.value = true
   loadError.value = ''
   try {
     const { data } = await apiClient.get(`/pay/${route.params.token}/`)
     booking.value = data
+    if (data.source === 'driver_onsite') payOption.value = 'full'
   } catch (err) {
     loadError.value = 'This payment link is invalid or has expired.'
   } finally {
@@ -247,7 +253,10 @@ onMounted(loadBooking)
         </div>
 
         <div v-else class="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-6">
-          <div v-if="!booking.is_deposit_paid">
+          <div v-if="isWalkIn" class="text-sm text-slate-600">
+            Paying in full: KES {{ Number(booking.balance_due).toLocaleString() }}.
+          </div>
+          <div v-else-if="!booking.is_deposit_paid">
             <label class="mb-1 block text-sm text-slate-600">How much would you like to pay now?</label>
             <div class="grid grid-cols-2 gap-3">
               <button
