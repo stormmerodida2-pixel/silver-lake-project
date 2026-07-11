@@ -368,6 +368,8 @@ client blocks remote images.
 - **Refund issued (customer)** — their only signal the money actually went out, beyond checking their own statement
 - Cash payment recorded (customer) — an independent check, since they didn't initiate it
 - Cash payment recorded (driver) — confirms the amount and that it's queued for admin verification
+- **Cash payment recorded (admin, BCC to staff)** — cash leaves no independent trail anywhere until this
+- **Cash deposit logged (admin, BCC to staff)** — the driver has now handed that cash to SilverLake's own Paybill, so the payout behind it may be eligible for verification
 - **Payout paid (driver)** — their receipt that a payout actually went out
 - Driver portal invite (driver)
 - Driver suspended, with reason (driver)
@@ -482,7 +484,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-494 automated backend tests currently cover booking validation, payment guards, payout timing and
+496 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -512,8 +514,11 @@ a matching deposit; card doesn't), that same undeposited-cash gate now also hold
 a nonzero balance already defers it - until the driver logs the Paybill deposit, at which point
 logging it completes the trip immediately if that was the only thing still holding it back; the
 driver's manual Complete Trip button and the admin set-status action both reject outright with a
-clear message if attempted while cash is still undeposited), fleet-partner CRUD (superadmin-only,
-and that an org-admin can never change even their own platform fee), the
+clear message if attempted while cash is still undeposited), that logging a cash deposit itself
+also emails staff and creates an admin notification (mirroring the existing cash-payment-recorded
+staff heads-up, since this is the point SilverLake actually has the money, not just the driver's
+word), fleet-partner CRUD (superadmin-only, and that an org-admin can never change even their own
+platform fee), the
 ownership-aware payout split routed to the right recipient (company-owned vehicles create no
 payout at all; a driver-partner's own car pays the driver at the fixed 15% rate; a
 FleetPartner-owned vehicle pays the *organization*, not the driver operating it, at that

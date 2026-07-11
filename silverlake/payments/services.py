@@ -295,6 +295,21 @@ def log_cash_deposit(payment, amount, mpesa_reference, driver):
             'The full amount collected must be deposited.'
         )
 
-    return CashDeposit.objects.create(
+    cash_deposit = CashDeposit.objects.create(
         payment=payment, amount=amount, mpesa_reference=mpesa_reference, logged_by=driver,
     )
+
+    from .emails import send_cash_deposit_staff_notification_email
+
+    send_cash_deposit_staff_notification_email(cash_deposit)
+
+    from notifications.models import NotificationEvent
+    from notifications.services import notify
+
+    notify(
+        NotificationEvent.CASH_DEPOSIT_LOGGED,
+        f'KES {amount:,.2f} cash deposit logged for booking #{payment.booking_id}',
+        organization=payment.booking.vehicle.owner, link_path='/admin/payouts',
+    )
+
+    return cash_deposit

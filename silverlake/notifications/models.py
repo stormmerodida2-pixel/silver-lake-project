@@ -8,6 +8,7 @@ class NotificationEvent(models.TextChoices):
     BOOKING_CREATED = 'booking_created', 'New Booking'
     BOOKING_CANCELLED = 'booking_cancelled', 'Booking Cancelled'
     CASH_PAYMENT_RECORDED = 'cash_payment_recorded', 'Cash Payment Recorded'
+    CASH_DEPOSIT_LOGGED = 'cash_deposit_logged', 'Cash Deposit Logged'
     PAYMENT_DISPUTED = 'payment_disputed', 'Payment Disputed'
     DISPUTE_RESOLVED = 'dispute_resolved', 'Dispute Resolved'
     DRIVER_AWAY = 'driver_away', 'Driver Marked Away'

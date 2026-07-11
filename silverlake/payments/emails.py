@@ -73,6 +73,37 @@ def send_cash_payment_staff_notification_email(payment):
     )
 
 
+def send_cash_deposit_staff_notification_email(cash_deposit):
+    """Notifies every active staff account the moment a driver logs a Paybill deposit for cash
+    they collected - the second half of the cash-payment trust chain (see CashDeposit). Unlike
+    confirming the cash payment itself (which staff already hear about via
+    send_cash_payment_staff_notification_email), this is the point SilverLake actually has the
+    money, and the payout behind it may now be eligible for verification - worth its own
+    heads-up rather than staff only noticing while checking the Payouts page."""
+    staff_emails = list(
+        User.objects.filter(is_staff=True, is_active=True).exclude(email='').values_list('email', flat=True)
+    )
+    if not staff_emails:
+        return
+
+    payment = cash_deposit.payment
+    booking = payment.booking
+    send_branded_email(
+        subject=f'Cash deposit logged — SilverLake booking #{booking.pk}',
+        template_name='emails/cash_deposit_staff_notification.html',
+        context={
+            'amount': f'{cash_deposit.amount:,.2f}',
+            'mpesa_reference': cash_deposit.mpesa_reference,
+            'customer_name': booking.customer_name,
+            'driver_name': cash_deposit.logged_by.full_name if cash_deposit.logged_by else 'Unknown driver',
+            'booking_id': booking.pk,
+            'payouts_url': f'{settings.FRONTEND_URL}/admin/payouts',
+        },
+        recipient_list=[settings.DEFAULT_FROM_EMAIL],
+        bcc=staff_emails,
+    )
+
+
 def send_payment_disputed_staff_notification_email(payment):
     """Notifies every active staff account the moment a customer disputes a self-reported cash
     payment (see payments.views.token_dispute_payment) - the one independent check on a driver's

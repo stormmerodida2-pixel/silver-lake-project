@@ -1011,6 +1011,24 @@ class DriverCashDepositTests(APITestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_logging_a_deposit_notifies_staff_by_email(self):
+        staff_user = User.objects.create_user(
+            username='deposit-staff@example.com', email='deposit-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        mail.outbox = []
+        self.client.post(self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QWE1234572'}, format='json')
+        staff_emails = [m for m in mail.outbox if 'Cash deposit logged' in m.subject]
+        self.assertEqual(len(staff_emails), 1)
+        self.assertIn(staff_user.email, staff_emails[0].bcc)
+
+    def test_logging_a_deposit_creates_an_admin_notification(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.post(self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QWE1234573'}, format='json')
+        notification = Notification.objects.get(event=NotificationEvent.CASH_DEPOSIT_LOGGED)
+        self.assertIn(str(self.booking.id), notification.message)
+
     def test_non_numeric_amount_is_rejected(self):
         response = self.client.post(self._url(), {'amount': 'abc', 'mpesa_reference': 'QWE1234572'}, format='json')
         self.assertEqual(response.status_code, 400)
