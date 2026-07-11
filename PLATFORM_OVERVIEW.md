@@ -412,7 +412,9 @@ box plus a couple of exact-match filter dropdowns, layered on top of org-scoping
   separately-scoped bell off the same `notifications` app - a driver being booked, one of their
   trips getting cancelled, a payment/cash-deposit reminder aimed at them, their own payout being
   paid, and their submitted vehicle being approved/rejected - never mixed with the admin
-  dashboard's feed or another driver's. A logged-in **customer** gets a third, independently
+  dashboard's feed or another driver's. A payout being paid on a FleetPartner-owned vehicle
+  instead notifies that organization's own admin bell, not any driver's - there's no individual
+  driver payout recipient in that case (see Booking._has_payout_recipient). A logged-in **customer** gets a third, independently
   scoped bell in the public site's own nav bar - their booking confirmed/cancelled, a cash/card
   payment recorded, their trip completed (review invite), and a refund issued - scoped to their
   own account only, via `/api/notifications/`. Every one of these events is system-generated
@@ -462,7 +464,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-470 automated backend tests currently cover booking validation, payment guards, payout timing and
+471 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,

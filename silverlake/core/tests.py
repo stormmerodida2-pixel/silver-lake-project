@@ -122,6 +122,29 @@ class AdminPayoutVerificationTests(APITestCase):
         self.assertEqual(len(payout_emails), 1)
         self.assertIn('payout-driver@example.com', payout_emails[0].to)
 
+    def test_marking_an_organization_payout_paid_notifies_that_orgs_admin_in_app(self):
+        # An organization-owned vehicle's payout has no driver_id at all - the notification has
+        # to target organization instead, or it silently never reaches anyone's admin dashboard.
+        from notifications.models import Notification, NotificationEvent
+
+        partner = FleetPartner.objects.create(name='Payout Notify Co', platform_fee_percent=Decimal('10'))
+        vehicle = make_vehicle(name='Org Payout Car', owner=partner, is_company_owned=False)
+        customer = User.objects.create_user(username='org-payout-client@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, status=BookingStatus.PENDING)
+        Payment.objects.create(booking=booking, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL)
+        booking.confirm_if_deposit_met()
+        payout = DriverPayout.objects.get(booking=booking)
+        self.assertIsNone(payout.driver_id)
+        self.assertEqual(payout.organization_id, partner.id)
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(f'/api/admin/payouts/{payout.id}/mark-paid/', {'payout_reference': 'MPESA456'})
+        self.assertEqual(response.status_code, 200)
+
+        notification = Notification.objects.get(event=NotificationEvent.PAYOUT_PAID, organization_id=partner.id)
+        self.assertIn('KES', notification.message)
+        self.assertEqual(notification.link_path, '/admin/payouts')
+
     def test_mpesa_sourced_payout_can_be_marked_paid_without_verification(self):
         other_customer = User.objects.create_user(username='other-client@example.com', password='pass12345!')
         other_vehicle = make_vehicle(name='Other Car', driver=self.driver, price_per_day=Decimal('1000'))
