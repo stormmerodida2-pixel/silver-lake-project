@@ -82,6 +82,10 @@ class AdminPayoutVerificationTests(APITestCase):
         self.payout.refresh_from_db()
         self.assertTrue(self.payout.is_paid)
 
+        from notifications.models import Notification, NotificationEvent
+        notification = Notification.objects.get(event=NotificationEvent.PAYOUT_PAID)
+        self.assertEqual(notification.driver_id, self.driver.id)
+
     def test_verifying_without_a_note_is_rejected(self):
         self._log_deposit()
         self.client.force_authenticate(user=self.superadmin)

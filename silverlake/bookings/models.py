@@ -398,6 +398,11 @@ class Booking(models.Model):
             NotificationEvent.BOOKING_CANCELLED, f'Booking #{self.pk} for {self.customer_name} was cancelled',
             organization=self.vehicle.owner, link_path='/admin/bookings',
         )
+        if self.driver_id:
+            notify(
+                NotificationEvent.BOOKING_CANCELLED, f'Booking #{self.pk} for {self.customer_name} was cancelled',
+                driver=self.driver, link_path='/driver',
+            )
 
     def _send_confirmation_email(self):
         """Sends a booking confirmed email to the customer. Swallowed silently on failure

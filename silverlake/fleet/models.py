@@ -263,6 +263,14 @@ class VehicleSubmission(models.Model):
 
         send_vehicle_submission_approved_email(self)
 
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.VEHICLE_SUBMISSION_APPROVED, f'Your {self.name} submission is now live',
+            driver=self.driver, link_path='/driver',
+        )
+
     def reject(self, notes=''):
         self.status = VehicleSubmissionStatus.REJECTED
         if notes:
@@ -273,6 +281,14 @@ class VehicleSubmission(models.Model):
         from drivers.emails import send_vehicle_submission_rejected_email
 
         send_vehicle_submission_rejected_email(self)
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.VEHICLE_SUBMISSION_REJECTED, f'Your {self.name} submission was not approved',
+            driver=self.driver, link_path='/driver',
+        )
 
 
 class VehicleSubmissionPhoto(models.Model):

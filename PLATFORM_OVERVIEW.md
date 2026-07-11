@@ -408,7 +408,11 @@ box plus a couple of exact-match filter dropdowns, layered on top of org-scoping
   no notification of any kind). Org-scoped the same way as every other admin resource: an
   org-scoped account only sees its own organization's events; platform-only events (new driver
   applications, vehicle submissions, a driver going away) are invisible to org-scoped staff,
-  same as Fleet Partners or the Activity Log.
+  same as Fleet Partners or the Activity Log. The Driver Portal (§ below) gets its own,
+  separately-scoped bell off the same `notifications` app - a driver being booked, one of their
+  trips getting cancelled, a payment/cash-deposit reminder aimed at them, their own payout being
+  paid, and their submitted vehicle being approved/rejected - never mixed with the admin
+  dashboard's feed or another driver's.
 
 - **Dashboard** — revenue collected, platform fees earned, payouts owed/paid, bookings by status,
   user/driver counts (including pending applications and drivers currently away), fleet counts,
@@ -450,7 +454,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-442 automated backend tests currently cover booking validation, payment guards, payout timing and
+454 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -520,7 +524,11 @@ one integration test per event confirming it actually fires (driver acknowledgme
 - both online and driver-onsite -, cancellation, a confirmed cash payment - but not a confirmed
 card payment -, a filed dispute, and the new resolve-dispute action, which also requires a note
 the same way payout verification does, deliberately leaves the payout's own verification state
-untouched, and logs to the Activity Log), and (using real threads
+untouched, and logs to the Activity Log), the driver portal's own notification scoping (a driver
+only ever sees their own notifications, never another driver's or the admin dashboard's, and
+each of the 6 driver-facing events - being booked, a cancelled trip, payment/cash-deposit
+reminders, a payout paid, a vehicle submission approved/rejected - actually fires one), and
+(using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:

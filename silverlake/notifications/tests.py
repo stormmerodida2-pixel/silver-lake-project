@@ -5,6 +5,7 @@ from django.test import TestCase
 from rest_framework.test import APITestCase
 
 from core.models import StaffOrganization
+from drivers.models import Driver
 from fleet.models import FleetPartner
 
 from .models import Notification, NotificationEvent
@@ -28,6 +29,12 @@ class NotifyServiceTests(TestCase):
         notification = notify(NotificationEvent.DRIVER_AWAY, 'Test')
         self.assertIsNone(notification.organization_id)
         self.assertEqual(notification.link_path, '')
+
+    def test_notify_can_target_a_specific_driver(self):
+        driver = Driver.objects.create(full_name='Notify Target Driver', is_active=True)
+        notification = notify(NotificationEvent.DRIVER_BOOKED, 'You were booked', driver=driver, link_path='/driver')
+        self.assertEqual(notification.driver_id, driver.id)
+        self.assertIsNone(notification.organization_id)
 
 
 class NotificationViewSetTests(APITestCase):
@@ -125,3 +132,51 @@ class NotificationViewSetTests(APITestCase):
         response = self.client.get('/api/admin/notifications/')
         item = next(n for n in response.json()['results'] if n['id'] == self.org_a_notification.id)
         self.assertTrue(item['is_read'])
+
+
+class DriverNotificationViewSetTests(APITestCase):
+    """The driver portal's own notification feed - scoped to exactly the requesting driver,
+    never another driver's, and never mixed up with the admin dashboard's own feed."""
+
+    def setUp(self):
+        self.driver_a_user = User.objects.create_user(username='drivernotif-a@example.com', password='pass12345!')
+        self.driver_a = Driver.objects.create(user=self.driver_a_user, full_name='Notif Driver A', is_active=True)
+
+        self.driver_b_user = User.objects.create_user(username='drivernotif-b@example.com', password='pass12345!')
+        self.driver_b = Driver.objects.create(user=self.driver_b_user, full_name='Notif Driver B', is_active=True)
+
+        self.plain_user = User.objects.create_user(username='drivernotif-plain@example.com', password='pass12345!')
+
+        self.driver_a_notification = notify(NotificationEvent.DRIVER_BOOKED, 'A booked', driver=self.driver_a)
+        self.driver_b_notification = notify(NotificationEvent.DRIVER_BOOKED, 'B booked', driver=self.driver_b)
+        # An admin-facing notification with no driver at all - must never leak into a driver's feed.
+        self.admin_notification = notify(NotificationEvent.BOOKING_CREATED, 'Admin only')
+
+    def test_driver_only_sees_their_own_notifications(self):
+        self.client.force_authenticate(user=self.driver_a_user)
+        response = self.client.get('/api/driver/notifications/')
+        ids = {n['id'] for n in response.json()['results']}
+        self.assertEqual(ids, {self.driver_a_notification.id})
+
+    def test_non_driver_cannot_view_driver_notifications(self):
+        self.client.force_authenticate(user=self.plain_user)
+        response = self.client.get('/api/driver/notifications/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_driver_cannot_mark_another_drivers_notification_read(self):
+        self.client.force_authenticate(user=self.driver_a_user)
+        response = self.client.post(f'/api/driver/notifications/{self.driver_b_notification.id}/mark-read/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_driver_unread_count_excludes_other_drivers_and_admin_notifications(self):
+        self.client.force_authenticate(user=self.driver_a_user)
+        response = self.client.get('/api/driver/notifications/unread-count/')
+        self.assertEqual(response.json()['count'], 1)
+
+    def test_driver_mark_all_read_does_not_affect_another_driver(self):
+        self.client.force_authenticate(user=self.driver_a_user)
+        self.client.post('/api/driver/notifications/mark-all-read/')
+
+        self.client.force_authenticate(user=self.driver_b_user)
+        response = self.client.get('/api/driver/notifications/unread-count/')
+        self.assertEqual(response.json()['count'], 1)

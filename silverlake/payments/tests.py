@@ -539,6 +539,14 @@ class PaymentReminderTests(APITestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn('remind-driver@example.com', mail.outbox[0].to)
 
+    def test_reminding_notifies_the_driver_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(f'/api/payments/{self.payment.id}/remind/')
+        notification = Notification.objects.get(event=NotificationEvent.PAYMENT_REMINDER)
+        self.assertEqual(notification.driver_id, self.driver.id)
+
     def test_cannot_remind_about_an_already_confirmed_payment(self):
         self.payment.status = PaymentStatus.SUCCESSFUL
         self.payment.save(update_fields=['status'])
@@ -613,6 +621,14 @@ class CashDepositReminderTests(APITestCase):
         self.assertIsNotNone(self.payment.last_reminded_at)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn('depremind-driver@example.com', mail.outbox[0].to)
+
+    def test_reminding_notifies_the_driver_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(self._url())
+        notification = Notification.objects.get(event=NotificationEvent.CASH_DEPOSIT_REMINDER)
+        self.assertEqual(notification.driver_id, self.driver.id)
 
     def test_cannot_remind_once_already_deposited(self):
         CashDeposit.objects.create(

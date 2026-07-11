@@ -4,16 +4,23 @@ import { useRouter } from 'vue-router'
 
 import { useNotifications } from '../composables/useNotifications'
 
+const props = defineProps({
+  // '/admin/notifications' for the admin dashboard, '/driver/notifications' for the driver
+  // portal - two separately scoped feeds on the backend (see notifications.views).
+  basePath: { type: String, required: true },
+})
+
 const POLL_INTERVAL_MS = 30000
 
 const router = useRouter()
-const { unreadCount, items, loading, refreshCount, loadList, markRead, markAllRead } = useNotifications()
+const { unreadCount, items, loading, refreshCount, loadList, markRead, markAllRead } = useNotifications(props.basePath)
 
 const root = ref(null)
 const open = ref(false)
 let pollTimer = null
 
 const EVENT_LABELS = {
+  // Admin dashboard
   driver_acknowledged: 'Driver Acknowledged',
   booking_created: 'New Booking',
   booking_cancelled: 'Booking Cancelled',
@@ -23,6 +30,13 @@ const EVENT_LABELS = {
   driver_away: 'Driver Away',
   vehicle_submission: 'Vehicle Submission',
   driver_application: 'Driver Application',
+  // Driver portal
+  driver_booked: 'New Booking',
+  payment_reminder: 'Payment Reminder',
+  cash_deposit_reminder: 'Deposit Reminder',
+  payout_paid: 'Payout Paid',
+  vehicle_submission_approved: 'Vehicle Approved',
+  vehicle_submission_rejected: 'Vehicle Rejected',
 }
 
 function eventLabel(event) {

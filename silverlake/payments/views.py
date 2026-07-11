@@ -81,6 +81,14 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         payment.save(update_fields=['last_reminded_at'])
         send_payment_reminder_email(payment)
         log_admin_action(request, 'payment.remind', payment)
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.PAYMENT_REMINDER, f'Please confirm the {payment.get_method_display()} payment you declared',
+            driver=payment.recorded_by_driver, link_path='/driver',
+        )
         return Response(self.get_serializer(payment).data)
 
     @action(detail=True, methods=['post'], url_path='remind-deposit', permission_classes=[IsSupportStaff])
@@ -102,6 +110,14 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         payment.save(update_fields=['last_reminded_at'])
         send_cash_deposit_reminder_email(payment)
         log_admin_action(request, 'payment.remind_deposit', payment)
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.CASH_DEPOSIT_REMINDER, 'Please redeposit the cash you collected into the Paybill',
+            driver=payment.recorded_by_driver, link_path='/driver',
+        )
         return Response(self.get_serializer(payment).data)
 
     @action(detail=True, methods=['post'], url_path='resolve-dispute', permission_classes=[IsSupportStaff])

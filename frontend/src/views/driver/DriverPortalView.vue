@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 
 import apiClient from '../../api/client'
 import AnnouncementBanner from '../../components/AnnouncementBanner.vue'
+import NotificationBell from '../../components/NotificationBell.vue'
 import SilverLakeLogo from '../../components/SilverLakeLogo.vue'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
@@ -480,6 +481,7 @@ onMounted(() => {
         </div>
       </div>
       <div class="flex items-center gap-3 sm:gap-5">
+        <NotificationBell base-path="/driver/notifications" />
         <RouterLink to="/" class="hidden items-center gap-1.5 text-sm font-medium text-slate-300 transition hover:text-gold-400 sm:flex">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />

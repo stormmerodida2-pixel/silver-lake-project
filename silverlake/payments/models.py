@@ -155,6 +155,15 @@ class DriverPayout(models.Model):
 
         send_payout_paid_email(self)
 
+        if self.driver_id:
+            from notifications.models import NotificationEvent
+            from notifications.services import notify
+
+            notify(
+                NotificationEvent.PAYOUT_PAID, f'Your payout of KES {self.amount:,.2f} has been paid',
+                driver=self.driver, link_path='/driver',
+            )
+
     def void(self):
         self.is_voided = True
         self.voided_at = timezone.now()

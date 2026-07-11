@@ -240,6 +240,24 @@ class VehicleSubmissionTests(APITestCase):
         self.assertEqual(len(rejected_emails), 1)
         self.assertIn('submitting-driver@example.com', rejected_emails[0].to)
 
+    def test_approving_a_submission_notifies_the_driver_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.post('/api/driver/vehicle-submissions/', self._payload(), format='multipart')
+        submission = VehicleSubmission.objects.get()
+        submission.approve()
+        notification = Notification.objects.get(event=NotificationEvent.VEHICLE_SUBMISSION_APPROVED)
+        self.assertEqual(notification.driver_id, self.driver.id)
+
+    def test_rejecting_a_submission_notifies_the_driver_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.post('/api/driver/vehicle-submissions/', self._payload(), format='multipart')
+        submission = VehicleSubmission.objects.get()
+        submission.reject(notes='Photos too dark')
+        notification = Notification.objects.get(event=NotificationEvent.VEHICLE_SUBMISSION_REJECTED)
+        self.assertEqual(notification.driver_id, self.driver.id)
+
     def test_no_submission_email_attempted_without_a_driver_email_on_file(self):
         self.assertEqual(self.driver.email, '')
         self.client.post('/api/driver/vehicle-submissions/', self._payload(), format='multipart')

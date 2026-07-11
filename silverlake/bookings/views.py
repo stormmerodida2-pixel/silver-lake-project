@@ -80,13 +80,19 @@ class BookingViewSet(
 
     def perform_create(self, serializer):
         booking = serializer.save(user=self.request.user)
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
         if booking.driver_id:
             from .emails import send_driver_booking_notification
 
             send_driver_booking_notification(booking)
-
-        from notifications.models import NotificationEvent
-        from notifications.services import notify
+            notify(
+                NotificationEvent.DRIVER_BOOKED,
+                f'{booking.customer_name} booked you for {booking.vehicle.name} - {booking.rental_days} day(s)',
+                driver=booking.driver, link_path='/driver',
+            )
 
         notify(
             NotificationEvent.BOOKING_CREATED,

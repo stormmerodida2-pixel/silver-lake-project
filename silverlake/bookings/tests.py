@@ -440,6 +440,20 @@ class CancellationRefundPercentageTests(APITestCase):
         refund = Refund.objects.get(booking=booking)
         self.assertEqual(refund.amount, booking.total_amount)
 
+    def test_cancelling_notifies_both_admins_and_the_assigned_driver_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        booking = self._paid_booking()
+        booking.mark_cancelled()
+
+        notifications = Notification.objects.filter(event=NotificationEvent.BOOKING_CANCELLED)
+        self.assertEqual(notifications.count(), 2)
+        admin_notification = notifications.get(driver__isnull=True)
+        driver_notification = notifications.get(driver_id=self.driver.id)
+        self.assertIn(str(booking.id), admin_notification.message)
+        self.assertIn(str(booking.id), driver_notification.message)
+        self.assertEqual(driver_notification.link_path, '/driver')
+
     def test_client_cancelling_after_driver_acknowledgment_gets_half_refunded(self):
         booking = self._paid_booking()
         booking.driver_acknowledged_at = timezone.now()
@@ -1149,6 +1163,15 @@ class DriverBookingNotificationTests(APITestCase):
         self.assertIn(self.vehicle.name, notification.message)
         self.assertIn('Jane Doe', notification.message)
         self.assertEqual(notification.link_path, '/admin/bookings')
+
+    def test_creating_a_booking_notifies_the_driver_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.post('/api/bookings/', self._booking_payload(), format='json')
+        notification = Notification.objects.get(event=NotificationEvent.DRIVER_BOOKED)
+        self.assertEqual(notification.driver_id, self.driver.id)
+        self.assertIn('Jane Doe', notification.message)
+        self.assertEqual(notification.link_path, '/driver')
 
     def test_acknowledging_a_booking_notifies_admins_in_app(self):
         from notifications.models import Notification, NotificationEvent
