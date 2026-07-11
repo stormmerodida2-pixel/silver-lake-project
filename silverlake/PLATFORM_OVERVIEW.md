@@ -159,6 +159,11 @@ business-model pitch for the economics).
   themselves or want a driver. Self-drive requires uploading a driving license and ID/passport
   document at booking time. There's no separate "pick a driver" step — booking "with driver" on
   a vehicle that has one automatically assigns that vehicle's own driver.
+- **Self-drive costs 3% more than the same vehicle's with-driver rate** — the customer is
+  driving SilverLake's own vehicle themselves, carrying more risk/liability than a trip with a
+  driver at the wheel. Applied to the whole booked total (not per day), rounded to the nearest
+  cent; the public booking page shows it as its own line item so the price preview always
+  matches what's actually charged.
 - **New bookings can't start in the past** — this is checked at creation only, so an existing
   booking that's simply sat pending for a while is never retroactively invalidated by an
   unrelated edit.
@@ -510,7 +515,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-522 automated backend tests currently cover booking validation, payment guards, payout timing and
+526 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,

@@ -149,9 +149,19 @@ const totalDays = computed(() => {
   return Math.max(1, Math.round(diff) + 1)
 })
 
-const totalCost = computed(() => {
+// Self-drive costs 3% more than the vehicle's own with-driver rate - mirrors Booking.save()'s
+// SELF_DRIVE_SURCHARGE_PERCENT on the backend, so the preview shown here matches what actually
+// gets charged.
+const SELF_DRIVE_SURCHARGE_PERCENT = 3
+
+const baseCost = computed(() => {
   if (!selectedVehicle.value) return 0
   return totalDays.value * Number(selectedVehicle.value.price_per_day)
+})
+
+const totalCost = computed(() => {
+  if (form.service_type !== 'self_drive') return baseCost.value
+  return Math.round(baseCost.value * (1 + SELF_DRIVE_SURCHARGE_PERCENT / 100) * 100) / 100
 })
 
 const amountToPay = computed(() => {
@@ -753,6 +763,10 @@ function retryPayment() {
                   <div v-if="totalDays" class="flex justify-between text-slate-600">
                     <span>{{ totalDays }} day{{ totalDays > 1 ? 's' : '' }}</span>
                     <span>&times; KES {{ Number(selectedVehicle.price_per_day).toLocaleString() }}</span>
+                  </div>
+                  <div v-if="totalDays && form.service_type === 'self_drive'" class="flex justify-between text-slate-600">
+                    <span>Self-drive surcharge (3%)</span>
+                    <span>+ KES {{ (totalCost - baseCost).toLocaleString() }}</span>
                   </div>
                   <div v-if="totalDays" class="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-navy-900">
                     <span>Total</span>

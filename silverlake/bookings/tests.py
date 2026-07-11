@@ -1963,3 +1963,45 @@ class EscalateUnacknowledgedBookingsTests(APITestCase):
         self._run()
         booking.refresh_from_db()
         self.assertIsNone(booking.ack_escalated_at)
+
+
+class SelfDriveSurchargeTests(TestCase):
+    """Self-drive costs 3% more than the vehicle's own with-driver rate - the customer is
+    driving SilverLake's own vehicle themselves, which carries more risk/liability than a
+    booking with a driver at the wheel."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='surcharge-client@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+
+    def test_with_driver_booking_has_no_surcharge(self):
+        booking = make_booking(
+            self.user, self.vehicle, service_type=ServiceType.WITH_DRIVER,
+            start_date=TOMORROW, end_date=TOMORROW,
+        )
+        self.assertEqual(booking.total_amount, Decimal('1000.00'))
+
+    def test_self_drive_booking_gets_a_three_percent_surcharge(self):
+        booking = make_booking(
+            self.user, self.vehicle, service_type=ServiceType.SELF_DRIVE,
+            start_date=TOMORROW, end_date=TOMORROW,
+        )
+        self.assertEqual(booking.total_amount, Decimal('1030.00'))
+
+    def test_surcharge_is_rounded_to_two_decimal_places(self):
+        vehicle = make_vehicle(name='Odd Rate Car', price_per_day=Decimal('999.99'))
+        booking = make_booking(
+            self.user, vehicle, service_type=ServiceType.SELF_DRIVE,
+            start_date=TOMORROW, end_date=TOMORROW,
+        )
+        # 999.99 * 1.03 = 1029.9897 -> rounds to 1029.99
+        self.assertEqual(booking.total_amount, Decimal('1029.99'))
+
+    def test_surcharge_applies_across_multiple_days(self):
+        booking = make_booking(
+            self.user, self.vehicle, service_type=ServiceType.SELF_DRIVE,
+            start_date=TOMORROW, end_date=TOMORROW + timedelta(days=3),
+        )
+        # 4 days (inclusive) * 1000 = 4000, + 3% = 4120.00
+        self.assertEqual(booking.rental_days, 4)
+        self.assertEqual(booking.total_amount, Decimal('4120.00'))

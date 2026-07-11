@@ -44,6 +44,11 @@ BLOCKING_BOOKING_STATUSES = [BookingStatus.PENDING, BookingStatus.CONFIRMED, Boo
 ACKNOWLEDGMENT_DEADLINE_SAME_DAY = timedelta(hours=1)
 ACKNOWLEDGMENT_DEADLINE_FUTURE = timedelta(hours=2)
 
+# Self-drive costs more than the vehicle's own with-driver rate - the customer is driving
+# SilverLake's own vehicle themselves, which carries more risk/liability than a booking with a
+# driver at the wheel. Applied to the whole booked total (see Booking.save()), not per day.
+SELF_DRIVE_SURCHARGE_PERCENT = Decimal('3')
+
 
 class Booking(models.Model):
     DEPOSIT_PERCENT = Decimal('30')
@@ -206,7 +211,10 @@ class Booking(models.Model):
         # has to be re-applied here too for it to actually stick.
         self._apply_default_driver()
         if not self.total_amount:
-            self.total_amount = self.vehicle.price_per_day * self.rental_days
+            total = self.vehicle.price_per_day * self.rental_days
+            if self.service_type == ServiceType.SELF_DRIVE:
+                total = (total * (Decimal('100') + SELF_DRIVE_SURCHARGE_PERCENT) / Decimal('100')).quantize(Decimal('0.01'))
+            self.total_amount = total
         super().save(*args, **kwargs)
 
     @property
