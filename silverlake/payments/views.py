@@ -109,14 +109,23 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
 @permission_classes([permissions.IsAuthenticated])
 @throttle_classes([ScopedRateThrottle])
 def stk_push(request):
-    """Kick off an M-Pesa STK Push prompt on the customer's phone for a booking."""
+    """Kick off an M-Pesa STK Push prompt on the customer's phone for a booking. Unlike every
+    other admin-facing endpoint, this one resolves its booking straight from the request body
+    (StkPushRequestSerializer's unscoped Booking.objects.all()) rather than through an org-scoped
+    get_queryset(), so the org check has to happen here explicitly - otherwise any is_staff
+    account, including a FleetPartner's own org-admin, could trigger a real charge attempt
+    against a booking belonging to a different organization entirely."""
     serializer = StkPushRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
 
     booking = data['booking']
-    if booking.user_id != request.user.id and not request.user.is_staff:
-        return Response({'detail': 'Not your booking.'}, status=status.HTTP_403_FORBIDDEN)
+    if booking.user_id != request.user.id:
+        if not request.user.is_staff:
+            return Response({'detail': 'Not your booking.'}, status=status.HTTP_403_FORBIDDEN)
+        organization = get_user_organization(request.user)
+        if organization is not None and booking.vehicle.owner_id != organization.id:
+            return Response({'detail': 'Not your booking.'}, status=status.HTTP_403_FORBIDDEN)
 
     try:
         payment, result = initiate_stk_push_payment(booking, data['phone_number'], data['amount'])
@@ -251,6 +260,10 @@ def token_dispute_payment(request, token, payment_id):
         payout.needs_verification = True
         payout.is_verified = False
         payout.save(update_fields=['needs_verification', 'is_verified'])
+
+    from .emails import send_payment_disputed_staff_notification_email
+
+    send_payment_disputed_staff_notification_email(payment)
 
     return Response({'detail': 'Dispute recorded. Our team will follow up with you.'})
 

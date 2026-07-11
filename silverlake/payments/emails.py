@@ -73,6 +73,38 @@ def send_cash_payment_staff_notification_email(payment):
     )
 
 
+def send_payment_disputed_staff_notification_email(payment):
+    """Notifies every active staff account the moment a customer disputes a self-reported cash
+    payment (see payments.views.token_dispute_payment) - the one independent check on a driver's
+    own word, and possibly the only signal staff get that a payout which may already be verified
+    (or even paid out) needs to be revisited. Email is this app's only notification channel, so
+    without this a dispute could otherwise sit unnoticed until someone happens to browse the
+    Payments list."""
+    staff_emails = list(
+        User.objects.filter(is_staff=True, is_active=True).exclude(email='').values_list('email', flat=True)
+    )
+    if not staff_emails:
+        return
+
+    booking = payment.booking
+    send_branded_email(
+        subject=f'Payment disputed — SilverLake booking #{booking.pk}',
+        template_name='emails/payment_disputed_staff_notification.html',
+        context={
+            'amount': f'{payment.amount:,.2f}',
+            'customer_name': booking.customer_name,
+            'driver_name': payment.recorded_by_driver.full_name if payment.recorded_by_driver else 'Unknown driver',
+            'booking_id': booking.pk,
+            'dispute_note': payment.dispute_note,
+            'payments_url': f'{settings.FRONTEND_URL}/admin/payments',
+        },
+        # Real staff addresses go in bcc so they don't see each other's emails; the To: header
+        # just needs a placeholder so the message isn't sent with an empty To.
+        recipient_list=[settings.DEFAULT_FROM_EMAIL],
+        bcc=staff_emails,
+    )
+
+
 def send_cash_deposit_reminder_email(payment):
     """Sent when staff nudge a driver who's confirmed collecting cash but hasn't yet redeposited
     it into the company Paybill (see payments.services.log_cash_deposit /

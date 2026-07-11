@@ -10,10 +10,17 @@ from rest_framework.test import APIClient, APITestCase
 
 from bookings.models import BookingStatus
 from bookings.tests import make_booking, make_vehicle
+from core.models import StaffOrganization
 from drivers.models import Driver
+from fleet.models import FleetPartner
 
 from .models import CashDeposit, DriverPayout, Payment, PaymentMethod, PaymentStatus
-from .services import PaymentValidationError, initiate_stk_push_payment
+from .services import (
+    PaymentValidationError,
+    confirm_offline_payment,
+    declare_offline_payment,
+    initiate_stk_push_payment,
+)
 
 User = get_user_model()
 
@@ -277,6 +284,19 @@ class DisputeCashPaymentTests(APITestCase):
         self.assertIsNotNone(self.cash_payment.disputed_at)
         self.assertEqual(self.cash_payment.dispute_note, 'I never paid this.')
 
+    def test_filing_a_dispute_notifies_staff(self):
+        # Email is this app's only notification channel - without this, a dispute that re-locks
+        # an already-verified (or even already-paid) payout could sit unnoticed indefinitely.
+        staff = User.objects.create_user(
+            username='dispute-staff@example.com', email='dispute-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        mail.outbox = []
+        self.client.post(self._url(), {'note': 'I never paid this.'}, format='json')
+        disputed_emails = [m for m in mail.outbox if 'Payment disputed' in m.subject]
+        self.assertEqual(len(disputed_emails), 1)
+        self.assertIn(staff.email, disputed_emails[0].bcc)
+
     def test_filing_a_dispute_relocks_an_already_verified_payout(self):
         self.payout.verify('Confirmed with customer (turned out to be wrong).')
         self.assertTrue(self.payout.is_verified)
@@ -535,3 +555,128 @@ class CashDepositReminderTests(APITestCase):
         self.client.force_authenticate(user=self.plain_user)
         response = self.client.post(self._url())
         self.assertEqual(response.status_code, 403)
+
+
+class StkPushOrgScopingTests(APITestCase):
+    """Every other admin-facing endpoint resolves its booking through an org-scoped
+    get_queryset(), so an org-admin never even sees another organization's data. stk_push is the
+    exception - it resolves the booking straight from the request body - so it needs its own
+    explicit org check to avoid letting a FleetPartner's own staff trigger a real M-Pesa charge
+    attempt against a booking that isn't theirs."""
+
+    def setUp(self):
+        self.platform_staff = User.objects.create_user(username='stk-platform-staff@example.com', password='pass12345!', is_staff=True)
+
+        self.org_a = FleetPartner.objects.create(name='STK Org A', platform_fee_percent=Decimal('10'))
+        self.org_a_staff = User.objects.create_user(username='stk-org-a-staff@example.com', password='pass12345!', is_staff=True)
+        StaffOrganization.objects.create(user=self.org_a_staff, organization=self.org_a)
+        self.org_a_vehicle = make_vehicle(name='STK Org A Car', owner=self.org_a, is_company_owned=True, price_per_day=Decimal('1000'))
+
+        self.org_b = FleetPartner.objects.create(name='STK Org B', platform_fee_percent=Decimal('10'))
+        self.org_b_vehicle = make_vehicle(name='STK Org B Car', owner=self.org_b, is_company_owned=True, price_per_day=Decimal('1000'))
+
+        self.customer = User.objects.create_user(username='stk-org-customer@example.com', password='pass12345!')
+        self.other_customer = User.objects.create_user(username='stk-other-customer@example.com', password='pass12345!')
+        self.org_a_booking = make_booking(self.customer, self.org_a_vehicle, status=BookingStatus.PENDING)
+        self.org_b_booking = make_booking(self.other_customer, self.org_b_vehicle, status=BookingStatus.PENDING)
+
+    def _post(self, booking):
+        return self.client.post('/api/payments/mpesa/stk-push/', {
+            'booking': booking.id, 'phone_number': '254700000000', 'amount': str(booking.deposit_amount),
+        }, format='json')
+
+    @patch('payments.services.mpesa.initiate_stk_push')
+    def test_org_admin_can_stk_push_their_own_orgs_booking(self, mock_stk):
+        mock_stk.return_value = {'CheckoutRequestID': 'ws_CO_1'}
+        self.client.force_authenticate(user=self.org_a_staff)
+        response = self._post(self.org_a_booking)
+        self.assertEqual(response.status_code, 202)
+
+    @patch('payments.services.mpesa.initiate_stk_push')
+    def test_org_admin_cannot_stk_push_another_orgs_booking(self, mock_stk):
+        self.client.force_authenticate(user=self.org_a_staff)
+        response = self._post(self.org_b_booking)
+        self.assertEqual(response.status_code, 403)
+        mock_stk.assert_not_called()
+
+    @patch('payments.services.mpesa.initiate_stk_push')
+    def test_platform_staff_can_stk_push_any_booking(self, mock_stk):
+        mock_stk.return_value = {'CheckoutRequestID': 'ws_CO_1'}
+        self.client.force_authenticate(user=self.platform_staff)
+        response = self._post(self.org_a_booking)
+        self.assertEqual(response.status_code, 202)
+
+    @patch('payments.services.mpesa.initiate_stk_push')
+    def test_customer_can_stk_push_their_own_booking(self, mock_stk):
+        mock_stk.return_value = {'CheckoutRequestID': 'ws_CO_1'}
+        self.client.force_authenticate(user=self.customer)
+        response = self._post(self.org_a_booking)
+        self.assertEqual(response.status_code, 202)
+
+    @patch('payments.services.mpesa.initiate_stk_push')
+    def test_customer_cannot_stk_push_someone_elses_booking(self, mock_stk):
+        self.client.force_authenticate(user=self.customer)
+        response = self._post(self.org_b_booking)
+        self.assertEqual(response.status_code, 403)
+        mock_stk.assert_not_called()
+
+
+class OverpaymentGuardTests(APITestCase):
+    """Each payment path checks its amount against the balance due at the moment it's created or
+    declared, but that alone isn't enough: two payments that each individually fit the remaining
+    balance can still combine to overpay the booking if both later succeed. These check that the
+    still-unresolved (PENDING) amount from one path is reserved against what another path is
+    allowed to ask for, and that confirming a stale declared payment re-checks the balance as it
+    stands now rather than as it stood at declaration time."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(full_name='Overpay Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))  # KES 7000 total (7 days)
+        self.customer = User.objects.create_user(username='overpay-client@example.com', password='pass12345!')
+        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        assert self.booking.total_amount == Decimal('7000.00')
+
+    @patch('payments.services.mpesa.initiate_stk_push')
+    def test_declared_cash_payment_reserves_balance_against_a_later_stk_push(self, mock_stk):
+        # Driver declares cash for the full balance - still PENDING, not yet real money.
+        declare_offline_payment(self.booking, PaymentMethod.CASH, self.booking.total_amount, driver=self.driver)
+
+        # A customer-initiated M-Pesa push for the same balance should now be rejected: if both
+        # later succeeded, the booking would be paid for twice over.
+        mock_stk.return_value = {'CheckoutRequestID': 'ws_CO_1'}
+        with self.assertRaises(PaymentValidationError):
+            initiate_stk_push_payment(self.booking, '254700000000', self.booking.total_amount)
+        mock_stk.assert_not_called()
+
+    def test_two_declared_cash_payments_cannot_together_exceed_the_balance(self):
+        declare_offline_payment(self.booking, PaymentMethod.CASH, Decimal('4000'), driver=self.driver)
+        with self.assertRaises(PaymentValidationError):
+            declare_offline_payment(self.booking, PaymentMethod.CASH, Decimal('4000'), driver=self.driver)
+
+    def test_a_second_payment_is_still_allowed_once_it_fits_what_remains(self):
+        declare_offline_payment(self.booking, PaymentMethod.CASH, Decimal('4000'), driver=self.driver)
+        # Only KES 3000 of the KES 7000 total is still unreserved.
+        declare_offline_payment(self.booking, PaymentMethod.CASH, Decimal('3000'), driver=self.driver)
+        self.assertEqual(Payment.objects.filter(booking=self.booking).count(), 2)
+
+    def test_confirming_a_stale_declared_payment_is_rejected_if_already_covered_elsewhere(self):
+        cash_payment = declare_offline_payment(self.booking, PaymentMethod.CASH, self.booking.total_amount, driver=self.driver)
+
+        # The customer pays the whole balance via M-Pesa while the cash declaration just sits
+        # there unconfirmed (simulating the real STK callback landing independently).
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+
+        with self.assertRaises(PaymentValidationError):
+            confirm_offline_payment(cash_payment)
+
+        cash_payment.refresh_from_db()
+        self.assertEqual(cash_payment.status, PaymentStatus.PENDING)  # left untouched, not silently confirmed
+
+    def test_confirming_the_only_pending_payment_still_works_normally(self):
+        cash_payment = declare_offline_payment(self.booking, PaymentMethod.CASH, self.booking.total_amount, driver=self.driver)
+        confirm_offline_payment(cash_payment)
+        cash_payment.refresh_from_db()
+        self.assertEqual(cash_payment.status, PaymentStatus.SUCCESSFUL)

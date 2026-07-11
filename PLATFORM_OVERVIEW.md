@@ -429,7 +429,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-378 automated backend tests currently cover booking validation, payment guards, payout timing and
+389 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -470,7 +470,14 @@ and invite-staff email flows (auto-invite on registration, no-op without a conta
 via Invite Admin), the admin list search/filtering (a shared case-insensitive `search_filter`
 helper reused across Bookings, Users, Fleet, Payments, and Drivers, plus each view's own
 exact-match filters - status/service type, role, category/availability, method/status - always
-layered on top of, never instead of, org-scoping), and (using real threads
+layered on top of, never instead of, org-scoping), the org-scoping check on stk-push (the one
+payment endpoint that resolves its booking from the request body rather than an org-scoped
+queryset, so it needs its own explicit check to stop one organization's staff charging another's
+booking), the overpayment guard (a SQLite write-lock, forced via the same technique as the
+double-booking fix below, serializes concurrent payment attempts on one booking; the amount still
+unresolved in any PENDING payment is reserved against what a new one can ask for, and confirming a
+stale declared cash/card payment re-checks the balance as it stands now, not as it stood at
+declaration time), the staff email sent the moment a customer disputes a cash payment, and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:

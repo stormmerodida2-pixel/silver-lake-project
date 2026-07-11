@@ -1,15 +1,49 @@
 import logging
 import re
 from datetime import timedelta
+from decimal import Decimal
 
+from django.db import OperationalError, transaction
+from django.db.models import Sum
 from django.utils import timezone
 
-from bookings.models import BookingStatus
+from bookings.models import Booking, BookingStatus
 
 from . import mpesa
 from .models import CashDeposit, Payment, PaymentMethod, PaymentStatus
 
 logger = logging.getLogger(__name__)
+
+# Shown to the caller when the SQLite write-lock forced below (see _lock_booking) can't be
+# acquired before the database's own timeout - a concurrent request is mid-transaction against
+# the same booking right now, so this one should just be retried rather than failing outright.
+CONCURRENT_UPDATE_MESSAGE = 'This booking is being updated by another request right now. Please try again.'
+
+
+def _lock_booking(booking):
+    """Forces a real write against the booking row as the first statement in the caller's
+    transaction - select_for_update() would be the standard way to serialize concurrent requests
+    against the same booking, but it's a documented no-op on SQLite (this project's current
+    database; see BookingViewSet.create for the same technique used against double-booking a
+    vehicle). SQLite acquires a database-level write lock on the first write in a transaction, so
+    a second concurrent request touching a payment for this same booking has to wait for this one
+    to commit or roll back before its own balance check can even run - without this, two payments
+    that each individually fit the remaining balance at the moment they're created could both
+    still go on to succeed, together overpaying the booking."""
+    Booking.objects.filter(pk=booking.pk).update(updated_at=timezone.now())
+
+
+def _pending_payments_total(booking, exclude_pk=None):
+    """Sum of this booking's still-unresolved payments - money that might land at any moment but
+    hasn't yet (Booking.amount_paid only counts SUCCESSFUL ones), so it has to be reserved
+    against the remaining balance too. Otherwise a driver-declared cash payment sitting PENDING
+    alongside a customer's own M-Pesa attempt could each pass a plain balance_due check
+    individually, then both later succeed and overpay the booking."""
+    queryset = booking.payments.filter(status=PaymentStatus.PENDING)
+    if exclude_pk:
+        queryset = queryset.exclude(pk=exclude_pk)
+    return queryset.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+
 
 # Real M-Pesa transaction codes are always exactly 10 characters, start with a letter, and
 # contain only uppercase letters/digits after that (e.g. QGH7XXXXXX) - this doesn't confirm the
@@ -45,24 +79,32 @@ def initiate_stk_push_payment(booking, phone_number, amount):
         raise PaymentValidationError(f'This booking is already {booking.get_status_display().lower()}.')
     if amount <= 0:
         raise PaymentValidationError('Amount must be greater than zero.')
-    if amount > booking.balance_due:
-        raise PaymentValidationError(f'Amount exceeds the outstanding balance of {booking.balance_due}.')
     if not booking.is_deposit_paid and amount < booking.deposit_amount:
         raise PaymentValidationError(f'First payment must be at least the deposit of {booking.deposit_amount}.')
 
-    recent_pending = booking.payments.filter(
-        method=PaymentMethod.MPESA, status=PaymentStatus.PENDING,
-        created_at__gte=timezone.now() - STK_PUSH_RETRY_COOLDOWN,
-    ).exists()
-    if recent_pending:
-        raise PaymentValidationError(
-            'A payment request was already sent to your phone in the last minute. Please '
-            'complete it, or wait a moment before trying again.'
-        )
+    try:
+        with transaction.atomic():
+            _lock_booking(booking)
 
-    payment = Payment.objects.create(
-        booking=booking, method=PaymentMethod.MPESA, amount=amount, phone_number=phone_number,
-    )
+            available = booking.balance_due - _pending_payments_total(booking)
+            if amount > available:
+                raise PaymentValidationError(f'Amount exceeds the outstanding balance of {available}.')
+
+            recent_pending = booking.payments.filter(
+                method=PaymentMethod.MPESA, status=PaymentStatus.PENDING,
+                created_at__gte=timezone.now() - STK_PUSH_RETRY_COOLDOWN,
+            ).exists()
+            if recent_pending:
+                raise PaymentValidationError(
+                    'A payment request was already sent to your phone in the last minute. Please '
+                    'complete it, or wait a moment before trying again.'
+                )
+
+            payment = Payment.objects.create(
+                booking=booking, method=PaymentMethod.MPESA, amount=amount, phone_number=phone_number,
+            )
+    except OperationalError:
+        raise PaymentValidationError(CONCURRENT_UPDATE_MESSAGE)
 
     try:
         result = mpesa.initiate_stk_push(
@@ -107,13 +149,21 @@ def declare_offline_payment(booking, method, amount, driver, note=''):
         raise PaymentValidationError(f'This booking is already {booking.get_status_display().lower()}.')
     if amount <= 0:
         raise PaymentValidationError('Amount must be greater than zero.')
-    if amount > booking.balance_due:
-        raise PaymentValidationError(f'Amount exceeds the outstanding balance of {booking.balance_due}.')
 
-    return Payment.objects.create(
-        booking=booking, method=method, amount=amount,
-        status=PaymentStatus.PENDING, recorded_by_driver=driver, note=note,
-    )
+    try:
+        with transaction.atomic():
+            _lock_booking(booking)
+
+            available = booking.balance_due - _pending_payments_total(booking)
+            if amount > available:
+                raise PaymentValidationError(f'Amount exceeds the outstanding balance of {available}.')
+
+            return Payment.objects.create(
+                booking=booking, method=method, amount=amount,
+                status=PaymentStatus.PENDING, recorded_by_driver=driver, note=note,
+            )
+    except OperationalError:
+        raise PaymentValidationError(CONCURRENT_UPDATE_MESSAGE)
 
 
 def confirm_offline_payment(payment):
@@ -127,12 +177,31 @@ def confirm_offline_payment(payment):
     keep track of it rather than finding out only when reconciling payouts later."""
     if payment.method not in OFFLINE_PAYMENT_METHODS:
         raise PaymentValidationError('Only cash or card payments are confirmed this way.')
-    if payment.status != PaymentStatus.PENDING:
-        raise PaymentValidationError('This payment has already been confirmed, or is no longer pending.')
 
-    payment.status = PaymentStatus.SUCCESSFUL
-    payment.save(update_fields=['status'])
-    payment.booking.confirm_if_deposit_met()
+    try:
+        with transaction.atomic():
+            _lock_booking(payment.booking)
+            payment.refresh_from_db()
+
+            if payment.status != PaymentStatus.PENDING:
+                raise PaymentValidationError('This payment has already been confirmed, or is no longer pending.')
+
+            # Re-check against the balance as it stands right now, not as it stood when this was
+            # declared - something else (the customer's own M-Pesa payment, say) may have
+            # covered it in the meantime, and confirming this on top would overpay the booking.
+            booking = Booking.objects.get(pk=payment.booking_id)
+            if payment.amount > booking.balance_due:
+                raise PaymentValidationError(
+                    f'Confirming this would overpay the booking (only KES {booking.balance_due} is still due) - '
+                    'check whether the customer already paid another way before confirming.'
+                )
+
+            payment.status = PaymentStatus.SUCCESSFUL
+            payment.save(update_fields=['status'])
+    except OperationalError:
+        raise PaymentValidationError(CONCURRENT_UPDATE_MESSAGE)
+
+    booking.confirm_if_deposit_met()
 
     from .emails import (
         send_cash_payment_staff_notification_email,
