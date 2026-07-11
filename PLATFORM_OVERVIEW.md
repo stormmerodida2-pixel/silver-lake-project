@@ -412,7 +412,10 @@ box plus a couple of exact-match filter dropdowns, layered on top of org-scoping
   separately-scoped bell off the same `notifications` app - a driver being booked, one of their
   trips getting cancelled, a payment/cash-deposit reminder aimed at them, their own payout being
   paid, and their submitted vehicle being approved/rejected - never mixed with the admin
-  dashboard's feed or another driver's.
+  dashboard's feed or another driver's. A logged-in **customer** gets a third, independently
+  scoped bell in the public site's own nav bar - their booking confirmed/cancelled, a cash/card
+  payment recorded, their trip completed (review invite), and a refund issued - scoped to their
+  own account only, via `/api/notifications/`.
 
 - **Dashboard** — revenue collected, platform fees earned, payouts owed/paid, bookings by status,
   user/driver counts (including pending applications and drivers currently away), fleet counts,
@@ -454,7 +457,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-454 automated backend tests currently cover booking validation, payment guards, payout timing and
+465 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -527,8 +530,10 @@ the same way payout verification does, deliberately leaves the payout's own veri
 untouched, and logs to the Activity Log), the driver portal's own notification scoping (a driver
 only ever sees their own notifications, never another driver's or the admin dashboard's, and
 each of the 6 driver-facing events - being booked, a cancelled trip, payment/cash-deposit
-reminders, a payout paid, a vehicle submission approved/rejected - actually fires one), and
-(using real threads
+reminders, a payout paid, a vehicle submission approved/rejected - actually fires one), the same
+scoping guarantee for a customer's own feed (never another customer's, never staff's or a
+driver's) across its 5 events (booking confirmed, cancelled, a payment recorded for either cash
+or card, a trip completed, a refund issued), and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:

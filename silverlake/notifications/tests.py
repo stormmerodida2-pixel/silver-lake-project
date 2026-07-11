@@ -36,6 +36,15 @@ class NotifyServiceTests(TestCase):
         self.assertEqual(notification.driver_id, driver.id)
         self.assertIsNone(notification.organization_id)
 
+    def test_notify_can_target_a_specific_client(self):
+        user = User.objects.create_user(username='notify-target-client@example.com', password='pass12345!')
+        notification = notify(
+            NotificationEvent.BOOKING_CONFIRMED, 'Your booking is confirmed', user=user, link_path='/account/bookings',
+        )
+        self.assertEqual(notification.user_id, user.id)
+        self.assertIsNone(notification.organization_id)
+        self.assertIsNone(notification.driver_id)
+
 
 class NotificationViewSetTests(APITestCase):
     """Org-scoping follows the exact same convention as every other admin resource (see
@@ -179,4 +188,48 @@ class DriverNotificationViewSetTests(APITestCase):
 
         self.client.force_authenticate(user=self.driver_b_user)
         response = self.client.get('/api/driver/notifications/unread-count/')
+        self.assertEqual(response.json()['count'], 1)
+
+
+class ClientNotificationViewSetTests(APITestCase):
+    """A logged-in customer's own in-app event feed - booking confirmed/cancelled, a payment
+    recorded, a trip completed, a refund issued. Scoped to exactly the requesting account, never
+    another customer's, never the admin dashboard's or a driver's."""
+
+    def setUp(self):
+        self.client_a = User.objects.create_user(username='clientnotif-a@example.com', password='pass12345!')
+        self.client_b = User.objects.create_user(username='clientnotif-b@example.com', password='pass12345!')
+
+        self.client_a_notification = notify(NotificationEvent.BOOKING_CONFIRMED, 'A confirmed', user=self.client_a)
+        self.client_b_notification = notify(NotificationEvent.BOOKING_CONFIRMED, 'B confirmed', user=self.client_b)
+        # Admin- and driver-facing notifications with no user at all - must never leak into a
+        # client's own feed.
+        self.admin_notification = notify(NotificationEvent.BOOKING_CREATED, 'Admin only')
+
+    def test_client_only_sees_their_own_notifications(self):
+        self.client.force_authenticate(user=self.client_a)
+        response = self.client.get('/api/notifications/')
+        ids = {n['id'] for n in response.json()['results']}
+        self.assertEqual(ids, {self.client_a_notification.id})
+
+    def test_unauthenticated_user_cannot_view_notifications(self):
+        response = self.client.get('/api/notifications/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_client_cannot_mark_another_clients_notification_read(self):
+        self.client.force_authenticate(user=self.client_a)
+        response = self.client.post(f'/api/notifications/{self.client_b_notification.id}/mark-read/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_client_unread_count_excludes_other_clients_and_admin_notifications(self):
+        self.client.force_authenticate(user=self.client_a)
+        response = self.client.get('/api/notifications/unread-count/')
+        self.assertEqual(response.json()['count'], 1)
+
+    def test_client_mark_all_read_does_not_affect_another_client(self):
+        self.client.force_authenticate(user=self.client_a)
+        self.client.post('/api/notifications/mark-all-read/')
+
+        self.client.force_authenticate(user=self.client_b)
+        response = self.client.get('/api/notifications/unread-count/')
         self.assertEqual(response.json()['count'], 1)

@@ -176,9 +176,9 @@ class AdminRefundActionTests(APITestCase):
         self.superadmin = User.objects.create_superuser(username='super2@example.com', password='pass12345!')
         self.staff = User.objects.create_user(username='staff2@example.com', password='pass12345!', is_staff=True)
         vehicle = make_vehicle(name='Refund Car', price_per_day=Decimal('1000'))
-        customer = User.objects.create_user(username='refund-client@example.com', password='pass12345!')
+        self.customer = User.objects.create_user(username='refund-client@example.com', password='pass12345!')
         booking = make_booking(
-            customer, vehicle, status=BookingStatus.PENDING, customer_email='refund-client@example.com',
+            self.customer, vehicle, status=BookingStatus.PENDING, customer_email='refund-client@example.com',
         )
         Payment.objects.create(
             booking=booking, method=PaymentMethod.MPESA, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
@@ -212,6 +212,14 @@ class AdminRefundActionTests(APITestCase):
         refund_emails = [m for m in mail.outbox if 'refund has been issued' in m.subject]
         self.assertEqual(len(refund_emails), 1)
         self.assertIn('refund-client@example.com', refund_emails[0].to)
+
+    def test_marking_a_refund_issued_notifies_the_client_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.post(f'/api/admin/refunds/{self.refund.id}/mark-issued/', {'reference': 'MPESA-REFUND-1'})
+        notification = Notification.objects.get(event=NotificationEvent.REFUND_ISSUED)
+        self.assertEqual(notification.user_id, self.customer.id)
 
 
 class AdminAuditLogTests(APITestCase):

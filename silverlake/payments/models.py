@@ -204,3 +204,11 @@ class Refund(models.Model):
         from .emails import send_refund_issued_email
 
         send_refund_issued_email(self)
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.REFUND_ISSUED, f'Your refund of KES {self.amount:,.2f} has been issued',
+            user=self.booking.user, link_path='/account/bookings',
+        )

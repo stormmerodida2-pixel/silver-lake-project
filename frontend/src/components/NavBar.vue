@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
+import NotificationBell from './NotificationBell.vue'
 import SilverLakeLogo from './SilverLakeLogo.vue'
 
 const isOpen = ref(false)
@@ -98,6 +99,8 @@ function handleLogout() {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
+
+      <NotificationBell v-if="auth.isAuthenticated" base-path="/notifications" />
     </nav>
 
     <div v-if="isOpen" class="flex flex-col gap-1 border-t border-navy-800 px-4 py-3 md:hidden">

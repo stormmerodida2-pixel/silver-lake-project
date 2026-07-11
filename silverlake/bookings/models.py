@@ -306,6 +306,14 @@ class Booking(models.Model):
 
         send_trip_completed_email(self)
 
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.TRIP_COMPLETED, f'Your trip #{self.pk} is complete - leave a review!',
+            user=self.user, link_path='/account/bookings',
+        )
+
     def confirm_if_deposit_met(self):
         """Confirms the booking once the deposit lands (pending -> confirmed, one-time). The
         driver's payout is handled separately in _ensure_driver_payout, which only queues once
@@ -327,6 +335,14 @@ class Booking(models.Model):
             self.status = BookingStatus.CONFIRMED
             self.save(update_fields=['status'])
             self._send_confirmation_email()
+
+            from notifications.models import NotificationEvent
+            from notifications.services import notify
+
+            notify(
+                NotificationEvent.BOOKING_CONFIRMED, f'Your booking #{self.pk} for {self.vehicle.name} is confirmed',
+                user=self.user, link_path='/account/bookings',
+            )
 
         self._ensure_driver_payout()
         self._complete_if_ended_and_paid()
@@ -403,6 +419,10 @@ class Booking(models.Model):
                 NotificationEvent.BOOKING_CANCELLED, f'Booking #{self.pk} for {self.customer_name} was cancelled',
                 driver=self.driver, link_path='/driver',
             )
+        notify(
+            NotificationEvent.BOOKING_CANCELLED, f'Your booking #{self.pk} was cancelled',
+            user=self.user, link_path='/account/bookings',
+        )
 
     def _send_confirmation_email(self):
         """Sends a booking confirmed email to the customer. Swallowed silently on failure

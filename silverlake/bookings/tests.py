@@ -174,6 +174,19 @@ class BookingMoneyMathTests(TestCase):
         booking.confirm_if_deposit_met()
         self.assertEqual(booking.status, BookingStatus.CONFIRMED)
 
+    def test_confirming_notifies_the_client_in_app_exactly_once(self):
+        from notifications.models import Notification, NotificationEvent
+
+        booking = make_booking(self.user, self.vehicle, driver=self.driver)
+        Payment.objects.create(booking=booking, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+
+        booking.confirm_if_deposit_met()
+        booking.confirm_if_deposit_met()  # should not notify a second time
+
+        notification = Notification.objects.get(event=NotificationEvent.BOOKING_CONFIRMED)
+        self.assertEqual(notification.user_id, self.user.id)
+        self.assertIn(str(booking.id), notification.message)
+
     def test_payout_is_not_created_until_the_booking_is_fully_paid(self):
         """The driver's payout is calculated on the whole trip value, so it shouldn't be queued
         while the business has only collected a fraction of that (e.g. just the deposit)."""
@@ -289,7 +302,15 @@ class BookingCancelActionTests(APITestCase):
 
         booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
         self.client.post(f'/api/bookings/{booking.id}/cancel/')
-        notification = Notification.objects.get(event=NotificationEvent.BOOKING_CANCELLED)
+        notification = Notification.objects.get(event=NotificationEvent.BOOKING_CANCELLED, user__isnull=True)
+        self.assertIn(str(booking.id), notification.message)
+
+    def test_cancelling_a_booking_notifies_the_client_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        self.client.post(f'/api/bookings/{booking.id}/cancel/')
+        notification = Notification.objects.get(event=NotificationEvent.BOOKING_CANCELLED, user_id=self.user.id)
         self.assertIn(str(booking.id), notification.message)
 
     def test_cannot_cancel_a_completed_booking(self):
@@ -440,19 +461,22 @@ class CancellationRefundPercentageTests(APITestCase):
         refund = Refund.objects.get(booking=booking)
         self.assertEqual(refund.amount, booking.total_amount)
 
-    def test_cancelling_notifies_both_admins_and_the_assigned_driver_in_app(self):
+    def test_cancelling_notifies_admins_the_driver_and_the_client_in_app(self):
         from notifications.models import Notification, NotificationEvent
 
         booking = self._paid_booking()
         booking.mark_cancelled()
 
         notifications = Notification.objects.filter(event=NotificationEvent.BOOKING_CANCELLED)
-        self.assertEqual(notifications.count(), 2)
-        admin_notification = notifications.get(driver__isnull=True)
+        self.assertEqual(notifications.count(), 3)
+        admin_notification = notifications.get(driver__isnull=True, user__isnull=True)
         driver_notification = notifications.get(driver_id=self.driver.id)
+        client_notification = notifications.get(user_id=self.customer.id)
         self.assertIn(str(booking.id), admin_notification.message)
         self.assertIn(str(booking.id), driver_notification.message)
+        self.assertIn(str(booking.id), client_notification.message)
         self.assertEqual(driver_notification.link_path, '/driver')
+        self.assertEqual(client_notification.link_path, '/account/bookings')
 
     def test_client_cancelling_after_driver_acknowledgment_gets_half_refunded(self):
         booking = self._paid_booking()
@@ -884,6 +908,14 @@ class DriverConfirmPaymentTests(APITestCase):
 
         self.client.post(self._url())
         self.assertEqual(Notification.objects.filter(event=NotificationEvent.CASH_PAYMENT_RECORDED).count(), 1)
+
+    def test_confirming_notifies_the_client_in_app_for_either_method(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.post(self._url())
+        notification = Notification.objects.get(event=NotificationEvent.PAYMENT_RECORDED)
+        self.assertEqual(notification.user_id, self.customer.id)
+        self.assertIn(str(self.booking.id), notification.message)
 
     def test_confirming_a_card_payment_does_not_notify_admins_in_app(self):
         from notifications.models import Notification, NotificationEvent
@@ -1518,6 +1550,18 @@ class TripLifecycleTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'completed')
         self.assertTrue(any('How was your ride' in m.subject for m in mail.outbox))
+
+    def test_completing_a_trip_notifies_the_client_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        self.client.post(f'/api/driver/bookings/{self.booking.id}/end-trip/')
+        notification = Notification.objects.get(event=NotificationEvent.TRIP_COMPLETED)
+        self.assertEqual(notification.user_id, self.customer.id)
+        self.assertIn(str(self.booking.id), notification.message)
 
     def test_a_late_payment_after_the_trip_already_ended_completes_it(self):
         # The driver confirms the car is back first, while a balance is still owed.

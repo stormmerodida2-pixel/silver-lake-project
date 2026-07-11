@@ -229,11 +229,18 @@ def confirm_offline_payment(payment):
 
     send_offline_payment_recorded_email(payment)
     send_offline_payment_driver_confirmation_email(payment)
+
+    from notifications.models import NotificationEvent
+    from notifications.services import notify
+
+    notify(
+        NotificationEvent.PAYMENT_RECORDED,
+        f'{payment.get_method_display()} payment of KES {payment.amount:,.2f} recorded on booking #{booking.pk}',
+        user=booking.user, link_path='/account/bookings',
+    )
+
     if payment.method == PaymentMethod.CASH:
         send_cash_payment_staff_notification_email(payment)
-
-        from notifications.models import NotificationEvent
-        from notifications.services import notify
 
         notify(
             NotificationEvent.CASH_PAYMENT_RECORDED,

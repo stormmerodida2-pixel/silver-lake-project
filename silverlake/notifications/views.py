@@ -1,4 +1,4 @@
-from rest_framework import mixins, viewsets
+from rest_framework import mixins, permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -58,3 +58,16 @@ class DriverNotificationViewSet(_NotificationReadStateMixin, mixins.ListModelMix
 
     def get_queryset(self):
         return Notification.objects.filter(driver=self.request.user.driver_profile).prefetch_related('read_by')
+
+
+class ClientNotificationViewSet(_NotificationReadStateMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
+    """A logged-in customer's own in-app event feed - booking confirmed, a cancelled booking, a
+    cash/card payment recorded, a trip completed (review invite), and a refund issued. Scoped to
+    exactly the requesting account, never another customer's - any authenticated user can read
+    their own, the same as any other self-service account page."""
+
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user).prefetch_related('read_by')
