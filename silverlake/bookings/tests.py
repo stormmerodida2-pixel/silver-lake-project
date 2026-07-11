@@ -1618,6 +1618,49 @@ class TripLifecycleTests(APITestCase):
         self.booking.refresh_from_db()
         self.assertIsNotNone(self.booking.trip_ended_at)
 
+    def test_undeposited_cash_holds_back_completion_even_though_the_balance_is_zero(self):
+        # The client genuinely paid in cash - balance_due already reflects that - but the trip
+        # can't complete until the driver hands that cash over to SilverLake too.
+        self.client.post(f'/api/driver/bookings/{self.booking.id}/end-trip/')
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        self.booking.confirm_if_deposit_met()
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.balance_due, Decimal('0.00'))
+        self.assertNotEqual(self.booking.status, BookingStatus.COMPLETED)
+
+    def test_logging_the_cash_deposit_completes_a_trip_that_was_only_waiting_on_it(self):
+        self.client.post(f'/api/driver/bookings/{self.booking.id}/end-trip/')
+        payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        self.booking.confirm_if_deposit_met()
+        self.booking.refresh_from_db()
+        self.assertNotEqual(self.booking.status, BookingStatus.COMPLETED)
+
+        mail.outbox = []
+        response = self.client.post(
+            f'/api/driver/payments/{payment.id}/deposit/',
+            {'amount': str(self.booking.total_amount), 'mpesa_reference': 'QGH7ABCDEF'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'completed')
+        self.assertTrue(any('How was your ride' in m.subject for m in mail.outbox))
+
+    def test_cannot_manually_complete_a_trip_with_undeposited_cash(self):
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/complete/')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('deposit', response.json()['detail'].lower())
+        self.booking.refresh_from_db()
+        self.assertNotEqual(self.booking.status, BookingStatus.COMPLETED)
+
 
 class NeedsAttentionTests(APITestCase):
     """A booking whose scheduled window has passed but is still open (nobody ever confirmed it

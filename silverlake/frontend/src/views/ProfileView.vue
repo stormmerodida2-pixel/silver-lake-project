@@ -1,17 +1,19 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import Swal from 'sweetalert2'
 
 import apiClient from '../api/client'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
+const router = useRouter()
 
 const form = reactive({ first_name: '', last_name: '', phone_number: '' })
 const email = ref('')
 const loading = ref(true)
 const submitting = ref(false)
 const error = ref('')
-const success = ref(false)
 
 // ── Profile photo ────────────────────────────────────────────────────────────
 const avatarUrl = ref(null)
@@ -83,14 +85,19 @@ async function loadProfile() {
 
 async function submit() {
   error.value = ''
-  success.value = false
   submitting.value = true
   try {
     const { data } = await apiClient.patch('/auth/me/', form)
     form.first_name = data.first_name
     form.last_name = data.last_name
     form.phone_number = data.phone_number
-    success.value = true
+    await Swal.fire({
+      icon: 'success',
+      title: 'Profile updated!',
+      text: 'Your changes have been saved.',
+      confirmButtonColor: '#eab308',
+    })
+    router.push(auth.user?.is_staff ? '/admin' : '/')
   } catch (err) {
     const data = err.response?.data
     error.value = data ? Object.values(data).flat().join(' ') : 'Could not update your profile.'
@@ -189,7 +196,6 @@ onMounted(loadProfile)
         </div>
 
         <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
-        <p v-if="success" class="text-sm text-brand-blue-600">Profile updated.</p>
 
         <button
           type="submit"

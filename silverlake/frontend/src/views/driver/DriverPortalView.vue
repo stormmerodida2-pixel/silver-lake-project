@@ -829,10 +829,16 @@ onMounted(() => {
                 </button>
               </div>
               <p
-                v-if="booking.trip_ended_at && !['completed', 'cancelled'].includes(booking.status)"
+                v-if="booking.trip_ended_at && !['completed', 'cancelled'].includes(booking.status) && Number(booking.balance_due) > 0"
                 class="mt-2 text-xs font-semibold text-amber-400"
               >
                 Vehicle returned - awaiting final payment (KES {{ Number(booking.balance_due).toLocaleString() }}) to complete.
+              </p>
+              <p
+                v-else-if="booking.trip_ended_at && !['completed', 'cancelled'].includes(booking.status) && booking.pending_cash_deposits?.length"
+                class="mt-2 text-xs font-semibold text-amber-400"
+              >
+                Vehicle returned and fully paid - deposit the cash you collected below to complete this trip.
               </p>
 
               <!-- Collect payment: declare (client's chosen method + exact amount), then confirm once actually received -->

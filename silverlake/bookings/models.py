@@ -265,6 +265,19 @@ class Booking(models.Model):
             and self.end_date < timezone.localdate()
         )
 
+    @property
+    def has_undeposited_cash(self):
+        """True if any confirmed cash payment on this booking is still missing a matching
+        Paybill deposit (see payments.services.log_cash_deposit) - the same gate
+        AdminDriverPayoutViewSet.verify already enforces before a payout can be verified,
+        reused here so a trip can't complete a step ahead of confirming SilverLake actually
+        has the money, not just that the driver said the client paid them in cash."""
+        from payments.models import PaymentMethod, PaymentStatus
+
+        return self.payments.filter(
+            method=PaymentMethod.CASH, status=PaymentStatus.SUCCESSFUL, cash_deposit__isnull=True,
+        ).exists()
+
     def start_trip(self):
         """Driver-confirmed: the vehicle has actually been handed over. Only valid once the
         deposit has landed (CONFIRMED) - a customer can't be mid-trip on a booking that was
@@ -296,8 +309,19 @@ class Booking(models.Model):
         the balance after that point really does mean the trip is over - not just that the
         customer happened to pay early. Called from end_trip() (in case it was already fully
         paid) and from confirm_if_deposit_met() (in case the balance only clears after the trip
-        already ended)."""
+        already ended).
+
+        Also withheld while any cash payment on this booking is still undeposited
+        (has_undeposited_cash) - the customer has genuinely paid (balance_due already reflects
+        that), but "trip completed" is also the signal that triggers the review-invite email and
+        marks the whole affair settled, so it waits for the driver to actually hand the cash over
+        to SilverLake too, not just the client's word that they paid the driver. Silently defers
+        rather than erroring, matching how a nonzero balance_due already defers this the same way
+        - see DriverBookingCompleteView/AdminBookingViewSet.set_status for the user-facing 400
+        this produces when someone tries to force completion directly instead."""
         if self.status == BookingStatus.COMPLETED or not self.trip_ended_at or self.balance_due > 0:
+            return
+        if self.has_undeposited_cash:
             return
         self.status = BookingStatus.COMPLETED
         self.save(update_fields=['status'])

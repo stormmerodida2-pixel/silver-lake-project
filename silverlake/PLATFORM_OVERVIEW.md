@@ -166,9 +166,18 @@ business-model pitch for the economics).
     until the remaining balance clears — at which point it auto-completes, since a human already
     confirmed the car is physically back. This is the *only* case a payment is allowed to
     auto-complete a booking.
+  - **A cash-paid trip additionally waits for the driver's Paybill deposit before it can
+    complete**, even once `balance_due` reaches zero (see §6/§7 — the client has genuinely paid,
+    but "Completed" also means the whole affair is settled, so it holds off until the driver
+    hands that cash over to SilverLake too, not just the client's word that they paid). The
+    Driver Portal shows this distinctly from an unpaid balance ("fully paid - deposit the cash
+    you collected to complete this trip") and logging the deposit (amount + M-Pesa reference,
+    same as the existing cash-to-Paybill flow) completes the trip immediately if that deposit
+    was the only thing still holding it back.
   - A **Complete Trip** button remains as a direct manual override (still blocked if there's an
-    outstanding balance) for drivers who skip the explicit Start/End steps — it stamps
-    `trip_ended_at` too, so the record stays consistent either way.
+    outstanding balance, or if any cash on the booking is still undeposited) for drivers who skip
+    the explicit Start/End steps — it stamps `trip_ended_at` too, so the record stays consistent
+    either way.
   - The admin dashboard's own status dropdown routes through these same methods (rather than
     assigning status directly), so an admin-driven Ongoing/Completed/Cancelled transition leaves
     the same trail a driver-driven one would — including a hard block on skipping straight from
@@ -473,7 +482,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-490 automated backend tests currently cover booking validation, payment guards, payout timing and
+494 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -498,8 +507,13 @@ driver assigned, showing up as pending until the driver confirms it), the staff 
 booking-balance-reminder, and cash-deposit-reminder actions and their one-per-hour cooldowns, the
 cash-to-Paybill deposit logging (amount can't be less than collected, reference format-validated
 and normalized to uppercase, one deposit per payment) and its payout-verification gate (cash needs
-a matching deposit; card doesn't), fleet-partner CRUD (superadmin-only, and that an org-admin can
-never change even their own platform fee), the
+a matching deposit; card doesn't), that same undeposited-cash gate now also holding back trip
+*completion* itself (a fully-paid-in-cash trip stays open - not an error, just deferred, same as
+a nonzero balance already defers it - until the driver logs the Paybill deposit, at which point
+logging it completes the trip immediately if that was the only thing still holding it back; the
+driver's manual Complete Trip button and the admin set-status action both reject outright with a
+clear message if attempted while cash is still undeposited), fleet-partner CRUD (superadmin-only,
+and that an org-admin can never change even their own platform fee), the
 ownership-aware payout split routed to the right recipient (company-owned vehicles create no
 payout at all; a driver-partner's own car pays the driver at the fixed 15% rate; a
 FleetPartner-owned vehicle pays the *organization*, not the driver operating it, at that

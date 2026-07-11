@@ -7,7 +7,7 @@ from drivers.models import Driver
 from drivers.serializers import VehicleSubmissionPhotoSerializer
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleSubmission
 from fleet.serializers import VehicleImageSerializer, VehicleServiceRecordSerializer
-from payments.models import DriverPayout, PaymentMethod, PaymentStatus, Refund
+from payments.models import DriverPayout, Refund
 from reviews.models import Review
 
 from .models import AuditLog
@@ -151,9 +151,7 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
         return obj.booking.payments.filter(is_disputed=True).exists()
 
     def get_has_undeposited_cash(self, obj):
-        return obj.booking.payments.filter(
-            method=PaymentMethod.CASH, status=PaymentStatus.SUCCESSFUL, cash_deposit__isnull=True,
-        ).exists()
+        return obj.booking.has_undeposited_cash
 
 
 class AdminAuditLogSerializer(serializers.ModelSerializer):

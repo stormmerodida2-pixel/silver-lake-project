@@ -16,7 +16,7 @@ from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
 from fleet.serializers import VehicleCategorySerializer, VehicleImageSerializer, VehicleServiceRecordSerializer
-from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund, RefundStatus
+from payments.models import DriverPayout, Payment, PaymentStatus, Refund, RefundStatus
 from reviews.models import Review
 
 from .audit import log_admin_action
@@ -488,6 +488,13 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
                 {'detail': f'Cannot complete trip. There is an outstanding balance of KES {booking.balance_due:,.2f}.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Guard: cash was collected but not yet deposited into the Paybill - the customer has
+        # paid, but SilverLake hasn't actually received the money yet (see Booking.has_undeposited_cash).
+        if new_status == BookingStatus.COMPLETED and booking.has_undeposited_cash:
+            return Response(
+                {'detail': 'Cannot complete trip. Cash collected on this booking has not been deposited into the Paybill yet.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         from django.core.exceptions import ValidationError as DjangoValidationError
 
@@ -603,10 +610,7 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
                 status=status.HTTP_400_BAD_REQUEST,
             )
         payout = self.get_object()
-        undeposited = payout.booking.payments.filter(
-            method=PaymentMethod.CASH, status=PaymentStatus.SUCCESSFUL, cash_deposit__isnull=True,
-        )
-        if undeposited.exists():
+        if payout.booking.has_undeposited_cash:
             return Response(
                 {'detail': 'Every cash payment on this booking needs a matching Paybill deposit logged before this payout can be verified.'},
                 status=status.HTTP_400_BAD_REQUEST,

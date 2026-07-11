@@ -661,6 +661,16 @@ class AdminSetStatusTripLifecycleTests(APITestCase):
         response = self.client.post(f'/api/admin/bookings/{self.booking.id}/set-status/', {'status': 'completed'})
         self.assertEqual(response.status_code, 400)
 
+    def test_cannot_complete_with_undeposited_cash(self):
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH,
+            amount=self.booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        response = self.client.post(f'/api/admin/bookings/{self.booking.id}/set-status/', {'status': 'completed'})
+        self.assertEqual(response.status_code, 400)
+        self.booking.refresh_from_db()
+        self.assertNotEqual(self.booking.status, BookingStatus.COMPLETED)
+
 
 class AdminVehicleGalleryTests(APITestCase):
     """A company-created vehicle previously had no way to get more than its single cover photo -

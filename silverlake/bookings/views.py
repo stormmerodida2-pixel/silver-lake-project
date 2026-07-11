@@ -292,6 +292,11 @@ class DriverCashDepositView(APIView):
         except PaymentValidationError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        # If this was the only thing holding the trip back (already ended, already fully paid),
+        # completing it right now rather than waiting for some unrelated later event to
+        # re-check - see Booking._complete_if_ended_and_paid.
+        payment.booking.confirm_if_deposit_met()
+
         return Response(BookingSerializer(payment.booking).data)
 
 
@@ -314,6 +319,11 @@ class DriverBookingCompleteView(APIView):
         if booking.balance_due > 0:
             return Response(
                 {'detail': f'Cannot complete this trip - there is an outstanding balance of KES {booking.balance_due:,.2f}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if booking.has_undeposited_cash:
+            return Response(
+                {'detail': 'Cannot complete this trip - deposit the cash you collected on this booking into the Paybill first.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
