@@ -31,6 +31,20 @@ CONCURRENT_UPDATE_MESSAGE = 'This booking is being updated by another request ri
 STALE_MPESA_PENDING_THRESHOLD = timedelta(minutes=5)
 
 
+def expire_stale_mpesa_payments():
+    """Marks PENDING M-Pesa payments older than STALE_MPESA_PENDING_THRESHOLD as FAILED - the
+    actual data-hygiene counterpart to that threshold already being excluded from
+    _pending_payments_total (see that constant's own docstring for why elapsed time is the only
+    signal available). Shared by the expire_stale_mpesa_payments management command (for anyone
+    who wants to run this by hand, or via an external cron/Task Scheduler entry) and
+    payments.scheduler's in-process background sweep (see that module for why this project runs
+    it automatically rather than requiring one)."""
+    cutoff = timezone.now() - STALE_MPESA_PENDING_THRESHOLD
+    return Payment.objects.filter(
+        method=PaymentMethod.MPESA, status=PaymentStatus.PENDING, created_at__lt=cutoff,
+    ).update(status=PaymentStatus.FAILED)
+
+
 def _lock_booking(booking):
     """Forces a real write against the booking row as the first statement in the caller's
     transaction - select_for_update() would be the standard way to serialize concurrent requests

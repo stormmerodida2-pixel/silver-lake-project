@@ -1,3 +1,4 @@
+import sys
 import uuid
 from decimal import Decimal
 from datetime import timedelta
@@ -5,6 +6,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient, APITestCase
 
@@ -839,8 +841,9 @@ class StaleMpesaPaymentTests(APITestCase):
 
 class ExpireStaleMpesaPaymentsCommandTests(APITestCase):
     """The management command that actually flips a stale PENDING M-Pesa payment to FAILED,
-    since nothing else ever will without a Safaricom Transaction Status Query integration -
-    intended to run periodically via an external scheduler this project doesn't set up itself."""
+    since nothing else ever will without a Safaricom Transaction Status Query integration - now
+    run automatically by payments.scheduler's background sweep (see SchedulerTests), but this
+    command remains available for an immediate one-off run."""
 
     def setUp(self):
         driver = Driver.objects.create(full_name='Command Driver', is_active=True)
@@ -875,3 +878,70 @@ class ExpireStaleMpesaPaymentsCommandTests(APITestCase):
         self.assertEqual(self.stale_mpesa.status, PaymentStatus.FAILED)
         self.assertEqual(self.fresh_mpesa.status, PaymentStatus.PENDING)
         self.assertEqual(self.stale_cash.status, PaymentStatus.PENDING)
+
+    def test_shared_service_function_does_the_same_thing(self):
+        # payments.scheduler's background sweep calls this directly, bypassing the management
+        # command wrapper entirely - confirm it alone has the exact same effect.
+        from payments.services import expire_stale_mpesa_payments
+
+        count = expire_stale_mpesa_payments()
+        self.assertEqual(count, 1)
+
+        self.stale_mpesa.refresh_from_db()
+        self.fresh_mpesa.refresh_from_db()
+        self.assertEqual(self.stale_mpesa.status, PaymentStatus.FAILED)
+        self.assertEqual(self.fresh_mpesa.status, PaymentStatus.PENDING)
+
+
+class SchedulerTests(TestCase):
+    """payments.scheduler.start() runs a background sweep automatically instead of requiring an
+    external cron/Task Scheduler entry - these only cover the guard logic (_should_run), never
+    the actual thread/sleep loop, since that's not something a fast unit test should wait on."""
+
+    def _should_run_with_argv(self, argv, run_main=None):
+        import os
+
+        from payments import scheduler
+
+        old_argv, old_run_main = sys.argv, os.environ.get('RUN_MAIN')
+        sys.argv = argv
+        if run_main is None:
+            os.environ.pop('RUN_MAIN', None)
+        else:
+            os.environ['RUN_MAIN'] = run_main
+        try:
+            return scheduler._should_run()
+        finally:
+            sys.argv = old_argv
+            if old_run_main is None:
+                os.environ.pop('RUN_MAIN', None)
+            else:
+                os.environ['RUN_MAIN'] = old_run_main
+
+    def test_does_not_run_under_test(self):
+        self.assertFalse(self._should_run_with_argv(['manage.py', 'test']))
+
+    def test_does_not_run_under_migrate_or_shell(self):
+        self.assertFalse(self._should_run_with_argv(['manage.py', 'migrate']))
+        self.assertFalse(self._should_run_with_argv(['manage.py', 'shell']))
+
+    def test_does_not_run_under_runserver_before_the_autoreload_worker_forks(self):
+        self.assertFalse(self._should_run_with_argv(['manage.py', 'runserver']))
+
+    def test_runs_under_runserver_once_run_main_is_set(self):
+        self.assertTrue(self._should_run_with_argv(['manage.py', 'runserver'], run_main='true'))
+
+    def test_runs_for_a_production_wsgi_entrypoint(self):
+        # gunicorn/uwsgi don't go through manage.py at all, so argv won't match any known
+        # subcommand - this should default to "yes, start it".
+        self.assertTrue(self._should_run_with_argv(['/usr/bin/gunicorn', 'silverlake.wsgi']))
+
+    def test_start_is_idempotent(self):
+        from payments import scheduler
+
+        original_started = scheduler._started
+        try:
+            scheduler._started = True  # simulate an already-started sweep
+            scheduler.start()  # must not raise or start a second thread
+        finally:
+            scheduler._started = original_started

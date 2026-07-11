@@ -233,3 +233,80 @@ class ClientNotificationViewSetTests(APITestCase):
         self.client.force_authenticate(user=self.client_b)
         response = self.client.get('/api/notifications/unread-count/')
         self.assertEqual(response.json()['count'], 1)
+
+
+class NotificationPreferenceTests(APITestCase):
+    """Muting an event type hides it from that one user's own feed only - never from anyone
+    else who'd otherwise see the exact same underlying Notification (e.g. two admins in the
+    same organization). Checked at read time (get_queryset), not inside notify() itself."""
+
+    def setUp(self):
+        self.org_a = FleetPartner.objects.create(name='Pref Org A', platform_fee_percent=Decimal('10'))
+        self.org_a_staff_1 = User.objects.create_user(username='pref-org-a-1@example.com', password='pass12345!', is_staff=True)
+        StaffOrganization.objects.create(user=self.org_a_staff_1, organization=self.org_a)
+        self.org_a_staff_2 = User.objects.create_user(username='pref-org-a-2@example.com', password='pass12345!', is_staff=True)
+        StaffOrganization.objects.create(user=self.org_a_staff_2, organization=self.org_a)
+
+        self.booking_notification = notify(NotificationEvent.BOOKING_CREATED, 'New booking', organization=self.org_a)
+        self.dispute_notification = notify(NotificationEvent.PAYMENT_DISPUTED, 'Disputed', organization=self.org_a)
+
+    def test_muting_an_event_hides_it_from_the_list(self):
+        self.client.force_authenticate(user=self.org_a_staff_1)
+        self.client.post('/api/admin/notifications/mute/', {'event': NotificationEvent.BOOKING_CREATED}, format='json')
+
+        response = self.client.get('/api/admin/notifications/')
+        events = {n['event'] for n in response.json()['results']}
+        self.assertEqual(events, {NotificationEvent.PAYMENT_DISPUTED})
+
+    def test_muting_does_not_affect_another_user_in_the_same_organization(self):
+        self.client.force_authenticate(user=self.org_a_staff_1)
+        self.client.post('/api/admin/notifications/mute/', {'event': NotificationEvent.BOOKING_CREATED}, format='json')
+
+        self.client.force_authenticate(user=self.org_a_staff_2)
+        response = self.client.get('/api/admin/notifications/')
+        events = {n['event'] for n in response.json()['results']}
+        self.assertEqual(events, {NotificationEvent.BOOKING_CREATED, NotificationEvent.PAYMENT_DISPUTED})
+
+    def test_unmuting_restores_it(self):
+        self.client.force_authenticate(user=self.org_a_staff_1)
+        self.client.post('/api/admin/notifications/mute/', {'event': NotificationEvent.BOOKING_CREATED}, format='json')
+        self.client.post('/api/admin/notifications/unmute/', {'event': NotificationEvent.BOOKING_CREATED}, format='json')
+
+        response = self.client.get('/api/admin/notifications/')
+        events = {n['event'] for n in response.json()['results']}
+        self.assertEqual(events, {NotificationEvent.BOOKING_CREATED, NotificationEvent.PAYMENT_DISPUTED})
+
+    def test_muting_twice_does_not_error(self):
+        self.client.force_authenticate(user=self.org_a_staff_1)
+        first = self.client.post('/api/admin/notifications/mute/', {'event': NotificationEvent.BOOKING_CREATED}, format='json')
+        second = self.client.post('/api/admin/notifications/mute/', {'event': NotificationEvent.BOOKING_CREATED}, format='json')
+        self.assertEqual(first.status_code, 204)
+        self.assertEqual(second.status_code, 204)
+
+    def test_muting_an_invalid_event_is_rejected(self):
+        self.client.force_authenticate(user=self.org_a_staff_1)
+        response = self.client.post('/api/admin/notifications/mute/', {'event': 'not_a_real_event'}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_preferences_endpoint_lists_muted_events(self):
+        self.client.force_authenticate(user=self.org_a_staff_1)
+        self.client.post('/api/admin/notifications/mute/', {'event': NotificationEvent.BOOKING_CREATED}, format='json')
+
+        response = self.client.get('/api/admin/notifications/preferences/')
+        self.assertEqual(response.json()['muted_events'], [NotificationEvent.BOOKING_CREATED])
+
+    def test_muted_event_also_excluded_from_unread_count(self):
+        self.client.force_authenticate(user=self.org_a_staff_1)
+        self.client.post('/api/admin/notifications/mute/', {'event': NotificationEvent.BOOKING_CREATED}, format='json')
+
+        response = self.client.get('/api/admin/notifications/unread-count/')
+        self.assertEqual(response.json()['count'], 1)  # only the still-unmuted dispute notification
+
+    def test_preferences_are_shared_across_all_three_feeds(self):
+        # The same account's own mute preference applies no matter which URL prefix (admin/
+        # driver/client) they hit - it's the same underlying per-user table either way.
+        self.client.force_authenticate(user=self.org_a_staff_1)
+        self.client.post('/api/admin/notifications/mute/', {'event': NotificationEvent.BOOKING_CREATED}, format='json')
+
+        response = self.client.get('/api/notifications/preferences/')
+        self.assertEqual(response.json()['muted_events'], [NotificationEvent.BOOKING_CREATED])

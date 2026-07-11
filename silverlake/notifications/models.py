@@ -72,3 +72,26 @@ class Notification(models.Model):
 
     def __str__(self):
         return f'{self.get_event_display()}: {self.message}'
+
+
+class NotificationPreference(models.Model):
+    """One user opting out of one specific event type, across whichever bell they'd otherwise
+    see it in (admin/driver/client) - presence of a row means muted, absence means the default
+    of "on". Deliberately checked at read time only (see get_queryset on each ViewSet), never
+    inside notify() itself: a single admin-facing Notification can be relevant to several
+    different org-admin accounts at once (anyone with a StaffOrganization pointing at that
+    organization), each with their own independent mute preferences - skipping creation
+    entirely because one of them muted the event would hide it from the others too."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='muted_notification_events',
+    )
+    event = models.CharField(max_length=30, choices=NotificationEvent.choices)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'event'], name='unique_user_muted_event'),
+        ]
+
+    def __str__(self):
+        return f'{self.user} muted {self.event}'

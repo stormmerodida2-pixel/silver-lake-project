@@ -6,17 +6,22 @@ import { useNotifications } from '../composables/useNotifications'
 
 const props = defineProps({
   // '/admin/notifications' for the admin dashboard, '/driver/notifications' for the driver
-  // portal - two separately scoped feeds on the backend (see notifications.views).
+  // portal, '/notifications' for a logged-in client - three separately scoped feeds on the
+  // backend (see notifications.views), sharing one per-user mute preference table underneath.
   basePath: { type: String, required: true },
 })
 
 const POLL_INTERVAL_MS = 30000
 
 const router = useRouter()
-const { unreadCount, items, loading, refreshCount, loadList, markRead, markAllRead } = useNotifications(props.basePath)
+const {
+  unreadCount, items, loading, mutedEvents,
+  refreshCount, loadList, markRead, markAllRead, loadPreferences, toggleMute,
+} = useNotifications(props.basePath)
 
 const root = ref(null)
 const open = ref(false)
+const showPreferences = ref(false)
 let pollTimer = null
 
 const EVENT_LABELS = {
@@ -45,6 +50,25 @@ const EVENT_LABELS = {
   refund_issued: 'Refund Issued',
 }
 
+// Which events show up in the "manage notifications" panel depends on which bell this is - a
+// driver has no use for an "admin_message" toggle, and vice versa. Muting itself is still a
+// single per-user preference underneath (see notifications.NotificationPreference) - this is
+// only about which toggles this particular bell bothers to show.
+const MANAGEABLE_EVENTS_BY_BASE_PATH = {
+  '/admin/notifications': [
+    'driver_acknowledged', 'booking_created', 'booking_cancelled', 'cash_payment_recorded',
+    'payment_disputed', 'dispute_resolved', 'driver_away', 'vehicle_submission', 'driver_application',
+  ],
+  '/driver/notifications': [
+    'driver_booked', 'booking_cancelled', 'payment_reminder', 'cash_deposit_reminder',
+    'payout_paid', 'vehicle_submission_approved', 'vehicle_submission_rejected',
+  ],
+  '/notifications': [
+    'booking_confirmed', 'booking_cancelled', 'payment_recorded', 'trip_completed', 'refund_issued',
+  ],
+}
+const manageableEvents = MANAGEABLE_EVENTS_BY_BASE_PATH[props.basePath] || []
+
 function eventLabel(event) {
   return EVENT_LABELS[event] || event
 }
@@ -62,7 +86,10 @@ function timeAgo(isoString) {
 
 async function toggle() {
   open.value = !open.value
-  if (open.value) await loadList()
+  if (open.value) {
+    showPreferences.value = false
+    await Promise.all([loadList(), loadPreferences()])
+  }
 }
 
 async function selectNotification(notification) {
@@ -110,17 +137,58 @@ onUnmounted(() => {
       class="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-navy-700 bg-navy-900 shadow-2xl shadow-black/40"
     >
       <div class="flex items-center justify-between border-b border-navy-800 px-4 py-3">
-        <span class="font-[Georgia] text-sm font-bold text-white">Notifications</span>
-        <button
-          v-if="unreadCount > 0"
-          class="text-xs font-semibold text-gold-400 hover:text-gold-300"
-          @click="markAllRead"
-        >
-          Mark all read
-        </button>
+        <span class="font-[Georgia] text-sm font-bold text-white">
+          {{ showPreferences ? 'Notification Settings' : 'Notifications' }}
+        </span>
+        <div class="flex items-center gap-3">
+          <button
+            v-if="!showPreferences && unreadCount > 0"
+            class="text-xs font-semibold text-gold-400 hover:text-gold-300"
+            @click="markAllRead"
+          >
+            Mark all read
+          </button>
+          <button
+            class="text-slate-400 transition hover:text-gold-400"
+            :aria-label="showPreferences ? 'Back to notifications' : 'Notification settings'"
+            @click="showPreferences = !showPreferences"
+          >
+            <svg v-if="!showPreferences" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+            <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <div class="max-h-96 overflow-y-auto">
+      <div v-if="showPreferences" class="max-h-96 overflow-y-auto p-2">
+        <p class="px-2 pb-2 text-xs text-slate-500">Choose which of these you want to hear about.</p>
+        <label
+          v-for="event in manageableEvents"
+          :key="event"
+          class="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm text-slate-200 hover:bg-navy-800"
+        >
+          <span>{{ eventLabel(event) }}</span>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="!mutedEvents.includes(event)"
+            class="relative h-5 w-9 shrink-0 rounded-full transition"
+            :class="mutedEvents.includes(event) ? 'bg-navy-700' : 'bg-gold-500'"
+            @click="toggleMute(event)"
+          >
+            <span
+              class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"
+              :class="mutedEvents.includes(event) ? 'left-0.5' : 'left-4'"
+            />
+          </button>
+        </label>
+      </div>
+
+      <div v-else class="max-h-96 overflow-y-auto">
         <p v-if="loading" class="p-4 text-center text-xs text-slate-500">Loading...</p>
         <p v-else-if="!items.length" class="p-4 text-center text-xs text-slate-500">No notifications yet.</p>
         <button

@@ -422,7 +422,10 @@ box plus a couple of exact-match filter dropdowns, layered on top of org-scoping
   specific organization's own admin(s) - a "Notify" button on Admin → Fleet Partners opens a
   small compose modal (see `AdminFleetPartnerViewSet.notify`) - platform-superadmin-only, since
   it's a direct line to one specific partner, not something a partner's own org-admin can send
-  to themselves or to another organization.
+  to themselves or to another organization. Each bell also has its own settings panel (gear icon)
+  where a user mutes/unmutes individual event types for their own feed only - a per-user
+  preference, never something one org-admin's choice imposes on another admin at the same
+  organization.
 
 - **Dashboard** — revenue collected, platform fees earned, payouts owed/paid, bookings by status,
   user/driver counts (including pending applications and drivers currently away), fleet counts,
@@ -464,7 +467,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-471 automated backend tests currently cover booking validation, payment guards, payout timing and
+486 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -520,8 +523,18 @@ stops being reserved against the balance, so a dead one can't permanently block 
 paying another way - cash/card stay reserved no matter how old, since a driver can legitimately
 take a while to confirm one) and its companion `expire_stale_mpesa_payments` management command
 (no Safaricom Transaction Status Query integration exists to actually ask Safaricom, so this
-infers abandonment from elapsed time instead - meant to run periodically via an external
-scheduler this project doesn't set up itself), the cancellation refund-percentage rule (full
+infers abandonment from elapsed time instead - the sweep now also runs automatically every 5
+minutes via an in-process background thread started from `PaymentsConfig.ready()`, see
+`payments.scheduler`, so the management command is only needed for an immediate one-off run),
+the scheduler's own startup guard (never starts during `manage.py test`/`migrate`/`shell`/etc.,
+starts exactly once under `runserver`'s real worker rather than twice under the autoreloader,
+and starts under a bare production WSGI/ASGI process that never goes through `manage.py` at
+all), the per-user notification mute/preferences system shared across all three bells (muting an
+event hides it from that one user's own feed, unread count, and mark-all-read immediately, but
+never from another user who'd otherwise see the exact same underlying notification - e.g. two
+admins in the same organization - since it's checked at read time, not baked into the
+notification itself at creation; unmuting restores it; muting an already-muted event or an
+invalid event is handled cleanly), the cancellation refund-percentage rule (full
 refund before the driver has acknowledged the trip, or for any self-drive booking; half refund
 once the driver has acknowledged and a client cancels themselves; full refund again if staff flag
 driver_at_fault; a late-arriving payment tops the refund up by the same rule the cancellation

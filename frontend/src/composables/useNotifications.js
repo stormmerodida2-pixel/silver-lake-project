@@ -14,6 +14,7 @@ export function useNotifications(basePath) {
   const unreadCount = ref(0)
   const items = ref([])
   const loading = ref(false)
+  const mutedEvents = ref([])
 
   async function refreshCount() {
     try {
@@ -57,5 +58,35 @@ export function useNotifications(basePath) {
     }
   }
 
-  return { unreadCount, items, loading, refreshCount, loadList, markRead, markAllRead }
+  async function loadPreferences() {
+    try {
+      const { data } = await apiClient.get(`${basePath}/preferences/`)
+      mutedEvents.value = data.muted_events
+    } catch {
+      // Silently do nothing - the preferences panel just shows nothing muted yet.
+    }
+  }
+
+  async function toggleMute(event) {
+    const isMuted = mutedEvents.value.includes(event)
+    mutedEvents.value = isMuted
+      ? mutedEvents.value.filter((e) => e !== event)
+      : [...mutedEvents.value, event]
+    try {
+      await apiClient.post(`${basePath}/${isMuted ? 'unmute' : 'mute'}/`, { event })
+    } catch {
+      // Best-effort - if this fails, it just reverts next time preferences are loaded.
+    }
+    // A just-muted event's existing notifications should disappear from the list/count
+    // immediately, not wait for the next poll.
+    if (!isMuted) {
+      items.value = items.value.filter((n) => n.event !== event)
+      refreshCount()
+    }
+  }
+
+  return {
+    unreadCount, items, loading, mutedEvents,
+    refreshCount, loadList, markRead, markAllRead, loadPreferences, toggleMute,
+  }
 }
