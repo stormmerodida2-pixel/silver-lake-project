@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -35,6 +36,13 @@ class BookingSource(models.TextChoices):
 
 # Bookings in these statuses hold the vehicle; cancelled/completed ones don't block dates.
 BLOCKING_BOOKING_STATUSES = [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.ONGOING]
+
+# How long an assigned driver has to acknowledge an online booking before it's considered
+# overdue (see Booking.acknowledgment_deadline / payments.scheduler's automated escalation
+# sweep) - a same-day pickup gets a tighter window than one booked further in advance, since a
+# customer who needs a car today can't wait as long to find out the driver has actually seen it.
+ACKNOWLEDGMENT_DEADLINE_SAME_DAY = timedelta(hours=1)
+ACKNOWLEDGMENT_DEADLINE_FUTURE = timedelta(hours=2)
 
 
 class Booking(models.Model):
@@ -89,6 +97,12 @@ class Booking(models.Model):
     # what they've actually seen. Driver-onsite bookings are self-acknowledged at creation
     # (the driver already knows about their own walk-up booking).
     driver_acknowledged_at = models.DateTimeField(null=True, blank=True)
+
+    # Set once an online booking's driver-acknowledgment deadline passes with no acknowledgment
+    # (see acknowledgment_deadline / payments.scheduler's automated escalation sweep) and staff
+    # have been alerted - fires at most once per booking, so staff aren't re-emailed on every
+    # scheduler tick once they've already been told.
+    ack_escalated_at = models.DateTimeField(null=True, blank=True)
 
     # Driver-confirmed facts about the physical trip, separate from payment status - paying in
     # full doesn't mean the car has actually been handed over or returned yet (the balance is
@@ -269,6 +283,34 @@ class Booking(models.Model):
         return (
             self.status in (BookingStatus.CONFIRMED, BookingStatus.ONGOING)
             and self.end_date < timezone.localdate()
+        )
+
+    @property
+    def acknowledgment_deadline(self):
+        """When the assigned driver needs to have acknowledged this booking by. Fixed at
+        booking-creation time (same-day-ness is judged against created_at's own date, not
+        whatever "today" happens to be whenever this property is later evaluated) - a same-day
+        pickup gets ACKNOWLEDGMENT_DEADLINE_SAME_DAY, anything booked further ahead gets the
+        more relaxed ACKNOWLEDGMENT_DEADLINE_FUTURE. Measured from created_at rather than
+        start_date itself, since that's the only anchor that works the same way regardless of
+        how far off the pickup date is."""
+        placed_on = timezone.localtime(self.created_at).date()
+        threshold = ACKNOWLEDGMENT_DEADLINE_SAME_DAY if self.start_date == placed_on else ACKNOWLEDGMENT_DEADLINE_FUTURE
+        return self.created_at + threshold
+
+    @property
+    def is_acknowledgment_overdue(self):
+        """True once an online booking's driver-acknowledgment deadline has passed with no
+        acknowledgment yet - see payments.scheduler's automated escalation sweep, which alerts
+        staff once this is true. Never true for a walk-in booking (self-acknowledged at
+        creation - see DriverOnsiteBookingCreateView) or once the driver has actually started
+        the trip (they've clearly already engaged with it, acknowledgment button or not)."""
+        return (
+            self.driver_id is not None
+            and self.driver_acknowledged_at is None
+            and self.trip_started_at is None
+            and self.status not in (BookingStatus.CANCELLED, BookingStatus.COMPLETED)
+            and timezone.now() > self.acknowledgment_deadline
         )
 
     @property

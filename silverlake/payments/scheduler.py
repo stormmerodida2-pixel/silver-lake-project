@@ -1,10 +1,12 @@
 """In-process background scheduler for periodic cleanup tasks. This project has no Celery/cron
 of its own, so rather than requiring someone to configure an external OS-level Task Scheduler or
 cron entry, a lightweight daemon thread does it automatically for as long as the Django process
-is alive. Runs two independent sweeps on the same interval:
-payments.services.expire_stale_mpesa_payments (abandoned STK pushes) and
+is alive. Runs three independent sweeps on the same interval:
+payments.services.expire_stale_mpesa_payments (abandoned STK pushes),
 payments.services.escalate_stuck_bookings (auto-reminding, then escalating to staff, a booking
-whose payment/deposit has sat unresolved past its scheduled end date).
+whose payment/deposit has sat unresolved past its scheduled end date), and
+bookings.services.escalate_unacknowledged_bookings (alerting staff once an online booking's
+driver hasn't acknowledged it within its deadline).
 
 Deliberately not started for management commands (manage.py test/migrate/shell/etc.) - none of
 those keep a process running long enough for this to matter, and starting it during `test` in
@@ -13,9 +15,9 @@ actual long-lived server process (runserver's real worker, or a production WSGI/
 see _should_run().
 
 If this later moves to a multi-process production server (gunicorn with several workers, say),
-each worker starts its own copy - slightly redundant (both sweeps run more than once per
-interval), but harmless: expire_stale_mpesa_payments is an idempotent UPDATE query, and
-escalate_stuck_bookings guards every action behind a cooldown/one-time field.
+each worker starts its own copy - slightly redundant (every sweep runs more than once per
+interval), but harmless: expire_stale_mpesa_payments is an idempotent UPDATE query, and the two
+escalation sweeps guard every action behind a cooldown/one-time field.
 """
 import logging
 import os
@@ -51,6 +53,8 @@ def _should_run():
 
 
 def _sweep_loop():
+    from bookings.services import escalate_unacknowledged_bookings
+
     from .services import escalate_stuck_bookings, expire_stale_mpesa_payments
 
     while True:
@@ -66,6 +70,11 @@ def _sweep_loop():
             escalate_stuck_bookings()
         except Exception:
             logger.exception('Stuck-booking escalation sweep failed')
+
+        try:
+            escalate_unacknowledged_bookings()
+        except Exception:
+            logger.exception('Unacknowledged-booking escalation sweep failed')
 
 
 def start():

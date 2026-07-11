@@ -135,7 +135,13 @@ business-model pitch for the economics).
    - View their own payout history
    - See every booking an online customer has placed against them, and **approve** a new one to
      acknowledge they've seen it — this is informational only, it doesn't block or delay the
-     booking itself, which still confirms on the customer's deposit either way
+     booking itself, which still confirms on the customer's deposit either way. Acknowledging
+     has a deadline: **1 hour** for a same-day pickup, **2 hours** for anything booked further
+     ahead (measured from when the booking was placed, not the pickup date). If it passes with
+     no acknowledgment - and the driver hasn't already started the trip regardless - staff get a
+     one-time email/notification to step in directly (call the driver, or reassign); there's no
+     automatic reassignment. A walk-in booking is exempt entirely, since it's auto-acknowledged
+     at creation (the driver already knows about their own walk-up booking)
    - Mark a fully-paid trip **complete** once it's done, which sends the customer their
      review-invite email — previously the only way to do this was an admin manually changing
      the booking's status
@@ -504,7 +510,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-509 automated backend tests currently cover booking validation, payment guards, payout timing and
+522 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -580,7 +586,12 @@ actually applies auto-sent, respecting the same one-hour cooldown fields the man
 so the two never double up; a booking with no driver, one that isn't yet overdue, or one that's
 fully paid and just needs a trip-lifecycle confirmation is left alone entirely; staff get a
 one-time email/notification of their own once a booking is still unresolved 3+ days past its
-scheduled end date, and never a second time for the same booking), a walk-in booking confirming
+scheduled end date, and never a second time for the same booking), the driver-acknowledgment
+deadline sharing that same background sweep (1 hour for a same-day pickup, 2 hours for anything
+booked further ahead, measured from when the booking was placed; staff get a one-time email/
+notification once it passes with no acknowledgment and the driver hasn't already started the
+trip; already-acknowledged, cancelled/completed, and walk-in bookings are all correctly left
+alone), a walk-in booking confirming
 immediately with nothing paid and being able to start its trip right away (no deposit gate the
 way an online booking has), the per-user notification
 mute/preferences system shared across all three bells (muting an

@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from core.email_utils import send_branded_email
 
@@ -107,6 +108,36 @@ def send_payment_escalation_staff_notification_email(booking, reasons):
             'customer_name': booking.customer_name,
             'driver_name': booking.driver.full_name if booking.driver_id else 'No driver assigned',
             'reasons': reasons,
+            'bookings_url': f'{settings.FRONTEND_URL}/admin/bookings',
+        },
+        recipient_list=[settings.DEFAULT_FROM_EMAIL],
+        bcc=staff_emails,
+    )
+
+
+def send_acknowledgment_overdue_staff_notification_email(booking):
+    """Sent once per booking, by the automated escalation sweep (see
+    bookings.services.escalate_unacknowledged_bookings), when the assigned driver hasn't
+    acknowledged an online booking within its deadline (see Booking.acknowledgment_deadline) -
+    the customer is waiting to find out their driver has actually seen the booking, so staff
+    need to step in and chase it directly (call the driver, or reassign) rather than the
+    booking silently sitting unacknowledged until someone happens to notice."""
+    staff_emails = list(
+        User.objects.filter(is_staff=True, is_active=True).exclude(email='').values_list('email', flat=True)
+    )
+    if not staff_emails:
+        return
+
+    from django.conf import settings
+
+    send_branded_email(
+        subject=f'Needs attention: driver hasn\'t acknowledged booking #{booking.pk}',
+        template_name='emails/acknowledgment_overdue_staff_notification.html',
+        context={
+            'booking_id': booking.pk,
+            'customer_name': booking.customer_name,
+            'driver_name': booking.driver.full_name if booking.driver_id else 'No driver assigned',
+            'deadline': timezone.localtime(booking.acknowledgment_deadline).strftime('%d %b %Y, %H:%M'),
             'bookings_url': f'{settings.FRONTEND_URL}/admin/bookings',
         },
         recipient_list=[settings.DEFAULT_FROM_EMAIL],

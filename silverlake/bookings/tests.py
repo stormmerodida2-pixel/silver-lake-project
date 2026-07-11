@@ -1825,3 +1825,141 @@ class BookingDocumentReplacementCleanupTests(APITestCase):
         self.booking.refresh_from_db()
         self.assertNotEqual(self.booking.customer_license_document.name, old_name)
         self.assertFalse(self.booking.customer_license_document.storage.exists(old_name))
+
+
+class DriverAcknowledgmentDeadlineTests(TestCase):
+    """A same-day pickup gets a tighter acknowledgment deadline than one booked further ahead -
+    see Booking.acknowledgment_deadline."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='ack-deadline-client@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.driver = Driver.objects.create(full_name='Ack Deadline Driver', is_active=True)
+
+    def test_same_day_booking_gets_a_one_hour_deadline(self):
+        booking = make_booking(
+            self.user, self.vehicle, driver=self.driver, start_date=TODAY, end_date=TOMORROW,
+        )
+        self.assertEqual(booking.acknowledgment_deadline, booking.created_at + timedelta(hours=1))
+
+    def test_future_booking_gets_a_two_hour_deadline(self):
+        booking = make_booking(
+            self.user, self.vehicle, driver=self.driver, start_date=NEXT_WEEK, end_date=NEXT_WEEK + timedelta(days=1),
+        )
+        self.assertEqual(booking.acknowledgment_deadline, booking.created_at + timedelta(hours=2))
+
+    def test_is_acknowledgment_overdue_false_before_deadline(self):
+        booking = make_booking(self.user, self.vehicle, driver=self.driver, start_date=TODAY, end_date=TOMORROW)
+        self.assertFalse(booking.is_acknowledgment_overdue)
+
+    def test_is_acknowledgment_overdue_true_after_deadline(self):
+        booking = make_booking(self.user, self.vehicle, driver=self.driver, start_date=TODAY, end_date=TOMORROW)
+        Booking.objects.filter(pk=booking.pk).update(created_at=timezone.now() - timedelta(hours=2))
+        booking.refresh_from_db()
+        self.assertTrue(booking.is_acknowledgment_overdue)
+
+    def test_not_overdue_once_acknowledged(self):
+        booking = make_booking(self.user, self.vehicle, driver=self.driver, start_date=TODAY, end_date=TOMORROW)
+        Booking.objects.filter(pk=booking.pk).update(
+            created_at=timezone.now() - timedelta(hours=2), driver_acknowledged_at=timezone.now(),
+        )
+        booking.refresh_from_db()
+        self.assertFalse(booking.is_acknowledgment_overdue)
+
+    def test_not_overdue_once_trip_started(self):
+        booking = make_booking(self.user, self.vehicle, driver=self.driver, start_date=TODAY, end_date=TOMORROW)
+        Booking.objects.filter(pk=booking.pk).update(
+            created_at=timezone.now() - timedelta(hours=2), trip_started_at=timezone.now(),
+        )
+        booking.refresh_from_db()
+        self.assertFalse(booking.is_acknowledgment_overdue)
+
+    def test_walk_in_bookings_are_never_overdue(self):
+        # Auto-acknowledged at creation (see DriverOnsiteBookingCreateView) - driver_acknowledged_at
+        # is never null for these, so is_acknowledgment_overdue is trivially always false.
+        booking = make_booking(
+            self.user, self.vehicle, driver=self.driver, start_date=TODAY, end_date=TOMORROW,
+            source=BookingSource.DRIVER_ONSITE, driver_acknowledged_at=timezone.now(),
+        )
+        Booking.objects.filter(pk=booking.pk).update(created_at=timezone.now() - timedelta(hours=2))
+        booking.refresh_from_db()
+        self.assertFalse(booking.is_acknowledgment_overdue)
+
+
+class EscalateUnacknowledgedBookingsTests(APITestCase):
+    """The automated counterpart to a staff member noticing an online booking's driver hasn't
+    acknowledged it - alerts staff once, past the deadline, with no automatic reassignment."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(full_name='Escalation Ack Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='ack-escalation-client@example.com', password='pass12345!')
+
+    def _run(self):
+        from bookings.services import escalate_unacknowledged_bookings
+
+        escalate_unacknowledged_bookings()
+
+    def _make_overdue_booking(self, **kwargs):
+        kwargs.setdefault('status', BookingStatus.PENDING)
+        booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver,
+            start_date=TODAY, end_date=TOMORROW, **kwargs,
+        )
+        Booking.objects.filter(pk=booking.pk).update(created_at=timezone.now() - timedelta(hours=2))
+        booking.refresh_from_db()
+        return booking
+
+    def test_overdue_booking_gets_a_staff_email(self):
+        staff = User.objects.create_user(
+            username='ack-escalation-staff@example.com', email='ack-escalation-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        booking = self._make_overdue_booking()
+        mail.outbox = []
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNotNone(booking.ack_escalated_at)
+        staff_emails = [m for m in mail.outbox if "hasn't acknowledged" in m.subject]
+        self.assertEqual(len(staff_emails), 1)
+        self.assertIn(staff.email, staff_emails[0].bcc)
+
+    def test_overdue_booking_notifies_admins_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        booking = self._make_overdue_booking()
+        self._run()
+        notification = Notification.objects.get(event=NotificationEvent.ACKNOWLEDGMENT_OVERDUE)
+        self.assertIn(str(booking.id), notification.message)
+
+    def test_not_yet_overdue_booking_is_left_alone(self):
+        booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING,
+            start_date=TODAY, end_date=TOMORROW,
+        )
+        mail.outbox = []
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.ack_escalated_at)
+
+    def test_already_acknowledged_booking_is_left_alone(self):
+        booking = self._make_overdue_booking(driver_acknowledged_at=timezone.now())
+        mail.outbox = []
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.ack_escalated_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_escalation_only_ever_fires_once(self):
+        booking = self._make_overdue_booking()
+        self._run()
+        mail.outbox = []
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_cancelled_booking_is_left_alone(self):
+        booking = self._make_overdue_booking(status=BookingStatus.CANCELLED)
+        mail.outbox = []
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.ack_escalated_at)
