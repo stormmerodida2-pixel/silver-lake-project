@@ -1,7 +1,10 @@
 """In-process background scheduler for periodic cleanup tasks. This project has no Celery/cron
 of its own, so rather than requiring someone to configure an external OS-level Task Scheduler or
-cron entry (previously the only way payments.services.expire_stale_mpesa_payments actually ran),
-a lightweight daemon thread does it automatically for as long as the Django process is alive.
+cron entry, a lightweight daemon thread does it automatically for as long as the Django process
+is alive. Runs two independent sweeps on the same interval:
+payments.services.expire_stale_mpesa_payments (abandoned STK pushes) and
+payments.services.escalate_stuck_bookings (auto-reminding, then escalating to staff, a booking
+whose payment/deposit has sat unresolved past its scheduled end date).
 
 Deliberately not started for management commands (manage.py test/migrate/shell/etc.) - none of
 those keep a process running long enough for this to matter, and starting it during `test` in
@@ -10,8 +13,9 @@ actual long-lived server process (runserver's real worker, or a production WSGI/
 see _should_run().
 
 If this later moves to a multi-process production server (gunicorn with several workers, say),
-each worker starts its own copy - slightly redundant (the same sweep runs more than once per
-interval), but harmless, since expire_stale_mpesa_payments is just an idempotent UPDATE query.
+each worker starts its own copy - slightly redundant (both sweeps run more than once per
+interval), but harmless: expire_stale_mpesa_payments is an idempotent UPDATE query, and
+escalate_stuck_bookings guards every action behind a cooldown/one-time field.
 """
 import logging
 import os
@@ -47,7 +51,7 @@ def _should_run():
 
 
 def _sweep_loop():
-    from .services import expire_stale_mpesa_payments
+    from .services import escalate_stuck_bookings, expire_stale_mpesa_payments
 
     while True:
         time.sleep(SWEEP_INTERVAL_SECONDS)
@@ -58,6 +62,11 @@ def _sweep_loop():
         except Exception:
             logger.exception('Stale M-Pesa payment sweep failed')
 
+        try:
+            escalate_stuck_bookings()
+        except Exception:
+            logger.exception('Stuck-booking escalation sweep failed')
+
 
 def start():
     """Called once from PaymentsConfig.ready(). Safe to call more than once - only the first
@@ -66,4 +75,4 @@ def start():
     if _started or not _should_run():
         return
     _started = True
-    threading.Thread(target=_sweep_loop, daemon=True, name='stale-mpesa-payment-sweep').start()
+    threading.Thread(target=_sweep_loop, daemon=True, name='payments-background-sweep').start()

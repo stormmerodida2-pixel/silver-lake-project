@@ -945,3 +945,140 @@ class SchedulerTests(TestCase):
             scheduler.start()  # must not raise or start a second thread
         finally:
             scheduler._started = original_started
+
+
+class EscalateStuckBookingsTests(APITestCase):
+    """The automated counterpart to the manual Remind Driver/Remind Deposit/Remind Balance
+    buttons - a booking past its scheduled end date with an unresolved payment/deposit issue
+    gets auto-reminded (and, after long enough, staff get pulled in directly), without anyone
+    having to notice and click a button."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(full_name='Escalation Driver', is_active=True, email='escalation-driver@example.com')
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='escalation-client@example.com', password='pass12345!')
+        self.overdue_booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+            start_date=timezone.localdate() - timedelta(days=5), end_date=timezone.localdate() - timedelta(days=1),
+        )
+
+    def _run(self):
+        from payments.services import escalate_stuck_bookings
+
+        escalate_stuck_bookings()
+
+    def test_a_stale_pending_payment_gets_an_automatic_reminder(self):
+        payment = Payment.objects.create(
+            booking=self.overdue_booking, method=PaymentMethod.CASH, amount=Decimal('1000'),
+            status=PaymentStatus.PENDING, recorded_by_driver=self.driver,
+        )
+        mail.outbox = []
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNotNone(payment.last_reminded_at)
+        self.assertTrue(any('confirm a' in m.subject.lower() for m in mail.outbox))
+
+    def test_undeposited_cash_gets_an_automatic_deposit_reminder(self):
+        payment = Payment.objects.create(
+            booking=self.overdue_booking, method=PaymentMethod.CASH, amount=Decimal('1000'),
+            status=PaymentStatus.SUCCESSFUL, recorded_by_driver=self.driver,
+        )
+        mail.outbox = []
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNotNone(payment.last_reminded_at)
+        self.assertTrue(any('deposit cash to paybill' in m.subject.lower() for m in mail.outbox))
+
+    def test_an_outstanding_balance_with_nothing_declared_gets_a_balance_reminder(self):
+        mail.outbox = []
+        self._run()
+        self.overdue_booking.refresh_from_db()
+        self.assertIsNotNone(self.overdue_booking.last_balance_reminder_at)
+        self.assertTrue(any('outstanding balance' in m.subject.lower() for m in mail.outbox))
+
+    def test_reminder_cooldown_prevents_an_immediate_second_auto_reminder(self):
+        self.overdue_booking.last_balance_reminder_at = timezone.now()
+        self.overdue_booking.save(update_fields=['last_balance_reminder_at'])
+        mail.outbox = []
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_a_booking_not_yet_overdue_is_left_alone(self):
+        booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+        )
+        mail.outbox = []
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.last_balance_reminder_at)
+
+    def test_a_booking_with_no_driver_is_left_alone(self):
+        from bookings.models import ServiceType
+
+        # WITH_DRIVER (make_booking's default) auto-fills the vehicle's own driver on save() if
+        # none is given (see Booking._apply_default_driver) - SELF_DRIVE is the only way to get a
+        # genuinely driver-less booking on a vehicle that has one assigned.
+        self_drive_booking = make_booking(
+            self.customer, self.vehicle, status=BookingStatus.CONFIRMED, service_type=ServiceType.SELF_DRIVE,
+            start_date=timezone.localdate() - timedelta(days=5), end_date=timezone.localdate() - timedelta(days=1),
+        )
+        mail.outbox = []
+        self._run()
+        self_drive_booking.refresh_from_db()
+        self.assertIsNone(self_drive_booking.last_balance_reminder_at)
+
+    def test_a_fully_paid_booking_needing_only_a_trip_confirmation_is_not_touched(self):
+        # Fully paid, nobody clicked End Trip - this is a trip-lifecycle nudge, not a payment
+        # one, so the escalation sweep (specifically about money) should do nothing here.
+        Payment.objects.create(
+            booking=self.overdue_booking, method=PaymentMethod.MPESA,
+            amount=self.overdue_booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        mail.outbox = []
+        self._run()
+        self.overdue_booking.refresh_from_db()
+        self.assertIsNone(self.overdue_booking.last_balance_reminder_at)
+        self.assertIsNone(self.overdue_booking.payment_escalated_at)
+
+    def test_does_not_escalate_to_staff_before_the_threshold(self):
+        staff = User.objects.create_user(username='escalation-staff@example.com', email='escalation-staff@example.com', password='pass12345!', is_staff=True)
+        mail.outbox = []
+        self._run()
+        self.overdue_booking.refresh_from_db()
+        self.assertIsNone(self.overdue_booking.payment_escalated_at)
+        self.assertFalse(any('needs attention' in m.subject.lower() for m in mail.outbox))
+
+    def test_escalates_to_staff_once_past_the_threshold(self):
+        staff = User.objects.create_user(username='escalation-staff2@example.com', email='escalation-staff2@example.com', password='pass12345!', is_staff=True)
+        self.overdue_booking.start_date = timezone.localdate() - timedelta(days=10)
+        self.overdue_booking.end_date = timezone.localdate() - timedelta(days=4)
+        self.overdue_booking.save(update_fields=['start_date', 'end_date'])
+
+        mail.outbox = []
+        self._run()
+        self.overdue_booking.refresh_from_db()
+        self.assertIsNotNone(self.overdue_booking.payment_escalated_at)
+        staff_emails = [m for m in mail.outbox if 'needs attention' in m.subject.lower()]
+        self.assertEqual(len(staff_emails), 1)
+        self.assertIn(staff.email, staff_emails[0].bcc)
+
+    def test_escalation_notifies_admins_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.overdue_booking.start_date = timezone.localdate() - timedelta(days=10)
+        self.overdue_booking.end_date = timezone.localdate() - timedelta(days=4)
+        self.overdue_booking.save(update_fields=['start_date', 'end_date'])
+
+        self._run()
+        notification = Notification.objects.get(event=NotificationEvent.PAYMENT_ESCALATED)
+        self.assertIn(str(self.overdue_booking.id), notification.message)
+
+    def test_escalation_only_ever_fires_once(self):
+        self.overdue_booking.start_date = timezone.localdate() - timedelta(days=10)
+        self.overdue_booking.end_date = timezone.localdate() - timedelta(days=4)
+        self.overdue_booking.save(update_fields=['start_date', 'end_date'])
+
+        self._run()
+        mail.outbox = []
+        self._run()
+        self.assertFalse(any('needs attention' in m.subject.lower() for m in mail.outbox))

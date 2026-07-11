@@ -233,6 +233,16 @@ business-model pitch for the economics).
   not anything has actually been declared yet (the Payments-page reminder above only works once a
   specific cash/card payment is already sitting pending). Same one-per-hour cooldown, same no-op
   nudge behavior.
+- **These reminders now also fire automatically**, so a stuck booking doesn't just sit there until
+  a staff member happens to notice it. The same background sweep that expires stale M-Pesa
+  payments (see §13) also checks every booking that's past its scheduled end date and still open
+  (`needs_attention`) with a driver assigned: whichever of the three reminders above actually
+  applies (unconfirmed declared payment, undeposited cash, or a plain outstanding balance) gets
+  auto-sent, reusing the exact same emails and one-hour cooldowns the manual buttons use - a
+  recent manual reminder isn't immediately duplicated by this, and vice versa. If the same booking
+  is *still* unresolved **3+ days** past its scheduled end date, staff get a one-time email and
+  admin notification of their own naming exactly what's still outstanding - the automated nudges
+  clearly aren't working on their own, so a human needs to step in and chase it directly.
 - Every payment path rejects a **zero or negative amount**, and refuses to accept a payment
   against a booking that's already cancelled or completed.
 - The M-Pesa callback (Safaricom telling us a payment succeeded) is protected by a private secret
@@ -484,7 +494,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-496 automated backend tests currently cover booking validation, payment guards, payout timing and
+507 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -554,7 +564,14 @@ minutes via an in-process background thread started from `PaymentsConfig.ready()
 the scheduler's own startup guard (never starts during `manage.py test`/`migrate`/`shell`/etc.,
 starts exactly once under `runserver`'s real worker rather than twice under the autoreloader,
 and starts under a bare production WSGI/ASGI process that never goes through `manage.py` at
-all), the per-user notification mute/preferences system shared across all three bells (muting an
+all), the automated stuck-booking escalation sweep sharing that same background thread (a
+needs_attention booking with a driver assigned gets whichever of the three manual reminders
+actually applies auto-sent, respecting the same one-hour cooldown fields the manual buttons use
+so the two never double up; a booking with no driver, one that isn't yet overdue, or one that's
+fully paid and just needs a trip-lifecycle confirmation is left alone entirely; staff get a
+one-time email/notification of their own once a booking is still unresolved 3+ days past its
+scheduled end date, and never a second time for the same booking), the per-user notification
+mute/preferences system shared across all three bells (muting an
 event hides it from that one user's own feed, unread count, and mark-all-read immediately, but
 never from another user who'd otherwise see the exact same underlying notification - e.g. two
 admins in the same organization - since it's checked at read time, not baked into the

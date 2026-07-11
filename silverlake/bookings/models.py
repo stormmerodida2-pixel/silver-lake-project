@@ -103,6 +103,12 @@ class Booking(models.Model):
     # yet, whether or not anything has been declared.
     last_balance_reminder_at = models.DateTimeField(null=True, blank=True)
 
+    # Set once a stuck payment/deposit issue on this booking has sat unresolved long enough that
+    # the automated reminder sweep gives up on the driver and alerts staff directly instead (see
+    # payments.services.escalate_stuck_bookings) - fires at most once per booking, so staff aren't
+    # re-emailed on every scheduler tick once they've already been told.
+    payment_escalated_at = models.DateTimeField(null=True, blank=True)
+
     # Set once (at mark_cancelled time) to whichever refund rule actually applied to this
     # specific cancellation - never re-derived afterwards, since a staff driver-fault override
     # can't be reconstructed later from driver_acknowledged_at alone. Needed so a late-arriving

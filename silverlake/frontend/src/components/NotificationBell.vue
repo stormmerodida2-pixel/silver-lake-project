@@ -31,6 +31,7 @@ const EVENT_LABELS = {
   booking_cancelled: 'Booking Cancelled',
   cash_payment_recorded: 'Cash Payment',
   cash_deposit_logged: 'Cash Deposit Logged',
+  payment_escalated: 'Payment Needs Attention',
   payment_disputed: 'Payment Disputed',
   dispute_resolved: 'Dispute Resolved',
   driver_away: 'Driver Away',
@@ -58,8 +59,8 @@ const EVENT_LABELS = {
 const MANAGEABLE_EVENTS_BY_BASE_PATH = {
   '/admin/notifications': [
     'driver_acknowledged', 'booking_created', 'booking_cancelled', 'cash_payment_recorded',
-    'cash_deposit_logged', 'payment_disputed', 'dispute_resolved', 'driver_away',
-    'vehicle_submission', 'driver_application',
+    'cash_deposit_logged', 'payment_escalated', 'payment_disputed', 'dispute_resolved',
+    'driver_away', 'vehicle_submission', 'driver_application',
   ],
   '/driver/notifications': [
     'driver_booked', 'booking_cancelled', 'payment_reminder', 'cash_deposit_reminder',

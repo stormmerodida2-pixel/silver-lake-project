@@ -1,4 +1,8 @@
+from django.contrib.auth import get_user_model
+
 from core.email_utils import send_branded_email
+
+User = get_user_model()
 
 
 def send_driver_booking_notification(booking):
@@ -78,6 +82,36 @@ def send_booking_balance_reminder_email(booking):
         )
     except Exception:
         pass
+
+
+def send_payment_escalation_staff_notification_email(booking, reasons):
+    """Sent once per booking, by the automated reminder sweep (see
+    payments.services.escalate_stuck_bookings), when a payment/deposit issue has sat unresolved
+    for days despite the driver already being auto-reminded - staff need to step in and chase it
+    directly rather than waiting for the driver to act on their own. `reasons` is a list of
+    short human-readable strings (e.g. "a declared payment is still unconfirmed") describing
+    what's actually still outstanding, since more than one can apply at once."""
+    staff_emails = list(
+        User.objects.filter(is_staff=True, is_active=True).exclude(email='').values_list('email', flat=True)
+    )
+    if not staff_emails:
+        return
+
+    from django.conf import settings
+
+    send_branded_email(
+        subject=f'Needs attention: booking #{booking.pk} — unresolved payment for days',
+        template_name='emails/payment_escalation_staff_notification.html',
+        context={
+            'booking_id': booking.pk,
+            'customer_name': booking.customer_name,
+            'driver_name': booking.driver.full_name if booking.driver_id else 'No driver assigned',
+            'reasons': reasons,
+            'bookings_url': f'{settings.FRONTEND_URL}/admin/bookings',
+        },
+        recipient_list=[settings.DEFAULT_FROM_EMAIL],
+        bcc=staff_emails,
+    )
 
 
 def send_trip_completed_email(booking):

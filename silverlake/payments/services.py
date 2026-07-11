@@ -45,6 +45,101 @@ def expire_stale_mpesa_payments():
     ).update(status=PaymentStatus.FAILED)
 
 
+# Mirrors payments.views.REMINDER_COOLDOWN - kept as its own constant rather than imported from
+# there, since payments.views already imports from this module and importing back would be
+# circular. Long enough that an automated nudge isn't spam, short enough a driver who genuinely
+# forgot can be re-poked the same day - same reasoning as the manual Remind buttons, since this
+# reuses their exact cooldown fields.
+AUTO_REMINDER_COOLDOWN = timedelta(hours=1)
+
+# How many days past a booking's scheduled end date (see Booking.needs_attention) an unresolved
+# payment/deposit issue is allowed to sit before staff get pulled in directly - long enough that
+# the automated driver nudges above have had a real chance to work, short enough that a booking
+# genuinely isn't just quietly forgotten about for a week.
+ESCALATE_AFTER = timedelta(days=3)
+
+
+def escalate_stuck_bookings():
+    """The automated counterpart to the manual Remind Driver/Remind Deposit/Remind Balance
+    buttons (see payments.views.PaymentViewSet.remind/.remind_deposit,
+    core.views.AdminBookingViewSet.remind_balance) - rather than relying on staff to notice a
+    booking has gone quiet and click one of those, this runs on every scheduler tick (see
+    payments.scheduler) and does it for them automatically once a booking is needs_attention
+    (past its scheduled end date, still open - see Booking.needs_attention, which this mirrors
+    exactly). Reuses the exact same reminder functions and cooldown fields the manual buttons
+    use, so a recent manual reminder isn't immediately duplicated by this, and vice versa.
+
+    If a booking is still unresolved ESCALATE_AFTER days past its scheduled end date, staff get a
+    one-time email/notification of their own (see Booking.payment_escalated_at, which guards
+    against repeating this every scheduler tick thereafter) - the automated driver nudges clearly
+    aren't resolving it on their own, so a human needs to step in and chase it directly. Scoped to
+    bookings with a driver assigned, same as every reminder action this reuses - a self-drive
+    booking has no driver to nudge in the first place."""
+    from bookings.emails import send_booking_balance_reminder_email, send_payment_escalation_staff_notification_email
+    from notifications.models import NotificationEvent
+    from notifications.services import notify
+
+    from .emails import send_cash_deposit_reminder_email, send_payment_reminder_email
+
+    now = timezone.now()
+    today = timezone.localdate()
+
+    stuck_bookings = Booking.objects.filter(
+        status__in=[BookingStatus.CONFIRMED, BookingStatus.ONGOING],
+        end_date__lt=today,
+        driver__isnull=False,
+    ).select_related('driver', 'vehicle')
+
+    for booking in stuck_bookings:
+        reasons = []
+
+        pending_payment = booking.payments.filter(status=PaymentStatus.PENDING).exclude(
+            method=PaymentMethod.MPESA, created_at__lt=now - STALE_MPESA_PENDING_THRESHOLD,
+        ).first()
+        if pending_payment:
+            reasons.append('A declared payment is still unconfirmed by the driver.')
+            if not pending_payment.last_reminded_at or now - pending_payment.last_reminded_at >= AUTO_REMINDER_COOLDOWN:
+                pending_payment.last_reminded_at = now
+                pending_payment.save(update_fields=['last_reminded_at'])
+                send_payment_reminder_email(pending_payment)
+                notify(
+                    NotificationEvent.PAYMENT_REMINDER,
+                    f'Please confirm the {pending_payment.get_method_display()} payment you declared',
+                    driver=pending_payment.recorded_by_driver, link_path='/driver',
+                )
+
+        undeposited_cash = booking.payments.filter(
+            method=PaymentMethod.CASH, status=PaymentStatus.SUCCESSFUL, cash_deposit__isnull=True,
+        ).first()
+        if undeposited_cash:
+            reasons.append('Cash was collected but has not been deposited into the Paybill.')
+            if not undeposited_cash.last_reminded_at or now - undeposited_cash.last_reminded_at >= AUTO_REMINDER_COOLDOWN:
+                undeposited_cash.last_reminded_at = now
+                undeposited_cash.save(update_fields=['last_reminded_at'])
+                send_cash_deposit_reminder_email(undeposited_cash)
+                notify(
+                    NotificationEvent.CASH_DEPOSIT_REMINDER, 'Please redeposit the cash you collected into the Paybill',
+                    driver=undeposited_cash.recorded_by_driver, link_path='/driver',
+                )
+
+        if booking.balance_due > 0:
+            reasons.append(f'KES {booking.balance_due:,.2f} is still owed on this booking.')
+            if not booking.last_balance_reminder_at or now - booking.last_balance_reminder_at >= AUTO_REMINDER_COOLDOWN:
+                booking.last_balance_reminder_at = now
+                booking.save(update_fields=['last_balance_reminder_at'])
+                send_booking_balance_reminder_email(booking)
+
+        if reasons and not booking.payment_escalated_at and today - booking.end_date >= ESCALATE_AFTER:
+            send_payment_escalation_staff_notification_email(booking, reasons)
+            booking.payment_escalated_at = now
+            booking.save(update_fields=['payment_escalated_at'])
+            notify(
+                NotificationEvent.PAYMENT_ESCALATED,
+                f'Booking #{booking.pk} has an unresolved payment issue {ESCALATE_AFTER.days}+ days after its scheduled return',
+                organization=booking.vehicle.owner, link_path='/admin/bookings',
+            )
+
+
 def _lock_booking(booking):
     """Forces a real write against the booking row as the first statement in the caller's
     transaction - select_for_update() would be the standard way to serialize concurrent requests
