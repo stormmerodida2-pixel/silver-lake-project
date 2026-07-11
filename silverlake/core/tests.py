@@ -15,6 +15,7 @@ from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, V
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 
 from .models import AuditLog, StaffOrganization
+from .utils import parse_amount
 
 User = get_user_model()
 
@@ -1288,3 +1289,35 @@ class AdminSearchAndFilterTests(APITestCase):
         response = self.client.get('/api/payments/', {'method': PaymentMethod.CASH})
         methods = {p['method'] for p in response.json().get('results', response.json())}
         self.assertEqual(methods, {PaymentMethod.CASH})
+
+
+class ParseAmountTests(TestCase):
+    """Used at every offline-payment entry point instead of float(raw), which risks carrying
+    binary floating-point imprecision into a value that flows straight into Decimal arithmetic
+    and a DecimalField."""
+
+    def test_parses_a_plain_string(self):
+        self.assertEqual(parse_amount('2333.10'), Decimal('2333.10'))
+
+    def test_parses_an_int_or_float_from_a_json_body(self):
+        self.assertEqual(parse_amount(500), Decimal('500.00'))
+        self.assertEqual(parse_amount(500.5), Decimal('500.50'))
+
+    def test_quantizes_to_two_decimal_places(self):
+        self.assertEqual(parse_amount('500'), Decimal('500.00'))
+
+    def test_none_or_blank_raises_value_error(self):
+        for bad in (None, ''):
+            with self.assertRaises(ValueError):
+                parse_amount(bad)
+
+    def test_non_numeric_raises_value_error(self):
+        for bad in ('abc', 'KES 500', [1, 2], True):
+            with self.assertRaises(ValueError):
+                parse_amount(bad)
+
+    def test_zero_and_negative_parse_fine(self):
+        # parse_amount only handles parsing - rejecting a non-positive amount is each caller's
+        # own business-rule check, not this function's job.
+        self.assertEqual(parse_amount('0'), Decimal('0.00'))
+        self.assertEqual(parse_amount('-500'), Decimal('-500.00'))

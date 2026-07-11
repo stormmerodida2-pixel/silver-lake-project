@@ -13,7 +13,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from bookings.models import Booking
 from core.audit import log_admin_action
 from core.permissions import IsSupportStaff, get_user_organization
-from core.utils import search_filter
+from core.utils import parse_amount, search_filter
 
 from .emails import send_cash_deposit_reminder_email, send_payment_reminder_email
 from .models import Payment, PaymentMethod, PaymentStatus
@@ -192,10 +192,9 @@ def token_declare_cash_payment(request, token):
             {'detail': 'This booking has no driver assigned to hand cash to.'}, status=status.HTTP_400_BAD_REQUEST,
         )
 
-    amount = request.data.get('amount')
     try:
-        amount = float(amount)
-    except (TypeError, ValueError):
+        amount = parse_amount(request.data.get('amount'))
+    except ValueError:
         return Response({'detail': 'A valid amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:

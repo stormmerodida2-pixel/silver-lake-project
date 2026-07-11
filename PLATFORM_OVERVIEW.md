@@ -429,7 +429,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-389 automated backend tests currently cover booking validation, payment guards, payout timing and
+403 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -477,7 +477,16 @@ booking), the overpayment guard (a SQLite write-lock, forced via the same techni
 double-booking fix below, serializes concurrent payment attempts on one booking; the amount still
 unresolved in any PENDING payment is reserved against what a new one can ask for, and confirming a
 stale declared cash/card payment re-checks the balance as it stands now, not as it stood at
-declaration time), the staff email sent the moment a customer disputes a cash payment, and (using real threads
+declaration time), the staff email sent the moment a customer disputes a cash payment, every
+offline-payment amount being parsed via core.utils.parse_amount (Decimal, never float, so a
+value like 2333.10 can't drift through binary floating-point conversion), the stale-M-Pesa
+exclusion (a PENDING mpesa payment older than 5 minutes is treated as an abandoned STK push and
+stops being reserved against the balance, so a dead one can't permanently block the customer from
+paying another way - cash/card stay reserved no matter how old, since a driver can legitimately
+take a while to confirm one) and its companion `expire_stale_mpesa_payments` management command
+(no Safaricom Transaction Status Query integration exists to actually ask Safaricom, so this
+infers abandonment from elapsed time instead - meant to run periodically via an external
+scheduler this project doesn't set up itself), and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:

@@ -597,6 +597,20 @@ class DriverDeclarePaymentTests(APITestCase):
         response = self.client.post(self._url(), {'method': 'bitcoin', 'amount': '100'}, format='json')
         self.assertEqual(response.status_code, 400)
 
+    def test_non_numeric_amount_is_rejected(self):
+        response = self.client.post(self._url(), {'method': 'cash', 'amount': 'abc'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_amount_is_stored_as_an_exact_decimal_not_a_float(self):
+        # Parsed via core.utils.parse_amount rather than float() - this specific value has a
+        # well-known binary floating-point representation error (0.1 can't be represented
+        # exactly), so if float() ever crept back in, this would be the case to catch it on.
+        response = self.client.post(self._url(), {'method': 'cash', 'amount': '2333.10'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        payment = Payment.objects.get(booking=self.booking)
+        self.assertEqual(payment.amount, Decimal('2333.10'))
+
     def _results(self, response):
         data = response.json()
         return data['results'] if 'results' in data else data
@@ -809,6 +823,12 @@ class DriverCashDepositTests(APITestCase):
             self._url(), {'amount': str(self.cash_payment.amount), 'mpesa_reference': 'QWE1234571'}, format='json',
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_non_numeric_amount_is_rejected(self):
+        response = self.client.post(self._url(), {'amount': 'abc', 'mpesa_reference': 'QWE1234572'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.cash_payment.refresh_from_db()
+        self.assertFalse(hasattr(self.cash_payment, 'cash_deposit'))
 
     def test_cannot_log_a_deposit_for_another_drivers_payment(self):
         other_driver_user = User.objects.create_user(username='other-deposit-driver@example.com', password='pass12345!')

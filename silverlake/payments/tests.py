@@ -407,6 +407,11 @@ class ClientDeclareCashPaymentTests(APITestCase):
             self.assertEqual(response.status_code, 400, f'amount={bad_amount} should have been rejected')
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
 
+    def test_non_numeric_amount_is_rejected(self):
+        response = self.client.post(self._url(), {'amount': 'abc'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
     def test_wrong_token_is_a_404(self):
         response = self.client.post(
             f'/api/pay/{uuid.uuid4()}/declare-cash/', {'amount': '100'}, format='json',
@@ -680,3 +685,86 @@ class OverpaymentGuardTests(APITestCase):
         confirm_offline_payment(cash_payment)
         cash_payment.refresh_from_db()
         self.assertEqual(cash_payment.status, PaymentStatus.SUCCESSFUL)
+
+
+class StaleMpesaPaymentTests(APITestCase):
+    """A dead STK Push (the customer let it time out, or never approved it) never resolves on
+    its own - there's no Safaricom Transaction Status Query integration to ask, so nothing ever
+    marks it FAILED automatically. Without treating one as abandoned once it's clearly too old to
+    still be in flight, it would permanently reserve its amount against the booking's balance
+    (see OverpaymentGuardTests) and block the customer from paying any other way."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(full_name='Stale Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))  # KES 7000 total
+        self.customer = User.objects.create_user(username='stale-client@example.com', password='pass12345!')
+        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)
+
+    def _make_stale_mpesa_pending(self, amount):
+        payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA, amount=amount, status=PaymentStatus.PENDING,
+        )
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(minutes=10))
+        return payment
+
+    def test_a_stale_pending_mpesa_payment_does_not_block_a_new_declare(self):
+        self._make_stale_mpesa_pending(self.booking.total_amount)
+        # Should succeed - the stale PENDING mpesa payment is treated as abandoned, not reserved.
+        declare_offline_payment(self.booking, PaymentMethod.CASH, self.booking.total_amount, driver=self.driver)
+        self.assertEqual(Payment.objects.filter(booking=self.booking, status=PaymentStatus.PENDING).count(), 2)
+
+    def test_a_fresh_pending_mpesa_payment_still_blocks(self):
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA,
+            amount=self.booking.total_amount, status=PaymentStatus.PENDING,
+        )
+        with self.assertRaises(PaymentValidationError):
+            declare_offline_payment(self.booking, PaymentMethod.CASH, self.booking.total_amount, driver=self.driver)
+
+    def test_a_stale_pending_cash_payment_still_blocks(self):
+        # Cash/card intentionally stay reserved no matter how old - a driver can legitimately
+        # take a while to confirm one (see PaymentViewSet.remind), unlike a dead STK push.
+        payment = declare_offline_payment(self.booking, PaymentMethod.CASH, self.booking.total_amount, driver=self.driver)
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(hours=6))
+        with self.assertRaises(PaymentValidationError):
+            declare_offline_payment(self.booking, PaymentMethod.CARD, self.booking.total_amount, driver=self.driver)
+
+
+class ExpireStaleMpesaPaymentsCommandTests(APITestCase):
+    """The management command that actually flips a stale PENDING M-Pesa payment to FAILED,
+    since nothing else ever will without a Safaricom Transaction Status Query integration -
+    intended to run periodically via an external scheduler this project doesn't set up itself."""
+
+    def setUp(self):
+        driver = Driver.objects.create(full_name='Command Driver', is_active=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='command-client@example.com', password='pass12345!')
+        self.booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
+
+        self.stale_mpesa = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA, amount=Decimal('1000'), status=PaymentStatus.PENDING,
+        )
+        Payment.objects.filter(pk=self.stale_mpesa.pk).update(created_at=timezone.now() - timedelta(minutes=10))
+
+        self.fresh_mpesa = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA, amount=Decimal('1000'), status=PaymentStatus.PENDING,
+        )
+        self.stale_cash = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH, amount=Decimal('1000'),
+            status=PaymentStatus.PENDING, recorded_by_driver=driver,
+        )
+        Payment.objects.filter(pk=self.stale_cash.pk).update(created_at=timezone.now() - timedelta(minutes=10))
+
+    def test_marks_only_stale_pending_mpesa_payments_as_failed(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        call_command('expire_stale_mpesa_payments', stdout=StringIO())
+
+        self.stale_mpesa.refresh_from_db()
+        self.fresh_mpesa.refresh_from_db()
+        self.stale_cash.refresh_from_db()
+        self.assertEqual(self.stale_mpesa.status, PaymentStatus.FAILED)
+        self.assertEqual(self.fresh_mpesa.status, PaymentStatus.PENDING)
+        self.assertEqual(self.stale_cash.status, PaymentStatus.PENDING)

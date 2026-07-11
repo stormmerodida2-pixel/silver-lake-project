@@ -1,4 +1,21 @@
+from decimal import Decimal, InvalidOperation
+
 from django.db.models import Q
+
+
+def parse_amount(raw):
+    """Parses a user-submitted money amount (arriving as a JSON number or string) into a Decimal
+    quantized to 2 decimal places - used at every offline-payment entry point instead of
+    float(raw), which risks carrying binary floating-point imprecision into values that flow
+    straight into Decimal arithmetic and a DecimalField. Raises ValueError for anything that
+    doesn't parse (None, empty, non-numeric), so callers can turn it into a clean 400 the same
+    way they already handle a bad amount today."""
+    if raw is None or raw == '':
+        raise ValueError('Amount is required.')
+    try:
+        return Decimal(str(raw)).quantize(Decimal('0.01'))
+    except InvalidOperation:
+        raise ValueError('Amount is not a valid number.')
 
 
 def search_filter(queryset, search, fields):

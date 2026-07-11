@@ -19,6 +19,17 @@ logger = logging.getLogger(__name__)
 # the same booking right now, so this one should just be retried rather than failing outright.
 CONCURRENT_UPDATE_MESSAGE = 'This booking is being updated by another request right now. Please try again.'
 
+# A real STK Push either resolves - via Safaricom's callback - within seconds of the customer
+# approving or dismissing the prompt on their phone, or never resolves at all because they let it
+# time out. There's no in-between, so a payment still PENDING this long after being created is
+# practically certain to have been abandoned, not genuinely still in flight - this project has no
+# Safaricom Initiator credentials for the Transaction Status Query API that would let us ask
+# instead of inferring it from elapsed time. Used to stop excluding a dead STK push from
+# _pending_payments_total, so it can't permanently block the customer from paying the same
+# balance another way; payments.management.commands.expire_stale_mpesa_payments uses the same
+# threshold to actually mark these FAILED rather than leaving them stuck PENDING forever.
+STALE_MPESA_PENDING_THRESHOLD = timedelta(minutes=5)
+
 
 def _lock_booking(booking):
     """Forces a real write against the booking row as the first statement in the caller's
@@ -38,8 +49,15 @@ def _pending_payments_total(booking, exclude_pk=None):
     hasn't yet (Booking.amount_paid only counts SUCCESSFUL ones), so it has to be reserved
     against the remaining balance too. Otherwise a driver-declared cash payment sitting PENDING
     alongside a customer's own M-Pesa attempt could each pass a plain balance_due check
-    individually, then both later succeed and overpay the booking."""
-    queryset = booking.payments.filter(status=PaymentStatus.PENDING)
+    individually, then both later succeed and overpay the booking.
+
+    A stale PENDING M-Pesa payment (see STALE_MPESA_PENDING_THRESHOLD) is excluded rather than
+    reserved - cash/card payments are deliberately left reserved no matter how old (a driver can
+    legitimately take a while to confirm one; see PaymentViewSet.remind), but a dead STK push
+    would otherwise reserve its amount forever, since nothing ever marks it FAILED on its own."""
+    queryset = booking.payments.filter(status=PaymentStatus.PENDING).exclude(
+        method=PaymentMethod.MPESA, created_at__lt=timezone.now() - STALE_MPESA_PENDING_THRESHOLD,
+    )
     if exclude_pk:
         queryset = queryset.exclude(pk=exclude_pk)
     return queryset.aggregate(total=Sum('amount'))['total'] or Decimal('0')

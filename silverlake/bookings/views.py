@@ -6,7 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from core.permissions import get_user_organization
-from core.utils import capture_replaced_files, delete_files
+from core.utils import capture_replaced_files, delete_files, parse_amount
 from fleet.models import Vehicle
 from reviews.models import Review
 from reviews.serializers import BookingReviewCreateSerializer
@@ -202,10 +202,9 @@ class DriverDeclarePaymentView(APIView):
         booking = get_object_or_404(Booking, pk=pk, driver=driver)
 
         method = request.data.get('method')
-        amount = request.data.get('amount')
         try:
-            amount = float(amount)
-        except (TypeError, ValueError):
+            amount = parse_amount(request.data.get('amount'))
+        except ValueError:
             return Response({'detail': 'A valid amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -252,11 +251,10 @@ class DriverCashDepositView(APIView):
         driver = request.user.driver_profile
         payment = get_object_or_404(Payment, pk=payment_id, booking__driver=driver)
 
-        amount = request.data.get('amount')
         mpesa_reference = request.data.get('mpesa_reference', '')
         try:
-            amount = float(amount)
-        except (TypeError, ValueError):
+            amount = parse_amount(request.data.get('amount'))
+        except ValueError:
             return Response({'detail': 'A valid amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
