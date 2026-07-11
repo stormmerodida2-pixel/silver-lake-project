@@ -58,6 +58,13 @@ function isUnderpaid(booking) {
   return Number(booking.balance_due) > 0 && booking.status !== 'cancelled'
 }
 
+function isAwaitingAcknowledgment(booking) {
+  return (
+    booking.service_type === 'with_driver' && !!booking.driver_name && !booking.driver_acknowledged_at
+    && ['pending', 'confirmed'].includes(booking.status)
+  )
+}
+
 function canRemindBalance(booking) {
   return isUnderpaid(booking) && !!booking.driver_name
 }
@@ -205,9 +212,26 @@ onMounted(() => {
               >
                 Needs Attention
               </span>
+              <div v-if="booking.service_type === 'with_driver' && booking.driver_name">
+                <div v-if="booking.driver_acknowledged_at" class="text-slate-500">
+                  Acknowledged {{ new Date(booking.driver_acknowledged_at).toLocaleString() }}
+                </div>
+                <span
+                  v-else-if="isAwaitingAcknowledgment(booking)"
+                  class="inline-block rounded-full bg-gold-500/10 px-2 py-0.5 font-semibold text-gold-400"
+                  title="The driver hasn't opened/acknowledged this booking on their dashboard yet"
+                >
+                  Awaiting Acknowledgment
+                </span>
+              </div>
               <div v-if="booking.trip_started_at" class="text-slate-500">Started {{ new Date(booking.trip_started_at).toLocaleDateString() }}</div>
               <div v-if="booking.trip_ended_at" class="text-slate-500">Ended {{ new Date(booking.trip_ended_at).toLocaleDateString() }}</div>
-              <div v-if="!booking.trip_started_at && !booking.trip_ended_at && !booking.needs_attention" class="text-slate-600">—</div>
+              <div
+                v-if="!booking.trip_started_at && !booking.trip_ended_at && !booking.needs_attention && !booking.driver_acknowledged_at && !isAwaitingAcknowledgment(booking)"
+                class="text-slate-600"
+              >
+                —
+              </div>
             </td>
           </tr>
         </tbody>
