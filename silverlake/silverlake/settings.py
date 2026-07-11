@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'payments',
     'reviews',
     'announcements',
+    'notifications',
     'core',
 ]
 

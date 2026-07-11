@@ -284,6 +284,14 @@ class BookingCancelActionTests(APITestCase):
         booking.refresh_from_db()
         self.assertEqual(booking.status, BookingStatus.CANCELLED)
 
+    def test_cancelling_a_booking_notifies_admins_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        self.client.post(f'/api/bookings/{booking.id}/cancel/')
+        notification = Notification.objects.get(event=NotificationEvent.BOOKING_CANCELLED)
+        self.assertIn(str(booking.id), notification.message)
+
     def test_cannot_cancel_a_completed_booking(self):
         booking = make_booking(self.user, self.vehicle, status=BookingStatus.COMPLETED)
         response = self.client.post(f'/api/bookings/{booking.id}/cancel/')
@@ -857,6 +865,23 @@ class DriverConfirmPaymentTests(APITestCase):
         self.client.post(self._url(card_payment))
         self.assertFalse(any('Cash payment recorded' in m.subject for m in mail.outbox))
 
+    def test_confirming_a_cash_payment_notifies_admins_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.post(self._url())
+        self.assertEqual(Notification.objects.filter(event=NotificationEvent.CASH_PAYMENT_RECORDED).count(), 1)
+
+    def test_confirming_a_card_payment_does_not_notify_admins_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        card_payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CARD, amount=self.booking.total_amount,
+            status=PaymentStatus.PENDING, recorded_by_driver=self.driver,
+        )
+        self.payment.delete()
+        self.client.post(self._url(card_payment))
+        self.assertFalse(Notification.objects.filter(event=NotificationEvent.CASH_PAYMENT_RECORDED).exists())
+
     def test_no_driver_email_attempted_without_an_email_on_file(self):
         self.assertEqual(self.driver.email, '')
         mail.outbox = []
@@ -1115,6 +1140,46 @@ class DriverBookingNotificationTests(APITestCase):
 
         booking = Booking.objects.get(pk=booking_id)
         self.assertIsNotNone(booking.driver_acknowledged_at)
+
+    def test_creating_a_booking_notifies_admins_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.post('/api/bookings/', self._booking_payload(), format='json')
+        notification = Notification.objects.get(event=NotificationEvent.BOOKING_CREATED)
+        self.assertIn(self.vehicle.name, notification.message)
+        self.assertIn('Jane Doe', notification.message)
+        self.assertEqual(notification.link_path, '/admin/bookings')
+
+    def test_acknowledging_a_booking_notifies_admins_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        response = self.client.post('/api/bookings/', self._booking_payload(), format='json')
+        booking_id = response.json()['id']
+
+        driver_user = User.objects.create_user(username='driver-notif-login@example.com', password='pass12345!')
+        self.driver.user = driver_user
+        self.driver.save(update_fields=['user'])
+        self.client.force_authenticate(user=driver_user)
+
+        self.client.post(f'/api/driver/bookings/{booking_id}/acknowledge/')
+        notification = Notification.objects.get(event=NotificationEvent.DRIVER_ACKNOWLEDGED)
+        self.assertIn(self.driver.full_name, notification.message)
+        self.assertIn(str(booking_id), notification.message)
+
+    def test_acknowledging_an_already_acknowledged_booking_does_not_notify_twice(self):
+        from notifications.models import Notification, NotificationEvent
+
+        response = self.client.post('/api/bookings/', self._booking_payload(), format='json')
+        booking_id = response.json()['id']
+
+        driver_user = User.objects.create_user(username='driver-notif-login2@example.com', password='pass12345!')
+        self.driver.user = driver_user
+        self.driver.save(update_fields=['user'])
+        self.client.force_authenticate(user=driver_user)
+
+        self.client.post(f'/api/driver/bookings/{booking_id}/acknowledge/')
+        self.client.post(f'/api/driver/bookings/{booking_id}/acknowledge/')
+        self.assertEqual(Notification.objects.filter(event=NotificationEvent.DRIVER_ACKNOWLEDGED).count(), 1)
 
     def test_driver_cannot_acknowledge_another_drivers_booking(self):
         response = self.client.post('/api/bookings/', self._booking_payload(), format='json')

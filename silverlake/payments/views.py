@@ -104,6 +104,38 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         log_admin_action(request, 'payment.remind_deposit', payment)
         return Response(self.get_serializer(payment).data)
 
+    @action(detail=True, methods=['post'], url_path='resolve-dispute', permission_classes=[IsSupportStaff])
+    def resolve_dispute(self, request, pk=None):
+        """Clears a customer's dispute on a cash payment once staff have investigated and
+        reconciled it - requires a note describing how, the same attested-action pattern as
+        AdminDriverPayoutViewSet.verify, so clearing a dispute always leaves a trail of how it
+        was resolved. Deliberately doesn't touch the payout's own verification state - re-
+        verifying a payout is a separate, deliberate attestation with its own note (see
+        DriverPayout.verify), not something clearing a dispute should imply automatically."""
+        payment = self.get_object()
+        if not payment.is_disputed:
+            return Response({'detail': 'This payment is not currently disputed.'}, status=status.HTTP_400_BAD_REQUEST)
+        note = request.data.get('note', '').strip()
+        if not note:
+            return Response(
+                {'note': ['Describe how this dispute was resolved.']}, status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        payment.is_disputed = False
+        payment.dispute_resolution_note = note
+        payment.dispute_resolved_at = timezone.now()
+        payment.save(update_fields=['is_disputed', 'dispute_resolution_note', 'dispute_resolved_at'])
+        log_admin_action(request, 'payment.resolve_dispute', payment, detail=note)
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.DISPUTE_RESOLVED, f'Dispute resolved for booking #{payment.booking_id}',
+            organization=payment.booking.vehicle.owner, link_path='/admin/payments',
+        )
+        return Response(self.get_serializer(payment).data)
+
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
@@ -263,6 +295,14 @@ def token_dispute_payment(request, token, payment_id):
     from .emails import send_payment_disputed_staff_notification_email
 
     send_payment_disputed_staff_notification_email(payment)
+
+    from notifications.models import NotificationEvent
+    from notifications.services import notify
+
+    notify(
+        NotificationEvent.PAYMENT_DISPUTED, f'Payment disputed on booking #{booking.pk}',
+        organization=booking.vehicle.owner, link_path='/admin/payments',
+    )
 
     return Response({'detail': 'Dispute recorded. Our team will follow up with you.'})
 

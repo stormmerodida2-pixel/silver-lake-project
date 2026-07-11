@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import SilverLakeLogo from '../components/SilverLakeLogo.vue'
 import AnnouncementBanner from '../components/AnnouncementBanner.vue'
+import NotificationBell from '../components/NotificationBell.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -169,6 +170,7 @@ function handleLogout() {
         </div>
         <div class="hidden text-sm text-slate-400 md:block">{{ route.meta.pageTitle || 'Admin Panel' }}</div>
         <div class="flex items-center gap-3 text-sm text-slate-300">
+          <NotificationBell />
           <span
             v-if="auth.user?.organization_name"
             class="rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-xs font-semibold text-brand-blue-400"

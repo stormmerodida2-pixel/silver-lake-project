@@ -42,6 +42,14 @@ class DriverApplicationCreateView(generics.CreateAPIView):
         application = serializer.save()
         send_new_driver_application_notification(application)
 
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.DRIVER_APPLICATION, f'New driver application from {application.full_name}',
+            link_path='/admin/drivers',
+        )
+
 
 class DriverMeView(generics.RetrieveAPIView):
     """The logged-in driver's own portal profile: contact info, live vehicles, submissions."""
@@ -70,6 +78,11 @@ class DriverAwayView(generics.UpdateAPIView):
         driver.refresh_from_db()
         if driver.is_away and not was_away:
             send_driver_away_notification(driver)
+
+            from notifications.models import NotificationEvent
+            from notifications.services import notify
+
+            notify(NotificationEvent.DRIVER_AWAY, f'{driver.full_name} marked themselves away', link_path='/admin/drivers')
         return response.Response(DriverPortalSerializer(driver).data)
 
 
@@ -88,6 +101,14 @@ class DriverVehicleSubmissionViewSet(mixins.ListModelMixin, mixins.CreateModelMi
     def perform_create(self, serializer):
         submission = serializer.save(driver=self.request.user.driver_profile)
         send_new_vehicle_submission_notification(submission)
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.VEHICLE_SUBMISSION, f'{submission.driver.full_name} submitted a vehicle for review',
+            link_path='/admin/drivers',
+        )
 
 
 class DriverVehicleServiceRecordViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):

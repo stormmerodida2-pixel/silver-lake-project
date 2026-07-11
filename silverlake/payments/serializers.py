@@ -25,9 +25,13 @@ class PaymentSerializer(serializers.ModelSerializer):
             'id', 'booking', 'method', 'amount', 'status',
             'mpesa_receipt_number', 'phone_number', 'card_transaction_ref',
             'recorded_by_driver_name', 'note', 'is_disputed', 'disputed_at', 'dispute_note',
+            'dispute_resolution_note', 'dispute_resolved_at',
             'cash_deposit', 'last_reminded_at', 'created_at',
         ]
-        read_only_fields = ['status', 'mpesa_receipt_number', 'last_reminded_at', 'created_at']
+        read_only_fields = [
+            'status', 'mpesa_receipt_number', 'last_reminded_at', 'created_at',
+            'dispute_resolution_note', 'dispute_resolved_at',
+        ]
 
     def get_recorded_by_driver_name(self, obj):
         return obj.recorded_by_driver.full_name if obj.recorded_by_driver_id else None

@@ -399,6 +399,17 @@ A custom Vue dashboard at `/admin` (not Django's built-in admin) — everything 
 in one consistent UI. Bookings, Users, Fleet, Payments, and Drivers each have a debounced search
 box plus a couple of exact-match filter dropdowns, layered on top of org-scoping server-side:
 
+- **In-app notifications** — a bell in the header (polling every 30s for the unread count,
+  loading the actual list only when opened) covers driver acknowledgment, new bookings,
+  cancellations, cash payments recorded, disputes filed/resolved, drivers marking themselves
+  away, and new driver/vehicle submissions — the one notification channel that isn't email (see
+  `notifications` app; every event already emailing someone now also creates one of these
+  alongside it, plus two - driver acknowledgment and dispute resolution - that previously had
+  no notification of any kind). Org-scoped the same way as every other admin resource: an
+  org-scoped account only sees its own organization's events; platform-only events (new driver
+  applications, vehicle submissions, a driver going away) are invisible to org-scoped staff,
+  same as Fleet Partners or the Activity Log.
+
 - **Dashboard** — revenue collected, platform fees earned, payouts owed/paid, bookings by status,
   user/driver counts (including pending applications and drivers currently away), fleet counts,
   pending reviews, and **pending refunds**.
@@ -439,7 +450,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-411 automated backend tests currently cover booking validation, payment guards, payout timing and
+442 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -501,8 +512,15 @@ refund before the driver has acknowledged the trip, or for any self-drive bookin
 once the driver has acknowledged and a client cancels themselves; full refund again if staff flag
 driver_at_fault; a late-arriving payment tops the refund up by the same rule the cancellation
 itself used, not a freshly re-derived one; the driver_at_fault flag is silently ignored from a
-non-staff request, whether via the general cancel endpoint or the admin set-status endpoint), and
-(using real threads
+non-staff request, whether via the general cancel endpoint or the admin set-status endpoint), the
+in-app notification org-scoping (a platform account sees every notification, including
+platform-only ones; an org-scoped account only sees its own organization's, and can't mark
+another org's notification read; unread-count and mark-all-read are per-user, not global) and
+one integration test per event confirming it actually fires (driver acknowledgment, new booking
+- both online and driver-onsite -, cancellation, a confirmed cash payment - but not a confirmed
+card payment -, a filed dispute, and the new resolve-dispute action, which also requires a note
+the same way payout verification does, deliberately leaves the payout's own verification state
+untouched, and logs to the Activity Log), and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:

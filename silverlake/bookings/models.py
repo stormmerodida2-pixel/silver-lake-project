@@ -391,6 +391,14 @@ class Booking(models.Model):
 
         send_booking_cancelled_email(self)
 
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.BOOKING_CANCELLED, f'Booking #{self.pk} for {self.customer_name} was cancelled',
+            organization=self.vehicle.owner, link_path='/admin/bookings',
+        )
+
     def _send_confirmation_email(self):
         """Sends a booking confirmed email to the customer. Swallowed silently on failure
         so a misconfigured SMTP server never blocks a successful booking."""

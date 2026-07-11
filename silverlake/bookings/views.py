@@ -85,6 +85,15 @@ class BookingViewSet(
 
             send_driver_booking_notification(booking)
 
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.BOOKING_CREATED,
+            f'{booking.vehicle.name} booked by {booking.customer_name} for {booking.rental_days} day(s)',
+            organization=booking.vehicle.owner, link_path='/admin/bookings',
+        )
+
     def perform_update(self, serializer):
         # A customer can PATCH their own booking to (re)upload a corrected license/ID document -
         # capture what's being replaced before save() so the old file gets cleaned up, not just
@@ -183,6 +192,15 @@ class DriverOnsiteBookingCreateView(APIView):
             driver_acknowledged_at=timezone.now(),
         )
         booking.save()
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.BOOKING_CREATED,
+            f'{booking.vehicle.name} booked by {booking.customer_name} for {booking.rental_days} day(s)',
+            organization=booking.vehicle.owner, link_path='/admin/bookings',
+        )
 
         return Response(
             {
@@ -411,6 +429,15 @@ class DriverBookingAcknowledgeView(APIView):
         if not booking.driver_acknowledged_at:
             booking.driver_acknowledged_at = timezone.now()
             booking.save(update_fields=['driver_acknowledged_at'])
+
+            from notifications.models import NotificationEvent
+            from notifications.services import notify
+
+            notify(
+                NotificationEvent.DRIVER_ACKNOWLEDGED,
+                f'{driver.full_name} acknowledged booking #{booking.pk} for {booking.customer_name}',
+                organization=booking.vehicle.owner, link_path='/admin/bookings',
+            )
         return Response(BookingSerializer(booking).data)
 
 

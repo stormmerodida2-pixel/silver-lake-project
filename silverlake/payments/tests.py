@@ -297,6 +297,13 @@ class DisputeCashPaymentTests(APITestCase):
         self.assertEqual(len(disputed_emails), 1)
         self.assertIn(staff.email, disputed_emails[0].bcc)
 
+    def test_filing_a_dispute_notifies_admins_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.post(self._url(), {'note': 'I never paid this.'}, format='json')
+        notification = Notification.objects.get(event=NotificationEvent.PAYMENT_DISPUTED)
+        self.assertIn(str(self.booking.id), notification.message)
+
     def test_filing_a_dispute_relocks_an_already_verified_payout(self):
         self.payout.verify('Confirmed with customer (turned out to be wrong).')
         self.assertTrue(self.payout.is_verified)
@@ -333,6 +340,90 @@ class DisputeCashPaymentTests(APITestCase):
         other_booking = make_booking(other_customer, other_vehicle, status=BookingStatus.PENDING)
         response = self.client.get(f'/api/pay/{other_booking.customer_token}/payments/{self.cash_payment.id}/dispute/')
         self.assertEqual(response.status_code, 404)
+
+
+class ResolveDisputeTests(APITestCase):
+    """Staff clearing a customer's dispute once it's been investigated - the one action that
+    was previously entirely missing (is_disputed could only ever be set True, never cleared).
+    Requires a note, the same attested-action pattern as AdminDriverPayoutViewSet.verify."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='resolve-staff@example.com', password='pass12345!', is_staff=True)
+        self.plain_user = User.objects.create_user(username='resolve-plain@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(full_name='Resolve Driver', is_active=True)
+        vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='resolve-client@example.com', password='pass12345!')
+        self.booking = make_booking(customer, vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        self.payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH, amount=self.booking.total_amount,
+            status=PaymentStatus.SUCCESSFUL, recorded_by_driver=self.driver,
+            is_disputed=True, disputed_at=timezone.now(), dispute_note='I never paid this.',
+        )
+        self.booking.confirm_if_deposit_met()
+        self.payout = DriverPayout.objects.get(booking=self.booking)
+
+    def _url(self):
+        return f'/api/payments/{self.payment.id}/resolve-dispute/'
+
+    def test_staff_can_resolve_a_dispute_with_a_note(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(self._url(), {'note': 'Confirmed with customer - payment was received.'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.payment.refresh_from_db()
+        self.assertFalse(self.payment.is_disputed)
+        self.assertEqual(self.payment.dispute_resolution_note, 'Confirmed with customer - payment was received.')
+        self.assertIsNotNone(self.payment.dispute_resolved_at)
+        # The original complaint stays on record, separate from the resolution.
+        self.assertEqual(self.payment.dispute_note, 'I never paid this.')
+
+    def test_requires_a_note(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(self._url(), {}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.payment.refresh_from_db()
+        self.assertTrue(self.payment.is_disputed)
+
+    def test_cannot_resolve_a_payment_that_is_not_disputed(self):
+        self.payment.is_disputed = False
+        self.payment.save(update_fields=['is_disputed'])
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(self._url(), {'note': 'Nothing to resolve.'}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_does_not_touch_the_payouts_verification_state(self):
+        self.payout.verify('Confirmed before the dispute was filed.')
+        self.payout.needs_verification = True
+        self.payout.is_verified = False
+        self.payout.save(update_fields=['needs_verification', 'is_verified'])
+
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(self._url(), {'note': 'Resolved.'}, format='json')
+
+        self.payout.refresh_from_db()
+        self.assertFalse(self.payout.is_verified)  # left untouched - a separate attestation
+
+    def test_non_staff_cannot_resolve_a_dispute(self):
+        self.client.force_authenticate(user=self.plain_user)
+        response = self.client.post(self._url(), {'note': 'Trying anyway.'}, format='json')
+        self.assertEqual(response.status_code, 403)
+        self.payment.refresh_from_db()
+        self.assertTrue(self.payment.is_disputed)
+
+    def test_resolving_logs_an_audit_entry(self):
+        from core.models import AuditLog
+
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(self._url(), {'note': 'Resolved after investigation.'}, format='json')
+        entry = AuditLog.objects.get(action='payment.resolve_dispute')
+        self.assertEqual(entry.detail, 'Resolved after investigation.')
+
+    def test_resolving_notifies_admins_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(self._url(), {'note': 'Resolved.'}, format='json')
+        notification = Notification.objects.get(event=NotificationEvent.DISPUTE_RESOLVED)
+        self.assertIn(str(self.booking.id), notification.message)
 
 
 class ClientDeclareCashPaymentTests(APITestCase):

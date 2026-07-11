@@ -51,6 +51,12 @@ class Payment(models.Model):
     disputed_at = models.DateTimeField(null=True, blank=True)
     dispute_note = models.TextField(blank=True)
 
+    # Set when staff clear a dispute after investigating (see PaymentViewSet.resolve_dispute) -
+    # kept separate from dispute_note (the customer's own complaint) rather than overwriting it,
+    # so both sides of the story stay on record.
+    dispute_resolution_note = models.TextField(blank=True)
+    dispute_resolved_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

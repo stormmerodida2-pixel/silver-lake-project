@@ -153,6 +153,23 @@ class DriverPortalAccessTests(APITestCase):
         self.assertTrue(self.driver.is_away)
         self.assertEqual(self.driver.away_reason, 'On leave')
 
+    def test_marking_away_notifies_admins_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.force_authenticate(user=self.driver.user)
+        self.client.patch('/api/driver/away/', {'is_away': True, 'away_reason': 'On leave'}, format='json')
+        notification = Notification.objects.get(event=NotificationEvent.DRIVER_AWAY)
+        self.assertIn(self.driver.full_name, notification.message)
+        self.assertIsNone(notification.organization_id)  # platform-wide, matches current email behavior
+
+    def test_marking_away_again_while_already_away_does_not_notify_twice(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.force_authenticate(user=self.driver.user)
+        self.client.patch('/api/driver/away/', {'is_away': True, 'away_reason': 'On leave'}, format='json')
+        self.client.patch('/api/driver/away/', {'is_away': True, 'away_reason': 'Still on leave'}, format='json')
+        self.assertEqual(Notification.objects.filter(event=NotificationEvent.DRIVER_AWAY).count(), 1)
+
 
 class VehicleSubmissionTests(APITestCase):
     def setUp(self):
@@ -177,6 +194,14 @@ class VehicleSubmissionTests(APITestCase):
         submission = VehicleSubmission.objects.get()
         self.assertEqual(submission.status, 'pending')
         self.assertEqual(submission.photos.count(), 2)
+
+    def test_submitting_a_vehicle_notifies_admins_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.post('/api/driver/vehicle-submissions/', self._payload(), format='multipart')
+        notification = Notification.objects.get(event=NotificationEvent.VEHICLE_SUBMISSION)
+        self.assertIn(self.driver.full_name, notification.message)
+        self.assertIsNone(notification.organization_id)
 
     def test_approving_a_submission_creates_a_vehicle_linked_to_the_driver(self):
         self.client.post('/api/driver/vehicle-submissions/', self._payload(), format='multipart')
@@ -223,6 +248,30 @@ class VehicleSubmissionTests(APITestCase):
         mail.outbox = []
         submission.approve()
         self.assertEqual(len(mail.outbox), 0)
+
+
+class DriverApplicationCreateTests(APITestCase):
+    """The public 'become a driver' submission itself, separate from
+    DriverApplicationThrottleTests (which only covers the rate limit)."""
+
+    def _payload(self):
+        category, _ = VehicleCategory.objects.get_or_create(
+            slug='executive_suv_app', defaults={'name': 'Executive SUV App'},
+        )
+        return {
+            'full_name': 'New Applicant', 'email': 'new-applicant@example.com', 'phone_number': '254700000000',
+            'license_number': 'DL2', 'license_document': make_image('license.png'),
+            'vehicle_name': 'Toyota Noah', 'vehicle_category': category.slug,
+            'passenger_capacity': 7, 'price_per_day': 5000,
+        }
+
+    def test_submitting_an_application_notifies_admins_in_app(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.post('/api/drivers/apply/', self._payload(), format='multipart')
+        notification = Notification.objects.get(event=NotificationEvent.DRIVER_APPLICATION)
+        self.assertIn('New Applicant', notification.message)
+        self.assertIsNone(notification.organization_id)
 
 
 class DriverApplicationThrottleTests(APITestCase):
