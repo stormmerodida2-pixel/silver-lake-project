@@ -378,6 +378,35 @@ class AdminAuditLogTests(APITestCase):
         self.client.post(f'/api/admin/vehicle-submissions/{submission.id}/approve/')
         self.assertTrue(AuditLog.objects.filter(action='vehicle_submission.approve').exists())
 
+    def test_action_on_an_org_owned_vehicle_logs_that_organization(self):
+        organization = FleetPartner.objects.create(name='Audit Org', platform_fee_percent=Decimal('10'))
+        vehicle = make_vehicle(name='Audit Org Car', price_per_day=Decimal('1000'), owner=organization)
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.patch(f'/api/admin/fleet/{vehicle.id}/', {'price_per_day': '1200'}, format='json')
+
+        entry = AuditLog.objects.get(action='vehicle.update')
+        self.assertEqual(entry.organization_id, organization.id)
+
+    def test_action_with_no_derivable_organization_stays_platform_only(self):
+        driver = Driver.objects.create(full_name='No-Org Driver', is_active=True)
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(f'/api/admin/drivers/{driver.id}/suspend/', {'reason': 'test'})
+
+        entry = AuditLog.objects.get(action='driver.suspend')
+        self.assertIsNone(entry.organization)
+
+    def test_action_on_a_company_owned_vehicles_booking_logs_no_organization(self):
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='audit-no-org-client@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, status=BookingStatus.PENDING)
+        driver = Driver.objects.create(full_name='No-Org Booking Driver', is_active=True)
+
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.patch(f'/api/admin/bookings/{booking.id}/', {'driver': driver.id}, format='json')
+
+        entry = AuditLog.objects.get(action='booking.update')
+        self.assertIsNone(entry.organization)
+
 
 class CascadeDeleteProtectionTests(APITestCase):
     """Deleting a user/driver/vehicle must never silently take their bookings/payouts with
@@ -1114,10 +1143,29 @@ class OrganizationScopingTests(APITestCase):
         response = self.client.get('/api/admin/vehicle-submissions/')
         self.assertEqual(response.status_code, 403)
 
-    def test_org_admin_cannot_view_audit_log(self):
+    def test_org_admin_only_sees_their_own_orgs_audit_log_entries(self):
+        # Reassigning each booking's driver logs 'booking.update' with the organization
+        # inferred from booking.vehicle.owner (see core.audit._infer_organization).
+        self.client.force_authenticate(user=self.platform_super)
+        self.client.patch(f'/api/admin/bookings/{self.org_a_booking.id}/', {'driver': self.org_a_driver.id}, format='json')
+        self.client.patch(f'/api/admin/bookings/{self.org_b_booking.id}/', {'driver': self.org_a_driver.id}, format='json')
+
         self.client.force_authenticate(user=self.org_a_admin)
         response = self.client.get('/api/admin/audit-log/')
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+        entries = response.json().get('results', response.json())
+        self.assertTrue(entries)
+        self.assertTrue(all(entry['organization_name'] == 'Org A' for entry in entries))
+
+    def test_org_admin_cannot_see_platform_only_audit_log_entries(self):
+        driver = Driver.objects.create(full_name='Platform-Only Driver', is_active=True)
+        self.client.force_authenticate(user=self.platform_super)
+        self.client.post(f'/api/admin/drivers/{driver.id}/suspend/', {'reason': 'test'})
+
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/admin/audit-log/')
+        actions = [entry['action'] for entry in response.json().get('results', response.json())]
+        self.assertNotIn('driver.suspend', actions)
 
     def test_platform_superadmin_still_has_full_access_to_platform_only_resources(self):
         self.client.force_authenticate(user=self.platform_super)

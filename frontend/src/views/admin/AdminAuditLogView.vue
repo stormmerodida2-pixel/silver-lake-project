@@ -2,7 +2,9 @@
 import { onMounted } from 'vue'
 
 import { useAdminList } from '../../composables/useAdminList'
+import { useAuthStore } from '../../stores/auth'
 
+const auth = useAuthStore()
 const { items: entries, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/audit-log/')
 
 function formatDate(value) {
@@ -15,7 +17,11 @@ onMounted(load)
 <template>
   <div>
     <h1 class="font-[Georgia] text-2xl font-bold text-white">Activity Log</h1>
-    <p class="mt-1 text-sm text-slate-400">
+    <p v-if="auth.user?.organization_name" class="mt-1 text-sm text-slate-400">
+      Who did what within {{ auth.user.organization_name }}: role changes, suspensions,
+      verified/paid payouts, and issued refunds.
+    </p>
+    <p v-else class="mt-1 text-sm text-slate-400">
       Who did what: role changes, suspensions, verified/paid payouts, and issued refunds.
     </p>
 
@@ -31,6 +37,7 @@ onMounted(load)
               <th class="px-4 py-3">Admin</th>
               <th class="px-4 py-3">Action</th>
               <th class="px-4 py-3">Target</th>
+              <th v-if="!auth.user?.organization_name" class="px-4 py-3">Organization</th>
               <th class="px-4 py-3">Detail</th>
             </tr>
           </thead>
@@ -40,6 +47,7 @@ onMounted(load)
               <td class="px-4 py-3 text-white">{{ entry.actor_email || 'Unknown' }}</td>
               <td class="px-4 py-3 text-gold-400">{{ entry.action }}</td>
               <td class="px-4 py-3 text-slate-300">{{ entry.target_repr }}</td>
+              <td v-if="!auth.user?.organization_name" class="px-4 py-3 text-slate-400">{{ entry.organization_name || 'Platform' }}</td>
               <td class="px-4 py-3 text-slate-400">{{ entry.detail || '-' }}</td>
             </tr>
           </tbody>

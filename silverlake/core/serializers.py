@@ -158,13 +158,17 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
 
 class AdminAuditLogSerializer(serializers.ModelSerializer):
     actor_email = serializers.SerializerMethodField()
+    organization_name = serializers.SerializerMethodField()
 
     class Meta:
         model = AuditLog
-        fields = ['id', 'actor_email', 'action', 'target_repr', 'detail', 'created_at']
+        fields = ['id', 'actor_email', 'action', 'target_repr', 'detail', 'organization_name', 'created_at']
 
     def get_actor_email(self, obj):
         return obj.actor.email if obj.actor_id else None
+
+    def get_organization_name(self, obj):
+        return obj.organization.name if obj.organization_id else None
 
 
 class AdminRefundSerializer(serializers.ModelSerializer):

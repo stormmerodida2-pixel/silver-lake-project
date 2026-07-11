@@ -618,14 +618,22 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
 
 class AdminAuditLogViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """Read-only trail of who performed sensitive admin actions (role changes, suspensions,
-    payouts, refunds). Viewing is not itself destructive, so any staff account can see it."""
+    payouts, refunds). Viewing is not itself destructive, so any staff account can see it - an
+    org-scoped account only sees entries that resolved to their own organization (see
+    core.audit._infer_organization); a genuine SilverLake staff/superadmin sees everything,
+    including entries with no derivable organization at all (driver suspensions, announcements,
+    fleet-type/taxonomy changes, driver applications - none of these belong to any one
+    partner's fleet)."""
 
-    queryset = AuditLog.objects.all().select_related('actor')
+    queryset = AuditLog.objects.all().select_related('actor', 'organization')
     serializer_class = AdminAuditLogSerializer
-    # Entries don't record which organization an action belonged to, so there's no way to scope
-    # this to just a partner's own actions yet - platform-only for now rather than showing a
-    # FleetPartner's org staff every other org's (and SilverLake's own) admin activity.
-    permission_classes = [IsPlatformStaff]
+    permission_classes = [IsSupportStaff]
+
+    def get_queryset(self):
+        organization = get_user_organization(self.request.user)
+        if organization is None:
+            return self.queryset
+        return self.queryset.filter(organization=organization)
 
 
 class AdminRefundViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):

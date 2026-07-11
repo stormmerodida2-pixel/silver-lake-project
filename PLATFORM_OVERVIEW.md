@@ -451,7 +451,13 @@ box plus a couple of exact-match filter dropdowns, layered on top of org-scoping
 - **Payouts** — the driver payout ledger; verify and mark paid.
 - **Refunds** — the refund ledger; mark issued.
 - **Payments** — the raw payment log.
-- **Activity Log** — who performed which sensitive action, and when.
+- **Activity Log** — who performed which sensitive action, and when. Org-scoped like every
+  other admin resource: an Org Admin/Staff sees only entries whose target resolves to their own
+  organization (a booking, payment, payout, or refund tied to one of their own vehicles) - a
+  genuine SilverLake staff/superadmin sees everything, including entries with no derivable
+  organization at all (driver suspensions, announcements, fleet-type/taxonomy changes, driver
+  applications - none of these belong to any one partner's fleet, so they stay platform-only,
+  same visibility they always had).
 - **Announcements** — superadmins broadcast to staff, drivers, or clients directly; support staff
   can propose a client-facing announcement that stays pending until a superadmin approves or
   rejects it (see §9).
@@ -467,7 +473,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-486 automated backend tests currently cover booking validation, payment guards, payout timing and
+490 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -542,7 +548,12 @@ itself used, not a freshly re-derived one; the driver_at_fault flag is silently 
 non-staff request, whether via the general cancel endpoint or the admin set-status endpoint), the
 in-app notification org-scoping (a platform account sees every notification, including
 platform-only ones; an org-scoped account only sees its own organization's, and can't mark
-another org's notification read; unread-count and mark-all-read are per-user, not global) and
+another org's notification read; unread-count and mark-all-read are per-user, not global), the
+Activity Log's own org-scoping (an org-admin sees only entries whose target resolves to their
+own organization - e.g. reassigning a booking's driver logs the organization derived from
+`booking.vehicle.owner` - and never a platform-only entry like a driver suspension or an
+announcement; a genuine SilverLake staff/superadmin still sees every entry regardless of
+organization) and
 one integration test per event confirming it actually fires (driver acknowledgment, new booking
 - both online and driver-onsite -, cancellation, a confirmed cash payment - but not a confirmed
 card payment -, a filed dispute, and the new resolve-dispute action, which also requires a note
@@ -582,12 +593,13 @@ Not broken, but worth a conscious decision before going fully live:
   tracked record of what's owed.
 - **Multi-tenancy is built for the core admin surface, not exhaustively everywhere.** An Org
   Admin/Org Staff account (see §2) is correctly scoped for fleet, bookings, payments, payouts,
-  refunds, reviews, drivers, and their own staff. Not scoped: the Activity Log (entries don't
-  record which organization an action belonged to, so it's SilverLake-only for now rather than
-  showing a partner every other org's admin activity) and the public-facing site (deliberately —
-  customers browse one shared fleet across every organization; see §3). Reviews scope via a
-  booking's vehicle, so older free-form testimonials with no booking attached never show up in an
-  org's own queue.
+  refunds, reviews, drivers, their own staff, and the Activity Log (an org's own actions only,
+  inferred per entry from whatever got logged - see §10/§12; a handful of action types have no
+  derivable owning organization at all - driver suspensions, announcements, fleet-type/taxonomy
+  changes, driver applications - and stay SilverLake-only, the same visibility they always had).
+  Not scoped: the public-facing site (deliberately — customers browse one shared fleet across
+  every organization; see §3). Reviews scope via a booking's vehicle, so older free-form
+  testimonials with no booking attached never show up in an org's own queue.
 - **A `FleetPartner`'s own Paybill/Daraja credentials are captured but deliberately unused** —
   confirmed with the user (2026-07-10) that this stays this way: every client payment routes
   through SilverLake's single Paybill regardless of vehicle ownership, precisely so the platform

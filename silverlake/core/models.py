@@ -30,6 +30,18 @@ class AuditLog(models.Model):
     action = models.CharField(max_length=100)
     target_repr = models.CharField(max_length=255, blank=True)
     detail = models.TextField(blank=True)
+    # Best-effort owning FleetPartner, inferred from the target at write time (see
+    # core.audit._infer_organization) - there's no single FK on the target itself in every case
+    # (a Booking/Payment/Refund/DriverPayout each reach it their own way), so this is computed
+    # once and stored rather than re-derived on every read. Null means either a genuine
+    # platform-only action (driver suspension, an announcement, fleet-type taxonomy) or one
+    # whose target has no derivable owning organization - same visibility every entry had
+    # before this field existed, i.e. visible only to a real SilverLake staff/superadmin, never
+    # to any org-scoped account. SET_NULL, not PROTECT, to match `actor` above: deleting a
+    # FleetPartner should never be blocked by its own historical audit trail.
+    organization = models.ForeignKey(
+        'fleet.FleetPartner', null=True, blank=True, on_delete=models.SET_NULL, related_name='audit_log_entries',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
