@@ -415,7 +415,12 @@ box plus a couple of exact-match filter dropdowns, layered on top of org-scoping
   dashboard's feed or another driver's. A logged-in **customer** gets a third, independently
   scoped bell in the public site's own nav bar - their booking confirmed/cancelled, a cash/card
   payment recorded, their trip completed (review invite), and a refund issued - scoped to their
-  own account only, via `/api/notifications/`.
+  own account only, via `/api/notifications/`. Every one of these events is system-generated
+  except one: a genuine platform superadmin can send a one-off manual message straight to a
+  specific organization's own admin(s) - a "Notify" button on Admin → Fleet Partners opens a
+  small compose modal (see `AdminFleetPartnerViewSet.notify`) - platform-superadmin-only, since
+  it's a direct line to one specific partner, not something a partner's own org-admin can send
+  to themselves or to another organization.
 
 - **Dashboard** — revenue collected, platform fees earned, payouts owed/paid, bookings by status,
   user/driver counts (including pending applications and drivers currently away), fleet counts,
@@ -457,7 +462,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-465 automated backend tests currently cover booking validation, payment guards, payout timing and
+470 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -533,7 +538,10 @@ each of the 6 driver-facing events - being booked, a cancelled trip, payment/cas
 reminders, a payout paid, a vehicle submission approved/rejected - actually fires one), the same
 scoping guarantee for a customer's own feed (never another customer's, never staff's or a
 driver's) across its 5 events (booking confirmed, cancelled, a payment recorded for either cash
-or card, a trip completed, a refund issued), and (using real threads
+or card, a trip completed, a refund issued), the manual per-organization notify action (reaches
+only that organization's own admin, requires a message, logs to the Activity Log, and is rejected
+for anyone who isn't a genuine platform superadmin - including that same organization's own
+admin), and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:

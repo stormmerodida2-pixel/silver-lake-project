@@ -96,6 +96,42 @@ async function deletePartner(partner) {
   }
 }
 
+// ── Notify modal ─────────────────────────────────────────────────────────────
+const showNotifyModal = ref(false)
+const notifyingPartner = ref(null)
+const notifyMessage = ref('')
+const notifySending = ref(false)
+const notifyError = ref('')
+const notifySent = ref(false)
+
+function openNotifyModal(partner) {
+  notifyingPartner.value = partner
+  notifyMessage.value = ''
+  notifyError.value = ''
+  notifySent.value = false
+  showNotifyModal.value = true
+}
+
+async function sendNotify() {
+  notifyError.value = ''
+  if (!notifyMessage.value.trim()) {
+    notifyError.value = 'A message is required.'
+    return
+  }
+  notifySending.value = true
+  try {
+    await apiClient.post(`/admin/fleet-partners/${notifyingPartner.value.id}/notify/`, { message: notifyMessage.value.trim() })
+    notifySent.value = true
+  } catch (err) {
+    const detail = err?.response?.data
+    notifyError.value = typeof detail === 'object'
+      ? Object.values(detail).flat().join(' ')
+      : 'Could not send this notification. Please try again.'
+  } finally {
+    notifySending.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -151,6 +187,12 @@ onMounted(load)
               </span>
             </td>
             <td class="space-x-2 whitespace-nowrap px-4 py-3">
+              <button
+                class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400"
+                @click="openNotifyModal(partner)"
+              >
+                Notify
+              </button>
               <button
                 :disabled="busyId === partner.id"
                 class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
@@ -260,6 +302,62 @@ onMounted(load)
                   class="rounded-lg bg-gold-500 px-5 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
                 >
                   {{ submitLabel() }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Notify Modal -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="showNotifyModal"
+          class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
+          @click.self="showNotifyModal = false"
+        >
+          <div class="w-full max-w-lg rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+            <div class="mb-6 flex items-center justify-between">
+              <h2 class="font-[Georgia] text-xl font-bold text-white">Notify {{ notifyingPartner?.name }}</h2>
+              <button class="text-slate-400 transition-colors hover:text-white" @click="showNotifyModal = false">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div v-if="notifySent" class="rounded-lg bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
+              Sent - it's now in {{ notifyingPartner?.name }}'s own admin notification bell.
+            </div>
+            <form v-else class="space-y-4" @submit.prevent="sendNotify">
+              <p class="text-sm text-slate-400">
+                Sends an in-app notification straight to {{ notifyingPartner?.name }}'s own admin(s) -
+                not an email, and not visible to any other organization.
+              </p>
+              <p v-if="notifyError" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ notifyError }}</p>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Message *</label>
+                <textarea
+                  v-model="notifyMessage" rows="4" required placeholder="e.g. Please update your fleet photos this week."
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                />
+              </div>
+              <div class="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  class="rounded-lg border border-navy-700 px-4 py-2 text-sm font-medium text-slate-300 hover:text-white"
+                  @click="showNotifyModal = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  :disabled="notifySending"
+                  class="rounded-lg bg-gold-500 px-5 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
+                >
+                  {{ notifySending ? 'Sending…' : 'Send' }}
                 </button>
               </div>
             </form>

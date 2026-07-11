@@ -697,6 +697,25 @@ class AdminFleetPartnerViewSet(viewsets.ModelViewSet):
         log_admin_action(request, 'fleet_partner.invite_admin', partner)
         return Response(AdminFleetPartnerSerializer(partner).data)
 
+    @action(detail=True, methods=['post'])
+    def notify(self, request, pk=None):
+        """Lets a genuine SilverLake superadmin send a one-off in-app message straight to this
+        organization's own admin(s) - the manual counterpart to every other automatic event in
+        the notifications app. Platform-superadmin-only (see this ViewSet's own
+        permission_classes) since it's a direct line to one specific partner, not a broadcast a
+        partner's own org-admin could send to themselves."""
+        partner = self.get_object()
+        message = request.data.get('message', '').strip()
+        if not message:
+            return Response({'message': ['A message is required.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(NotificationEvent.ADMIN_MESSAGE, message, organization=partner, link_path='/admin')
+        log_admin_action(request, 'fleet_partner.notify', partner, detail=message)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def destroy(self, request, *args, **kwargs):
         return _delete_or_block(
             request, self.get_object(), 'fleet_partner.delete',

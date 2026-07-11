@@ -13,6 +13,10 @@ class NotificationEvent(models.TextChoices):
     DRIVER_AWAY = 'driver_away', 'Driver Marked Away'
     VEHICLE_SUBMISSION = 'vehicle_submission', 'New Vehicle Submission'
     DRIVER_APPLICATION = 'driver_application', 'New Driver Application'
+    # A superadmin manually messaging a specific organization's own admins directly - the only
+    # event here that isn't system-generated (see AdminFleetPartnerViewSet.notify) - everything
+    # else in this file fires automatically off some other action.
+    ADMIN_MESSAGE = 'admin_message', 'Message from SilverLake'
     # Driver-facing (see DriverNotificationViewSet) - BOOKING_CANCELLED above is reused for
     # these too, since a cancelled trip is relevant to both audiences at once.
     DRIVER_BOOKED = 'driver_booked', 'You Were Booked'

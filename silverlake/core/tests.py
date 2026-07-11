@@ -1188,6 +1188,48 @@ class OrganizationScopingTests(APITestCase):
         response = self.client.post(f'/api/admin/fleet-partners/{self.org_a.id}/invite-admin/')
         self.assertEqual(response.status_code, 403)
 
+    def test_platform_superadmin_can_notify_a_specific_organization(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post(
+            f'/api/admin/fleet-partners/{self.org_a.id}/notify/', {'message': 'Please update your fleet photos.'},
+        )
+        self.assertEqual(response.status_code, 204)
+        notification = Notification.objects.get(event=NotificationEvent.ADMIN_MESSAGE)
+        self.assertEqual(notification.organization_id, self.org_a.id)
+        self.assertEqual(notification.message, 'Please update your fleet photos.')
+
+    def test_notifying_a_partner_only_reaches_that_orgs_own_admin(self):
+        self.client.force_authenticate(user=self.platform_super)
+        self.client.post(f'/api/admin/fleet-partners/{self.org_a.id}/notify/', {'message': 'For org A only.'})
+
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.get('/api/admin/notifications/')
+        messages = [n['message'] for n in response.json()['results']]
+        self.assertIn('For org A only.', messages)
+
+        self.client.force_authenticate(user=self.org_b_admin)
+        response = self.client.get('/api/admin/notifications/')
+        messages = [n['message'] for n in response.json()['results']]
+        self.assertNotIn('For org A only.', messages)
+
+    def test_notify_requires_a_message(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post(f'/api/admin/fleet-partners/{self.org_a.id}/notify/', {})
+        self.assertEqual(response.status_code, 400)
+
+    def test_org_admin_cannot_notify_another_organization(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.post(f'/api/admin/fleet-partners/{self.org_b.id}/notify/', {'message': 'Trying anyway.'})
+        self.assertEqual(response.status_code, 403)
+
+    def test_notifying_logs_an_audit_entry(self):
+        self.client.force_authenticate(user=self.platform_super)
+        self.client.post(f'/api/admin/fleet-partners/{self.org_a.id}/notify/', {'message': 'Logged message.'})
+        entry = AuditLog.objects.get(action='fleet_partner.notify')
+        self.assertEqual(entry.detail, 'Logged message.')
+
 
 class AdminSearchAndFilterTests(APITestCase):
     """Every admin list view got a search box and a couple of filter dropdowns - a blank

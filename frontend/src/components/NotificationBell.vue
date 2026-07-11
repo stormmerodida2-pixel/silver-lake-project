@@ -30,6 +30,7 @@ const EVENT_LABELS = {
   driver_away: 'Driver Away',
   vehicle_submission: 'Vehicle Submission',
   driver_application: 'Driver Application',
+  admin_message: 'Message from SilverLake',
   // Driver portal
   driver_booked: 'New Booking',
   payment_reminder: 'Payment Reminder',
@@ -37,6 +38,11 @@ const EVENT_LABELS = {
   payout_paid: 'Payout Paid',
   vehicle_submission_approved: 'Vehicle Approved',
   vehicle_submission_rejected: 'Vehicle Rejected',
+  // Client account
+  booking_confirmed: 'Booking Confirmed',
+  trip_completed: 'Trip Completed',
+  payment_recorded: 'Payment Recorded',
+  refund_issued: 'Refund Issued',
 }
 
 function eventLabel(event) {
