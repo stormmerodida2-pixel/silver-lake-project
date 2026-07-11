@@ -91,6 +91,7 @@ async function submit() {
     form.first_name = data.first_name
     form.last_name = data.last_name
     form.phone_number = data.phone_number
+    await auth.refreshProfile()  // keeps the NavBar's cached name (and localStorage) in sync too
     await Swal.fire({
       icon: 'success',
       title: 'Profile updated!',
