@@ -2,10 +2,10 @@
 venv/
 __pycache__/
 *.pyc
-silverlake/db.sqlite3
-silverlake/media/
-silverlake/.env
-silverlake/sent_emails/
+db.sqlite3
+media/
+.env
+sent_emails/
 staticfiles/
 
 # Node / Vue

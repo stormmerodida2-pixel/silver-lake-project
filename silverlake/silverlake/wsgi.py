@@ -11,6 +11,9 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'silverlake.settings')
+# A real deployment's process manager (gunicorn/uwsgi) should set DJANGO_SETTINGS_MODULE
+# itself - this is only the fallback if it doesn't, so it defaults to the safe (hardened) option
+# rather than local dev settings.
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings.production')
 
 application = get_wsgi_application()

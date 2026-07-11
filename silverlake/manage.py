@@ -6,7 +6,9 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'silverlake.settings')
+    # Only a fallback for when --settings isn't passed at all - pass --settings=settings.local
+    # (or .development/.production) explicitly rather than relying on this.
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings.local')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

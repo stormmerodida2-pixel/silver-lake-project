@@ -11,6 +11,9 @@ import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'silverlake.settings')
+# A real deployment's process manager (gunicorn/uvicorn) should set DJANGO_SETTINGS_MODULE
+# itself - this is only the fallback if it doesn't, so it defaults to the safe (hardened) option
+# rather than local dev settings.
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings.production')
 
 application = get_asgi_application()
