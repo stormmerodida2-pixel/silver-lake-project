@@ -15,9 +15,25 @@ const statusOptions = ['pending', 'confirmed', 'ongoing', 'completed', 'cancelle
 
 async function changeStatus(booking, newStatus) {
   if (newStatus === booking.status) return
+
+  // Cancelling a booking the driver already acknowledged normally only refunds half of what's
+  // been paid - unless the driver was actually the reason it's being cancelled (went
+  // unavailable, or delayed without telling anyone), in which case it should be a full refund.
+  let driverAtFault = false
+  if (newStatus === 'cancelled' && booking.driver_acknowledged_at) {
+    driverAtFault = confirm(
+      "The driver already acknowledged this trip, so cancelling it normally only refunds half of what's been paid. " +
+      "Was this the driver's fault (went unavailable, or delayed without telling anyone)? " +
+      'Click OK to flag it and refund the customer in full, or Cancel to proceed with the standard 50% refund.',
+    )
+  }
+
   busyId.value = booking.id
   try {
-    const { data } = await apiClient.post(`/admin/bookings/${booking.id}/set-status/`, { status: newStatus })
+    const { data } = await apiClient.post(`/admin/bookings/${booking.id}/set-status/`, {
+      status: newStatus,
+      ...(newStatus === 'cancelled' ? { driver_at_fault: driverAtFault } : {}),
+    })
     Object.assign(booking, data)
   } catch (err) {
     error.value = err.response?.data?.detail || 'Could not update booking status.'

@@ -177,10 +177,20 @@ business-model pitch for the economics).
     ended but is unpaid) are flagged **Needs Attention** on the admin Bookings page and dashboard
     — a nudge, never auto-resolved.
 - Once completed, the customer can leave a **review** of the driver/trip (one per booking).
-- A customer (or staff) can **cancel** a booking any time before it's completed. As of today,
-  cancelling a booking that already had money paid against it automatically creates a **Refund**
-  record for admin to action (see §7) — it no longer just disappears with no record of money
-  owed back.
+- A customer (or staff) can **cancel** a booking any time before it's completed. Cancelling a
+  booking that already had money paid against it automatically creates a **Refund** record for
+  admin to action (see §7) — it no longer just disappears with no record of money owed back.
+  - **Refund percentage depends on how far the trip had gotten.** Before the assigned driver has
+    acknowledged the booking on their dashboard (`driver_acknowledged_at`) — or for any self-drive
+    booking, which has no driver-acknowledgment concept at all — cancelling refunds everything
+    paid. Once the driver has acknowledged and committed to the trip, a client cancelling
+    themselves only gets half back. Staff can override this when cancelling on a customer's
+    behalf by flagging `driver_at_fault` (e.g. the driver went unavailable, or delayed without
+    telling anyone) — through no fault of the client's, so it's still a full refund regardless of
+    acknowledgment. This flag is staff-only; a client cancelling their own booking has no way to
+    know why their driver went quiet, so it's silently ignored if a non-staff request sends it.
+    The rule actually used is remembered on the booking (`cancellation_full_refund`) so a
+    late-arriving payment tops the refund up by the same rule, not a freshly re-derived one.
 
 ## 6. Payments
 
@@ -429,7 +439,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-403 automated backend tests currently cover booking validation, payment guards, payout timing and
+411 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -486,7 +496,13 @@ paying another way - cash/card stay reserved no matter how old, since a driver c
 take a while to confirm one) and its companion `expire_stale_mpesa_payments` management command
 (no Safaricom Transaction Status Query integration exists to actually ask Safaricom, so this
 infers abandonment from elapsed time instead - meant to run periodically via an external
-scheduler this project doesn't set up itself), and (using real threads
+scheduler this project doesn't set up itself), the cancellation refund-percentage rule (full
+refund before the driver has acknowledged the trip, or for any self-drive booking; half refund
+once the driver has acknowledged and a client cancels themselves; full refund again if staff flag
+driver_at_fault; a late-arriving payment tops the refund up by the same rule the cancellation
+itself used, not a freshly re-derived one; the driver_at_fault flag is silently ignored from a
+non-staff request, whether via the general cancel endpoint or the admin set-status endpoint), and
+(using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:

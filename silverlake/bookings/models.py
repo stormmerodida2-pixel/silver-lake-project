@@ -103,6 +103,14 @@ class Booking(models.Model):
     # yet, whether or not anything has been declared.
     last_balance_reminder_at = models.DateTimeField(null=True, blank=True)
 
+    # Set once (at mark_cancelled time) to whichever refund rule actually applied to this
+    # specific cancellation - never re-derived afterwards, since a staff driver-fault override
+    # can't be reconstructed later from driver_acknowledged_at alone. Needed so a late-arriving
+    # payment (see _reconcile_refund_after_late_payment) bumps the refund by the same rule the
+    # cancellation itself used, not a freshly re-computed one. None (treated as full refund) for
+    # any booking cancelled before this field existed.
+    cancellation_full_refund = models.BooleanField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -323,6 +331,15 @@ class Booking(models.Model):
         self._ensure_driver_payout()
         self._complete_if_ended_and_paid()
 
+    def _owed_refund_amount(self):
+        """The refund rule this specific cancellation used (see cancellation_full_refund) applied
+        to whatever's actually been paid right now - shared by mark_cancelled (setting the
+        refund for the first time) and _reconcile_refund_after_late_payment (a payment landing
+        after cancellation has to be topped up by the same rule, not a freshly re-derived one)."""
+        if self.cancellation_full_refund is False:
+            return (self.amount_paid / Decimal('2')).quantize(Decimal('0.01'))
+        return self.amount_paid
+
     def _reconcile_refund_after_late_payment(self):
         """A payment landing on an already-cancelled booking still needs to be accounted for -
         either bumps an existing pending Refund up to the real amount owed, or creates one if
@@ -332,27 +349,40 @@ class Booking(models.Model):
             return
         from payments.models import Refund, RefundStatus
 
-        refund, created = Refund.objects.get_or_create(booking=self, defaults={'amount': self.amount_paid})
-        if not created and refund.status == RefundStatus.PENDING and refund.amount != self.amount_paid:
-            refund.amount = self.amount_paid
+        owed = self._owed_refund_amount()
+        refund, created = Refund.objects.get_or_create(booking=self, defaults={'amount': owed})
+        if not created and refund.status == RefundStatus.PENDING and refund.amount != owed:
+            refund.amount = owed
             refund.save(update_fields=['amount'])
 
-    def mark_cancelled(self):
+    def mark_cancelled(self, driver_at_fault=False):
         """Cancels the booking. If money had already been collected against it, this is the
         only place that flags it for a manual refund - there's no automated M-Pesa refund API
         wired up, so admin sends it back by hand and marks the Refund record issued once done.
+
+        Refunds the full amount paid if the driver hadn't actually committed to the trip yet (no
+        driver_acknowledged_at) or if staff attest the driver was at fault - went unavailable, or
+        delayed without notice, through no fault of the client's (driver_at_fault=True; only
+        staff should ever pass this, since a client cancelling themselves has no way to know why
+        their driver went quiet). Otherwise - the client cancelling after the driver had already
+        acknowledged and committed - only half the amount paid is refunded, since the driver's
+        own time was already spent. Self-drive bookings have no driver-acknowledgment concept, so
+        they always get a full refund.
+
         Also voids any driver payout that hadn't been paid out yet, since a cancelled trip
         shouldn't still owe the driver their cut."""
         if self.status in (BookingStatus.CANCELLED, BookingStatus.COMPLETED):
             raise ValidationError(f'Booking is already {self.get_status_display().lower()}.')
 
+        full_refund = driver_at_fault or not self.driver_acknowledged_at
         self.status = BookingStatus.CANCELLED
-        self.save(update_fields=['status'])
+        self.cancellation_full_refund = full_refund
+        self.save(update_fields=['status', 'cancellation_full_refund'])
 
         if self.amount_paid > 0:
             from payments.models import Refund
 
-            Refund.objects.get_or_create(booking=self, defaults={'amount': self.amount_paid})
+            Refund.objects.get_or_create(booking=self, defaults={'amount': self._owed_refund_amount()})
 
         if hasattr(self, 'driver_payout') and not self.driver_payout.is_paid:
             self.driver_payout.void()

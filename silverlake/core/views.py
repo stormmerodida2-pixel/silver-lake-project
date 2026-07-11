@@ -492,8 +492,13 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         from django.core.exceptions import ValidationError as DjangoValidationError
 
         if new_status == BookingStatus.CANCELLED:
+            # Staff can flag driver_at_fault - the driver went unavailable or delayed without
+            # notice - to force a full refund even if the driver had already acknowledged the
+            # trip (see Booking.mark_cancelled). Always staff-initiated here, so no extra
+            # permission check is needed the way the customer-facing cancel action needs one.
+            driver_at_fault = bool(request.data.get('driver_at_fault'))
             try:
-                booking.mark_cancelled()
+                booking.mark_cancelled(driver_at_fault=driver_at_fault)
             except DjangoValidationError as exc:
                 return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
             return Response(BookingSerializer(booking).data)

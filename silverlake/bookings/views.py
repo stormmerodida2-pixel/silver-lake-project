@@ -95,10 +95,16 @@ class BookingViewSet(
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
-        """Lets a customer cancel their own booking (or staff, any booking)."""
+        """Lets a customer cancel their own booking (or staff, any booking). Staff can also flag
+        driver_at_fault - the driver went unavailable or delayed without notice, through no
+        fault of the client's - which forces a full refund even if the driver had already
+        acknowledged the trip (see Booking.mark_cancelled for the refund-percentage rule). Not
+        self-service: a client cancelling their own booking has no way to know why their driver
+        went quiet, so this flag is silently ignored for anyone who isn't staff."""
         booking = self.get_object()
+        driver_at_fault = bool(request.data.get('driver_at_fault')) and request.user.is_staff
         try:
-            booking.mark_cancelled()
+            booking.mark_cancelled(driver_at_fault=driver_at_fault)
         except ValidationError as exc:
             return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
         return Response(BookingSerializer(booking).data)

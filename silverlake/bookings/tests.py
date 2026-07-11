@@ -11,6 +11,7 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test import TestCase, TransactionTestCase
+from django.utils import timezone
 from rest_framework.test import APIClient, APITestCase
 from rest_framework.throttling import ScopedRateThrottle
 
@@ -403,6 +404,121 @@ class BookingCancelActionTests(APITestCase):
         mail.outbox = []
         self.client.post(f'/api/bookings/{booking.id}/cancel/')
         self.assertEqual(len(mail.outbox), 0)
+
+
+class CancellationRefundPercentageTests(APITestCase):
+    """A client cancelling before the driver has actually committed to the trip (or a self-drive
+    booking, which has no driver-commitment concept at all) gets everything back. Once the
+    driver has acknowledged the booking, a client cancelling themselves only gets half back -
+    unless staff attest the driver was actually at fault (went unavailable, or delayed without
+    telling anyone), in which case it's still a full refund regardless of acknowledgment."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(full_name='Refund Policy Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='refund-policy-client@example.com', password='pass12345!')
+
+    def _paid_booking(self, **kwargs):
+        booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING, **kwargs)
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        return booking
+
+    def test_client_cancelling_before_driver_acknowledgment_gets_a_full_refund(self):
+        booking = self._paid_booking()
+        self.assertIsNone(booking.driver_acknowledged_at)
+        booking.mark_cancelled()
+        refund = Refund.objects.get(booking=booking)
+        self.assertEqual(refund.amount, booking.total_amount)
+
+    def test_client_cancelling_after_driver_acknowledgment_gets_half_refunded(self):
+        booking = self._paid_booking()
+        booking.driver_acknowledged_at = timezone.now()
+        booking.save(update_fields=['driver_acknowledged_at'])
+
+        booking.mark_cancelled()
+        refund = Refund.objects.get(booking=booking)
+        self.assertEqual(refund.amount, (booking.total_amount / 2).quantize(Decimal('0.01')))
+
+    def test_staff_flagging_driver_at_fault_forces_a_full_refund_even_after_acknowledgment(self):
+        booking = self._paid_booking()
+        booking.driver_acknowledged_at = timezone.now()
+        booking.save(update_fields=['driver_acknowledged_at'])
+
+        booking.mark_cancelled(driver_at_fault=True)
+        refund = Refund.objects.get(booking=booking)
+        self.assertEqual(refund.amount, booking.total_amount)
+
+    def test_self_drive_booking_always_gets_a_full_refund(self):
+        self_drive_vehicle = make_vehicle(name='Refund Policy Self Drive Car', price_per_day=Decimal('1000'))
+        booking = make_booking(
+            self.customer, self_drive_vehicle, status=BookingStatus.PENDING, service_type=ServiceType.SELF_DRIVE,
+            customer_license_document=SimpleUploadedFile('license.pdf', b'x', content_type='application/pdf'),
+            customer_id_document=SimpleUploadedFile('id.pdf', b'x', content_type='application/pdf'),
+        )
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.mark_cancelled()
+        refund = Refund.objects.get(booking=booking)
+        self.assertEqual(refund.amount, booking.total_amount)
+
+    def test_a_late_payment_after_a_half_refund_cancellation_only_tops_up_to_half(self):
+        booking = self._paid_booking()  # KES 7000 paid so far, out of a 7000 total
+        booking.driver_acknowledged_at = timezone.now()
+        booking.save(update_fields=['driver_acknowledged_at'])
+        booking.mark_cancelled()
+        refund = Refund.objects.get(booking=booking)
+        self.assertEqual(refund.amount, Decimal('3500.00'))
+
+        # A second, already-in-flight payment lands after cancellation (simulating a delayed
+        # STK push) - the refund should only top up to half of the new total paid, not all of it.
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA, amount=Decimal('1000'), status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.confirm_if_deposit_met()
+
+        refund.refresh_from_db()
+        self.assertEqual(refund.amount, Decimal('4000.00'))  # half of 8000
+
+    def test_customer_cannot_self_flag_driver_at_fault(self):
+        booking = self._paid_booking()
+        booking.driver_acknowledged_at = timezone.now()
+        booking.save(update_fields=['driver_acknowledged_at'])
+
+        self.client.force_authenticate(user=self.customer)
+        response = self.client.post(f'/api/bookings/{booking.id}/cancel/', {'driver_at_fault': True}, format='json')
+        self.assertEqual(response.status_code, 200)
+        refund = Refund.objects.get(booking=booking)
+        self.assertEqual(refund.amount, (booking.total_amount / 2).quantize(Decimal('0.01')))
+
+    def test_staff_can_flag_driver_at_fault_via_the_general_cancel_endpoint(self):
+        booking = self._paid_booking()
+        booking.driver_acknowledged_at = timezone.now()
+        booking.save(update_fields=['driver_acknowledged_at'])
+
+        staff = User.objects.create_user(username='refund-policy-staff@example.com', password='pass12345!', is_staff=True)
+        self.client.force_authenticate(user=staff)
+        response = self.client.post(f'/api/bookings/{booking.id}/cancel/', {'driver_at_fault': True}, format='json')
+        self.assertEqual(response.status_code, 200)
+        refund = Refund.objects.get(booking=booking)
+        self.assertEqual(refund.amount, booking.total_amount)
+
+    def test_staff_can_flag_driver_at_fault_via_the_admin_set_status_endpoint(self):
+        booking = self._paid_booking()
+        booking.driver_acknowledged_at = timezone.now()
+        booking.save(update_fields=['driver_acknowledged_at'])
+
+        staff = User.objects.create_user(username='refund-policy-admin@example.com', password='pass12345!', is_staff=True)
+        self.client.force_authenticate(user=staff)
+        response = self.client.post(
+            f'/api/admin/bookings/{booking.id}/set-status/',
+            {'status': 'cancelled', 'driver_at_fault': True}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        refund = Refund.objects.get(booking=booking)
+        self.assertEqual(refund.amount, booking.total_amount)
 
 
 class BookingReviewActionTests(APITestCase):
