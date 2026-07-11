@@ -232,6 +232,15 @@ def confirm_offline_payment(payment):
     if payment.method == PaymentMethod.CASH:
         send_cash_payment_staff_notification_email(payment)
 
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.CASH_PAYMENT_RECORDED,
+            f'KES {payment.amount:,.2f} cash recorded for booking #{booking.pk}',
+            organization=booking.vehicle.owner, link_path='/admin/payments',
+        )
+
     return payment
 
 
