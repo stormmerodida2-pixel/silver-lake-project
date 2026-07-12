@@ -1,0 +1,18 @@
+# Python / Django
+venv/
+__pycache__/
+*.pyc
+db.sqlite3
+media/
+.env
+sent_emails/
+staticfiles/
+
+# Node / Vue
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# Editor / OS
+.vscode/
+.DS_Store

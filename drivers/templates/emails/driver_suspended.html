@@ -1,0 +1,16 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  Your SilverLake driver-partner account has been suspended by our team. While suspended, your
+  vehicle(s) won't be shown on our public fleet listing.
+</p>
+{% if reason %}
+<p style="margin:0 0 16px; padding:12px 16px; background:#f1f5f9; border-radius:8px; color:#334155;">
+  <strong>Reason:</strong> {{ reason }}
+</p>
+{% endif %}
+<p style="margin:0; font-size:13px; color:#64748b;">
+  If you believe this was a mistake or would like more information, please get in touch with us.
+</p>
+{% endblock %}
