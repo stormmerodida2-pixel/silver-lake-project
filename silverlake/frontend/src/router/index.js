@@ -131,9 +131,28 @@ const routes = [
   },
   {
     path: '/driver',
-    name: 'driver-portal',
-    component: () => import('../views/driver/DriverPortalView.vue'),
-    meta: { title: 'Driver Portal | SilverLake Car Rentals', requiresDriver: true, hideChrome: true },
+    component: () => import('../layouts/DriverLayout.vue'),
+    meta: { requiresDriver: true, hideChrome: true },
+    children: [
+      {
+        path: '',
+        name: 'driver-dashboard',
+        component: () => import('../views/driver/DriverDashboardView.vue'),
+        meta: { title: 'Driver Dashboard | SilverLake Car Rentals', pageTitle: 'Dashboard' },
+      },
+      {
+        path: 'vehicles',
+        name: 'driver-vehicles',
+        component: () => import('../views/driver/DriverVehiclesView.vue'),
+        meta: { title: 'My Vehicles | SilverLake Car Rentals', pageTitle: 'My Vehicles' },
+      },
+      {
+        path: 'bookings',
+        name: 'driver-bookings',
+        component: () => import('../views/driver/DriverBookingsView.vue'),
+        meta: { title: 'My Bookings | SilverLake Car Rentals', pageTitle: 'My Bookings' },
+      },
+    ],
   },
   {
     path: '/admin',
