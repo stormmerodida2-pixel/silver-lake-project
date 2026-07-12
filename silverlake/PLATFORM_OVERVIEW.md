@@ -518,7 +518,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-527 automated backend tests currently cover booking validation, payment guards, payout timing and
+528 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -597,9 +597,13 @@ one-time email/notification of their own once a booking is still unresolved 3+ d
 scheduled end date, and never a second time for the same booking), the driver-acknowledgment
 deadline sharing that same background sweep (1 hour for a same-day pickup, 2 hours for anything
 booked further ahead, measured from when the booking was placed; staff get a one-time email/
-notification once it passes with no acknowledgment and the driver hasn't already started the
-trip; already-acknowledged, cancelled/completed, and walk-in bookings are all correctly left
-alone), a walk-in booking confirming
+notification the moment it passes with no acknowledgment and the driver hasn't already started
+the trip - deliberately immediate, not the payment sweep's 3-day grace period above, since a
+customer whose driver goes quiet can't wait days to find out; already-acknowledged, cancelled/
+completed, and walk-in bookings are all correctly left alone), that escalation linking straight
+to the specific booking, pre-filtered in the admin Bookings list (search param built from the
+customer's name), rather than just the unfiltered list - reassigning is a driver dropdown right
+there in that same row, no separate edit screen needed, a walk-in booking confirming
 immediately with nothing paid and being able to start its trip right away (no deposit gate the
 way an online booking has), the per-user notification
 mute/preferences system shared across all three bells (muting an

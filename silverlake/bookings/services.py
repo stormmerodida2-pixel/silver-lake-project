@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from django.utils import timezone
 
 from .models import Booking, BookingStatus
@@ -37,5 +39,6 @@ def escalate_unacknowledged_bookings():
         notify(
             NotificationEvent.ACKNOWLEDGMENT_OVERDUE,
             f'Driver has not acknowledged booking #{booking.pk} within the deadline',
-            organization=booking.vehicle.owner, link_path='/admin/bookings',
+            organization=booking.vehicle.owner,
+            link_path=f'/admin/bookings?search={quote(booking.customer_name)}',
         )

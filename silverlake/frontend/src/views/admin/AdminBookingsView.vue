@@ -1,12 +1,17 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
-const filters = reactive({ search: '', status: '', service_type: '' })
+const route = useRoute()
+// Pre-fills from a ?search= query param so a link from an escalation email/notification
+// (see bookings.emails.send_acknowledgment_overdue_staff_notification_email) can land staff
+// directly on the specific booking that needs attention, not just the unfiltered list.
+const filters = reactive({ search: route.query.search || '', status: '', service_type: '' })
 const { items: bookings, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/bookings/', filters)
 const { items: driverOptions, load: loadDriverOptions } = useAdminList('/admin/drivers/')
 const busyId = ref(null)

@@ -128,6 +128,8 @@ def send_acknowledgment_overdue_staff_notification_email(booking):
     if not staff_emails:
         return
 
+    from urllib.parse import quote
+
     from django.conf import settings
 
     send_branded_email(
@@ -138,7 +140,11 @@ def send_acknowledgment_overdue_staff_notification_email(booking):
             'customer_name': booking.customer_name,
             'driver_name': booking.driver.full_name if booking.driver_id else 'No driver assigned',
             'deadline': timezone.localtime(booking.acknowledgment_deadline).strftime('%d %b %Y, %H:%M'),
-            'bookings_url': f'{settings.FRONTEND_URL}/admin/bookings',
+            # Pre-filters the admin Bookings list to this exact booking, so staff land
+            # straight on the row that needs a replacement driver instead of having to
+            # search for it themselves - reassigning is just changing the driver dropdown
+            # right there in the list, no separate edit screen needed.
+            'bookings_url': f'{settings.FRONTEND_URL}/admin/bookings?search={quote(booking.customer_name)}',
         },
         recipient_list=[settings.DEFAULT_FROM_EMAIL],
         bcc=staff_emails,

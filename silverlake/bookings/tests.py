@@ -1939,6 +1939,15 @@ class EscalateUnacknowledgedBookingsTests(APITestCase):
         notification = Notification.objects.get(event=NotificationEvent.ACKNOWLEDGMENT_OVERDUE)
         self.assertIn(str(booking.id), notification.message)
 
+    def test_escalation_links_directly_to_the_booking_in_the_admin_list(self):
+        from notifications.models import Notification, NotificationEvent
+
+        booking = self._make_overdue_booking()
+        self._run()
+        notification = Notification.objects.get(event=NotificationEvent.ACKNOWLEDGMENT_OVERDUE)
+        self.assertIn(f'/admin/bookings?search=', notification.link_path)
+        self.assertIn(booking.customer_name.replace(' ', '%20'), notification.link_path)
+
     def test_not_yet_overdue_booking_is_left_alone(self):
         booking = make_booking(
             self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING,
