@@ -141,7 +141,10 @@ business-model pitch for the economics).
      no acknowledgment - and the driver hasn't already started the trip regardless - staff get a
      one-time email/notification to step in directly (call the driver, or reassign); there's no
      automatic reassignment. A walk-in booking is exempt entirely, since it's auto-acknowledged
-     at creation (the driver already knows about their own walk-up booking)
+     at creation (the driver already knows about their own walk-up booking). The Driver Portal
+     itself shows this deadline live on every not-yet-acknowledged booking - "Acknowledge within
+     47m" ticking down, turning red ("Overdue by...") once it passes - so a driver sees the
+     urgency well before staff would ever need to step in
    - Mark a fully-paid trip **complete** once it's done, which sends the customer their
      review-invite email — previously the only way to do this was an admin manually changing
      the booking's status
@@ -515,7 +518,7 @@ drop to a single column, and every table scrolls horizontally instead of breakin
 
 ## 12. What's Tested
 
-526 automated backend tests currently cover booking validation, payment guards, payout timing and
+527 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,

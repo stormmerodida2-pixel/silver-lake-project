@@ -1221,6 +1221,13 @@ class DriverBookingNotificationTests(APITestCase):
         booking = Booking.objects.get(pk=booking_id)
         self.assertIsNotNone(booking.driver_acknowledged_at)
 
+    def test_booking_response_exposes_the_acknowledgment_deadline(self):
+        response = self.client.post('/api/bookings/', self._booking_payload(), format='json')
+        data = response.json()
+        self.assertIn('acknowledgment_deadline', data)
+        self.assertIn('is_acknowledgment_overdue', data)
+        self.assertFalse(data['is_acknowledgment_overdue'])
+
     def test_creating_a_booking_notifies_admins_in_app(self):
         from notifications.models import Notification, NotificationEvent
 

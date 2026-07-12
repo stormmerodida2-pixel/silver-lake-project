@@ -22,6 +22,8 @@ class BookingSerializer(serializers.ModelSerializer):
     deposit_amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     is_deposit_paid = serializers.BooleanField(read_only=True)
     needs_attention = serializers.BooleanField(read_only=True)
+    acknowledgment_deadline = serializers.DateTimeField(read_only=True)
+    is_acknowledgment_overdue = serializers.BooleanField(read_only=True)
     vehicle_name = serializers.SerializerMethodField()
     driver_name = serializers.SerializerMethodField()
     review = serializers.SerializerMethodField()
@@ -37,7 +39,8 @@ class BookingSerializer(serializers.ModelSerializer):
             'customer_license_number', 'customer_license_document', 'customer_id_document',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid',
             'status', 'notes', 'review', 'created_at', 'driver_acknowledged_at',
-            'trip_started_at', 'trip_ended_at', 'needs_attention', 'pending_payments',
+            'trip_started_at', 'trip_ended_at', 'needs_attention', 'acknowledgment_deadline',
+            'is_acknowledgment_overdue', 'pending_payments',
             'pending_cash_deposits', 'last_balance_reminder_at',
         ]
         read_only_fields = [

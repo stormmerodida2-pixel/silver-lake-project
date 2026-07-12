@@ -67,6 +67,26 @@ async function acknowledgeBooking(booking) {
   }
 }
 
+// ── Acknowledgment deadline countdown ────────────────────────────────────────
+// Ticks every minute purely to keep the countdown text fresh - the list itself only reloads
+// on an explicit action, and per-second precision isn't needed for a multi-hour deadline.
+const now = ref(Date.now())
+let ackClockIntervalId = null
+
+function ackDeadlineInfo(booking) {
+  if (booking.driver_acknowledged_at || !booking.acknowledgment_deadline) return null
+  const diffMs = new Date(booking.acknowledgment_deadline).getTime() - now.value
+  const overdue = diffMs < 0
+  const totalMinutes = Math.round(Math.abs(diffMs) / 60000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  const timeStr = hours ? `${hours}h ${minutes}m` : `${minutes}m`
+  return {
+    label: overdue ? `Overdue by ${timeStr}` : `Acknowledge within ${timeStr}`,
+    urgent: overdue || diffMs < 15 * 60000,
+  }
+}
+
 const completingId = ref(null)
 
 async function completeBooking(booking) {
@@ -254,6 +274,7 @@ function toggleSharingLocation(booking) {
 
 onUnmounted(() => {
   stopSharingLocation()
+  clearInterval(ackClockIntervalId)
 })
 
 async function loadProfile() {
@@ -467,6 +488,7 @@ onMounted(() => {
   loadProfile()
   loadBookings()
   loadCategories()
+  ackClockIntervalId = setInterval(() => { now.value = Date.now() }, 60000)
 })
 </script>
 
@@ -781,14 +803,24 @@ onMounted(() => {
                 <span v-if="booking.driver_acknowledged_at" class="mr-auto text-xs font-semibold text-emerald-400">
                   Acknowledged
                 </span>
-                <button
-                  v-else
-                  :disabled="acknowledgingId === booking.id"
-                  class="mr-auto rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
-                  @click="acknowledgeBooking(booking)"
-                >
-                  {{ acknowledgingId === booking.id ? 'Approving...' : 'Approve' }}
-                </button>
+                <template v-else>
+                  <div class="mr-auto flex flex-col items-start gap-1">
+                    <button
+                      :disabled="acknowledgingId === booking.id"
+                      class="rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                      @click="acknowledgeBooking(booking)"
+                    >
+                      {{ acknowledgingId === booking.id ? 'Approving...' : 'Approve' }}
+                    </button>
+                    <span
+                      v-if="ackDeadlineInfo(booking)"
+                      class="text-xs font-semibold"
+                      :class="ackDeadlineInfo(booking).urgent ? 'text-red-400' : 'text-slate-400'"
+                    >
+                      {{ ackDeadlineInfo(booking).label }}
+                    </span>
+                  </div>
+                </template>
 
                 <button
                   v-if="booking.status === 'confirmed'"
