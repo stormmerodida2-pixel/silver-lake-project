@@ -34,6 +34,18 @@ const routes = [
     meta: { title: 'Customer Reviews | SilverLake Car Rentals' },
   },
   {
+    path: '/blog',
+    name: 'blog',
+    component: () => import('../views/BlogView.vue'),
+    meta: { title: 'Travel Tips & Guides | SilverLake Car Rentals' },
+  },
+  {
+    path: '/blog/:slug',
+    name: 'blog-post',
+    component: () => import('../views/BlogPostView.vue'),
+    meta: { title: 'SilverLake Car Rentals Blog' },
+  },
+  {
     path: '/contact',
     name: 'contact',
     component: () => import('../views/ContactView.vue'),
@@ -242,6 +254,12 @@ const routes = [
         name: 'admin-announcements',
         component: () => import('../views/admin/AdminAnnouncementsView.vue'),
         meta: { title: 'Announcements | SilverLake Car Rentals', pageTitle: 'Announcements' },
+      },
+      {
+        path: 'blog',
+        name: 'admin-blog',
+        component: () => import('../views/admin/AdminBlogView.vue'),
+        meta: { title: 'Manage Blog | SilverLake Car Rentals', pageTitle: 'Blog' },
       },
     ],
   },

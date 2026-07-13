@@ -8,10 +8,12 @@ export const useCatalogStore = defineStore('catalog', {
     drivers: [],
     reviews: [],
     categories: [],
+    blogPosts: [],
     loaded: {
       drivers: false,
       reviews: false,
       categories: false,
+      blogPosts: false,
     },
   }),
   actions: {
@@ -40,6 +42,14 @@ export const useCatalogStore = defineStore('catalog', {
       const { data } = await apiClient.get('/categories/')
       this.categories = data.results ?? data
       this.loaded.categories = true
+    },
+    // Marketing content, published in advance - doesn't need vehicles' always-refetch
+    // freshness, so it's cached once per session like drivers/reviews/categories.
+    async fetchBlogPosts() {
+      if (this.loaded.blogPosts) return
+      const { data } = await apiClient.get('/blog/')
+      this.blogPosts = data.results ?? data
+      this.loaded.blogPosts = true
     },
   },
 })

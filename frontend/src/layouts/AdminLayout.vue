@@ -84,6 +84,13 @@ const baseNavItems = [
     label: 'Announcements',
     icon: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z',
   },
+  {
+    to: '/admin/blog',
+    label: 'Blog',
+    superAdminOnly: true,
+    platformOnly: true,
+    icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10l6 6v10a2 2 0 01-2 2ZM9 13h6M9 17h4M13 4v6h6',
+  },
 ]
 
 const navItems = computed(() => baseNavItems.filter((item) => {

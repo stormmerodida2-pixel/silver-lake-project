@@ -21,6 +21,7 @@ const links = computed(() => {
   const base = [
     { to: '/', label: 'Home' },
     { to: '/fleet', label: 'Fleet' },
+    { to: '/blog', label: 'Blog' },
     { to: '/contact', label: 'Contact' },
   ]
   if (auth.isAuthenticated) {
