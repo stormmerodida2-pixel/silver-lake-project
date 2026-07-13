@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
+import { setPageMeta } from '../utils/seo'
 
 const routes = [
   {
@@ -37,7 +38,10 @@ const routes = [
     path: '/blog',
     name: 'blog',
     component: () => import('../views/BlogView.vue'),
-    meta: { title: 'Travel Tips & Guides | SilverLake Car Rentals' },
+    meta: {
+      title: 'Travel Tips & Guides | SilverLake Car Rentals',
+      description: 'Kisumu and Kenya travel tips, destination guides, and news from the SilverLake fleet.',
+    },
   },
   {
     path: '/blog/:slug',
@@ -305,7 +309,9 @@ router.beforeEach((to) => {
 })
 
 router.afterEach((to) => {
-  document.title = to.meta.title || 'SilverLake Car Rentals'
+  // BlogPostView overrides this with the actual post's title/excerpt/cover image once it
+  // loads - this just ensures every route starts from a sane, non-stale default first.
+  setPageMeta({ title: to.meta.title, description: to.meta.description })
 })
 
 export default router

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import apiClient from '../api/client'
 import { useCatalogStore } from '../stores/catalog'
+import { setPageMeta } from '../utils/seo'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,19 +22,30 @@ onMounted(async () => {
   if (cached) {
     post.value = cached
     loading.value = false
-    return
-  }
-  try {
-    const { data } = await apiClient.get(`/blog/${route.params.slug}/`)
-    post.value = data
-  } catch (err) {
-    if (err.response?.status === 404) {
-      router.replace('/blog')
-    } else {
-      error.value = 'Could not load this post.'
+  } else {
+    try {
+      const { data } = await apiClient.get(`/blog/${route.params.slug}/`)
+      post.value = data
+    } catch (err) {
+      if (err.response?.status === 404) {
+        router.replace('/blog')
+      } else {
+        error.value = 'Could not load this post.'
+      }
+    } finally {
+      loading.value = false
     }
-  } finally {
-    loading.value = false
+  }
+
+  // Overrides the generic /blog/:slug title the router set on navigation - a shared link now
+  // gets the post's own title/excerpt/cover image in the tab, search results, and chat previews.
+  if (post.value) {
+    setPageMeta({
+      title: `${post.value.title} | SilverLake Car Rentals Blog`,
+      description: post.value.excerpt,
+      image: post.value.cover_image,
+      type: 'article',
+    })
   }
 })
 </script>

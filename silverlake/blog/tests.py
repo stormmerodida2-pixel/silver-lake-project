@@ -8,8 +8,9 @@ from rest_framework.test import APITestCase
 from core.models import StaffOrganization
 from fleet.models import FleetPartner
 
-from .models import BlogPost
+from .models import BlogImageUpload, BlogPost
 from .sanitize import sanitize_body
+from .services import cleanup_orphaned_blog_images
 
 User = get_user_model()
 
@@ -180,3 +181,29 @@ class CoverImageCleanupTests(APITestCase):
         post.refresh_from_db()
         self.assertNotEqual(post.cover_image.name, old_name)
         self.assertFalse(post.cover_image.storage.exists(old_name))
+
+
+class OrphanedInlineImageCleanupTests(TestCase):
+    def test_image_referenced_by_a_post_body_is_kept(self):
+        upload = BlogImageUpload()
+        upload.image.save('referenced.png', _png('referenced.png'), save=True)
+        BlogPost.objects.create(
+            title='Post With Image', excerpt='e', body=f'<p><img src="{upload.image.url}"></p>',
+        )
+
+        deleted_count = cleanup_orphaned_blog_images()
+
+        self.assertEqual(deleted_count, 0)
+        self.assertTrue(BlogImageUpload.objects.filter(pk=upload.pk).exists())
+        self.assertTrue(upload.image.storage.exists(upload.image.name))
+
+    def test_image_not_referenced_by_any_post_body_is_deleted(self):
+        upload = BlogImageUpload()
+        upload.image.save('orphaned.png', _png('orphaned.png'), save=True)
+        file_name = upload.image.name
+
+        deleted_count = cleanup_orphaned_blog_images()
+
+        self.assertEqual(deleted_count, 1)
+        self.assertFalse(BlogImageUpload.objects.filter(pk=upload.pk).exists())
+        self.assertFalse(upload.image.storage.exists(file_name))
