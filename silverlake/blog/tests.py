@@ -135,7 +135,7 @@ class PublicBlogTests(APITestCase):
     def test_public_list_only_returns_published_posts(self):
         response = self.client.get('/api/blog/')
         self.assertEqual(response.status_code, 200)
-        slugs = [p['slug'] for p in response.json()]
+        slugs = [p['slug'] for p in response.json()['results']]
         self.assertIn(self.published.slug, slugs)
         self.assertNotIn(self.draft.slug, slugs)
 
@@ -144,8 +144,15 @@ class PublicBlogTests(APITestCase):
             title='Newer Post', excerpt='e', body='<p>b</p>', is_published=True,
         )
         response = self.client.get('/api/blog/')
-        slugs = [p['slug'] for p in response.json()]
+        slugs = [p['slug'] for p in response.json()['results']]
         self.assertLess(slugs.index(newer.slug), slugs.index(self.published.slug))
+
+    def test_public_list_is_paginated(self):
+        response = self.client.get('/api/blog/')
+        data = response.json()
+        self.assertIn('count', data)
+        self.assertIn('next', data)
+        self.assertIn('results', data)
 
     def test_published_post_detail_is_reachable_by_slug(self):
         response = self.client.get(f'/api/blog/{self.published.slug}/')

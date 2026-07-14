@@ -1,14 +1,24 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 
 import { useCatalogStore } from '../stores/catalog'
 import BlogPostCard from '../components/BlogPostCard.vue'
 
 const catalog = useCatalogStore()
+const loadingMore = ref(false)
 
 onMounted(() => {
   catalog.fetchBlogPosts()
 })
+
+async function loadMore() {
+  loadingMore.value = true
+  try {
+    await catalog.loadMoreBlogPosts()
+  } finally {
+    loadingMore.value = false
+  }
+}
 </script>
 
 <template>
@@ -26,6 +36,16 @@ onMounted(() => {
       <p v-if="!catalog.blogPosts.length" class="mt-10 text-center text-slate-500">
         No posts yet - check back soon.
       </p>
+
+      <div v-if="catalog.blogPostsNextUrl" class="mt-10 text-center">
+        <button
+          :disabled="loadingMore"
+          class="rounded-full border border-brand-blue-600 px-6 py-2 text-sm font-semibold text-brand-blue-600 transition hover:bg-brand-blue-600 hover:text-white disabled:opacity-50"
+          @click="loadMore"
+        >
+          {{ loadingMore ? 'Loading…' : 'Load More' }}
+        </button>
+      </div>
     </div>
   </div>
 </template>

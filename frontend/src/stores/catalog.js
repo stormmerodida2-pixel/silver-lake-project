@@ -9,6 +9,7 @@ export const useCatalogStore = defineStore('catalog', {
     reviews: [],
     categories: [],
     blogPosts: [],
+    blogPostsNextUrl: null,
     loaded: {
       drivers: false,
       reviews: false,
@@ -49,7 +50,14 @@ export const useCatalogStore = defineStore('catalog', {
       if (this.loaded.blogPosts) return
       const { data } = await apiClient.get('/blog/')
       this.blogPosts = data.results ?? data
+      this.blogPostsNextUrl = data.next ?? null
       this.loaded.blogPosts = true
+    },
+    async loadMoreBlogPosts() {
+      if (!this.blogPostsNextUrl) return
+      const { data } = await apiClient.get(this.blogPostsNextUrl)
+      this.blogPosts = this.blogPosts.concat(data.results ?? [])
+      this.blogPostsNextUrl = data.next ?? null
     },
   },
 })

@@ -47,10 +47,11 @@ class BlogImageUploadView(generics.CreateAPIView):
 
 
 class PublicBlogPostViewSet(viewsets.ReadOnlyModelViewSet):
-    """Public, published-only. Routed by slug, not id, for SEO-friendly URLs."""
+    """Public, published-only. Routed by slug, not id, for SEO-friendly URLs. Paginated (the
+    project-wide default PageNumberPagination, PAGE_SIZE=20) since the list is expected to grow
+    without bound over time, unlike the fixed-size vehicle fleet."""
 
     queryset = BlogPost.objects.filter(is_published=True)
     serializer_class = PublicBlogPostSerializer
     permission_classes = [permissions.AllowAny]
-    pagination_class = None
     lookup_field = 'slug'
