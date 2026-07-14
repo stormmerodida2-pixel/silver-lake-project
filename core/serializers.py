@@ -91,7 +91,7 @@ class AdminDriverSerializer(serializers.ModelSerializer):
         model = Driver
         fields = [
             'id', 'full_name', 'photo', 'email', 'phone_number',
-            'years_of_experience', 'bio', 'rating', 'is_active',
+            'years_of_experience', 'bio', 'rating', 'is_active', 'cash_payments_enabled',
             'is_away', 'away_reason', 'suspension_reason', 'has_portal_account', 'created_at',
         ]
         read_only_fields = ['is_away', 'away_reason', 'suspension_reason', 'created_at']

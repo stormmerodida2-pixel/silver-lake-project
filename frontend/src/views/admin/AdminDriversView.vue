@@ -108,6 +108,20 @@ async function activateDriver(driver) {
   }
 }
 
+async function toggleCashPayments(driver) {
+  busyId.value = driver.id
+  try {
+    const { data } = await apiClient.patch(`/admin/drivers/${driver.id}/`, {
+      cash_payments_enabled: !driver.cash_payments_enabled,
+    })
+    Object.assign(driver, data)
+  } catch (err) {
+    driversError.value = 'Could not update this driver.'
+  } finally {
+    busyId.value = null
+  }
+}
+
 // ── Suspend-with-reason modal ────────────────────────────────────────────────
 const showSuspendModal = ref(false)
 const suspendingDriver = ref(null)
@@ -423,6 +437,13 @@ onMounted(() => {
                     <span v-if="!driver.is_active && driver.suspension_reason" class="max-w-[180px] text-xs text-slate-500">
                       {{ driver.suspension_reason }}
                     </span>
+                    <span
+                      v-if="!driver.cash_payments_enabled"
+                      class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-red-400"
+                      title="This driver can only be paid via M-Pesa/card - cash is disabled."
+                    >
+                      Cash Disabled
+                    </span>
                   </div>
                 </td>
                 <td class="space-x-2 whitespace-nowrap px-4 py-3">
@@ -441,6 +462,14 @@ onMounted(() => {
                     @click="activateDriver(driver)"
                   >
                     Activate
+                  </button>
+                  <button
+                    v-if="auth.user?.is_superuser"
+                    :disabled="busyId === driver.id"
+                    class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                    @click="toggleCashPayments(driver)"
+                  >
+                    {{ driver.cash_payments_enabled ? 'Disable Cash' : 'Enable Cash' }}
                   </button>
                   <button
                     v-if="driver.email && !driver.has_portal_account"

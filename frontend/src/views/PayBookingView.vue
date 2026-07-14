@@ -286,7 +286,7 @@ onMounted(loadBooking)
 
           <div v-if="booking.driver_name">
             <label class="mb-1 block text-sm text-slate-600">How would you like to pay?</label>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid gap-3" :class="booking.driver_cash_enabled ? 'grid-cols-2' : 'grid-cols-1'">
               <button
                 type="button"
                 class="rounded-md border px-3 py-2 text-sm font-semibold"
@@ -296,6 +296,7 @@ onMounted(loadBooking)
                 M-Pesa
               </button>
               <button
+                v-if="booking.driver_cash_enabled"
                 type="button"
                 class="rounded-md border px-3 py-2 text-sm font-semibold"
                 :class="paymentMethod === 'cash' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"

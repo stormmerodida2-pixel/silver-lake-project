@@ -691,7 +691,9 @@ class DriverDeclarePaymentTests(APITestCase):
 
     def setUp(self):
         driver_user = User.objects.create_user(username='declare-driver@example.com', password='pass12345!')
-        self.driver = Driver.objects.create(user=driver_user, full_name='Declare Driver', is_active=True)
+        self.driver = Driver.objects.create(
+            user=driver_user, full_name='Declare Driver', is_active=True, cash_payments_enabled=True,
+        )
         self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
         self.customer = User.objects.create_user(username='client@example.com', password='pass12345!')
         self.booking = make_booking(
@@ -739,6 +741,25 @@ class DriverDeclarePaymentTests(APITestCase):
         payment = Payment.objects.get(booking=self.booking)
         self.assertEqual(payment.method, PaymentMethod.MPESA)
         self.assertEqual(payment.status, PaymentStatus.PENDING)
+
+    def test_cannot_declare_cash_when_disabled_for_this_driver(self):
+        self.driver.cash_payments_enabled = False
+        self.driver.save(update_fields=['cash_payments_enabled'])
+
+        response = self.client.post(
+            self._url(), {'method': 'cash', 'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_can_still_declare_card_when_cash_is_disabled(self):
+        self.driver.cash_payments_enabled = False
+        self.driver.save(update_fields=['cash_payments_enabled'])
+
+        response = self.client.post(
+            self._url(), {'method': 'card', 'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
 
     def test_cannot_declare_for_another_drivers_booking(self):
         other_driver_user = User.objects.create_user(username='other-driver@example.com', password='pass12345!')

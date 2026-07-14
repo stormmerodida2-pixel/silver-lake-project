@@ -314,13 +314,20 @@ def declare_offline_payment(booking, method, amount, driver, note=''):
     SUCCESSFUL - there's no gateway to confirm a cash handoff or an in-person card tap against,
     so the amount only becomes real once the driver separately confirms it was actually received
     (see confirm_offline_payment). The amount is locked at declaration time and never re-entered
-    at confirmation, so a driver can't quietly confirm less than what the client agreed to pay."""
+    at confirmation, so a driver can't quietly confirm less than what the client agreed to pay.
+
+    The single entry point for declaring cash, whether it's the driver themselves (see
+    bookings.views.DriverDeclarePaymentView) or the client self-declaring via the no-login
+    customer_token page (see payments.views.token_declare_cash_payment) - both pass the
+    booking's own driver in, so Driver.cash_payments_enabled only has to be enforced here once."""
     if method not in OFFLINE_PAYMENT_METHODS:
         raise PaymentValidationError('Only cash or card payments are declared this way - use the M-Pesa flow instead.')
     if booking.status in _CLOSED_BOOKING_STATUSES:
         raise PaymentValidationError(f'This booking is already {booking.get_status_display().lower()}.')
     if amount <= 0:
         raise PaymentValidationError('Amount must be greater than zero.')
+    if method == PaymentMethod.CASH and driver is not None and not driver.cash_payments_enabled:
+        raise PaymentValidationError('Cash payments are disabled for this driver - use M-Pesa instead.')
 
     try:
         with transaction.atomic():

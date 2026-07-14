@@ -26,6 +26,15 @@ class Driver(models.Model):
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=5.0)
     is_active = models.BooleanField(default=True)
 
+    # Superadmin-controlled, not the driver's own choice - opt-in, not opt-out: a newly
+    # registered driver can't accept cash at all until a superadmin explicitly turns it on for
+    # them, since cash is the one payment method this app can't independently verify (see
+    # PAYMENT_SECURITY.md). Enforced in payments.services.declare_offline_payment, the single
+    # entry point both the driver's own "declare payment" action and a customer's no-login
+    # self-declare page go through. Default=False only affects newly created drivers - existing
+    # ones aren't retroactively changed (confirmed with the user 2026-07-14).
+    cash_payments_enabled = models.BooleanField(default=False)
+
     # Self-reported unavailability (e.g. sick, on leave) - distinct from is_active (admin
     # suspension). Either one hides the driver's vehicles from the public fleet listing.
     is_away = models.BooleanField(default=False)

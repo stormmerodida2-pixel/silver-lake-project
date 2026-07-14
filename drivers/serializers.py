@@ -65,10 +65,12 @@ class DriverPortalSerializer(serializers.ModelSerializer):
         model = Driver
         fields = [
             'id', 'full_name', 'email', 'phone_number', 'photo', 'years_of_experience',
-            'bio', 'rating', 'is_away', 'away_reason', 'vehicles', 'vehicle_submissions',
+            'bio', 'rating', 'is_away', 'away_reason', 'cash_payments_enabled',
+            'vehicles', 'vehicle_submissions',
         ]
         read_only_fields = [
             'full_name', 'email', 'phone_number', 'photo', 'years_of_experience', 'bio', 'rating',
+            'cash_payments_enabled',
         ]
 
 

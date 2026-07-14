@@ -449,7 +449,7 @@ class ClientDeclareCashPaymentTests(APITestCase):
     def setUp(self):
         self.driver = Driver.objects.create(user=User.objects.create_user(
             username='declare-driver@example.com', password='pass12345!',
-        ), full_name='Declare Driver', is_active=True)
+        ), full_name='Declare Driver', is_active=True, cash_payments_enabled=True)
         vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
         customer = User.objects.create_user(username='declare-client@example.com', password='pass12345!')
         self.booking = make_booking(customer, vehicle, driver=self.driver, status=BookingStatus.PENDING)
@@ -516,6 +516,23 @@ class ClientDeclareCashPaymentTests(APITestCase):
         response = self.client.post(self._url(), {'amount': 'abc'}, format='json')
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_cannot_declare_cash_when_disabled_for_the_assigned_driver(self):
+        self.driver.cash_payments_enabled = False
+        self.driver.save(update_fields=['cash_payments_enabled'])
+
+        response = self.client.post(self._url(), {'amount': str(self.booking.deposit_amount)}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_pay_page_reflects_whether_the_driver_accepts_cash(self):
+        response = self.client.get(f'/api/pay/{self.booking.customer_token}/')
+        self.assertTrue(response.json()['driver_cash_enabled'])
+
+        self.driver.cash_payments_enabled = False
+        self.driver.save(update_fields=['cash_payments_enabled'])
+        response = self.client.get(f'/api/pay/{self.booking.customer_token}/')
+        self.assertFalse(response.json()['driver_cash_enabled'])
 
     def test_wrong_token_is_a_404(self):
         response = self.client.post(
@@ -764,7 +781,7 @@ class OverpaymentGuardTests(APITestCase):
     stands now rather than as it stood at declaration time."""
 
     def setUp(self):
-        self.driver = Driver.objects.create(full_name='Overpay Driver', is_active=True)
+        self.driver = Driver.objects.create(full_name='Overpay Driver', is_active=True, cash_payments_enabled=True)
         self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))  # KES 7000 total (7 days)
         self.customer = User.objects.create_user(username='overpay-client@example.com', password='pass12345!')
         self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)
@@ -824,7 +841,7 @@ class StaleMpesaPaymentTests(APITestCase):
     (see OverpaymentGuardTests) and block the customer from paying any other way."""
 
     def setUp(self):
-        self.driver = Driver.objects.create(full_name='Stale Driver', is_active=True)
+        self.driver = Driver.objects.create(full_name='Stale Driver', is_active=True, cash_payments_enabled=True)
         self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))  # KES 7000 total
         self.customer = User.objects.create_user(username='stale-client@example.com', password='pass12345!')
         self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)

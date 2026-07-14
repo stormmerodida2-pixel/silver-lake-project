@@ -55,6 +55,7 @@ class PublicBookingPaymentSerializer(serializers.ModelSerializer):
     and pay for their trip, nothing else about their account or other bookings."""
     vehicle_name = serializers.CharField(source='vehicle.name', read_only=True)
     driver_name = serializers.SerializerMethodField()
+    driver_cash_enabled = serializers.SerializerMethodField()
     amount_paid = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     balance_due = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     deposit_amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
@@ -64,13 +65,16 @@ class PublicBookingPaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = [
-            'id', 'vehicle_name', 'driver_name', 'customer_name', 'start_date', 'end_date',
+            'id', 'vehicle_name', 'driver_name', 'driver_cash_enabled', 'customer_name', 'start_date', 'end_date',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid', 'status',
             'source', 'pending_payments',
         ]
 
     def get_driver_name(self, obj):
         return obj.driver.full_name if obj.driver else None
+
+    def get_driver_cash_enabled(self, obj):
+        return obj.driver.cash_payments_enabled if obj.driver else True
 
     def get_pending_payments(self, obj):
         # A cash payment the client has already declared but their driver hasn't yet confirmed

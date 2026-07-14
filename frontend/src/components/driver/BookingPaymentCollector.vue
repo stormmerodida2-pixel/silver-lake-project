@@ -1,7 +1,8 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import { useDriverPortalStore } from '../../stores/driverPortal'
 
 // Collect payment for one booking: the client picks cash/card/M-Pesa + the exact amount they're
 // paying; cash/card then need the driver to separately confirm they actually received it (amount
@@ -11,6 +12,13 @@ import apiClient from '../../api/client'
 const props = defineProps({
   booking: { type: Object, required: true },
 })
+
+const driverPortal = useDriverPortalStore()
+// Superadmin-controlled (see Driver.cash_payments_enabled) - a driver with a history of cash
+// disputes/undeposited cash can be forced onto M-Pesa/card only. Defaults to enabled (true) if
+// the profile hasn't loaded yet, so the option doesn't flash away before it's known either way.
+const cashEnabled = computed(() => driverPortal.profile?.cash_payments_enabled !== false)
+const paymentMethodOptions = computed(() => cashEnabled.value ? ['cash', 'card', 'mpesa'] : ['card', 'mpesa'])
 
 const paymentMethodDraft = ref('cash')
 const paymentAmountDraft = ref('')
@@ -22,7 +30,7 @@ const confirmError = ref('')
 
 function openPaymentForm() {
   showForm.value = true
-  paymentMethodDraft.value = 'cash'
+  paymentMethodDraft.value = cashEnabled.value ? 'cash' : 'card'
   paymentAmountDraft.value = props.booking.balance_due
   declareError.value = ''
 }
@@ -150,7 +158,7 @@ async function logCashDeposit(payment) {
             <p v-if="declareError" class="text-xs text-red-400">{{ declareError }}</p>
             <div class="grid grid-cols-3 gap-2">
               <button
-                v-for="opt in ['cash', 'card', 'mpesa']" :key="opt" type="button"
+                v-for="opt in paymentMethodOptions" :key="opt" type="button"
                 class="rounded-md border px-2 py-1.5 text-xs font-semibold capitalize"
                 :class="paymentMethodDraft === opt ? 'border-gold-500 bg-gold-500 text-navy-950' : 'border-navy-700 text-slate-300'"
                 @click="paymentMethodDraft = opt"
@@ -158,6 +166,9 @@ async function logCashDeposit(payment) {
                 {{ opt === 'mpesa' ? 'M-Pesa' : opt }}
               </button>
             </div>
+            <p v-if="!cashEnabled" class="text-[11px] text-slate-500">
+              Cash payments are disabled for your account - use M-Pesa or card instead.
+            </p>
             <input
               v-model="paymentAmountDraft" type="number" min="0" step="0.01"
               :placeholder="`Amount (deposit: KES ${Number(booking.deposit_amount).toLocaleString()})`"

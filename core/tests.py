@@ -245,6 +245,36 @@ class AdminRefundActionTests(APITestCase):
         self.assertEqual(notification.user_id, self.customer.id)
 
 
+class AdminDriverCashToggleTests(APITestCase):
+    """Only a genuine superadmin can force a driver onto M-Pesa/card only (see
+    Driver.cash_payments_enabled, enforced in payments.services.declare_offline_payment) -
+    matches this app's usual bar for anything that changes how a driver gets paid."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='cash-toggle-super@example.com', password='pass12345!')
+        self.staff = User.objects.create_user(username='cash-toggle-staff@example.com', password='pass12345!', is_staff=True)
+        self.driver = Driver.objects.create(full_name='Toggle Driver', is_active=True)
+
+    def test_defaults_to_disabled(self):
+        # Opt-in, not opt-out - a newly registered driver can't accept cash until a superadmin
+        # explicitly turns it on for them.
+        self.assertFalse(self.driver.cash_payments_enabled)
+
+    def test_superadmin_can_enable_cash_for_a_driver(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.patch(f'/api/admin/drivers/{self.driver.id}/', {'cash_payments_enabled': True}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.driver.refresh_from_db()
+        self.assertTrue(self.driver.cash_payments_enabled)
+
+    def test_support_staff_cannot_toggle_it(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.patch(f'/api/admin/drivers/{self.driver.id}/', {'cash_payments_enabled': True}, format='json')
+        self.assertEqual(response.status_code, 403)
+        self.driver.refresh_from_db()
+        self.assertFalse(self.driver.cash_payments_enabled)
+
+
 class AdminAuditLogTests(APITestCase):
     """Sensitive admin actions (role changes, suspensions, payouts, refunds) must leave a
     record of who did them - otherwise a two-tier permission system can't answer 'who did this'."""
