@@ -16,3 +16,4 @@ frontend/.env.local
 # Editor / OS
 .vscode/
 .DS_Store
+*.tmp.*
