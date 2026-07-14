@@ -164,6 +164,18 @@ class PaymentStatusPollingTests(APITestCase):
         response = self.client.get(f'/api/pay/{other_booking.customer_token}/payments/{self.payment.id}/')
         self.assertEqual(response.status_code, 404)
 
+    def test_no_login_pay_page_rejects_an_expired_token(self):
+        long_ago = timezone.localdate() - timedelta(days=60)
+        self.booking.start_date = long_ago
+        self.booking.end_date = long_ago
+        self.booking.save(update_fields=['start_date', 'end_date'])
+        response = self.client.get(f'/api/pay/{self.booking.customer_token}/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_no_login_pay_page_works_within_the_grace_period(self):
+        response = self.client.get(f'/api/pay/{self.booking.customer_token}/')
+        self.assertEqual(response.status_code, 200)
+
 
 class StkPushCooldownTests(APITestCase):
     """A retry (e.g. after the frontend gives up polling) shouldn't be able to fire a second
@@ -509,6 +521,14 @@ class ClientDeclareCashPaymentTests(APITestCase):
         response = self.client.post(
             f'/api/pay/{uuid.uuid4()}/declare-cash/', {'amount': '100'}, format='json',
         )
+        self.assertEqual(response.status_code, 404)
+
+    def test_expired_token_is_a_404(self):
+        long_ago = timezone.localdate() - timedelta(days=60)
+        self.booking.start_date = long_ago
+        self.booking.end_date = long_ago
+        self.booking.save(update_fields=['start_date', 'end_date'])
+        response = self.client.post(self._url(), {'amount': '100'}, format='json')
         self.assertEqual(response.status_code, 404)
 
 

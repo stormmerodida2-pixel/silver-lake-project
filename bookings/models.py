@@ -44,6 +44,12 @@ BLOCKING_BOOKING_STATUSES = [BookingStatus.PENDING, BookingStatus.CONFIRMED, Boo
 ACKNOWLEDGMENT_DEADLINE_SAME_DAY = timedelta(hours=1)
 ACKNOWLEDGMENT_DEADLINE_FUTURE = timedelta(hours=2)
 
+# How long the no-login customer_token link (payment page + cash-payment dispute page) stays
+# reachable after a booking's own end_date - long enough to cover a customer settling a balance
+# or disputing a cash payment shortly after the trip, short enough that the link doesn't stay
+# permanently live in an old email forever (see Booking.customer_token_expires_at).
+CUSTOMER_TOKEN_GRACE_PERIOD = timedelta(days=14)
+
 # Self-drive costs more than the vehicle's own with-driver rate - the customer is driving
 # SilverLake's own vehicle themselves, which carries more risk/liability than a booking with a
 # driver at the wheel. Applied to the whole booked total (see Booking.save()), not per day.
@@ -320,6 +326,20 @@ class Booking(models.Model):
             and self.status not in (BookingStatus.CANCELLED, BookingStatus.COMPLETED)
             and timezone.now() > self.acknowledgment_deadline
         )
+
+    @property
+    def customer_token_expires_at(self):
+        """The no-login link built from customer_token (payment page + cash-payment dispute
+        page - see payments.views.token_*) stops working after this date. Anchored to end_date
+        rather than created_at, since the link has to stay live through the entire rental
+        period regardless of how far in advance the booking was made, plus
+        CUSTOMER_TOKEN_GRACE_PERIOD afterward so a customer can still settle a balance or
+        dispute a cash payment shortly after the trip ends."""
+        return self.end_date + CUSTOMER_TOKEN_GRACE_PERIOD
+
+    @property
+    def is_customer_token_expired(self):
+        return timezone.localdate() > self.customer_token_expires_at
 
     @property
     def has_undeposited_cash(self):

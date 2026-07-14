@@ -26,6 +26,16 @@ from .services import PaymentValidationError, declare_offline_payment, initiate_
 REMINDER_COOLDOWN = timedelta(hours=1)
 
 
+def _get_booking_by_token(token):
+    """Shared lookup for every no-login customer_token endpoint below - treats an expired link
+    (see Booking.customer_token_expires_at) the same as a nonexistent one, a 404, rather than a
+    more specific status, so an old link doesn't reveal whether it was ever valid at all."""
+    booking = get_object_or_404(Booking, customer_token=token)
+    if booking.is_customer_token_expired:
+        raise Http404('This link has expired.')
+    return booking
+
+
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     """Staff can browse the full payment log; any authenticated customer can poll a single
     payment's status by id to check whether their own STK push actually went through - list
@@ -192,7 +202,7 @@ stk_push.cls.throttle_scope = 'mpesa-stk'
 def token_payment_detail(request, token):
     """No-login payment page for a booking - shared with a walk-up client via customer_token
     instead of requiring them to register/log in."""
-    booking = get_object_or_404(Booking, customer_token=token)
+    booking = _get_booking_by_token(token)
     return Response(PublicBookingPaymentSerializer(booking).data)
 
 
@@ -206,7 +216,7 @@ def token_stk_push(request, token):
     """Same STK Push flow as `stk_push`, but reached via the no-login customer_token link -
     throttled tighter than most public endpoints, since each request can trigger a real M-Pesa
     prompt on a stranger's phone if this link ever leaked."""
-    booking = get_object_or_404(Booking, customer_token=token)
+    booking = _get_booking_by_token(token)
 
     serializer = TokenStkPushRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -234,7 +244,7 @@ def token_declare_cash_payment(request, token):
     receiving it without one. This only records what the client says they're paying - the
     driver still has to separately confirm they actually received it (see
     bookings.views.DriverConfirmPaymentView) before it counts toward the balance."""
-    booking = get_object_or_404(Booking, customer_token=token)
+    booking = _get_booking_by_token(token)
     if not booking.driver_id:
         return Response(
             {'detail': 'This booking has no driver assigned to hand cash to.'}, status=status.HTTP_400_BAD_REQUEST,
@@ -263,7 +273,7 @@ def token_payment_status(request, token, payment_id):
     """Lets the no-login payment page poll whether its STK push actually went through -
     scoped to the booking's own customer_token so a payment id alone isn't enough to look up
     someone else's payment."""
-    booking = get_object_or_404(Booking, customer_token=token)
+    booking = _get_booking_by_token(token)
     payment = get_object_or_404(Payment, pk=payment_id, booking=booking)
     return Response({'status': payment.status})
 
@@ -288,7 +298,7 @@ def token_dispute_payment(request, token, payment_id):
     forcing needs_verification/is_verified back to their pre-verification state, even if a
     superadmin had already verified it - a dispute arriving after verification means that
     verification needs to be redone, not that it still stands."""
-    booking = get_object_or_404(Booking, customer_token=token)
+    booking = _get_booking_by_token(token)
     payment = get_object_or_404(Payment, pk=payment_id, booking=booking, method=PaymentMethod.CASH)
 
     if request.method == 'GET':

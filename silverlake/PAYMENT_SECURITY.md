@@ -83,16 +83,19 @@ any balance still owed, as a second line of visibility regardless.
 
 ## What's still open (not fixed, flagging for a decision)
 
-- **Payment/booking links never expire.** `customer_token` and `driver_token` (used for the
-  no-login payment page and the driver trip-completion link) are permanent. If one leaks, whoever
-  has it can view that booking's details indefinitely. Low practical harm, but worth an expiry
-  or rotation mechanism eventually.
-- **No rate limiting** on public endpoints — registration, login, password reset, and now the
-  no-login payment page. The payment page specifically could be hit repeatedly to spam a real
-  client's phone with M-Pesa prompts if a link leaked.
 - Broader pre-launch items (real M-Pesa production credentials, `DEBUG=True`, local-disk file
-  storage, no CI running the test suite automatically) are tracked separately and unaffected by
-  this work.
+  storage) are tracked separately in `PLATFORM_OVERVIEW.md` §13 and unaffected by this work.
+
+**Since fixed, no longer open:**
+- ~~Payment/booking links never expire~~ — `driver_token` (the driver trip-completion link) was
+  removed entirely; trip actions now go through the driver's authenticated portal instead.
+  `customer_token` (the no-login payment/dispute page) now expires `CUSTOMER_TOKEN_GRACE_PERIOD`
+  (14 days) after the booking's `end_date` — see `Booking.customer_token_expires_at` and
+  `payments.views._get_booking_by_token`.
+- ~~No rate limiting on public endpoints~~ — every `token_*` view in `payments/views.py` is
+  `ScopedRateThrottle`'d (`token-payment-view`, `mpesa-stk`, `payment-dispute` scopes).
+- ~~No CI running the test suite automatically~~ — `.github/workflows/ci.yml` now runs the full
+  suite and the frontend build on every push/PR.
 
 ## How this is tested
 

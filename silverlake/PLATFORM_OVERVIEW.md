@@ -658,8 +658,8 @@ Not broken, but worth a conscious decision before going fully live:
   all `localhost`.
 - **File storage is local disk** — uploaded documents/photos won't survive a server redeploy as
   currently configured.
-- **Payment/booking links don't expire** — the no-login payment link and driver trip-completion
-  link are permanent once issued.
+- **No CI-driven deploy** — `.github/workflows/ci.yml` runs the test suite and frontend build on
+  every push/PR, but nothing auto-deploys yet (no hosting target decided).
 - **Refund disbursement is manual** — there's no automated M-Pesa refund API integration, only a
   tracked record of what's owed.
 - **Multi-tenancy is built for the core admin surface, not exhaustively everywhere.** An Org

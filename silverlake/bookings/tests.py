@@ -1893,6 +1893,30 @@ class DriverAcknowledgmentDeadlineTests(TestCase):
         self.assertFalse(booking.is_acknowledgment_overdue)
 
 
+class CustomerTokenExpiryTests(TestCase):
+    """The no-login customer_token link (payment page + cash-payment dispute page) stays live
+    through the trip plus a grace period afterward, not permanently - see
+    Booking.customer_token_expires_at."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='token-expiry-client@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+
+    def test_expires_at_is_grace_period_after_end_date(self):
+        booking = make_booking(self.user, self.vehicle, start_date=TOMORROW, end_date=NEXT_WEEK)
+        self.assertEqual(booking.customer_token_expires_at, NEXT_WEEK + timedelta(days=14))
+
+    def test_not_expired_within_the_grace_period(self):
+        booking = make_booking(self.user, self.vehicle, start_date=TOMORROW, end_date=TOMORROW)
+        self.assertFalse(booking.is_customer_token_expired)
+
+    def test_expired_once_grace_period_has_passed(self):
+        long_ago_start = TODAY - timedelta(days=60)
+        long_ago_end = TODAY - timedelta(days=59)
+        booking = make_booking(self.user, self.vehicle, start_date=long_ago_start, end_date=long_ago_end)
+        self.assertTrue(booking.is_customer_token_expired)
+
+
 class EscalateUnacknowledgedBookingsTests(APITestCase):
     """The automated counterpart to a staff member noticing an online booking's driver hasn't
     acknowledged it - alerts staff once, past the deadline, with no automatic reassignment."""
