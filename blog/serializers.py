@@ -6,11 +6,12 @@ from .sanitize import sanitize_body
 
 class AdminBlogPostSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
 
     class Meta:
         model = BlogPost
         fields = [
-            'id', 'title', 'slug', 'excerpt', 'body', 'cover_image',
+            'id', 'title', 'slug', 'category', 'category_display', 'excerpt', 'body', 'cover_image',
             'is_published', 'published_at', 'created_by_name', 'created_at', 'updated_at',
         ]
         read_only_fields = ['slug', 'published_at', 'created_at', 'updated_at']
@@ -25,11 +26,18 @@ class AdminBlogPostSerializer(serializers.ModelSerializer):
 
 
 class PublicBlogPostSerializer(serializers.ModelSerializer):
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+
     class Meta:
         model = BlogPost
         # No created_by/created_by_name - public byline is a hardcoded "SilverLake Car Rentals
-        # Team" string in the frontend template, never a real staff name.
-        fields = ['id', 'title', 'slug', 'excerpt', 'body', 'cover_image', 'published_at']
+        # Team" string in the frontend template, never a real staff name. is_published is
+        # included so a superadmin previewing a draft (see PublicBlogPostViewSet.get_queryset)
+        # can be shown a "not published yet" banner instead of it looking indistinguishably live.
+        fields = [
+            'id', 'title', 'slug', 'category', 'category_display', 'excerpt', 'body', 'cover_image',
+            'is_published', 'published_at',
+        ]
 
 
 class BlogImageUploadSerializer(serializers.ModelSerializer):

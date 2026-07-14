@@ -76,9 +76,17 @@ onMounted(async () => {
       </div>
 
       <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-        <p v-if="post.published_at" class="text-sm font-semibold uppercase tracking-widest text-brand-blue-600">
-          {{ new Date(post.published_at).toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' }) }}
-        </p>
+        <div v-if="!post.is_published" class="mb-6 rounded-lg border border-gold-500 bg-gold-500/10 px-4 py-3 text-sm font-semibold text-gold-700">
+          Draft preview — this post is not published yet and isn't visible to the public.
+        </div>
+        <div class="flex items-center gap-2">
+          <span v-if="post.category_display" class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+            {{ post.category_display }}
+          </span>
+          <p v-if="post.published_at" class="text-sm font-semibold uppercase tracking-widest text-brand-blue-600">
+            {{ new Date(post.published_at).toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' }) }}
+          </p>
+        </div>
         <h1 class="mt-2 font-[Georgia] text-3xl font-bold text-navy-900 sm:text-4xl">{{ post.title }}</h1>
         <p class="mt-2 text-sm text-slate-500">By SilverLake Car Rentals Team</p>
 

@@ -4,6 +4,13 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 
+class BlogCategory(models.TextChoices):
+    TRAVEL_TIPS = 'travel_tips', 'Travel Tips'
+    DESTINATION_GUIDES = 'destination_guides', 'Destination Guides'
+    FLEET_SPOTLIGHTS = 'fleet_spotlights', 'Fleet & Driver Spotlights'
+    COMPANY_NEWS = 'company_news', 'Company News'
+
+
 class BlogPost(models.Model):
     """Marketing/SEO content - travel tips, Kisumu/Kenya destination guides, fleet & driver
     spotlights. Superadmin-authored only, no staff-proposal/approval workflow (unlike
@@ -12,6 +19,7 @@ class BlogPost(models.Model):
 
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=220, unique=True, blank=True)
+    category = models.CharField(max_length=30, choices=BlogCategory.choices, default=BlogCategory.TRAVEL_TIPS)
     excerpt = models.CharField(
         max_length=300,
         help_text='Shown as the list-page teaser and used as the SEO meta description.',

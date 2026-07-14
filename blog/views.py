@@ -2,7 +2,7 @@ from rest_framework import generics, permissions, viewsets
 from rest_framework.parsers import FormParser, MultiPartParser
 
 from core.audit import log_admin_action
-from core.permissions import IsPlatformSuperAdmin
+from core.permissions import IsPlatformSuperAdmin, get_user_organization
 from core.utils import capture_replaced_files, delete_files
 
 from .models import BlogImageUpload, BlogPost
@@ -49,9 +49,31 @@ class BlogImageUploadView(generics.CreateAPIView):
 class PublicBlogPostViewSet(viewsets.ReadOnlyModelViewSet):
     """Public, published-only. Routed by slug, not id, for SEO-friendly URLs. Paginated (the
     project-wide default PageNumberPagination, PAGE_SIZE=20) since the list is expected to grow
-    without bound over time, unlike the fixed-size vehicle fleet."""
+    without bound over time, unlike the fixed-size vehicle fleet.
 
-    queryset = BlogPost.objects.filter(is_published=True)
+    The list is always published-only, even for a superadmin - previewing one specific draft
+    (below) is a deliberate, single-post action, not a reason to mix drafts into the normal
+    public feed. A single post's detail view, though, is reachable by a platform superadmin even
+    while unpublished, so they can see exactly how it'll render before flipping is_published on
+    (see AdminBlogView.vue's Preview link) - permission_classes stays AllowAny throughout, since
+    this is scoping which *rows* are visible, not gating the endpoint itself."""
+
     serializer_class = PublicBlogPostSerializer
     permission_classes = [permissions.AllowAny]
     lookup_field = 'slug'
+
+    def get_queryset(self):
+        if self.action == 'retrieve' and self._is_previewing():
+            return BlogPost.objects.all()
+        queryset = BlogPost.objects.filter(is_published=True)
+        category = self.request.query_params.get('category', '').strip()
+        if category:
+            queryset = queryset.filter(category=category)
+        return queryset
+
+    def _is_previewing(self):
+        user = self.request.user
+        return bool(
+            user and user.is_authenticated and user.is_superuser
+            and get_user_organization(user) is None
+        )

@@ -167,6 +167,61 @@ class PublicBlogTests(APITestCase):
         response = self.client.get('/api/blog/does-not-exist/')
         self.assertEqual(response.status_code, 404)
 
+    def test_list_can_be_filtered_by_category(self):
+        spotlight = BlogPost.objects.create(
+            title='Meet Our Driver', excerpt='e', body='<p>b</p>', is_published=True,
+            category='fleet_spotlights',
+        )
+        response = self.client.get('/api/blog/', {'category': 'fleet_spotlights'})
+        slugs = [p['slug'] for p in response.json()['results']]
+        self.assertEqual(slugs, [spotlight.slug])
+
+
+class DraftPreviewTests(APITestCase):
+    """A platform superadmin can preview one specific unpublished post by its slug (see
+    AdminBlogView.vue's Preview link) - nobody else can, and even the superadmin never sees
+    drafts mixed into the normal public list."""
+
+    def setUp(self):
+        self.draft = BlogPost.objects.create(title='Draft Post', excerpt='e', body='<p>b</p>', is_published=False)
+        self.platform_super = User.objects.create_superuser(
+            username='draft-preview-super@example.com', password='pass12345!',
+        )
+        self.support_staff = User.objects.create_user(
+            username='draft-preview-staff@example.com', password='pass12345!', is_staff=True,
+        )
+        org = FleetPartner.objects.create(name='Draft Preview Org', platform_fee_percent=10)
+        self.org_admin = User.objects.create_user(
+            username='draft-preview-org-admin@example.com', password='pass12345!', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=self.org_admin, organization=org)
+
+    def test_platform_superadmin_can_preview_a_draft(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.get(f'/api/blog/{self.draft.slug}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['is_published'])
+
+    def test_org_admin_cannot_preview_a_draft(self):
+        self.client.force_authenticate(user=self.org_admin)
+        response = self.client.get(f'/api/blog/{self.draft.slug}/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_support_staff_cannot_preview_a_draft(self):
+        self.client.force_authenticate(user=self.support_staff)
+        response = self.client.get(f'/api/blog/{self.draft.slug}/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_anonymous_cannot_preview_a_draft(self):
+        response = self.client.get(f'/api/blog/{self.draft.slug}/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_draft_never_appears_in_the_public_list_even_for_a_superadmin(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.get('/api/blog/')
+        slugs = [p['slug'] for p in response.json()['results']]
+        self.assertNotIn(self.draft.slug, slugs)
+
 
 class CoverImageCleanupTests(APITestCase):
     def setUp(self):

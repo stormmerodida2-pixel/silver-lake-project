@@ -23,9 +23,14 @@ defineProps({
     </div>
 
     <div class="flex flex-1 flex-col gap-2 p-5">
-      <p class="text-xs font-semibold uppercase tracking-widest text-brand-blue-600">
-        {{ post.published_at ? new Date(post.published_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '' }}
-      </p>
+      <div class="flex items-center gap-2">
+        <span v-if="post.category_display" class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+          {{ post.category_display }}
+        </span>
+        <p class="text-xs font-semibold uppercase tracking-widest text-brand-blue-600">
+          {{ post.published_at ? new Date(post.published_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '' }}
+        </p>
+      </div>
       <h3 class="font-[Georgia] text-lg font-bold text-navy-900">{{ post.title }}</h3>
       <p class="line-clamp-3 text-sm text-slate-600">{{ post.excerpt }}</p>
       <span class="mt-auto pt-3 text-sm font-semibold text-gold-600 group-hover:text-gold-500">

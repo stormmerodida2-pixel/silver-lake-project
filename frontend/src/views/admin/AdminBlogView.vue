@@ -15,8 +15,16 @@ const editingId = ref(null)
 const imageFile = ref(null)
 const imagePreviewUrl = ref(null)
 
+const categoryOptions = [
+  { value: 'travel_tips', label: 'Travel Tips' },
+  { value: 'destination_guides', label: 'Destination Guides' },
+  { value: 'fleet_spotlights', label: 'Fleet & Driver Spotlights' },
+  { value: 'company_news', label: 'Company News' },
+]
+
 const form = reactive({
   title: '',
+  category: 'travel_tips',
   excerpt: '',
   body: '',
   is_published: false,
@@ -24,7 +32,7 @@ const form = reactive({
 
 function resetForm() {
   editingId.value = null
-  Object.assign(form, { title: '', excerpt: '', body: '', is_published: false })
+  Object.assign(form, { title: '', category: 'travel_tips', excerpt: '', body: '', is_published: false })
   imageFile.value = null
   imagePreviewUrl.value = null
   formError.value = ''
@@ -38,7 +46,7 @@ function openAddModal() {
 function openEditModal(post) {
   editingId.value = post.id
   Object.assign(form, {
-    title: post.title, excerpt: post.excerpt, body: post.body, is_published: post.is_published,
+    title: post.title, category: post.category, excerpt: post.excerpt, body: post.body, is_published: post.is_published,
   })
   imageFile.value = null
   imagePreviewUrl.value = post.cover_image || null
@@ -55,6 +63,7 @@ function onImageSelected(event) {
 function buildPayload() {
   const payload = new FormData()
   payload.append('title', form.title)
+  payload.append('category', form.category)
   payload.append('excerpt', form.excerpt)
   payload.append('body', form.body)
   payload.append('is_published', form.is_published)
@@ -162,6 +171,9 @@ onMounted(() => {
             >
               {{ post.is_published ? 'Published' : 'Draft' }}
             </span>
+            <span class="shrink-0 rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              {{ post.category_display }}
+            </span>
           </div>
           <p class="mt-1 line-clamp-2 text-sm text-slate-400">{{ post.excerpt }}</p>
           <p class="mt-2 text-xs text-slate-500">
@@ -171,6 +183,12 @@ onMounted(() => {
         </div>
         <div class="flex shrink-0 flex-col items-end gap-2">
           <div class="flex gap-2">
+            <a
+              :href="`/blog/${post.slug}`" target="_blank" rel="noopener"
+              class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400"
+            >
+              Preview
+            </a>
             <button
               :disabled="busyId === post.id"
               class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
@@ -226,6 +244,13 @@ onMounted(() => {
                   v-model="form.title" type="text" placeholder="e.g. A Weekend Guide to Kisumu" required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Category</label>
+                <select v-model="form.category"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                  <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Excerpt *</label>

@@ -45,13 +45,16 @@ export const useCatalogStore = defineStore('catalog', {
       this.loaded.categories = true
     },
     // Marketing content, published in advance - doesn't need vehicles' always-refetch
-    // freshness, so it's cached once per session like drivers/reviews/categories.
-    async fetchBlogPosts() {
-      if (this.loaded.blogPosts) return
-      const { data } = await apiClient.get('/blog/')
+    // freshness, so an unfiltered fetch is cached once per session like drivers/reviews/
+    // categories. A category filter always re-fetches, though - filtering has to happen
+    // server-side (not over the cached array) so it stays correct once combined with
+    // pagination, since the cache may only hold the first page.
+    async fetchBlogPosts(category = '') {
+      if (!category && this.loaded.blogPosts) return
+      const { data } = await apiClient.get('/blog/', category ? { params: { category } } : undefined)
       this.blogPosts = data.results ?? data
       this.blogPostsNextUrl = data.next ?? null
-      this.loaded.blogPosts = true
+      if (!category) this.loaded.blogPosts = true
     },
     async loadMoreBlogPosts() {
       if (!this.blogPostsNextUrl) return
