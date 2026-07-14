@@ -170,8 +170,10 @@ class AdminFleetPartnerTests(APITestCase):
     """Superadmin-only CRUD for registered fleet-owning companies - holds their platform fee
     rate (which only a genuine SilverLake superadmin can ever set, not even their own org-admin),
     so unlike most admin list endpoints, even viewing is restricted (not opened to regular
-    support staff). Deliberately holds no payment details of its own - every client payment goes
-    through SilverLake's single Paybill regardless of vehicle ownership."""
+    support staff). Deliberately holds no *inbound* payment details of its own - every client
+    payment goes through SilverLake's single Paybill regardless of vehicle ownership -
+    payout_phone_number is the opposite direction (where the partner's own cut is eventually
+    sent back out) and carries none of that inbound-collection risk."""
 
     def setUp(self):
         self.superadmin = User.objects.create_superuser(username='partner-super@example.com', password='pass12345!')
@@ -187,6 +189,17 @@ class AdminFleetPartnerTests(APITestCase):
         partner = FleetPartner.objects.get()
         self.assertEqual(partner.name, 'Coastline Rentals Ltd')
         self.assertEqual(partner.platform_fee_percent, Decimal('10'))
+
+    def test_payout_phone_number_can_be_set_separately_from_contact_phone(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post('/api/admin/fleet-partners/', {
+            'name': 'Coastline Rentals Ltd', 'contact_phone': '254700111222',
+            'payout_phone_number': '254711333444', 'platform_fee_percent': '10',
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        partner = FleetPartner.objects.get()
+        self.assertEqual(partner.contact_phone, '254700111222')
+        self.assertEqual(partner.payout_phone_number, '254711333444')
 
     def test_support_staff_cannot_view_or_create_partners(self):
         self.client.force_authenticate(user=self.staff)

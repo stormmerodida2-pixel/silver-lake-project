@@ -188,7 +188,7 @@ class AdminFleetPartnerSerializer(serializers.ModelSerializer):
     class Meta:
         model = FleetPartner
         fields = [
-            'id', 'name', 'contact_email', 'contact_phone',
+            'id', 'name', 'contact_email', 'contact_phone', 'payout_phone_number',
             'platform_fee_percent', 'is_active', 'vehicle_count', 'created_at',
         ]
         read_only_fields = ['created_at']

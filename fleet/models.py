@@ -40,16 +40,25 @@ class FleetPartner(models.Model):
     """A company (or eventually an individual) that has registered its own fleet with
     SilverLake - distinct from an individual driver-partner (drivers.Driver), since one
     FleetPartner can own many vehicles, possibly driven by different people who aren't
-    necessarily the owner themselves. Deliberately holds no payment details of its own - every
-    client payment, for any vehicle regardless of ownership, goes through SilverLake's single
-    Paybill (see MPESA_* settings), specifically so the platform fee is never at risk of not
-    being collected. SilverLake keeps platform_fee_percent as revenue; the rest is owed back to
-    the partner via the normal DriverPayout mechanism (organization set instead of driver) -
-    see PLATFORM_OVERVIEW.md."""
+    necessarily the owner themselves. Deliberately holds no *inbound* payment details of its
+    own - every client payment, for any vehicle regardless of ownership, goes through
+    SilverLake's single Paybill (see MPESA_* settings), specifically so the platform fee is
+    never at risk of not being collected (a partner's own Paybill/Daraja credentials were
+    briefly added then deliberately removed - see fleet/migrations 0014/0015). payout_phone_number
+    is the opposite direction - where SilverLake eventually sends this partner's own cut back
+    out - and carries none of that inbound-collection risk. SilverLake keeps
+    platform_fee_percent as revenue; the rest is owed back to the partner via the normal
+    DriverPayout mechanism (organization set instead of driver) - see PLATFORM_OVERVIEW.md."""
 
     name = models.CharField(max_length=150)
     contact_email = models.EmailField(blank=True)
     contact_phone = models.CharField(max_length=20, blank=True)
+    payout_phone_number = models.CharField(
+        max_length=20, blank=True,
+        help_text="M-Pesa number this partner's own share of a payout is sent to - kept "
+                   "separate from contact_phone so a general contact number is never mistaken "
+                   "for a real money destination.",
+    )
 
     platform_fee_percent = models.DecimalField(
         max_digits=4, decimal_places=2, default=Decimal('10'),

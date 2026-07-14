@@ -15,6 +15,7 @@ const form = reactive({
   name: '',
   contact_email: '',
   contact_phone: '',
+  payout_phone_number: '',
   platform_fee_percent: '10',
 })
 
@@ -24,7 +25,9 @@ const submitLabel = () => saving.value
   : (editingId.value ? 'Save Changes' : 'Register Partner')
 
 function resetForm() {
-  Object.assign(form, { name: '', contact_email: '', contact_phone: '', platform_fee_percent: '10' })
+  Object.assign(form, {
+    name: '', contact_email: '', contact_phone: '', payout_phone_number: '', platform_fee_percent: '10',
+  })
 }
 
 function openAddModal() {
@@ -38,7 +41,7 @@ function openEditModal(partner) {
   editingId.value = partner.id
   Object.assign(form, {
     name: partner.name, contact_email: partner.contact_email, contact_phone: partner.contact_phone,
-    platform_fee_percent: partner.platform_fee_percent,
+    payout_phone_number: partner.payout_phone_number, platform_fee_percent: partner.platform_fee_percent,
   })
   formError.value = ''
   showModal.value = true
@@ -273,6 +276,17 @@ onMounted(load)
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Payout Phone Number</label>
+                <input
+                  v-model="form.payout_phone_number" type="text" placeholder="2547XXXXXXXX"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                />
+                <p class="mt-1 text-xs text-slate-500">
+                  Where this partner's own share of a payout is sent - kept separate from their contact phone.
+                </p>
               </div>
 
               <div>
