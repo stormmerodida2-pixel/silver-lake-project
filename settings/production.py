@@ -13,6 +13,11 @@ from .base import *  # noqa: F401,F403
 
 DEBUG = False
 
+# No default here either - base.py's own SECRET_KEY default is a real value committed in plain
+# text to this (public) repo, harmless for local dev but a genuine hole if it ever silently
+# became the key protecting real sessions/CSRF tokens/password-reset links. Fail loudly instead.
+SECRET_KEY = config('SECRET_KEY')
+
 # No default - fail loudly at startup rather than silently allowing every Host header through.
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 
