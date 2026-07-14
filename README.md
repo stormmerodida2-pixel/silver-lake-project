@@ -120,18 +120,4 @@ Both run automatically on every push/PR via `.github/workflows/ci.yml`. Passing 
 app label (e.g. `manage.py test blog`) doesn't reliably discover tests in this layout — always use
 the dotted `app.tests` form shown above.
 
-## Before going live
 
-Not broken, but a conscious decision needed before real customers/real money:
-
-- **M-Pesa is still pointed at Safaricom's sandbox** — no real payment can confirm until you have
-  production Daraja credentials.
-- **No real domain/HTTPS yet** — `MPESA_CALLBACK_URL`, `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`,
-  and `FRONTEND_URL` are all still `localhost`; Safaricom's servers can't reach a callback URL
-  that isn't publicly reachable over HTTPS.
-- **File storage is local disk** — every uploaded photo/document won't survive a redeploy until
-  this moves to an object storage backend (S3-compatible - AWS S3, Cloudflare R2, DigitalOcean
-  Spaces all work the same way here).
-- **Nothing is deployed anywhere yet** — a hosting decision hasn't been made.
-
-The full, continuously-updated list lives in `PLATFORM_OVERVIEW.md` §13.
