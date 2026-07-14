@@ -573,9 +573,9 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
         organization = get_user_organization(self.request.user)
         if organization is None:
             return self.queryset
-        # A FleetPartner-owned vehicle's booking never actually creates a DriverPayout (see
-        # Booking._driver_owns_the_vehicle) - settlement for those is a different, not-yet-built
-        # mechanism - so this is empty for an org today, not wrong, just not useful yet.
+        # A FleetPartner-owned vehicle's booking creates a DriverPayout with organization set
+        # instead of driver (see Booking._ensure_driver_payout / _has_payout_recipient) - an
+        # org's own staff see exactly their own payouts here, same shape as a driver-owned one.
         return self.queryset.filter(booking__vehicle__owner=organization)
 
     @action(detail=True, methods=['post'], url_path='mark-paid')
