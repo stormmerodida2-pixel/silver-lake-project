@@ -168,29 +168,29 @@ function handleLogout() {
       </div>
     </aside>
 
-    <div class="flex-1">
+    <div class="min-w-0 flex-1">
       <header class="flex items-center justify-between border-b border-navy-800 bg-navy-950/95 px-4 py-3 backdrop-blur md:px-8">
         <div class="flex items-center gap-2 md:hidden">
           <SilverLakeLogo :size="24" />
           <span class="font-[Georgia] text-sm font-bold text-white">Admin</span>
         </div>
         <div class="hidden text-sm text-slate-400 md:block">{{ route.meta.pageTitle || 'Admin Panel' }}</div>
-        <div class="flex items-center gap-3 text-sm text-slate-300">
+        <div class="flex items-center gap-2 text-sm text-slate-300 sm:gap-3">
           <NotificationBell base-path="/admin/notifications" />
           <span
             v-if="auth.user?.organization_name"
-            class="rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-xs font-semibold text-brand-blue-400"
+            class="hidden rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-xs font-semibold text-brand-blue-400 sm:inline-block"
             :title="`Scoped to ${auth.user.organization_name}'s own data only`"
           >
             {{ auth.user.organization_name }}
           </span>
           <span
-            class="rounded-full px-2 py-0.5 text-xs font-semibold"
+            class="hidden rounded-full px-2 py-0.5 text-xs font-semibold sm:inline-block"
             :class="auth.user?.is_superuser ? 'bg-gold-500/10 text-gold-400' : 'bg-navy-800 text-slate-400'"
           >
             {{ auth.user?.is_superuser ? (auth.user?.organization_name ? 'Org Admin' : 'Super Admin') : 'Support Staff' }}
           </span>
-          <RouterLink to="/account/profile" class="font-[Georgia] text-base tracking-wide transition hover:text-gold-400">
+          <RouterLink to="/account/profile" class="whitespace-nowrap font-[Georgia] text-sm tracking-wide transition hover:text-gold-400 sm:text-base">
             Hi, {{ auth.user?.first_name || 'Admin' }}
           </RouterLink>
         </div>

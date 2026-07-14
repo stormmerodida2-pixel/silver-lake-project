@@ -137,7 +137,7 @@ onMounted(() => {
       </div>
     </aside>
 
-    <div class="flex-1">
+    <div class="min-w-0 flex-1">
       <header class="flex items-center justify-between border-b border-navy-800 bg-navy-950/95 px-4 py-3 backdrop-blur md:px-8">
         <div class="flex items-center gap-2 md:hidden">
           <SilverLakeLogo :size="24" />
