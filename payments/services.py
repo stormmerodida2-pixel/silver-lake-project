@@ -58,6 +58,13 @@ AUTO_REMINDER_COOLDOWN = timedelta(hours=1)
 # genuinely isn't just quietly forgotten about for a week.
 ESCALATE_AFTER = timedelta(days=3)
 
+# How long a driver has, after confirming they've collected cash, before the first automatic
+# deposit reminder fires - long enough to actually reach an M-Pesa agent, short enough that
+# collected cash doesn't just sit with the driver for days unprompted. Unlike ESCALATE_AFTER
+# above, this isn't tied to the booking's end date at all (see remind_undeposited_cash) - cash
+# should be deposited promptly regardless of how much of the rental period is left.
+CASH_DEPOSIT_REMINDER_GRACE_PERIOD = timedelta(hours=2)
+
 
 def escalate_stuck_bookings():
     """The automated counterpart to the manual Remind Driver/Remind Deposit/Remind Balance
@@ -68,6 +75,9 @@ def escalate_stuck_bookings():
     (past its scheduled end date, still open - see Booking.needs_attention, which this mirrors
     exactly). Reuses the exact same reminder functions and cooldown fields the manual buttons
     use, so a recent manual reminder isn't immediately duplicated by this, and vice versa.
+    (Undeposited cash is the one exception - see remind_undeposited_cash, which owns nudging the
+    driver about that regardless of end_date; this function only still checks for it to decide
+    whether to escalate to staff below.)
 
     If a booking is still unresolved ESCALATE_AFTER days past its scheduled end date, staff get a
     one-time email/notification of their own (see Booking.payment_escalated_at, which guards
@@ -79,7 +89,7 @@ def escalate_stuck_bookings():
     from notifications.models import NotificationEvent
     from notifications.services import notify
 
-    from .emails import send_cash_deposit_reminder_email, send_payment_reminder_email
+    from .emails import send_payment_reminder_email
 
     now = timezone.now()
     today = timezone.localdate()
@@ -108,19 +118,14 @@ def escalate_stuck_bookings():
                     driver=pending_payment.recorded_by_driver, link_path='/driver',
                 )
 
-        undeposited_cash = booking.payments.filter(
+        # Reminding the driver is remind_undeposited_cash's job now (runs independently of
+        # end_date, so it starts nudging well before a booking is even overdue) - this only
+        # still needs to know *whether* cash is undeposited, to fold it into staff escalation
+        # below once the booking itself is stuck.
+        if booking.payments.filter(
             method=PaymentMethod.CASH, status=PaymentStatus.SUCCESSFUL, cash_deposit__isnull=True,
-        ).first()
-        if undeposited_cash:
+        ).exists():
             reasons.append('Cash was collected but has not been deposited into the Paybill.')
-            if not undeposited_cash.last_reminded_at or now - undeposited_cash.last_reminded_at >= AUTO_REMINDER_COOLDOWN:
-                undeposited_cash.last_reminded_at = now
-                undeposited_cash.save(update_fields=['last_reminded_at'])
-                send_cash_deposit_reminder_email(undeposited_cash)
-                notify(
-                    NotificationEvent.CASH_DEPOSIT_REMINDER, 'Please redeposit the cash you collected into the Paybill',
-                    driver=undeposited_cash.recorded_by_driver, link_path='/driver',
-                )
 
         if booking.balance_due > 0:
             reasons.append(f'KES {booking.balance_due:,.2f} is still owed on this booking.')
@@ -138,6 +143,46 @@ def escalate_stuck_bookings():
                 f'Booking #{booking.pk} has an unresolved payment issue {ESCALATE_AFTER.days}+ days after its scheduled return',
                 organization=booking.vehicle.owner, link_path='/admin/bookings',
             )
+
+
+def remind_undeposited_cash():
+    """Nudges a driver about cash they've confirmed collecting but not yet deposited into the
+    Paybill - runs on every scheduler tick (see payments.scheduler), independent of whether the
+    booking's trip has ended yet. escalate_stuck_bookings only starts caring about a booking once
+    it's past its scheduled end date, which left a real gap: a driver could sit on cash collected
+    on day one of a five-day rental with zero automated nudge until day five. This is the earlier,
+    driver-facing half of that same concern - it runs for every undeposited cash payment, not
+    just ones already overdue, and is the sole sender of this reminder (escalate_stuck_bookings
+    still checks whether cash is undeposited, but only to decide whether to escalate to staff).
+
+    Waits CASH_DEPOSIT_REMINDER_GRACE_PERIOD after the payment was confirmed before the first
+    reminder, so a driver isn't nagged the instant they record it - they need real time to reach
+    an agent. Re-reminds on AUTO_REMINDER_COOLDOWN thereafter, the same cooldown field/rate the
+    manual Remind Deposit button and escalate_stuck_bookings both already use, so none of these
+    ever duplicate each other within the same window."""
+    from notifications.models import NotificationEvent
+    from notifications.services import notify
+
+    from .emails import send_cash_deposit_reminder_email
+
+    now = timezone.now()
+    cutoff = now - CASH_DEPOSIT_REMINDER_GRACE_PERIOD
+
+    undeposited = Payment.objects.filter(
+        method=PaymentMethod.CASH, status=PaymentStatus.SUCCESSFUL,
+        cash_deposit__isnull=True, created_at__lt=cutoff,
+    ).select_related('recorded_by_driver')
+
+    for payment in undeposited:
+        if payment.last_reminded_at and now - payment.last_reminded_at < AUTO_REMINDER_COOLDOWN:
+            continue
+        payment.last_reminded_at = now
+        payment.save(update_fields=['last_reminded_at'])
+        send_cash_deposit_reminder_email(payment)
+        notify(
+            NotificationEvent.CASH_DEPOSIT_REMINDER, 'Please redeposit the cash you collected into the Paybill',
+            driver=payment.recorded_by_driver, link_path='/driver',
+        )
 
 
 def _lock_booking(booking):

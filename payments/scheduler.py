@@ -1,8 +1,10 @@
 """In-process background scheduler for periodic cleanup tasks. This project has no Celery/cron
 of its own, so rather than requiring someone to configure an external OS-level Task Scheduler or
 cron entry, a lightweight daemon thread does it automatically for as long as the Django process
-is alive. Runs three independent sweeps on the same interval:
+is alive. Runs four independent sweeps on the same interval:
 payments.services.expire_stale_mpesa_payments (abandoned STK pushes),
+payments.services.remind_undeposited_cash (nudging a driver to deposit collected cash, starting
+soon after they confirm receiving it - independent of the booking's own end date),
 payments.services.escalate_stuck_bookings (auto-reminding, then escalating to staff, a booking
 whose payment/deposit has sat unresolved past its scheduled end date), and
 bookings.services.escalate_unacknowledged_bookings (alerting staff once an online booking's
@@ -55,7 +57,7 @@ def _should_run():
 def _sweep_loop():
     from bookings.services import escalate_unacknowledged_bookings
 
-    from .services import escalate_stuck_bookings, expire_stale_mpesa_payments
+    from .services import escalate_stuck_bookings, expire_stale_mpesa_payments, remind_undeposited_cash
 
     while True:
         time.sleep(SWEEP_INTERVAL_SECONDS)
@@ -65,6 +67,11 @@ def _sweep_loop():
                 logger.info('Marked %d stale pending M-Pesa payment(s) as failed.', count)
         except Exception:
             logger.exception('Stale M-Pesa payment sweep failed')
+
+        try:
+            remind_undeposited_cash()
+        except Exception:
+            logger.exception('Undeposited-cash reminder sweep failed')
 
         try:
             escalate_stuck_bookings()

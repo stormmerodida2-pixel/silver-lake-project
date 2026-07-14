@@ -998,16 +998,25 @@ class EscalateStuckBookingsTests(APITestCase):
         self.assertIsNotNone(payment.last_reminded_at)
         self.assertTrue(any('confirm a' in m.subject.lower() for m in mail.outbox))
 
-    def test_undeposited_cash_gets_an_automatic_deposit_reminder(self):
-        payment = Payment.objects.create(
+    def test_undeposited_cash_contributes_to_staff_escalation_but_isnt_reminded_here(self):
+        # Reminding the driver is remind_undeposited_cash's job now (see that function's own
+        # tests) - this only still needs to notice undeposited cash exists, to fold it into
+        # staff escalation once the booking itself is stuck.
+        staff = User.objects.create_user(username='cash-escalation-staff@example.com', email='cash-escalation-staff@example.com', password='pass12345!', is_staff=True)
+        self.overdue_booking.start_date = timezone.localdate() - timedelta(days=10)
+        self.overdue_booking.end_date = timezone.localdate() - timedelta(days=4)
+        self.overdue_booking.save(update_fields=['start_date', 'end_date'])
+        Payment.objects.create(
             booking=self.overdue_booking, method=PaymentMethod.CASH, amount=Decimal('1000'),
             status=PaymentStatus.SUCCESSFUL, recorded_by_driver=self.driver,
         )
         mail.outbox = []
         self._run()
-        payment.refresh_from_db()
-        self.assertIsNotNone(payment.last_reminded_at)
-        self.assertTrue(any('deposit cash to paybill' in m.subject.lower() for m in mail.outbox))
+        self.overdue_booking.refresh_from_db()
+        self.assertIsNotNone(self.overdue_booking.payment_escalated_at)
+        staff_emails = [m for m in mail.outbox if 'needs attention' in m.subject.lower()]
+        self.assertEqual(len(staff_emails), 1)
+        self.assertIn('not been deposited', staff_emails[0].body)
 
     def test_an_outstanding_balance_with_nothing_declared_gets_a_balance_reminder(self):
         mail.outbox = []
@@ -1102,3 +1111,86 @@ class EscalateStuckBookingsTests(APITestCase):
         mail.outbox = []
         self._run()
         self.assertFalse(any('needs attention' in m.subject.lower() for m in mail.outbox))
+
+
+class RemindUndepositedCashTests(APITestCase):
+    """The driver-facing half of the undeposited-cash concern - unlike escalate_stuck_bookings
+    (which only kicks in once a booking is already past its scheduled end date), this reminds a
+    driver about cash they're still sitting on regardless of how much of the rental is left, so
+    the gap of "collected on day one, no nudge until day five" can't happen."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(full_name='Cash Reminder Driver', is_active=True, email='cash-reminder-driver@example.com')
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='cash-reminder-client@example.com', password='pass12345!')
+        # Ongoing, nowhere near its end date - escalate_stuck_bookings would ignore this entirely.
+        self.booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+            start_date=timezone.localdate(), end_date=timezone.localdate() + timedelta(days=5),
+        )
+
+    def _run(self):
+        from payments.services import remind_undeposited_cash
+
+        remind_undeposited_cash()
+
+    def _undeposited_payment(self, **overrides):
+        defaults = dict(
+            booking=self.booking, method=PaymentMethod.CASH, amount=Decimal('1000'),
+            status=PaymentStatus.SUCCESSFUL, recorded_by_driver=self.driver,
+        )
+        defaults.update(overrides)
+        return Payment.objects.create(**defaults)
+
+    def test_no_reminder_before_the_grace_period_elapses(self):
+        payment = self._undeposited_payment()
+        mail.outbox = []
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNone(payment.last_reminded_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_reminder_fires_once_the_grace_period_has_passed(self):
+        payment = self._undeposited_payment()
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(hours=3))
+        mail.outbox = []
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNotNone(payment.last_reminded_at)
+        self.assertTrue(any('deposit cash to paybill' in m.subject.lower() for m in mail.outbox))
+
+    def test_works_even_though_the_booking_is_nowhere_near_its_end_date(self):
+        # The whole point of this sweep - escalate_stuck_bookings would never touch this booking.
+        payment = self._undeposited_payment()
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(hours=3))
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNotNone(payment.last_reminded_at)
+
+    def test_cooldown_prevents_an_immediate_second_reminder(self):
+        payment = self._undeposited_payment(last_reminded_at=timezone.now())
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(hours=3))
+        mail.outbox = []
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_a_deposited_payment_is_left_alone(self):
+        payment = self._undeposited_payment()
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(hours=3))
+        CashDeposit.objects.create(payment=payment, amount=payment.amount, mpesa_reference='QGH7ABC123')
+        mail.outbox = []
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNone(payment.last_reminded_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_a_non_cash_payment_is_left_alone(self):
+        payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA, amount=Decimal('1000'), status=PaymentStatus.SUCCESSFUL,
+        )
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(hours=3))
+        mail.outbox = []
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNone(payment.last_reminded_at)
+        self.assertEqual(len(mail.outbox), 0)
