@@ -1,0 +1,73 @@
+name: CI
+
+# Runs the Django test suite and the frontend build for both project trees - the outer root
+# and the nested silverlake/ copy (see PLATFORM_OVERVIEW.md; the two are otherwise kept in
+# sync by hand, so this is what actually catches a future change that only lands in one of
+# them, which nothing else currently would).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-outer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: >
+          python manage.py test
+          accounts.tests fleet.tests drivers.tests bookings.tests payments.tests
+          reviews.tests announcements.tests blog.tests notifications.tests core.tests
+          --settings=settings.local
+
+  backend-inner:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: silverlake
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: >
+          python manage.py test
+          accounts.tests fleet.tests drivers.tests bookings.tests payments.tests
+          reviews.tests announcements.tests blog.tests notifications.tests core.tests
+          --settings=settings.local
+
+  frontend-outer:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  frontend-inner:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: silverlake/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: silverlake/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
