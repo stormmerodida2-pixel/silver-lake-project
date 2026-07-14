@@ -5,7 +5,7 @@ pay via M-Pesa or card, browse the fleet and driver profiles.
 
 ## Structure
 
-- `silverlake/` — Django + Django REST Framework API (`accounts`, `fleet`, `drivers`, `bookings`, `payments`, `reviews`)
+- Django + Django REST Framework API at the repo root (`accounts`, `fleet`, `drivers`, `bookings`, `payments`, `reviews`, ...)
 - `frontend/` — Vue 3 + Vite + Tailwind CSS + Pinia SPA
 - `venv/` — Python virtual environment for the backend
 
@@ -13,7 +13,6 @@ pay via M-Pesa or card, browse the fleet and driver profiles.
 
 ```bash
 venv\Scripts\activate
-cd silverlake
 python manage.py migrate
 python manage.py createsuperuser   # first time, for /admin/
 python manage.py runserver
@@ -21,7 +20,7 @@ python manage.py runserver
 
 API runs at `http://localhost:8000/api/`, admin at `http://localhost:8000/admin/`.
 
-Copy `silverlake/.env.example` to `silverlake/.env` and fill in real values before going to production
+Copy `.env.example` to `.env` and fill in real values before going to production
 (`SECRET_KEY`, `MPESA_*` credentials from Safaricom Daraja).
 
 ### Auth
@@ -40,7 +39,7 @@ gallery photos per vehicle, manage drivers, and approve reviews.
 - `POST /api/auth/change-password/` — `{old_password, new_password}` (requires auth)
 
 Activation/reset emails go out via Gmail SMTP. Until you add a real Gmail address + [App Password](https://myaccount.google.com/apppasswords)
-to `silverlake/.env` (`EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`), emails are printed to the `runserver` console instead
+to `.env` (`EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`), emails are printed to the `runserver` console instead
 of actually sending (see `EMAIL_BACKEND` fallback in `settings.py`) — grab the activation/reset link from there while testing.
 
 In `DEBUG` mode, CORS allows any localhost origin (Vite's port shifts to 5174+ if 5173 is busy); production

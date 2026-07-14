@@ -1,8 +1,0 @@
-Django==6.0.6
-djangorestframework
-djangorestframework-simplejwt
-django-cors-headers
-Pillow
-nh3
-python-decouple
-requests

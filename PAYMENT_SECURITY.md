@@ -29,8 +29,8 @@ for a real payout with zero money actually collected.
   independent check, since they didn't initiate it themselves. If they never actually paid,
   this is what tips them off to dispute it.
 
-*Code:* `silverlake/payments/services.py` (`record_cash_payment`), `DriverPayout.needs_verification`
-/ `is_verified` in `silverlake/payments/models.py`, verify action in `silverlake/core/views.py`.
+*Code:* `payments/services.py` (`record_cash_payment`), `DriverPayout.needs_verification`
+/ `is_verified` in `payments/models.py`, verify action in `core/views.py`.
 
 ### 2. The M-Pesa callback could be forged
 
@@ -44,7 +44,7 @@ without ever sending real money.
 (`MPESA_CALLBACK_SECRET` in `.env`) that's never sent to the client. Without the correct secret,
 the callback is rejected outright (404) — no payment gets touched.
 
-*Code:* `silverlake/payments/views.py` (`mpesa_callback`), `silverlake/payments/mpesa.py`
+*Code:* `payments/views.py` (`mpesa_callback`), `payments/mpesa.py`
 (appends the secret automatically when starting a payment).
 
 ### 3. Payment amounts had no floor, and closed bookings could still receive payments
@@ -59,8 +59,8 @@ customer could still trigger an M-Pesa prompt) against a booking that was alread
 **The fix:** Both payment paths now reject any amount that isn't strictly greater than zero, and
 refuse to accept a payment against a booking that's already cancelled or completed.
 
-*Code:* `silverlake/payments/services.py` (`initiate_stk_push_payment`, `record_cash_payment`),
-`silverlake/payments/serializers.py` (`min_value` on the amount fields).
+*Code:* `payments/services.py` (`initiate_stk_push_payment`, `record_cash_payment`),
+`payments/serializers.py` (`min_value` on the amount fields).
 
 ### 4. A driver's payout was queued for the full trip value on a 30% deposit
 
@@ -78,8 +78,8 @@ balance later (after the booking is already confirmed) now re-checks and creates
 that point. The admin Payouts page also now shows each payout's booking total, amount paid, and
 any balance still owed, as a second line of visibility regardless.
 
-*Code:* `silverlake/bookings/models.py` (`confirm_if_deposit_met`, `_ensure_driver_payout`),
-`silverlake/core/serializers.py` (`AdminDriverPayoutSerializer`), `AdminPayoutsView.vue`.
+*Code:* `bookings/models.py` (`confirm_if_deposit_met`, `_ensure_driver_payout`),
+`core/serializers.py` (`AdminDriverPayoutSerializer`), `AdminPayoutsView.vue`.
 
 ## What's still open (not fixed, flagging for a decision)
 
@@ -99,14 +99,13 @@ any balance still owed, as a second line of visibility regardless.
 
 ## How this is tested
 
-67 automated backend tests cover the booking/payment/payout logic (`silverlake/bookings/tests.py`,
-`silverlake/payments/tests.py`, `silverlake/core/tests.py`), including every scenario described
+67 automated backend tests cover the booking/payment/payout logic (`bookings/tests.py`,
+`payments/tests.py`, `core/tests.py`), including every scenario described
 above — wrong/missing callback secret, zero/negative amounts, payments against closed bookings,
 and a payout not appearing until the booking is fully paid are all explicitly tested to behave
 the way this document says they should.
 
 Run them with:
 ```
-cd silverlake
 python manage.py test
 ```

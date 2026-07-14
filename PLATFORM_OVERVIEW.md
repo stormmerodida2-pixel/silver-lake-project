@@ -643,7 +643,6 @@ against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
 both succeed — run with:
 ```
-cd silverlake
 python manage.py test
 ```
 
