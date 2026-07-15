@@ -19,7 +19,10 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from core.sitemap import sitemap_view
+
 urlpatterns = [
+    path('sitemap.xml', sitemap_view, name='sitemap'),
     path('api/', include('accounts.urls')),
     path('api/', include('fleet.urls')),
     path('api/', include('drivers.urls')),

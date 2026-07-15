@@ -168,6 +168,33 @@ class Vehicle(models.Model):
         return (timezone.now().date() - baseline).days >= self.SERVICE_DUE_INTERVAL_DAYS
 
 
+def visible_vehicles():
+    """Vehicles whose /fleet/<id> detail page actually resolves right now, applying the exact
+    same exclusions as VehicleViewSet.get_queryset() (currently booked, lapsed insurance/
+    inspection, driver away/suspended) - shared so the two can never drift apart, since the
+    sitemap in particular must never link to a URL that 404s. Imports bookings.models lazily to
+    avoid a circular import (bookings.models imports fleet.models at module level)."""
+    from datetime import date
+
+    from bookings.models import BLOCKING_BOOKING_STATUSES, Booking
+
+    today = date.today()
+    currently_booked_ids = Booking.objects.filter(
+        status__in=BLOCKING_BOOKING_STATUSES,
+        start_date__lte=today,
+        end_date__gte=today,
+    ).values_list('vehicle_id', flat=True)
+
+    return (
+        Vehicle.objects.filter(is_available=True)
+        .exclude(id__in=currently_booked_ids)
+        .exclude(insurance_expiry_date__lt=today)
+        .exclude(inspection_expiry_date__lt=today)
+        .exclude(driver__is_away=True)
+        .exclude(driver__is_active=False)
+    )
+
+
 class VehicleImage(models.Model):
     """Additional gallery photos for a vehicle, beyond its primary `image`."""
 

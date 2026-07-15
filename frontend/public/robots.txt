@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /driver
+Disallow: /account
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /activate
+Disallow: /book
+Disallow: /pay
+Disallow: /dispute-payment
+
+# Update this to the real production domain once one is chosen (see README "Before going live").
+Sitemap: https://your-domain.example/sitemap.xml

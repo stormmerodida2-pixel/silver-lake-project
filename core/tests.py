@@ -1486,3 +1486,38 @@ class ParseAmountTests(TestCase):
         # own business-rule check, not this function's job.
         self.assertEqual(parse_amount('0'), Decimal('0.00'))
         self.assertEqual(parse_amount('-500'), Decimal('-500.00'))
+
+
+class SitemapTests(APITestCase):
+    def test_sitemap_is_valid_xml_with_static_pages(self):
+        response = self.client.get('/sitemap.xml')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/xml')
+        content = response.content.decode()
+        self.assertIn('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', content)
+        self.assertIn('<loc>http://localhost:5173/</loc>', content)
+        self.assertIn('<loc>http://localhost:5173/fleet</loc>', content)
+
+    def test_includes_a_visible_vehicle(self):
+        vehicle = make_vehicle()
+        content = self.client.get('/sitemap.xml').content.decode()
+        self.assertIn(f'<loc>http://localhost:5173/fleet/{vehicle.id}</loc>', content)
+
+    def test_excludes_a_vehicle_with_lapsed_insurance(self):
+        vehicle = make_vehicle(insurance_expiry_date=timezone.now().date() - timedelta(days=1))
+        content = self.client.get('/sitemap.xml').content.decode()
+        self.assertNotIn(f'<loc>http://localhost:5173/fleet/{vehicle.id}</loc>', content)
+
+    def test_excludes_an_unavailable_vehicle(self):
+        vehicle = make_vehicle(is_available=False)
+        content = self.client.get('/sitemap.xml').content.decode()
+        self.assertNotIn(f'<loc>http://localhost:5173/fleet/{vehicle.id}</loc>', content)
+
+    def test_includes_a_published_blog_post_and_excludes_a_draft(self):
+        from blog.models import BlogPost
+
+        published = BlogPost.objects.create(title='Published Post', excerpt='x', body='<p>x</p>', is_published=True)
+        draft = BlogPost.objects.create(title='Draft Post', excerpt='x', body='<p>x</p>', is_published=False)
+        content = self.client.get('/sitemap.xml').content.decode()
+        self.assertIn(f'<loc>http://localhost:5173/blog/{published.slug}</loc>', content)
+        self.assertNotIn(f'<loc>http://localhost:5173/blog/{draft.slug}</loc>', content)
