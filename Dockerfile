@@ -9,10 +9,16 @@ FROM python:3.12-slim
 # in the final image is a deliberate size-vs-simplicity tradeoff (a multi-stage build would trim
 # this, at the cost of real complexity for an app this size).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    default-libmysqlclient-dev build-essential pkg-config \
+    default-libmysqlclient-dev build-essential pkg-config curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# RDS's own recommended connection mode verifies the server's identity against this bundle -
+# see settings/production.py's DATABASE_URL block, which points Django's MySQL connection at
+# this exact path (/app/global-bundle.pem). Amazon's own combined bundle covers every AWS
+# region, so this doesn't need to change if the RDS instance ever moves regions.
+RUN curl -o /app/global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -23,11 +29,11 @@ ENV DJANGO_SETTINGS_MODULE=settings.production
 EXPOSE 8000
 
 # collectstatic and migrate both need real settings/.env values (SECRET_KEY, ALLOWED_HOSTS, a
-# real DATABASE_URL) that only exist at container *runtime* on App Runner (injected as env vars),
-# not at `docker build` time - so both run here, on every container start, rather than as a
-# build step. migrate is safe to run on every start (Django migrations are idempotent); running
-# collectstatic every start is a few seconds of overhead in exchange for never risking stale
-# static assets from an old image layer.
+# real DATABASE_URL) that only exist at container *runtime* (injected via the EC2 box's
+# ~/silverlake.env, see README), not at `docker build` time - so both run here, on every
+# container start, rather than as a build step. migrate is safe to run on every start (Django
+# migrations are idempotent); running collectstatic every start is a few seconds of overhead in
+# exchange for never risking stale static assets from an old image layer.
 CMD python manage.py collectstatic --noinput && \
     python manage.py migrate --noinput && \
     gunicorn silverlake.wsgi --bind 0.0.0.0:8000 --workers 3 --log-file -

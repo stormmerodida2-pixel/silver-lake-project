@@ -72,7 +72,15 @@ if DATABASE_URL:
 
     DATABASES = DATABASES.copy()
     DATABASES['default'] = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
-    DATABASES['default'].setdefault('OPTIONS', {})['init_command'] = 'SET SESSION innodb_lock_wait_timeout=10'
+    db_options = DATABASES['default'].setdefault('OPTIONS', {})
+    db_options['init_command'] = 'SET SESSION innodb_lock_wait_timeout=10'
+    # RDS's own recommended connection mode verifies the server's identity against Amazon's CA
+    # bundle - baked into the Docker image at this exact path (see the Dockerfile). Skipped
+    # entirely for a non-RDS MySQL host (e.g. local testing against a plain MySQL container),
+    # where this file won't exist and isn't needed.
+    rds_ca_bundle = BASE_DIR / 'global-bundle.pem'
+    if rds_ca_bundle.exists():
+        db_options['ssl'] = {'ca': str(rds_ca_bundle)}
 
 # S3-compatible object storage for media - works with real AWS S3, Cloudflare R2, DigitalOcean
 # Spaces, Backblaze B2, or anything else speaking the S3 API, by pointing AWS_S3_ENDPOINT_URL at
