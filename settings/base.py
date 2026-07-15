@@ -19,6 +19,14 @@ from decouple import config, Csv
 # <project root> - the same directory manage.py, db.sqlite3, and media/ live in.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# The real env file lives at settings/.env (next to this file), not the project root.
+# decouple's config() is a process-wide singleton that, on its first call anywhere in the app,
+# searches upward starting from the CALLING file's own directory - since this is that first call
+# and this file lives in settings/, it finds settings/.env directly. Every other module's own
+# `from decouple import config` reuses this same cached lookup, so this is the only place the
+# path is ever resolved. Do not add a stray/empty .env anywhere between here and the filesystem
+# root - decouple stops at the first file it finds, even if it's empty.
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-j4v=c0*78mzij*cq8*3abgz^z$b13bll(1@kxlu!tb(42&oqi1')
 

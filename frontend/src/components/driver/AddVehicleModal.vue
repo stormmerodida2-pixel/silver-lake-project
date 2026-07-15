@@ -46,8 +46,17 @@ async function open() {
 defineExpose({ open })
 
 function onPhotosSelected(event) {
-  photoFiles.value = Array.from(event.target.files)
+  // Adds to whatever's already picked, rather than replacing it - a file input's own .files
+  // list is wiped clean on every selection, so picking one photo, then going back to add
+  // another separately, would otherwise silently drop the first one instead of accumulating.
+  photoFiles.value = [...photoFiles.value, ...Array.from(event.target.files)]
   photoPreviewUrls.value = photoFiles.value.map((file) => URL.createObjectURL(file))
+  event.target.value = ''
+}
+
+function removePhoto(index) {
+  photoFiles.value = photoFiles.value.filter((_, i) => i !== index)
+  photoPreviewUrls.value = photoPreviewUrls.value.filter((_, i) => i !== index)
 }
 
 async function submitVehicle() {
@@ -145,10 +154,16 @@ async function submitVehicle() {
                 @change="onPhotosSelected"
               />
               <div v-if="photoPreviewUrls.length" class="mt-2 flex flex-wrap gap-2">
-                <img
-                  v-for="(url, i) in photoPreviewUrls" :key="i" :src="url" alt="Preview"
-                  class="h-16 w-24 rounded-lg border border-navy-700 object-cover"
-                />
+                <div v-for="(url, i) in photoPreviewUrls" :key="i" class="group relative h-16 w-24 shrink-0">
+                  <img :src="url" alt="Preview" class="h-full w-full rounded-lg border border-navy-700 object-cover" />
+                  <button
+                    type="button" title="Remove this photo"
+                    class="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    @click="removePhoto(i)"
+                  >
+                    &times;
+                  </button>
+                </div>
               </div>
               <p v-if="photoFiles.length && photoFiles.length < 2" class="mt-1 text-xs text-red-400">
                 Add at least one more photo.

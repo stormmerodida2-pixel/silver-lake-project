@@ -52,8 +52,9 @@ API runs at `http://localhost:8000/api/`. Django's own built-in admin is also re
 convenience only — it's never registered at all once `DEBUG=False` (see `settings/production.py`),
 and isn't where staff actually manage the platform day to day; that's the Vue app at `/admin`.
 
-Copy `.env.example` to `.env` and fill in real values before going to production (`SECRET_KEY`,
-`MPESA_*` credentials from Safaricom Daraja, `EMAIL_HOST_USER`/`EMAIL_HOST_PASSWORD`).
+Copy `settings/.env.example` to `settings/.env` and fill in real values before going to production
+(`SECRET_KEY`, `MPESA_*` credentials from Safaricom Daraja, `EMAIL_HOST_USER`/`EMAIL_HOST_PASSWORD`).
+`settings/base.py` reads it from that exact location - see the comment above `BASE_DIR` there.
 
 Want the fleet/reviews/driver pages to look populated for a demo instead of empty? Run:
 
@@ -82,7 +83,7 @@ Access tokens are short-lived; the frontend's axios interceptor silently refresh
 this doesn't require the user to log in again mid-session.
 
 Activation/reset/every other transactional email goes out via Gmail SMTP. Until you add a real
-Gmail address + [App Password](https://myaccount.google.com/apppasswords) to `.env`
+Gmail address + [App Password](https://myaccount.google.com/apppasswords) to `settings/.env`
 (`EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`), emails are written to `sent_emails/` instead of
 actually sending — open the `.html` file there to grab an activation/reset link while testing.
 
@@ -107,7 +108,8 @@ npm install
 npm run dev
 ```
 
-Runs at `http://localhost:5173`. Configure `VITE_API_BASE_URL` in `frontend/.env`.
+Runs at `http://localhost:5173`. Configure `VITE_API_BASE_URL` (the backend API root) and
+`VITE_WHATSAPP_NUMBER` (the floating WhatsApp button's target number) in `frontend/.env`.
 
 ## Testing & CI
 

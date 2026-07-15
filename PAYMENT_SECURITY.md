@@ -41,7 +41,7 @@ have replayed that ID to their own copy of the callback and marked their own boo
 without ever sending real money.
 
 **The fix:** The callback URL now requires a random secret path segment
-(`MPESA_CALLBACK_SECRET` in `.env`) that's never sent to the client. Without the correct secret,
+(`MPESA_CALLBACK_SECRET` in `settings/.env`) that's never sent to the client. Without the correct secret,
 the callback is rejected outright (404) — no payment gets touched.
 
 *Code:* `payments/views.py` (`mpesa_callback`), `payments/mpesa.py`
