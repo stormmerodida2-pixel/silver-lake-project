@@ -1,10 +1,13 @@
 """
 Production settings. DEBUG and the HTTPS-hardening flags are hardcoded here, not read from
-.env - forgetting or mis-setting a DEBUG value in .env can never accidentally leave a live
-deployment open the way it could when settings.py read DEBUG from .env unconditionally. Run
+settings/.env - forgetting or mis-setting a DEBUG value there can never accidentally leave a live
+deployment open the way it could when settings.py read DEBUG from it unconditionally. Run
 with (though a real deployment should run behind gunicorn/uvicorn, not runserver - see
 silverlake/wsgi.py and asgi.py, which already default to this module):
     python manage.py runserver --settings=settings.production
+
+Every config() call below reads from settings/.env specifically (see the note in base.py above
+BASE_DIR) - not settings/.env.example, which is just the template documenting what keys exist.
 """
 
 from decouple import Csv, config
@@ -37,3 +40,55 @@ SECURE_HSTS_PRELOAD = True
 # TLS in Django/gunicorn itself.
 if config('BEHIND_HTTPS_PROXY', default=False, cast=bool):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Serves STATIC_ROOT directly from the app process (compressed, far-future cache headers) -
+# must sit right after SecurityMiddleware. runserver's own dev static-file handling in
+# settings.local/development is unaffected - this only matters behind gunicorn. Has nothing to
+# do with MEDIA_ROOT (uploaded photos/documents) - see the storage backend below for that.
+MIDDLEWARE = MIDDLEWARE.copy()
+MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+# Copied rather than mutated in place - MIDDLEWARE/STORAGES/DATABASES here are the exact same
+# objects base.py built (from .base import * doesn't copy), so writing into them directly would
+# reach back and change base.py's own module-level state.
+STORAGES = STORAGES.copy()
+STORAGES['staticfiles'] = {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'}
+
+# MySQL - set DATABASE_URL and this replaces base.py's SQLite config entirely. Format:
+# mysql://USER:PASSWORD@HOST:PORT/NAME (dj-database-url auto-detects the engine from the
+# scheme - the mysqlclient driver in requirements.txt is what actually makes mysql:// work).
+# Left unset, production still runs on SQLite - not recommended for real use (most hosts wipe
+# local disk on every deploy), but not hard-blocked either, since a low-traffic single-instance
+# deployment can technically still work with it.
+# BookingViewSet.create()'s double-booking guard (an UPDATE against the vehicle row as the first
+# statement in the transaction) works correctly here too, without changes - MySQL's InnoDB engine
+# takes a real per-row lock on that UPDATE, so a second concurrent request for the same vehicle
+# blocks on it exactly as intended, more precisely than SQLite's whole-database lock.
+# innodb_lock_wait_timeout caps how long it'll wait before raising OperationalError (MySQL error
+# 1205), which that same view already turns into a clean 409 rather than leaving the request
+# hanging.
+DATABASE_URL = config('DATABASE_URL', default='')
+if DATABASE_URL:
+    import dj_database_url
+
+    DATABASES = DATABASES.copy()
+    DATABASES['default'] = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+    DATABASES['default'].setdefault('OPTIONS', {})['init_command'] = 'SET SESSION innodb_lock_wait_timeout=10'
+
+# S3-compatible object storage for media - works with real AWS S3, Cloudflare R2, DigitalOcean
+# Spaces, Backblaze B2, or anything else speaking the S3 API, by pointing AWS_S3_ENDPOINT_URL at
+# that provider (leave it unset for real AWS S3). Left entirely unset, base.py's local-disk
+# storage is used instead - fine for a quick test deploy, but most production hosts wipe local
+# disk on every deploy, so this must be set before going live for real.
+AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME', default='')
+if AWS_STORAGE_BUCKET_NAME:
+    STORAGES['default'] = {'BACKEND': 'storages.backends.s3.S3Storage'}
+    AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default='')
+    AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default='')
+    AWS_S3_ENDPOINT_URL = config('AWS_S3_ENDPOINT_URL', default='') or None
+    AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='auto')
+    AWS_S3_FILE_OVERWRITE = False
+    # No ACL is set at all, not even "private" - some providers (Cloudflare R2) reject the ACL
+    # header outright, and bucket-level access (not per-object ACLs) is what actually controls
+    # who can reach a file. django-storages' own default is signed, expiring URLs, which matters
+    # here since MEDIA holds public marketing images (vehicle photos) and private compliance
+    # documents (driver licenses, logbooks, insurance certs) side by side in the same bucket.

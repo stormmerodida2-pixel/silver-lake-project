@@ -111,6 +111,69 @@ npm run dev
 Runs at `http://localhost:5173`. Configure `VITE_API_BASE_URL` (the backend API root) and
 `VITE_WHATSAPP_NUMBER` (the floating WhatsApp button's target number) in `frontend/.env`.
 
+## Deployment
+
+The app is deployment-ready apart from M-Pesa (which needs your own Safaricom production
+registration - see below) once these env vars are set in `settings/.env`:
+
+- `DATABASE_URL` — switches from local SQLite to MySQL (`mysql://USER:PASSWORD@HOST:PORT/NAME`).
+- `AWS_STORAGE_BUCKET_NAME` + `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` — switches uploaded
+  vehicle/driver photos and documents from local disk to S3-compatible object storage. Works with
+  real AWS S3, Cloudflare R2, DigitalOcean Spaces, Backblaze B2, or anything else speaking the S3
+  API (set `AWS_S3_ENDPOINT_URL` for anything that isn't real AWS S3). Local disk is fine for dev,
+  but most hosts wipe it on every deploy - this must be set before going live.
+
+Both are optional and independent - unset, the app behaves exactly as it does today. A `Procfile`
+is included (`release: python manage.py migrate`, `web: gunicorn silverlake.wsgi`) for any
+Heroku/Railway-style host that reads one.
+
+### CI deploy (AWS EC2, free tier)
+
+`.github/workflows/ci.yml`'s `deploy` job builds the root `Dockerfile` (backend API only - the
+frontend is a separate static build, not part of this image), pushes it to ECR, then SSHes into
+an EC2 instance to pull and restart it. EC2 (`t2.micro`/`t3.micro`, 750 hrs/month free for 12
+months) was chosen over AWS App Runner specifically because App Runner has **no free-tier
+allowance at all** - it bills per vCPU/memory-hour from the first second (roughly $5-15/month for
+a small always-on service like this). The container runs `collectstatic` and `migrate` on every
+start (see the Dockerfile's own comment for why - both need real `settings/.env` values that only
+exist at container runtime, not at `docker build` time), then `gunicorn` on port 8000.
+
+This needs a one-time AWS setup this repo can't do for you:
+1. Create an ECR repository for the image.
+2. Launch an EC2 instance (`t2.micro`/`t3.micro`, Ubuntu or Amazon Linux). Attach an **IAM
+   instance role** with `AmazonEC2ContainerRegistryReadOnly` so the box can pull from ECR without
+   any static AWS keys stored on it. Security group: allow 22 (SSH), 80/443 (public web traffic).
+3. SSH in once and set the box up by hand: install Docker, install `nginx` and `certbot`
+   (`sudo certbot --nginx` for a free auto-renewing Let's Encrypt certificate once a domain
+   points at the instance), and configure nginx as a reverse proxy from 80/443 to
+   `localhost:8000`. Also create `/home/<user>/silverlake.env` on the box containing the real
+   production env vars (`SECRET_KEY`, `ALLOWED_HOSTS`, `DATABASE_URL` pointing at an RDS MySQL
+   instance, `AWS_STORAGE_BUCKET_NAME` etc. pointing at a real S3 bucket, `MPESA_*`,
+   `BEHIND_HTTPS_PROXY=true` since nginx terminates TLS, ...) - CI only ships and restarts the
+   container, it never touches this file or the box's nginx/TLS config.
+4. Create an IAM user (separate from the instance role, scoped to ECR push only) for GitHub
+   Actions, and add these as GitHub repo secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+   `AWS_REGION`, `ECR_REPOSITORY`, plus `EC2_HOST` (the instance's public IP or Elastic IP),
+   `EC2_USER` (e.g. `ubuntu`), `EC2_SSH_PRIVATE_KEY` (the instance's key pair, private half).
+   Then set the `AWS_DEPLOY_READY` repo **variable** (Settings → Secrets and variables → Actions
+   → Variables) to `true` - until then, the `deploy` job is skipped rather than failing red on
+   every push.
+
+The frontend build isn't deployed by this workflow yet - a static host (S3 + CloudFront both
+have real free-tier allowances too) is a separate, smaller piece to add once the backend path is
+confirmed working.
+
+What's still genuinely external, not something more code can fix:
+
+- **M-Pesa production credentials** — `MPESA_*` in `.env` are currently Safaricom's shared public
+  *sandbox* values. Going live needs your own Paybill (via a bank or Safaricom Business) and a
+  Daraja "Go Live" request for the Lipa Na M-Pesa Online product, which itself requires a real
+  domain to already be live (for `MPESA_CALLBACK_URL`).
+- **A real domain** and the AWS account/setup above.
+- **A production email sender** — `EMAIL_HOST_USER` is currently a personal Gmail address; works,
+  but a branded address is worth it before launch.
+- Rotate any dev/test account passwords before going live.
+
 ## Testing & CI
 
 ```bash

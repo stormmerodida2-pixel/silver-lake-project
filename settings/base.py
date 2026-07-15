@@ -168,6 +168,7 @@ DATABASES = {
         'OPTIONS': {'timeout': 20},
     }
 }
+# Swapped for Postgres in production - see settings/production.py.
 
 
 # Password validation
@@ -205,8 +206,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # populated by `manage.py collectstatic`; unused until production.py's whitenoise is in play
 
-# Media files (uploaded vehicle/driver photos)
+# Media files (uploaded vehicle/driver photos, driver/compliance documents)
 MEDIA_URL = 'media/'
 if 'test' in sys.argv:
     # Without this, every test that uploads a file (vehicle photos, driver logbooks, avatars,
@@ -217,5 +219,10 @@ if 'test' in sys.argv:
     MEDIA_ROOT = Path(tempfile.mkdtemp(prefix='silverlake_test_media_'))
 else:
     MEDIA_ROOT = BASE_DIR / 'media'
+# Swapped for S3-compatible object storage in production - see settings/production.py.
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

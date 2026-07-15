@@ -39,3 +39,46 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+
+  # Builds the backend's Dockerfile, pushes it to ECR, then SSHes into the EC2 instance to pull
+  # and restart it - chosen over AWS App Runner specifically because App Runner has no free-tier
+  # allowance at all, while a single t2/t3.micro EC2 instance is free for 12 months. This trades
+  # App Runner's managed HTTPS/scaling/auto-deploy for a one-time manual nginx+certbot+Docker
+  # setup on the box itself (see README's Deployment section) - CI only ships and restarts the
+  # container, it doesn't touch nginx/TLS/the box's own config. Only runs on an actual push to
+  # main (never on a PR, and only after both test jobs above pass).
+  deploy:
+    needs: [backend, frontend]
+    # Also requires the secrets below to actually be set - skipped (not failed) until the
+    # AWS_DEPLOY_READY repo variable is flipped to 'true', so CI stays green while the EC2 box
+    # isn't set up yet rather than red on every push to main.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AWS_DEPLOY_READY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr-login
+      - run: |
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}"
+          docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+      # The EC2 instance authenticates to ECR itself via its own IAM instance role (see README) -
+      # no AWS keys are placed on the box or passed over SSH, only the image gets pulled.
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            IMAGE="${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:latest"
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.ecr-login.outputs.registry }}
+            docker pull "$IMAGE"
+            docker stop silverlake-api || true
+            docker rm silverlake-api || true
+            docker run -d --name silverlake-api --restart unless-stopped -p 8000:8000 --env-file /home/${{ secrets.EC2_USER }}/silverlake.env "$IMAGE"

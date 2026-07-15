@@ -1,0 +1,12 @@
+venv/
+frontend/
+__pycache__/
+*.pyc
+db.sqlite3
+media/
+sent_emails/
+staticfiles/
+.git/
+.github/
+settings/.env
+*.md

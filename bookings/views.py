@@ -48,21 +48,20 @@ class BookingViewSet(
         pass the conflict check before either booking exists, creating two confirmed bookings for
         the same car on the same dates.
 
-        select_for_update() would be the standard fix, but it's a documented no-op on SQLite
-        (this project's current database) - Django's compiler silently drops the FOR UPDATE
-        clause when the backend doesn't support row locking, so it provides zero protection
-        here. Instead, force a real write against the vehicle row as the first statement in the
-        transaction: SQLite acquires a database-level write lock on the first write in a
-        transaction, so a second concurrent request touching the database has to wait for this
-        one to commit or roll back before its own conflict check can even run. This is coarser
-        than real row-level locking (any concurrent write anywhere briefly waits, not just ones
-        for this vehicle) but it's correct, and it's what actually works on SQLite. If this ever
-        moves to Postgres, swap this for select_for_update(), which does provide real per-row
-        locking there.
+        select_for_update() would be the standard fix, but it's a documented no-op on SQLite -
+        Django's compiler silently drops the FOR UPDATE clause when the backend doesn't support
+        row locking, so it provides zero protection there. Instead, force a real write against
+        the vehicle row as the first statement in the transaction: a second concurrent request
+        touching the same vehicle has to wait for this one to commit or roll back before its own
+        conflict check can even run. On SQLite this locks the whole database (coarser - any
+        concurrent write anywhere briefly waits, not just ones for this vehicle) since that's all
+        SQLite offers; on MySQL (see settings/production.py's DATABASE_URL branch) InnoDB takes a
+        real per-row lock on that same UPDATE instead, which is actually more precise. Either
+        way, no different code path is needed for either database.
 
-        SQLite raises OperationalError('database is locked') rather than blocking forever if a
-        competing transaction doesn't free the lock within DATABASES['default']['OPTIONS']
-        ['timeout'] - translate that into a clean, retryable 409 instead of a raw 500."""
+        A competing transaction that doesn't free the lock in time raises OperationalError -
+        SQLite via DATABASES['default']['OPTIONS']['timeout'], MySQL via innodb_lock_wait_timeout
+        (error 1205) - translate that into a clean, retryable 409 instead of a raw 500."""
         vehicle_id = request.data.get('vehicle')
         try:
             with transaction.atomic():
