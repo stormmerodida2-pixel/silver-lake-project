@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
@@ -108,6 +108,14 @@ function handleLogout() {
   auth.logout()
   router.push('/')
 }
+
+// Mobile nav: a dropdown panel instead of the old horizontally-scrolling strip, which hid most
+// items off-screen with no visual hint more existed. Closes on navigation so it never lingers
+// open over the next page.
+const mobileMenuOpen = ref(false)
+watch(() => route.path, () => {
+  mobileMenuOpen.value = false
+})
 </script>
 
 <template>
@@ -171,6 +179,17 @@ function handleLogout() {
     <div class="min-w-0 flex-1">
       <header class="flex items-center justify-between border-b border-navy-800 bg-navy-950/95 px-4 py-3 backdrop-blur md:px-8">
         <div class="flex items-center gap-2 md:hidden">
+          <button
+            class="-ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-navy-800 hover:text-white"
+            :aria-expanded="mobileMenuOpen"
+            aria-label="Toggle menu"
+            @click="mobileMenuOpen = !mobileMenuOpen"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path v-if="!mobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              <path v-else stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
           <SilverLakeLogo :size="24" />
           <span class="font-[Georgia] text-sm font-bold text-white">Admin</span>
         </div>
@@ -196,17 +215,55 @@ function handleLogout() {
         </div>
       </header>
 
-      <nav class="flex gap-1 overflow-x-auto border-b border-navy-800 bg-navy-900 px-3 py-2 md:hidden">
-        <RouterLink
-          v-for="item in navItems"
-          :key="item.to"
-          :to="item.to"
-          class="shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold"
-          :class="route.path === item.to ? 'bg-gold-500 text-navy-950' : 'text-slate-300'"
-        >
-          {{ item.label }}
-        </RouterLink>
-      </nav>
+      <div v-if="mobileMenuOpen" class="border-b border-navy-800 bg-navy-900 md:hidden">
+        <nav class="flex max-h-[60vh] flex-col gap-1 overflow-y-auto p-3">
+          <RouterLink
+            v-for="item in navItems"
+            :key="item.to"
+            :to="item.to"
+            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition"
+            :class="
+              route.path === item.to
+                ? 'bg-gold-500 text-navy-950'
+                : 'text-slate-300 hover:bg-navy-800 hover:text-gold-400'
+            "
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
+            </svg>
+            {{ item.label }}
+          </RouterLink>
+        </nav>
+        <div class="border-t border-navy-800 p-3">
+          <RouterLink
+            to="/account/profile"
+            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z" />
+            </svg>
+            My Profile
+          </RouterLink>
+          <RouterLink
+            to="/"
+            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Site
+          </RouterLink>
+          <button
+            class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+            @click="handleLogout"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 5v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1" />
+            </svg>
+            Log Out
+          </button>
+        </div>
+      </div>
 
       <main class="px-4 py-8 md:px-8">
         <AnnouncementBanner class="mb-6" />
