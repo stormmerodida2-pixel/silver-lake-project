@@ -63,11 +63,15 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
       - uses: aws-actions/amazon-ecr-login@v2
         id: ecr-login
+      # Tagged only with the commit SHA, never `latest` - the ECR repo has tag immutability on,
+      # which is a good thing to keep (it stops an image already deployed from silently being
+      # swapped out from under you), but means a reused mutable tag can never be pushed twice.
+      # Every deploy is therefore for an exact, unambiguous commit - also makes rollback trivial
+      # (redeploy any prior commit's own SHA tag).
       - run: |
-          IMAGE="${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}"
-          docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
-          docker push "$IMAGE:${{ github.sha }}"
-          docker push "$IMAGE:latest"
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
       # The EC2 instance authenticates to ECR itself via its own IAM instance role (see README) -
       # no AWS keys are placed on the box or passed over SSH, only the image gets pulled.
       - uses: appleboy/ssh-action@v1
@@ -76,7 +80,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            IMAGE="${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:latest"
+            IMAGE="${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}"
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.ecr-login.outputs.registry }}
             docker pull "$IMAGE"
             docker stop silverlake-api || true
