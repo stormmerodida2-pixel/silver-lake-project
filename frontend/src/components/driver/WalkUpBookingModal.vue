@@ -2,6 +2,7 @@
 import { reactive, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import PhoneInput from '../PhoneInput.vue'
 import { useDriverPortalStore } from '../../stores/driverPortal'
 import BookingPaymentCollector from './BookingPaymentCollector.vue'
 
@@ -151,9 +152,7 @@ async function copyPaymentLink() {
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Phone *</label>
-                <input v-model="onsiteForm.customer_phone" type="tel" placeholder="2547XXXXXXXX" required
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                />
+                <PhoneInput v-model="onsiteForm.customer_phone" required dark />
               </div>
             </div>
             <div>

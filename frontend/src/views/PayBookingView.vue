@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import apiClient from '../api/client'
+import PhoneInput from '../components/PhoneInput.vue'
 
 const route = useRoute()
 
@@ -332,13 +333,7 @@ onMounted(loadBooking)
           <template v-else>
             <div>
               <label class="mb-1 block text-sm text-slate-600">M-Pesa Phone Number</label>
-              <input
-                v-model="phoneNumber"
-                type="tel"
-                placeholder="2547XXXXXXXX"
-                required
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
-              />
+              <PhoneInput v-model="phoneNumber" required />
             </div>
 
             <p v-if="error" class="text-sm text-red-600">{{ error }}</p>

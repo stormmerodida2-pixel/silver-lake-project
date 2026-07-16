@@ -2,6 +2,7 @@
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import PasswordInput from '../components/PasswordInput.vue'
 import SilverLakeLogo from '../components/SilverLakeLogo.vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -49,20 +50,18 @@ async function submit() {
       <form v-else class="mt-8 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-6" @submit.prevent="submit">
         <div>
           <label class="mb-1 block text-sm text-slate-600">New password</label>
-          <input
+          <PasswordInput
             v-model="form.newPassword"
-            type="password"
             required
-            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            input-class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
           />
         </div>
         <div>
           <label class="mb-1 block text-sm text-slate-600">Confirm new password</label>
-          <input
+          <PasswordInput
             v-model="form.confirmPassword"
-            type="password"
             required
-            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            input-class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
           />
         </div>
         <p v-if="error" class="text-sm text-red-600">{{ error }}</p>

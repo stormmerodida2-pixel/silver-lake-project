@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 
 import apiClient from '../api/client'
+import PhoneInput from '../components/PhoneInput.vue'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -177,12 +178,7 @@ onMounted(loadProfile)
 
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-600">Phone number</label>
-          <input
-            v-model="form.phone_number"
-            type="tel"
-            placeholder="2547XXXXXXXX"
-            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base text-navy-900 focus:border-brand-blue-500 focus:outline-none"
-          />
+          <PhoneInput v-model="form.phone_number" />
         </div>
 
         <div>

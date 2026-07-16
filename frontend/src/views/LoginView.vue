@@ -2,6 +2,7 @@
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import PasswordInput from '../components/PasswordInput.vue'
 import SilverLakeLogo from '../components/SilverLakeLogo.vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -55,11 +56,10 @@ async function submit() {
         </div>
         <div>
           <label class="mb-1 block text-sm text-slate-600">Password</label>
-          <input
+          <PasswordInput
             v-model="form.password"
-            type="password"
             required
-            class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            input-class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
           />
         </div>
         <div v-if="error" class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

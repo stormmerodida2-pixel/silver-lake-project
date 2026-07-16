@@ -1,6 +1,8 @@
 <script setup>
 import { reactive, ref } from 'vue'
 
+import PasswordInput from '../components/PasswordInput.vue'
+import PhoneInput from '../components/PhoneInput.vue'
 import SilverLakeLogo from '../components/SilverLakeLogo.vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -76,21 +78,14 @@ async function submit() {
         </div>
         <div>
           <label class="mb-1 block text-sm text-slate-600">Phone (M-Pesa number)</label>
-          <input
-            v-model="form.phoneNumber"
-            type="tel"
-            placeholder="2547XXXXXXXX"
-            required
-            class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
-          />
+          <PhoneInput v-model="form.phoneNumber" required />
         </div>
         <div>
           <label class="mb-1 block text-sm text-slate-600">Password</label>
-          <input
+          <PasswordInput
             v-model="form.password"
-            type="password"
             required
-            class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            input-class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
           />
         </div>
         <div v-if="error" class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

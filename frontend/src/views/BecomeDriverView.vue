@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../api/client'
+import PhoneInput from '../components/PhoneInput.vue'
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
 
@@ -107,13 +108,7 @@ async function submit() {
             </div>
             <div>
               <label class="mb-1 block text-sm text-slate-600">Phone number</label>
-              <input
-                v-model="form.phone_number"
-                type="tel"
-                placeholder="2547XXXXXXXX"
-                required
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
-              />
+              <PhoneInput v-model="form.phone_number" required />
             </div>
             <div>
               <label class="mb-1 block text-sm text-slate-600">Email</label>

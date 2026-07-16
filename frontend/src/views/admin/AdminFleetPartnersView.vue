@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import PhoneInput from '../../components/PhoneInput.vue'
 import { useAdminList } from '../../composables/useAdminList'
 
 const { items: partners, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/fleet-partners/')
@@ -271,19 +272,13 @@ onMounted(load)
                 </div>
                 <div>
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Contact Phone</label>
-                  <input
-                    v-model="form.contact_phone" type="text" placeholder="2547XXXXXXXX"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                  />
+                  <PhoneInput v-model="form.contact_phone" dark />
                 </div>
               </div>
 
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Payout Phone Number</label>
-                <input
-                  v-model="form.payout_phone_number" type="text" placeholder="2547XXXXXXXX"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
-                />
+                <PhoneInput v-model="form.payout_phone_number" dark />
                 <p class="mt-1 text-xs text-slate-500">
                   Where this partner's own share of a payout is sent - kept separate from their contact phone.
                 </p>

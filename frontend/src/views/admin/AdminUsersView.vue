@@ -2,6 +2,8 @@
 import { onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import PasswordInput from '../../components/PasswordInput.vue'
+import PhoneInput from '../../components/PhoneInput.vue'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 
@@ -347,34 +349,24 @@ onMounted(load)
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Phone Number</label>
-                <input
-                  id="new-user-phone"
-                  v-model="form.phone_number"
-                  type="tel"
-                  placeholder="+254 700 000 000"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
-                />
+                <PhoneInput v-model="form.phone_number" dark />
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Password *</label>
-                <input
-                  id="new-user-password"
+                <PasswordInput
                   v-model="form.password"
-                  type="password"
-                  placeholder="Minimum 8 characters"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
                   required
+                  placeholder="Minimum 8 characters"
+                  input-class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
                 />
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Confirm Password *</label>
-                <input
-                  id="new-user-confirm-password"
+                <PasswordInput
                   v-model="form.confirm_password"
-                  type="password"
-                  placeholder="Repeat password"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
                   required
+                  placeholder="Repeat password"
+                  input-class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
                 />
               </div>
 
@@ -457,11 +449,7 @@ onMounted(load)
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Phone Number</label>
-                <input
-                  v-model="editForm.phone_number"
-                  type="tel"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
-                />
+                <PhoneInput v-model="editForm.phone_number" dark />
               </div>
 
               <label class="flex items-center gap-2 text-sm text-slate-300">
