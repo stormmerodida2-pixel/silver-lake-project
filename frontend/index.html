@@ -10,6 +10,20 @@
       content="SilverLake Car Rentals - premium car hire in Kisumu with drivers or self-drive. Prado, Voxy, Axio and vans available. Book instantly via WhatsApp or M-Pesa."
     />
     <meta name="keywords" content="car hire Kisumu, car rental Kenya, self drive Kisumu, Prado hire Kisumu, van hire Kisumu" />
+    <!-- Static, not just utils/seo.js's dynamic setPageMeta() - social crawlers (Facebook,
+         WhatsApp, Twitter/X, LinkedIn) fetch raw HTML and don't execute JS, so a tag only added
+         after Vue mounts is invisible to them. This is the real fallback every link preview
+         actually sees; setPageMeta() only overrides it for a page already open in a browser
+         (e.g. a blog post using its own cover image). -->
+    <meta property="og:site_name" content="SilverLake Car Rentals" />
+    <meta property="og:title" content="SilverLake Car Rentals | Car Hire in Kisumu &amp; Across Kenya" />
+    <meta
+      property="og:description"
+      content="SilverLake Car Rentals - premium car hire in Kisumu with drivers or self-drive. Prado, Voxy, Axio and vans available. Book instantly via WhatsApp or M-Pesa."
+    />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="app"></div>
