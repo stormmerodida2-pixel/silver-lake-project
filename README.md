@@ -155,13 +155,19 @@ This needs a one-time AWS setup this repo can't do for you:
    Actions, and add these as GitHub repo secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
    `AWS_REGION`, `ECR_REPOSITORY`, plus `EC2_HOST` (the instance's public IP or Elastic IP),
    `EC2_USER` (e.g. `ubuntu`), `EC2_SSH_PRIVATE_KEY` (the instance's key pair, private half).
-   Then set the `AWS_DEPLOY_READY` repo **variable** (Settings → Secrets and variables → Actions
-   → Variables) to `true` - until then, the `deploy` job is skipped rather than failing red on
-   every push.
+5. Set two GitHub repo **variables** (Settings → Secrets and variables → Actions → Variables):
+   `AWS_DEPLOY_READY=true` (the whole `deploy` job is skipped, not failed red, until this is set),
+   and `PRODUCTION_URL` (e.g. `https://your-domain.com`, no trailing slash - used to build the
+   frontend with the right API base URL). Also add `WHATSAPP_NUMBER` as a variable (international
+   format, no `+`, e.g. `254700000000`) for the floating WhatsApp button.
 
-The frontend build isn't deployed by this workflow yet - a static host (S3 + CloudFront both
-have real free-tier allowances too) is a separate, smaller piece to add once the backend path is
-confirmed working.
+The frontend is built fresh on every deploy (with the real `PRODUCTION_URL` baked in via Vite env
+vars, unlike the `frontend` job above which only compile-checks it) and copied into nginx's
+serving root over SSH. The one-time nginx + certbot reverse-proxy setup (serving the frontend at
+`/` and proxying `/api/`, `/sitemap.xml`, `/static/` to the container, plus `/media/` served
+directly from a host-mounted volume since Django doesn't serve `MEDIA_URL` itself when
+`DEBUG=False`) is done by hand on the box, not by CI - see the Dockerfile and `deploy` job's own
+comments for the exact shape.
 
 What's still genuinely external, not something more code can fix:
 

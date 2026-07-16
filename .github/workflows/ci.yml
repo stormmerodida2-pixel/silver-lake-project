@@ -73,7 +73,10 @@ jobs:
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
       # The EC2 instance authenticates to ECR itself via its own IAM instance role (see README) -
-      # no AWS keys are placed on the box or passed over SSH, only the image gets pulled.
+      # no AWS keys are placed on the box or passed over SSH, only the image gets pulled. The
+      # media volume mount matters: Django doesn't serve MEDIA_URL itself when DEBUG=False (see
+      # silverlake/urls.py), so nginx serves /media/ directly from this same host path instead -
+      # without the mount, uploaded vehicle/driver photos would 404 after every deploy.
       - uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -83,6 +86,45 @@ jobs:
             IMAGE="${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}"
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.ecr-login.outputs.registry }}
             docker pull "$IMAGE"
+            mkdir -p /home/${{ secrets.EC2_USER }}/media
             docker stop silverlake-api || true
             docker rm silverlake-api || true
-            docker run -d --name silverlake-api --restart unless-stopped -p 8000:8000 --env-file /home/${{ secrets.EC2_USER }}/silverlake.env "$IMAGE"
+            docker run -d --name silverlake-api --restart unless-stopped -p 8000:8000 -v /home/${{ secrets.EC2_USER }}/media:/app/media --env-file /home/${{ secrets.EC2_USER }}/silverlake.env "$IMAGE"
+
+      # Frontend: built here (not in the `frontend` job above) so it picks up the real production
+      # API URL - the `frontend` job's own build is just a compile-sanity-check on every push/PR,
+      # this is the one that actually ships. Uploaded to a staging path first, then moved into
+      # nginx's serving root as a second SSH step - nginx (and the one-time certbot/reverse-proxy
+      # config) was set up manually once; see README's Deployment section.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.PRODUCTION_URL }}/api
+          VITE_WHATSAPP_NUMBER: ${{ vars.WHATSAPP_NUMBER }}
+      - uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          source: frontend/dist/*
+          target: /home/${{ secrets.EC2_USER }}/frontend-dist-new
+          strip_components: 2
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            sudo rm -rf /var/www/silverlake
+            sudo mkdir -p /var/www/silverlake
+            sudo cp -r /home/${{ secrets.EC2_USER }}/frontend-dist-new/* /var/www/silverlake/
+            sudo chown -R www-data:www-data /var/www/silverlake
+            sudo chmod -R 755 /var/www/silverlake
+            rm -rf /home/${{ secrets.EC2_USER }}/frontend-dist-new
