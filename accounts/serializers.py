@@ -8,7 +8,8 @@ User = get_user_model()
 
 
 class RegisterSerializer(serializers.Serializer):
-    full_name = serializers.CharField(max_length=150)
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
     email = serializers.EmailField()
     phone_number = serializers.CharField(max_length=20)
     password = serializers.CharField(write_only=True, validators=[validate_password])
@@ -19,12 +20,11 @@ class RegisterSerializer(serializers.Serializer):
         return value
 
     def create(self, validated_data):
-        first_name, _, last_name = validated_data['full_name'].partition(' ')
         user = User.objects.create_user(
             username=validated_data['email'],
             email=validated_data['email'],
-            first_name=first_name,
-            last_name=last_name,
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
             password=validated_data['password'],
             is_active=False,
         )

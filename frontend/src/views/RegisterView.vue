@@ -6,7 +6,7 @@ import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
 
-const form = reactive({ fullName: '', email: '', phoneNumber: '', password: '' })
+const form = reactive({ firstName: '', lastName: '', email: '', phoneNumber: '', password: '' })
 const submitting = ref(false)
 const error = ref('')
 const submitted = ref(false)
@@ -45,14 +45,25 @@ async function submit() {
       </div>
 
       <form v-else class="mt-8 space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-8" @submit.prevent="submit">
-        <div>
-          <label class="mb-1 block text-sm text-slate-600">Full name</label>
-          <input
-            v-model="form.fullName"
-            type="text"
-            required
-            class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
-          />
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="mb-1 block text-sm text-slate-600">First name</label>
+            <input
+              v-model="form.firstName"
+              type="text"
+              required
+              class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-slate-600">Last name</label>
+            <input
+              v-model="form.lastName"
+              type="text"
+              required
+              class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            />
+          </div>
         </div>
         <div>
           <label class="mb-1 block text-sm text-slate-600">Email</label>

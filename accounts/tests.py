@@ -21,6 +21,36 @@ PNG_1PX = base64.b64decode(
 )
 
 
+class RegistrationTests(APITestCase):
+    def test_register_creates_an_inactive_user_with_separate_first_and_last_name(self):
+        response = self.client.post('/api/auth/register/', {
+            'first_name': 'Jane', 'last_name': 'Doe', 'email': 'jane@example.com',
+            'phone_number': '254700000000', 'password': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(username='jane@example.com')
+        self.assertEqual(user.first_name, 'Jane')
+        self.assertEqual(user.last_name, 'Doe')
+        self.assertFalse(user.is_active)
+        self.assertEqual(user.customer_profile.phone_number, '254700000000')
+
+    def test_register_rejects_a_duplicate_email(self):
+        User.objects.create_user(username='jane@example.com', email='jane@example.com', password='x')
+        response = self.client.post('/api/auth/register/', {
+            'first_name': 'Jane', 'last_name': 'Doe', 'email': 'jane@example.com',
+            'phone_number': '254700000000', 'password': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 400)
+
+    def test_register_requires_both_names(self):
+        response = self.client.post('/api/auth/register/', {
+            'first_name': 'Jane', 'email': 'jane@example.com',
+            'phone_number': '254700000000', 'password': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('last_name', response.json())
+
+
 class LoginThrottleTests(APITestCase):
     """settings.py forces every throttle scope to 10000/min under 'test' so the rest of the
     suite isn't tripped up by shared cache state - dial this one scope back down just for this
