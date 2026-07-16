@@ -90,6 +90,12 @@ jobs:
             docker stop silverlake-api || true
             docker rm silverlake-api || true
             docker run -d --name silverlake-api --restart unless-stopped -p 8000:8000 -v /home/${{ secrets.EC2_USER }}/media:/app/media --env-file /home/${{ secrets.EC2_USER }}/silverlake.env "$IMAGE"
+            # ECR's tag immutability means every deploy pushes a genuinely new, uniquely-tagged
+            # image - without this, the free-tier instance's small disk fills up after a handful
+            # of deploys (already happened once) and even the pull for the NEXT deploy fails.
+            # Safe to prune everything unused: the container just started above is the only
+            # thing that needs to keep its image.
+            docker image prune -af
 
       # Frontend: built here (not in the `frontend` job above) so it picks up the real production
       # API URL - the `frontend` job's own build is just a compile-sanity-check on every push/PR,

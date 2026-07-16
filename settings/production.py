@@ -73,7 +73,13 @@ if DATABASE_URL:
     DATABASES = DATABASES.copy()
     DATABASES['default'] = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     db_options = DATABASES['default'].setdefault('OPTIONS', {})
-    db_options['init_command'] = 'SET SESSION innodb_lock_wait_timeout=10'
+    # STRICT_TRANS_TABLES: RDS's default parameter group doesn't set this, so without it MySQL
+    # silently truncates/coerces invalid data on insert (e.g. a too-long string) instead of
+    # raising an error Django would otherwise catch - exactly the class of bug Django's own
+    # mysql.W002 system check warns about.
+    db_options['init_command'] = (
+        "SET SESSION innodb_lock_wait_timeout=10, SESSION sql_mode='STRICT_TRANS_TABLES'"
+    )
     # RDS's own recommended connection mode verifies the server's identity against Amazon's CA
     # bundle - baked into the Docker image at this exact path (see the Dockerfile). Skipped
     # entirely for a non-RDS MySQL host (e.g. local testing against a plain MySQL container),
