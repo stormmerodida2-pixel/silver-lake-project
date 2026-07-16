@@ -57,10 +57,14 @@ apiClient.interceptors.response.use(
       isRefreshing = true
 
       try {
-        const { data } = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}token/refresh/`,
-          { refresh }
-        )
+        // Goes through apiClient (not a raw axios.post) so it reuses the same baseURL joining
+        // axios already does correctly for every other request - hand-concatenating
+        // VITE_API_BASE_URL + 'token/refresh/' silently breaks whenever the env var lacks a
+        // trailing slash (it does in both this repo's dev .env and the CI-built production
+        // one), producing a malformed .../apitoken/refresh/ URL that 404s. isAuthRequest above
+        // already exempts this call's own 401s from re-triggering refresh, so reusing apiClient
+        // here can't cause a refresh loop.
+        const { data } = await apiClient.post('token/refresh/', { refresh })
         const newAccess = data.access
         localStorage.setItem('sl_access', newAccess)
         processQueue(null, newAccess)
