@@ -1,11 +1,13 @@
 from datetime import timedelta
 from decimal import Decimal
+from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import timezone
+from PIL import Image as PILImage
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -1622,3 +1624,58 @@ class AdminHealthTests(APITestCase):
         self.client.force_authenticate(user=self.staff)
         response = self.client.get('/api/admin/health/')
         self.assertTrue(response.json()['database']['ok'])
+
+
+def _make_test_image(size, mode='RGB', fmt='JPEG'):
+    """A genuinely valid, decodable image (unlike the placeholder-bytes fixtures used
+    elsewhere in this file, which only need to satisfy "a file was uploaded", not
+    "Pillow can actually open this") - needed to exercise optimize_image()'s real resize path."""
+    buffer = BytesIO()
+    img = PILImage.new(mode, size, color=(200, 50, 50) if mode == 'RGB' else (200, 50, 50, 128))
+    img.save(buffer, format=fmt)
+    buffer.seek(0)
+    ext = 'jpg' if fmt == 'JPEG' else fmt.lower()
+    return SimpleUploadedFile(f'test.{ext}', buffer.read(), content_type=f'image/{fmt.lower()}')
+
+
+class OptimizeImageTests(TestCase):
+    def test_resizes_an_oversized_image_down(self):
+        vehicle = make_vehicle(image=_make_test_image((3000, 2000)))
+        with PILImage.open(vehicle.image) as saved:
+            self.assertLessEqual(max(saved.size), 1600)
+            # Aspect ratio preserved (3000x2000 = 3:2)
+            self.assertAlmostEqual(saved.width / saved.height, 3000 / 2000, places=1)
+
+    def test_does_not_upscale_a_small_image(self):
+        vehicle = make_vehicle(image=_make_test_image((400, 300)))
+        with PILImage.open(vehicle.image) as saved:
+            self.assertEqual(saved.size, (400, 300))
+
+    def test_converts_opaque_image_to_jpeg(self):
+        vehicle = make_vehicle(image=_make_test_image((400, 300)))
+        self.assertTrue(vehicle.image.name.endswith('.jpg'))
+
+    def test_keeps_a_transparent_image_as_png(self):
+        vehicle = make_vehicle(image=_make_test_image((400, 300), mode='RGBA', fmt='PNG'))
+        self.assertTrue(vehicle.image.name.endswith('.png'))
+
+    def test_strips_exif_data(self):
+        buffer = BytesIO()
+        img = PILImage.new('RGB', (400, 300), color=(10, 20, 30))
+        exif = img.getexif()
+        exif[0x0110] = 'Test Camera Model'  # Model tag - a stand-in for real GPS/camera EXIF
+        img.save(buffer, format='JPEG', exif=exif)
+        buffer.seek(0)
+        upload = SimpleUploadedFile('withexif.jpg', buffer.read(), content_type='image/jpeg')
+
+        vehicle = make_vehicle(image=upload)
+        with PILImage.open(vehicle.image) as saved:
+            self.assertFalse(saved.getexif())
+
+    def test_a_file_pillow_cannot_parse_is_saved_unmodified_rather_than_crashing(self):
+        # Same shape as the placeholder-bytes fixtures used elsewhere in this test suite -
+        # confirms the app-wide contract (an upload never 500s just because optimization failed)
+        # rather than re-testing every individual call site.
+        bogus = SimpleUploadedFile('bogus.jpg', b'not a real image', content_type='image/jpeg')
+        vehicle = make_vehicle(image=bogus)
+        self.assertEqual(vehicle.image.read(), b'not a real image')

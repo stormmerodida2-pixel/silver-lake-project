@@ -5,6 +5,7 @@ from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
 
+from core.images import optimize_image
 from fleet.models import VehicleCategory
 
 from .validators import validate_file_size
@@ -50,6 +51,11 @@ class Driver(models.Model):
 
     def __str__(self):
         return self.full_name
+
+    def save(self, *args, **kwargs):
+        if self.photo and not self.photo._committed:
+            optimize_image(self.photo, max_dimension=800)
+        super().save(*args, **kwargs)
 
     def recalculate_rating(self):
         """Recomputes this driver's displayed rating from their approved reviews. Called
@@ -118,6 +124,13 @@ class DriverApplication(models.Model):
 
     def __str__(self):
         return f'{self.full_name} ({self.status})'
+
+    def save(self, *args, **kwargs):
+        # license_document/vehicle_logbook_document are deliberately untouched - compliance
+        # documents need to stay full-fidelity and legible, unlike a marketing/listing photo.
+        if self.vehicle_photo and not self.vehicle_photo._committed:
+            optimize_image(self.vehicle_photo)
+        super().save(*args, **kwargs)
 
     def approve(self):
         from fleet.models import Vehicle

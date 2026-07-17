@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 
+from core.images import optimize_image
 from fleet.validators import validate_file_size
 
 
@@ -15,3 +16,8 @@ class CustomerProfile(models.Model):
 
     def __str__(self):
         return self.user.get_full_name() or self.user.username
+
+    def save(self, *args, **kwargs):
+        if self.avatar and not self.avatar._committed:
+            optimize_image(self.avatar, max_dimension=500)
+        super().save(*args, **kwargs)

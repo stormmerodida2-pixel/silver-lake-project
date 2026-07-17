@@ -3,6 +3,8 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 
+from core.images import optimize_image
+
 
 class BlogCategory(models.TextChoices):
     TRAVEL_TIPS = 'travel_tips', 'Travel Tips'
@@ -51,6 +53,8 @@ class BlogPost(models.Model):
             self.slug = self._unique_slug()
         if self.is_published and self.published_at is None:
             self.published_at = timezone.now()
+        if self.cover_image and not self.cover_image._committed:
+            optimize_image(self.cover_image)
         super().save(*args, **kwargs)
 
     def _unique_slug(self):
@@ -75,3 +79,8 @@ class BlogImageUpload(models.Model):
         settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+',
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.image and not self.image._committed:
+            optimize_image(self.image)
+        super().save(*args, **kwargs)

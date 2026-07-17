@@ -5,6 +5,8 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 
+from core.images import optimize_image
+
 from .validators import validate_file_size
 
 DOCUMENT_EXTENSIONS = FileExtensionValidator(['pdf', 'jpg', 'jpeg', 'png'])
@@ -148,6 +150,14 @@ class Vehicle(models.Model):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        # _committed is False only for a file freshly assigned this request, not yet written to
+        # storage - guards against re-optimizing an already-processed existing image on every
+        # unrelated save of this row (e.g. toggling is_available).
+        if self.image and not self.image._committed:
+            optimize_image(self.image)
+        super().save(*args, **kwargs)
+
     @property
     def is_insurance_expired(self):
         return bool(self.insurance_expiry_date and self.insurance_expiry_date < timezone.now().date())
@@ -208,6 +218,11 @@ class VehicleImage(models.Model):
 
     def __str__(self):
         return f'{self.vehicle.name} photo #{self.pk}'
+
+    def save(self, *args, **kwargs):
+        if self.image and not self.image._committed:
+            optimize_image(self.image)
+        super().save(*args, **kwargs)
 
 
 class VehicleServiceRecord(models.Model):
@@ -339,3 +354,8 @@ class VehicleSubmissionPhoto(models.Model):
 
     def __str__(self):
         return f'{self.submission.name} photo #{self.pk}'
+
+    def save(self, *args, **kwargs):
+        if self.image and not self.image._committed:
+            optimize_image(self.image)
+        super().save(*args, **kwargs)
