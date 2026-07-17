@@ -7,6 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from bookings.models import BookingStatus
 from bookings.tests import make_booking, make_vehicle
@@ -1521,3 +1522,74 @@ class SitemapTests(APITestCase):
         content = self.client.get('/sitemap.xml').content.decode()
         self.assertIn(f'<loc>http://localhost:5173/blog/{published.slug}</loc>', content)
         self.assertNotIn(f'<loc>http://localhost:5173/blog/{draft.slug}</loc>', content)
+
+
+class ImpersonationTests(APITestCase):
+    def setUp(self):
+        self.platform_super = User.objects.create_superuser(username='platform-super@example.com', password='pass12345!')
+        self.support_staff = User.objects.create_user(
+            username='support@example.com', password='pass12345!', is_staff=True,
+        )
+        org = FleetPartner.objects.create(name='Org A', platform_fee_percent=Decimal('10'))
+        self.org_admin = User.objects.create_user(
+            username='org-admin@example.com', password='pass12345!', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=self.org_admin, organization=org)
+
+        self.customer = User.objects.create_user(
+            username='customer@example.com', email='customer@example.com',
+            first_name='Jane', password='pass12345!',
+        )
+        self.driver_user = User.objects.create_user(username='driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(full_name='Driver Sam', user=self.driver_user, is_active=True)
+
+    def test_platform_superadmin_can_impersonate_a_customer(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post(f'/api/admin/users/{self.customer.id}/impersonate/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('access', data)
+        self.assertIn('refresh', data)
+        self.assertEqual(data['user']['email'], 'customer@example.com')
+        self.assertEqual(data['user']['first_name'], 'Jane')
+
+    def test_platform_superadmin_can_impersonate_a_driver_with_a_portal_account(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post(f'/api/admin/users/{self.driver_user.id}/impersonate/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['user']['is_driver'])
+
+    def test_cannot_impersonate_a_staff_account(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post(f'/api/admin/users/{self.support_staff.id}/impersonate/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_impersonate_another_superadmin(self):
+        other_super = User.objects.create_superuser(username='other-super@example.com', password='pass12345!')
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post(f'/api/admin/users/{other_super.id}/impersonate/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_org_admin_cannot_impersonate_anyone(self):
+        self.client.force_authenticate(user=self.org_admin)
+        response = self.client.post(f'/api/admin/users/{self.customer.id}/impersonate/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_support_staff_cannot_impersonate_anyone(self):
+        self.client.force_authenticate(user=self.support_staff)
+        response = self.client.post(f'/api/admin/users/{self.customer.id}/impersonate/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_impersonation_is_audit_logged(self):
+        self.client.force_authenticate(user=self.platform_super)
+        self.client.post(f'/api/admin/users/{self.customer.id}/impersonate/')
+        entry = AuditLog.objects.filter(action='user.impersonate').first()
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.actor, self.platform_super)
+
+    def test_impersonation_refresh_token_expires_much_sooner_than_a_normal_login(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post(f'/api/admin/users/{self.customer.id}/impersonate/')
+        refresh = RefreshToken(response.json()['refresh'])
+        lifetime = refresh['exp'] - refresh['iat']
+        self.assertLessEqual(lifetime, timedelta(hours=2).total_seconds())

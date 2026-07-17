@@ -7,6 +7,10 @@ export const useAuthStore = defineStore('auth', {
     user: JSON.parse(localStorage.getItem('sl_user') || 'null'),
     accessToken: localStorage.getItem('sl_access') || '',
     refreshToken: localStorage.getItem('sl_refresh') || '',
+    // Set only while a superadmin is impersonating someone else - holds their own real session
+    // (to restore on stop) plus the admin page they were on, so "Stop impersonating" can return
+    // them exactly where they started rather than dumping them somewhere generic.
+    impersonating: JSON.parse(localStorage.getItem('sl_impersonating') || 'null'),
   }),
   getters: {
     isAuthenticated: (state) => !!state.accessToken,
@@ -72,6 +76,29 @@ export const useAuthStore = defineStore('auth', {
         // ignore - keep whatever profile we already have
       }
     },
+    async startImpersonation(userId, returnPath) {
+      // Stash the admin's own real session first - startImpersonation replaces
+      // user/accessToken/refreshToken with the target's below, and this is the only copy of
+      // the admin's own tokens once that happens.
+      const adminSession = {
+        user: this.user,
+        accessToken: this.accessToken,
+        refreshToken: this.refreshToken,
+        returnPath,
+      }
+      const { data } = await apiClient.post(`/admin/users/${userId}/impersonate/`)
+      this.impersonating = adminSession
+      localStorage.setItem('sl_impersonating', JSON.stringify(adminSession))
+      this.setSession(data)
+    },
+    stopImpersonation() {
+      if (!this.impersonating) return null
+      const { user, accessToken, refreshToken, returnPath } = this.impersonating
+      this.setSession({ user, access: accessToken, refresh: refreshToken })
+      this.impersonating = null
+      localStorage.removeItem('sl_impersonating')
+      return returnPath
+    },
     async logout() {
       // Capture both tokens before clearing local state - the request interceptor reads the
       // access token straight from localStorage, which is about to be wiped, so this request
@@ -88,6 +115,11 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('sl_user')
       localStorage.removeItem('sl_access')
       localStorage.removeItem('sl_refresh')
+      // Logging out while impersonating means "end everything", not "return to my admin
+      // session" - otherwise the stashed admin session would linger indefinitely with no way
+      // back to it, since the banner that offers Stop Impersonating is now gone too.
+      this.impersonating = null
+      localStorage.removeItem('sl_impersonating')
 
       if (refresh) {
         try {

@@ -9,7 +9,9 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
+from accounts.serializers import UserSerializer
 from bookings.models import Booking, BookingStatus
 from bookings.serializers import BookingSerializer
 from drivers.models import ApplicationStatus, Driver, DriverApplication
@@ -211,6 +213,12 @@ class AdminUserViewSet(
     serializer_class = AdminUserSerializer
 
     def get_permissions(self):
+        # Stricter than the rest of this viewset's SUPERADMIN_ONLY_ACTIONS (which also allow a
+        # FleetPartner's own org-admin) - impersonation lets the actor act as literally any
+        # customer/driver platform-wide, not just within their own organization's scope, so it's
+        # reserved for a genuine SilverLake superadmin only.
+        if self.action == 'impersonate':
+            return [IsPlatformSuperAdmin()]
         if self.action in SUPERADMIN_ONLY_ACTIONS:
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
@@ -278,6 +286,36 @@ class AdminUserViewSet(
         user.save(update_fields=['is_active'])
         log_admin_action(request, 'user.activate', user)
         return Response(AdminUserSerializer(user).data)
+
+    @action(detail=True, methods=['post'])
+    def impersonate(self, request, pk=None):
+        """Issues a fresh token pair for this user so a superadmin can act as them for support
+        purposes - never for another staff/superadmin account (blocked below; get_permissions()
+        also keeps this off-limits to a FleetPartner's own org-admin entirely). The refresh
+        token is deliberately much shorter-lived than a normal login's 14 days, so a forgotten/
+        abandoned impersonation session can't linger anywhere near that long. Returns the same
+        {access, refresh, user} shape as a normal login, via the same UserSerializer the app's
+        own session state already expects everywhere else - not AdminUserSerializer's shape,
+        since the frontend runs as this user afterward, not as an admin viewing them."""
+        target = self.get_object()
+        if target.is_staff or target.is_superuser:
+            return Response(
+                {'detail': 'Cannot impersonate a staff or superadmin account.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        refresh = RefreshToken.for_user(target)
+        refresh.set_exp(lifetime=timedelta(hours=2))
+        refresh['impersonated_by'] = request.user.id
+        access = refresh.access_token
+        access['impersonated_by'] = request.user.id
+
+        log_admin_action(request, 'user.impersonate', target, detail=f'By {request.user.email}')
+        return Response({
+            'access': str(access),
+            'refresh': str(refresh),
+            'user': UserSerializer(target, context={'request': request}).data,
+        })
 
     @action(detail=False, methods=['post'], url_path='invite-staff')
     def invite_staff(self, request):

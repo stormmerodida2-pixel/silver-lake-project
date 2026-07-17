@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import apiClient from '../../api/client'
 import PasswordInput from '../../components/PasswordInput.vue'
@@ -9,6 +10,8 @@ import { useAuthStore } from '../../stores/auth'
 import { confirmDialog } from '../../utils/dialogs'
 
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 const filters = reactive({ search: '', role: '' })
 const { items: users, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/users/', filters)
 const busyId = ref(null)
@@ -99,6 +102,19 @@ async function toggleActive(user) {
     Object.assign(user, data)
   } catch (err) {
     error.value = 'Could not update this user.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+async function impersonate(user) {
+  if (!(await confirmDialog(`View the app as ${user.email}? You'll act as this customer until you stop impersonating.`))) return
+  busyId.value = user.id
+  try {
+    await auth.startImpersonation(user.id, route.fullPath)
+    router.push('/')
+  } catch (err) {
+    error.value = 'Could not start impersonating this user.'
   } finally {
     busyId.value = null
   }
@@ -271,6 +287,15 @@ onMounted(load)
                 @click="toggleActive(user)"
               >
                 {{ user.is_active ? 'Suspend' : 'Activate' }}
+              </button>
+              <button
+                v-if="auth.user?.is_superuser && !auth.user?.organization_name && !user.is_staff"
+                :disabled="busyId === user.id"
+                title="View the app as this customer, for support/debugging"
+                class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                @click="impersonate(user)"
+              >
+                Impersonate
               </button>
               <button
                 v-if="auth.user?.is_superuser"

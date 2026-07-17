@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import apiClient from '../../api/client'
 import { confirmDialog } from '../../utils/dialogs'
@@ -8,6 +9,8 @@ import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 const driverFilters = reactive({ search: '' })
 const {
   items: drivers,
@@ -161,6 +164,19 @@ async function inviteDriver(driver) {
     Object.assign(driver, data)
   } catch (err) {
     driversError.value = err?.response?.data?.detail || 'Could not send portal invite.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+async function impersonate(driver) {
+  if (!(await confirmDialog(`View the app as ${driver.full_name}'s driver portal? You'll act as this driver until you stop impersonating.`))) return
+  busyId.value = driver.id
+  try {
+    await auth.startImpersonation(driver.user_id, route.fullPath)
+    router.push('/driver')
+  } catch (err) {
+    driversError.value = 'Could not start impersonating this driver.'
   } finally {
     busyId.value = null
   }
@@ -480,6 +496,15 @@ onMounted(() => {
                     @click="inviteDriver(driver)"
                   >
                     Send Invite
+                  </button>
+                  <button
+                    v-if="auth.user?.is_superuser && !auth.user?.organization_name && driver.has_portal_account"
+                    :disabled="busyId === driver.id"
+                    title="View the driver portal as this driver, for support/debugging"
+                    class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                    @click="impersonate(driver)"
+                  >
+                    Impersonate
                   </button>
                   <button
                     v-if="auth.user?.is_superuser"

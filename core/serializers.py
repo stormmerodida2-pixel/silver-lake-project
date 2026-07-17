@@ -86,6 +86,9 @@ class AdminCreateUserSerializer(serializers.Serializer):
 
 class AdminDriverSerializer(serializers.ModelSerializer):
     has_portal_account = serializers.BooleanField(source='user_id', read_only=True)
+    # The actual login account id (None if has_portal_account is False) - lets the admin
+    # dashboard impersonate this driver's own portal session without a second lookup.
+    user_id = serializers.IntegerField(read_only=True, allow_null=True)
 
     class Meta:
         model = Driver
@@ -93,6 +96,7 @@ class AdminDriverSerializer(serializers.ModelSerializer):
             'id', 'full_name', 'photo', 'email', 'phone_number',
             'years_of_experience', 'bio', 'rating', 'is_active', 'cash_payments_enabled',
             'is_away', 'away_reason', 'suspension_reason', 'has_portal_account', 'created_at',
+            'user_id',
         ]
         read_only_fields = ['is_away', 'away_reason', 'suspension_reason', 'created_at']
 
