@@ -165,7 +165,10 @@ onMounted(() => {
               <path v-else stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <RouterLink to="/account/profile" class="whitespace-nowrap font-[Georgia] text-sm tracking-wide transition hover:text-gold-400 sm:text-base">
+          <RouterLink
+            to="/account/profile"
+            class="hidden whitespace-nowrap font-[Georgia] text-sm tracking-wide transition hover:text-gold-400 sm:inline-block sm:text-base"
+          >
             Hi, {{ auth.user?.first_name || 'Driver' }}
           </RouterLink>
         </div>

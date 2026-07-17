@@ -209,7 +209,10 @@ watch(() => route.path, () => {
           >
             {{ auth.user?.is_superuser ? (auth.user?.organization_name ? 'Org Admin' : 'Super Admin') : 'Support Staff' }}
           </span>
-          <RouterLink to="/account/profile" class="whitespace-nowrap font-[Georgia] text-sm tracking-wide transition hover:text-gold-400 sm:text-base">
+          <RouterLink
+            to="/account/profile"
+            class="hidden whitespace-nowrap font-[Georgia] text-sm tracking-wide transition hover:text-gold-400 sm:inline-block sm:text-base"
+          >
             Hi, {{ auth.user?.first_name || 'Admin' }}
           </RouterLink>
         </div>
