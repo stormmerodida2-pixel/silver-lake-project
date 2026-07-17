@@ -1,6 +1,6 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth.js'
 import { confirmDialog } from '../utils/dialogs'
@@ -8,14 +8,34 @@ import NotificationBell from './NotificationBell.vue'
 import SilverLakeLogo from './SilverLakeLogo.vue'
 
 const isOpen = ref(false)
+const mobileMenuButton = ref(null)
+const mobileMenuPanel = ref(null)
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
+
+watch(() => route.path, () => {
+  isOpen.value = false
+})
+
+function handleOutsideClick(event) {
+  if (
+    mobileMenuButton.value && !mobileMenuButton.value.contains(event.target) &&
+    mobileMenuPanel.value && !mobileMenuPanel.value.contains(event.target)
+  ) {
+    isOpen.value = false
+  }
+}
 
 // The nav bar is hidden (and unmounted) on the driver portal, so this fires again the moment
 // someone navigates back to the main site - catching any role change (e.g. a driver
 // application getting approved) that happened since they last logged in.
 onMounted(() => {
   auth.refreshProfile()
+  document.addEventListener('click', handleOutsideClick)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', handleOutsideClick)
 })
 
 const links = computed(() => {
@@ -64,48 +84,55 @@ async function handleLogout() {
         </RouterLink>
       </div>
 
-      <div class="ml-auto hidden items-center gap-6 md:flex">
-        <template v-if="auth.isAuthenticated">
-          <RouterLink to="/account/profile" class="flex items-center gap-2 font-[Georgia] text-base tracking-wide text-slate-400 transition hover:text-gold-400">
-            <span class="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-navy-700 bg-navy-800">
-              <img v-if="auth.user?.avatar" :src="auth.user.avatar" alt="" class="h-full w-full object-cover" />
-              <span v-else class="flex h-full w-full items-center justify-center text-xs font-bold text-gold-400">
-                {{ (auth.user?.first_name || '?')[0] }}
+      <div class="ml-auto flex items-center gap-3">
+        <div class="hidden items-center gap-6 md:flex">
+          <template v-if="auth.isAuthenticated">
+            <RouterLink to="/account/profile" class="flex items-center gap-2 font-[Georgia] text-base tracking-wide text-slate-400 transition hover:text-gold-400">
+              <span class="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-navy-700 bg-navy-800">
+                <img v-if="auth.user?.avatar" :src="auth.user.avatar" alt="" class="h-full w-full object-cover" />
+                <span v-else class="flex h-full w-full items-center justify-center text-xs font-bold text-gold-400">
+                  {{ (auth.user?.first_name || '?')[0] }}
+                </span>
               </span>
-            </span>
-            Hi, {{ auth.user?.first_name || 'there' }}
-          </RouterLink>
-          <button class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400" @click="handleLogout">
-            Log Out
-          </button>
-        </template>
-        <template v-else>
-          <RouterLink to="/login" class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400">
-            Log In
-          </RouterLink>
-          <RouterLink
-            to="/register"
-            class="rounded-md bg-gold-500 px-3 py-1.5 font-[Georgia] text-base font-semibold tracking-wide text-navy-950 transition hover:bg-gold-400"
-          >
-            Sign Up
-          </RouterLink>
-        </template>
+              Hi, {{ auth.user?.first_name || 'there' }}
+            </RouterLink>
+            <button class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400" @click="handleLogout">
+              Log Out
+            </button>
+          </template>
+          <template v-else>
+            <RouterLink to="/login" class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400">
+              Log In
+            </RouterLink>
+            <RouterLink
+              to="/register"
+              class="rounded-md bg-gold-500 px-3 py-1.5 font-[Georgia] text-base font-semibold tracking-wide text-navy-950 transition hover:bg-gold-400"
+            >
+              Sign Up
+            </RouterLink>
+          </template>
+        </div>
+
+        <NotificationBell v-if="auth.isAuthenticated" base-path="/notifications" />
+
+        <button
+          ref="mobileMenuButton"
+          class="flex h-9 w-9 items-center justify-center rounded-full text-slate-200 transition hover:bg-navy-800 hover:text-gold-400 md:hidden"
+          aria-label="Toggle menu"
+          :aria-expanded="isOpen"
+          @click="isOpen = !isOpen"
+        >
+          <svg v-if="!isOpen" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-
-      <button
-        class="ml-auto text-slate-200 md:hidden"
-        aria-label="Toggle menu"
-        @click="isOpen = !isOpen"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-
-      <NotificationBell v-if="auth.isAuthenticated" base-path="/notifications" />
     </nav>
 
-    <div v-if="isOpen" class="flex flex-col gap-1 border-t border-navy-800 px-4 py-3 md:hidden">
+    <div v-if="isOpen" ref="mobileMenuPanel" class="flex flex-col gap-1 border-t border-navy-800 px-4 py-3 md:hidden">
       <RouterLink
         v-for="link in links"
         :key="link.to"
