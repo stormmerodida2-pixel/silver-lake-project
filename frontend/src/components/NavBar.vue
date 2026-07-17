@@ -120,8 +120,9 @@ async function handleLogout() {
           class="flex h-9 w-9 items-center justify-center rounded-full text-slate-200 transition hover:bg-navy-800 hover:text-gold-400 md:hidden"
           aria-label="Toggle menu"
           :aria-expanded="isOpen"
-          @click="isOpen = !isOpen"
+          @click.stop="isOpen = !isOpen"
         >
+          <!-- .stop matters: without it, this click reaches handleOutsideClick with a detached event.target (the icon swaps via v-if/v-else the instant isOpen flips), which immediately re-closes the menu it just opened. -->
           <svg v-if="!isOpen" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
@@ -132,7 +133,7 @@ async function handleLogout() {
       </div>
     </nav>
 
-    <div v-if="isOpen" ref="mobileMenuPanel" class="flex flex-col gap-1 border-t border-navy-800 px-4 py-3 md:hidden">
+    <div v-if="isOpen" ref="mobileMenuPanel" data-testid="mobile-nav-panel" class="flex flex-col gap-1 border-t border-navy-800 px-4 py-3 md:hidden">
       <RouterLink
         v-for="link in links"
         :key="link.to"

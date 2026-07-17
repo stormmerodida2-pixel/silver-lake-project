@@ -217,8 +217,9 @@ onUnmounted(() => {
             class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-navy-800 hover:text-white md:hidden"
             :aria-expanded="mobileMenuOpen"
             aria-label="Toggle menu"
-            @click="mobileMenuOpen = !mobileMenuOpen"
+            @click.stop="mobileMenuOpen = !mobileMenuOpen"
           >
+            <!-- .stop matters: without it, this click reaches handleMobileMenuOutsideClick with a detached event.target (the icon's path swaps via v-if/v-else the instant mobileMenuOpen flips), which immediately re-closes the menu it just opened. -->
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path v-if="!mobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               <path v-else stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
