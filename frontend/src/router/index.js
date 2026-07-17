@@ -129,6 +129,12 @@ const routes = [
     meta: { title: 'My Bookings | SilverLake Car Rentals', requiresAuth: true },
   },
   {
+    path: '/account/favorites',
+    name: 'favorites',
+    component: () => import('../views/FavoritesView.vue'),
+    meta: { title: 'My Favorites | SilverLake Car Rentals', requiresAuth: true },
+  },
+  {
     path: '/become-a-driver',
     name: 'become-a-driver',
     component: () => import('../views/BecomeDriverView.vue'),

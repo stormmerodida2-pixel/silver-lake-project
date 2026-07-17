@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase
 from bookings.models import Booking, BookingStatus, ServiceType
 from drivers.models import Driver
 
-from .models import FleetPartner, Vehicle, VehicleCategory, VehicleServiceRecord
+from .models import FavoriteVehicle, FleetPartner, Vehicle, VehicleCategory, VehicleServiceRecord
 
 User = get_user_model()
 
@@ -285,6 +285,77 @@ class DateRangeFleetSearchTests(APITestCase):
         make_vehicle(name='Malformed Range Car')
         response = self.client.get('/api/vehicles/', {'start_date': 'not-a-date', 'end_date': 'also-not-a-date'})
         self.assertEqual(response.status_code, 200)
+
+
+class FavoriteVehicleTests(APITestCase):
+    """Favoriting is a pure browsing convenience - no effect on booking, availability, or
+    pricing - so these tests only cover the toggle/list mechanics themselves."""
+
+    def setUp(self):
+        self.vehicle = make_vehicle(name='Favorite Car')
+        self.user = User.objects.create_user(username='fav-client@example.com', password='pass12345!')
+
+    def test_vehicle_list_shows_is_favorited_false_by_default(self):
+        response = self.client.get('/api/vehicles/')
+        data = response.json()
+        results = data['results'] if isinstance(data, dict) and 'results' in data else data
+        vehicle_data = next(v for v in results if v['name'] == 'Favorite Car')
+        self.assertFalse(vehicle_data['is_favorited'])
+
+    def test_anonymous_request_never_sees_is_favorited_true(self):
+        FavoriteVehicle.objects.create(user=self.user, vehicle=self.vehicle)
+        response = self.client.get('/api/vehicles/')
+        data = response.json()
+        results = data['results'] if isinstance(data, dict) and 'results' in data else data
+        vehicle_data = next(v for v in results if v['name'] == 'Favorite Car')
+        self.assertFalse(vehicle_data['is_favorited'])
+
+    def test_toggle_favorite_requires_login(self):
+        response = self.client.post(f'/api/vehicles/{self.vehicle.id}/toggle_favorite/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_toggle_favorite_creates_then_removes(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(f'/api/vehicles/{self.vehicle.id}/toggle_favorite/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data['is_favorited'])
+        self.assertTrue(FavoriteVehicle.objects.filter(user=self.user, vehicle=self.vehicle).exists())
+
+        response = self.client.post(f'/api/vehicles/{self.vehicle.id}/toggle_favorite/')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['is_favorited'])
+        self.assertFalse(FavoriteVehicle.objects.filter(user=self.user, vehicle=self.vehicle).exists())
+
+    def test_authenticated_vehicle_list_reflects_their_own_favorite(self):
+        FavoriteVehicle.objects.create(user=self.user, vehicle=self.vehicle)
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get('/api/vehicles/')
+        data = response.json()
+        results = data['results'] if isinstance(data, dict) and 'results' in data else data
+        vehicle_data = next(v for v in results if v['name'] == 'Favorite Car')
+        self.assertTrue(vehicle_data['is_favorited'])
+
+    def test_favorites_list_requires_login(self):
+        response = self.client.get('/api/vehicles/favorites/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_favorites_list_only_returns_this_users_favorites(self):
+        other_user = User.objects.create_user(username='other-fav@example.com', password='pass12345!')
+        other_vehicle = make_vehicle(name='Someone Elses Favorite')
+        FavoriteVehicle.objects.create(user=self.user, vehicle=self.vehicle)
+        FavoriteVehicle.objects.create(user=other_user, vehicle=other_vehicle)
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get('/api/vehicles/favorites/')
+        names = [v['name'] for v in response.json()]
+        self.assertIn('Favorite Car', names)
+        self.assertNotIn('Someone Elses Favorite', names)
+
+    def test_favoriting_the_same_vehicle_twice_does_not_duplicate(self):
+        FavoriteVehicle.objects.create(user=self.user, vehicle=self.vehicle)
+        with self.assertRaises(Exception):
+            FavoriteVehicle.objects.create(user=self.user, vehicle=self.vehicle)
 
 
 class PublicCategoryApiTests(APITestCase):

@@ -30,13 +30,14 @@ class VehicleSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     gallery_images = VehicleImageSerializer(many=True, read_only=True)
     trips_completed = serializers.SerializerMethodField()
+    is_favorited = serializers.SerializerMethodField()
 
     class Meta:
         model = Vehicle
         fields = [
             'id', 'name', 'category', 'category_name', 'tagline', 'passenger_capacity',
             'price_per_day', 'description', 'image', 'gallery_images', 'is_available',
-            'allow_self_drive', 'allow_with_driver', 'trips_completed',
+            'allow_self_drive', 'allow_with_driver', 'trips_completed', 'is_favorited',
         ]
 
     def get_trips_completed(self, obj):
@@ -45,3 +46,9 @@ class VehicleSerializer(serializers.ModelSerializer):
         # circular import at module load time (bookings.models already imports fleet.models).
         from bookings.models import BookingStatus
         return obj.bookings.filter(status=BookingStatus.COMPLETED).count()
+
+    def get_is_favorited(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.favorited_by.filter(user=request.user).exists()

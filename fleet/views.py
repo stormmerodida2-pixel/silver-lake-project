@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from bookings.models import BLOCKING_BOOKING_STATUSES, Booking
 
-from .models import Vehicle, VehicleCategory, visible_vehicles
+from .models import FavoriteVehicle, Vehicle, VehicleCategory, visible_vehicles
 from .serializers import VehicleCategorySerializer, VehicleSerializer
 
 
@@ -66,3 +66,26 @@ class VehicleViewSet(viewsets.ReadOnlyModelViewSet):
             vehicle=vehicle, status__in=BLOCKING_BOOKING_STATUSES, end_date__gte=date.today(),
         ).values('start_date', 'end_date').order_by('start_date')
         return Response(list(bookings))
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def toggle_favorite(self, request, pk=None):
+        """Bookmarks/un-bookmarks this vehicle for the logged-in customer - a pure browsing
+        convenience, no effect on booking or availability. Not scoped to visible_vehicles() for
+        the same reason the availability action isn't - a customer should still be able to
+        un-favorite a car that's since become temporarily unavailable."""
+        vehicle = get_object_or_404(Vehicle, pk=pk)
+        favorite, created = FavoriteVehicle.objects.get_or_create(user=request.user, vehicle=vehicle)
+        if not created:
+            favorite.delete()
+        return Response({'is_favorited': created})
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def favorites(self, request):
+        """The logged-in customer's saved vehicles, most recently favorited first - shown
+        regardless of current availability (still useful to see what you saved even if it's
+        momentarily booked), unlike the main listing's visible_vehicles() scoping."""
+        vehicles = Vehicle.objects.filter(favorited_by__user=request.user).select_related('category').order_by(
+            '-favorited_by__created_at'
+        )
+        serializer = self.get_serializer(vehicles, many=True)
+        return Response(serializer.data)

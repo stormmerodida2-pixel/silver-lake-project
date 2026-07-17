@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
@@ -359,3 +360,23 @@ class VehicleSubmissionPhoto(models.Model):
         if self.image and not self.image._committed:
             optimize_image(self.image)
         super().save(*args, **kwargs)
+
+
+class FavoriteVehicle(models.Model):
+    """A customer bookmarking a vehicle for later - purely a browsing convenience, no effect on
+    bookings/availability/pricing. Deliberately no is_staff restriction here (unlike most of
+    this app) - a driver or admin browsing the public site as a logged-in user can favorite too,
+    same as any other customer account would."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='favorite_vehicles')
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='favorited_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'vehicle'], name='unique_favorite_per_user_vehicle'),
+        ]
+
+    def __str__(self):
+        return f'{self.user} favorited {self.vehicle.name}'

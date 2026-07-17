@@ -46,7 +46,7 @@ const links = computed(() => {
     { to: '/contact', label: 'Contact' },
   ]
   if (auth.isAuthenticated) {
-    base.splice(2, 0, { to: '/account/bookings', label: 'My Bookings' })
+    base.splice(2, 0, { to: '/account/bookings', label: 'My Bookings' }, { to: '/account/favorites', label: 'Favorites' })
   }
   if (auth.user?.driver_status === 'active') {
     base.push({ to: '/driver', label: 'Driver Dashboard' })
