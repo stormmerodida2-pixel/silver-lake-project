@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import apiClient from '../api/client'
+import AvailabilityCalendar from '../components/AvailabilityCalendar.vue'
 import PhoneInput from '../components/PhoneInput.vue'
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
@@ -85,6 +86,36 @@ watch(
 )
 
 const selectedVehicle = computed(() => catalog.vehicles.find((v) => v.id === form.vehicle))
+
+// ── Availability conflict warning ────────────────────────────────────────────
+// Purely advisory - Booking.clean() on the backend is still the real, authoritative check.
+// This just saves a wasted round trip by catching an obvious overlap before submit.
+const bookedRanges = ref([])
+
+watch(
+  () => form.vehicle,
+  async (vehicleId) => {
+    bookedRanges.value = []
+    if (!vehicleId) return
+    try {
+      const { data } = await apiClient.get(`/vehicles/${vehicleId}/availability/`)
+      bookedRanges.value = data
+    } catch (err) {
+      // Advisory only - if this fails, the form still works, submit just won't warn early.
+    }
+  },
+  { immediate: true }
+)
+
+const dateConflictWarning = computed(() => {
+  if (!form.start_date || !form.end_date) return ''
+  const conflict = bookedRanges.value.some(
+    (range) => form.start_date <= range.end_date && form.end_date >= range.start_date
+  )
+  return conflict
+    ? "Heads up - this vehicle already has a booking that overlaps these dates. You can still submit, but it likely won't be accepted."
+    : ''
+})
 
 // Keep the layout shape stable while filling the form (no shifting as fields fill in) -
 // only the confirmation/payment steps (which have no live sidebar use) switch to a centered column.
@@ -350,6 +381,13 @@ function retryPayment() {
                 />
               </div>
             </div>
+
+            <p v-if="dateConflictWarning" class="flex items-start gap-2 rounded-lg border border-gold-500/40 bg-gold-500/10 px-3 py-2.5 text-sm text-navy-900">
+              <svg class="mt-0.5 h-4 w-4 shrink-0 text-gold-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M10.29 3.86L1.82 18a1.5 1.5 0 001.29 2.25h17.78a1.5 1.5 0 001.29-2.25L13.71 3.86a1.5 1.5 0 00-2.42 0z" />
+              </svg>
+              <span>{{ dateConflictWarning }}</span>
+            </p>
 
             <div>
               <label class="mb-1 block text-sm text-slate-600">Pickup location</label>
@@ -786,6 +824,8 @@ function retryPayment() {
                 </div>
               </div>
           </div>
+
+          <AvailabilityCalendar :vehicle-id="selectedVehicle.id" class="mt-4" />
         </aside>
       </div>
     </div>

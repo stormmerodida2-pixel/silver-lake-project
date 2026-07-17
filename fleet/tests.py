@@ -153,6 +153,78 @@ class PublicFleetTripsCompletedTests(APITestCase):
         self.assertEqual(self._trips_completed_for('Popular Car'), 2)
 
 
+class VehicleAvailabilityTests(APITestCase):
+    """/api/vehicles/<id>/availability/ lets the booking form warn about a date conflict before
+    the customer submits - must mirror Booking.clean()'s own overlap window exactly, or it'd
+    show dates as free that the server would then reject (or vice versa)."""
+
+    def setUp(self):
+        self.vehicle = make_vehicle(name='Available Car')
+        self.user = User.objects.create_user(username='avail-client@example.com', password='pass12345!')
+
+    def _make_booking(self, status, start_date, end_date):
+        return Booking.objects.create(
+            user=self.user, vehicle=self.vehicle, service_type=ServiceType.WITH_DRIVER,
+            customer_name='Jane', customer_phone='254700000000', pickup_location='Kisumu',
+            start_date=start_date, end_date=end_date, status=status,
+        )
+
+    def test_vehicle_with_no_bookings_has_no_blocked_ranges(self):
+        response = self.client.get(f'/api/vehicles/{self.vehicle.id}/availability/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    def test_confirmed_future_booking_is_listed(self):
+        self._make_booking(BookingStatus.CONFIRMED, TODAY + timedelta(days=5), TODAY + timedelta(days=7))
+        response = self.client.get(f'/api/vehicles/{self.vehicle.id}/availability/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(response.json()[0]['start_date'], str(TODAY + timedelta(days=5)))
+        self.assertEqual(response.json()[0]['end_date'], str(TODAY + timedelta(days=7)))
+
+    def test_pending_and_ongoing_bookings_are_also_listed(self):
+        self._make_booking(BookingStatus.PENDING, TODAY + timedelta(days=1), TODAY + timedelta(days=2))
+        self._make_booking(BookingStatus.ONGOING, TODAY, TODAY + timedelta(days=1))
+        response = self.client.get(f'/api/vehicles/{self.vehicle.id}/availability/')
+        self.assertEqual(len(response.json()), 2)
+
+    def test_cancelled_booking_is_not_listed(self):
+        self._make_booking(BookingStatus.CANCELLED, TODAY + timedelta(days=5), TODAY + timedelta(days=7))
+        response = self.client.get(f'/api/vehicles/{self.vehicle.id}/availability/')
+        self.assertEqual(response.json(), [])
+
+    def test_completed_booking_is_not_listed(self):
+        self._make_booking(BookingStatus.COMPLETED, TODAY - timedelta(days=5), TODAY - timedelta(days=3))
+        response = self.client.get(f'/api/vehicles/{self.vehicle.id}/availability/')
+        self.assertEqual(response.json(), [])
+
+    def test_a_booking_that_already_ended_is_not_listed(self):
+        # An old CONFIRMED booking that never got marked completed shouldn't still block dates.
+        self._make_booking(BookingStatus.CONFIRMED, TODAY - timedelta(days=10), TODAY - timedelta(days=8))
+        response = self.client.get(f'/api/vehicles/{self.vehicle.id}/availability/')
+        self.assertEqual(response.json(), [])
+
+    def test_another_vehicles_bookings_are_not_included(self):
+        other_vehicle = make_vehicle(name='Other Car')
+        Booking.objects.create(
+            user=self.user, vehicle=other_vehicle, service_type=ServiceType.WITH_DRIVER,
+            customer_name='Jane', customer_phone='254700000000', pickup_location='Kisumu',
+            start_date=TODAY + timedelta(days=5), end_date=TODAY + timedelta(days=7),
+            status=BookingStatus.CONFIRMED,
+        )
+        response = self.client.get(f'/api/vehicles/{self.vehicle.id}/availability/')
+        self.assertEqual(response.json(), [])
+
+    def test_unauthenticated_request_is_allowed(self):
+        self._make_booking(BookingStatus.CONFIRMED, TODAY + timedelta(days=5), TODAY + timedelta(days=7))
+        response = self.client.get(f'/api/vehicles/{self.vehicle.id}/availability/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_nonexistent_vehicle_404s(self):
+        response = self.client.get('/api/vehicles/999999/availability/')
+        self.assertEqual(response.status_code, 404)
+
+
 class PublicCategoryApiTests(APITestCase):
     """Fleet types are managed on the admin dashboard, but everyone needs to read them -
     the public fleet page's filters and the driver/become-a-driver forms all depend on this

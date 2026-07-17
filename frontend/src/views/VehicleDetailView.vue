@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import apiClient from '../api/client'
+import AvailabilityCalendar from '../components/AvailabilityCalendar.vue'
 import { useCatalogStore } from '../stores/catalog'
 import { trackEvent } from '../utils/analytics'
 
@@ -32,7 +33,7 @@ onMounted(async () => {
     return
   }
   try {
-    const { data } = await apiClient.get(`/fleet/vehicles/${route.params.id}/`)
+    const { data } = await apiClient.get(`/vehicles/${route.params.id}/`)
     vehicle.value = data
     trackVehicleView(data)
   } catch (err) {
@@ -167,6 +168,8 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
                 </a>
               </p>
             </div>
+
+            <AvailabilityCalendar :vehicle-id="vehicle.id" class="mt-4" />
           </div>
 
         </div>
