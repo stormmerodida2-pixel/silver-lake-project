@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../../api/client'
 import PhoneInput from '../../components/PhoneInput.vue'
+import { confirmDialog } from '../../utils/dialogs'
 import { useAdminList } from '../../composables/useAdminList'
 
 const { items: partners, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/fleet-partners/')
@@ -88,7 +89,7 @@ async function toggleActive(partner) {
 }
 
 async function deletePartner(partner) {
-  if (!confirm(`Delete "${partner.name}"? This cannot be undone.`)) return
+  if (!(await confirmDialog(`Delete "${partner.name}"? This cannot be undone.`, { danger: true }))) return
   busyId.value = partner.id
   try {
     await apiClient.delete(`/admin/fleet-partners/${partner.id}/`)

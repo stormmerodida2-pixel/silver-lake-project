@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import { confirmDialog } from '../../utils/dialogs'
 import PhoneInput from '../../components/PhoneInput.vue'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
@@ -166,7 +167,7 @@ async function inviteDriver(driver) {
 }
 
 async function deleteDriver(driver) {
-  if (!confirm(`Delete ${driver.full_name}? This cannot be undone.`)) return
+  if (!(await confirmDialog(`Delete ${driver.full_name}? This cannot be undone.`, { danger: true }))) return
   busyId.value = driver.id
   try {
     await apiClient.delete(`/admin/drivers/${driver.id}/`)

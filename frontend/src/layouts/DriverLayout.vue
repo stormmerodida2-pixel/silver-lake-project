@@ -7,6 +7,7 @@ import NotificationBell from '../components/NotificationBell.vue'
 import SilverLakeLogo from '../components/SilverLakeLogo.vue'
 import { useAuthStore } from '../stores/auth'
 import { useDriverPortalStore } from '../stores/driverPortal'
+import { confirmDialog } from '../utils/dialogs'
 
 const route = useRoute()
 const router = useRouter()
@@ -31,8 +32,8 @@ const navItems = [
   },
 ]
 
-function handleLogout() {
-  if (!confirm('Are you sure you want to log out?')) return
+async function handleLogout() {
+  if (!(await confirmDialog('Are you sure you want to log out?'))) return
   auth.logout()
   router.push('/')
 }

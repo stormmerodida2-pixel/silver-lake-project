@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
+import { confirmDialog } from '../utils/dialogs'
 import SilverLakeLogo from '../components/SilverLakeLogo.vue'
 import AnnouncementBanner from '../components/AnnouncementBanner.vue'
 import NotificationBell from '../components/NotificationBell.vue'
@@ -103,8 +104,8 @@ const navItems = computed(() => baseNavItems.filter((item) => {
 }))
 
 
-function handleLogout() {
-  if (!confirm('Are you sure you want to log out?')) return
+async function handleLogout() {
+  if (!(await confirmDialog('Are you sure you want to log out?'))) return
   auth.logout()
   router.push('/')
 }

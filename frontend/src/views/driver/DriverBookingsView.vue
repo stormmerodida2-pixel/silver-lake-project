@@ -5,6 +5,7 @@ import apiClient from '../../api/client'
 import BookingPaymentCollector from '../../components/driver/BookingPaymentCollector.vue'
 import WalkUpBookingModal from '../../components/driver/WalkUpBookingModal.vue'
 import { useDriverPortalStore } from '../../stores/driverPortal'
+import { confirmDialog } from '../../utils/dialogs'
 
 const driverPortal = useDriverPortalStore()
 
@@ -60,7 +61,7 @@ function ackDeadlineInfo(booking) {
 const completingId = ref(null)
 
 async function completeBooking(booking) {
-  if (!confirm(`Mark the trip for ${booking.customer_name} as completed?`)) return
+  if (!(await confirmDialog(`Mark the trip for ${booking.customer_name} as completed?`))) return
   completingId.value = booking.id
   try {
     const { data } = await apiClient.post(`/driver/bookings/${booking.id}/complete/`)
@@ -89,7 +90,7 @@ async function startTrip(booking) {
 }
 
 async function endTrip(booking) {
-  if (!confirm(`Confirm the vehicle has been returned for ${booking.customer_name}'s trip?`)) return
+  if (!(await confirmDialog(`Confirm the vehicle has been returned for ${booking.customer_name}'s trip?`))) return
   endingId.value = booking.id
   try {
     const { data } = await apiClient.post(`/driver/bookings/${booking.id}/end-trip/`)

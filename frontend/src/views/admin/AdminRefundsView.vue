@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
+import { promptDialog } from '../../utils/dialogs'
 
 const auth = useAuthStore()
 const { items: refunds, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/refunds/')
@@ -16,7 +17,7 @@ const filteredRefunds = computed(() => {
 })
 
 async function markIssued(refund) {
-  const reference = window.prompt('M-Pesa/bank reference used to send this refund (optional):', '')
+  const reference = await promptDialog('M-Pesa/bank reference used to send this refund (optional):')
   if (reference === null) return
   busyId.value = refund.id
   try {

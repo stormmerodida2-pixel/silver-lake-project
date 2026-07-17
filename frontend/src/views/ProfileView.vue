@@ -6,6 +6,7 @@ import Swal from 'sweetalert2'
 import apiClient from '../api/client'
 import PhoneInput from '../components/PhoneInput.vue'
 import { useAuthStore } from '../stores/auth'
+import { confirmDialog } from '../utils/dialogs'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -54,7 +55,7 @@ async function onAvatarSelected(event) {
 }
 
 async function removeAvatar() {
-  if (!confirm('Remove your profile photo?')) return
+  if (!(await confirmDialog('Remove your profile photo?'))) return
   avatarError.value = ''
   avatarUploading.value = true
   try {

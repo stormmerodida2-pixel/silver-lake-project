@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
+import { confirmDialog, promptDialog } from '../../utils/dialogs'
 
 const auth = useAuthStore()
 const isSuperAdmin = computed(() => !!auth.user?.is_superuser)
@@ -96,7 +97,7 @@ async function toggleActive(announcement) {
 }
 
 async function deleteAnnouncement(announcement) {
-  if (!confirm(`Delete "${announcement.title}"? This cannot be undone.`)) return
+  if (!(await confirmDialog(`Delete "${announcement.title}"? This cannot be undone.`, { danger: true }))) return
   busyId.value = announcement.id
   try {
     await apiClient.delete(`/admin/announcements/${announcement.id}/`)
@@ -121,7 +122,7 @@ async function approve(announcement) {
 }
 
 async function reject(announcement) {
-  const review_note = prompt(`Reason for rejecting "${announcement.title}" (shown to the submitter, optional):`, '')
+  const review_note = await promptDialog(`Reason for rejecting "${announcement.title}" (shown to the submitter, optional):`)
   if (review_note === null) return
   busyId.value = announcement.id
   try {

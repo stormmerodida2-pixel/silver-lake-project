@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import { confirmDialog } from '../../utils/dialogs'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 
@@ -43,7 +44,7 @@ async function reject(review) {
 }
 
 async function deleteReview(review) {
-  if (!confirm(`Delete review from "${review.customer_name}"? This cannot be undone.`)) return
+  if (!(await confirmDialog(`Delete review from "${review.customer_name}"? This cannot be undone.`, { danger: true }))) return
   busyId.value = review.id
   try {
     await apiClient.delete(`/admin/reviews/${review.id}/`)

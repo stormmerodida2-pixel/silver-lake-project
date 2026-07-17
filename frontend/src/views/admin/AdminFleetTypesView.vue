@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import { confirmDialog } from '../../utils/dialogs'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 
@@ -77,7 +78,7 @@ async function toggleActive(category) {
 }
 
 async function deleteCategory(category) {
-  if (!confirm(`Delete "${category.name}"? This cannot be undone.`)) return
+  if (!(await confirmDialog(`Delete "${category.name}"? This cannot be undone.`, { danger: true }))) return
   busyId.value = category.id
   try {
     await apiClient.delete(`/admin/fleet-types/${category.id}/`)

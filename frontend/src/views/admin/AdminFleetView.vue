@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import { confirmDialog } from '../../utils/dialogs'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 
@@ -247,7 +248,7 @@ async function toggleAvailability(vehicle) {
 }
 
 async function deleteVehicle(vehicle) {
-  if (!confirm(`Delete "${vehicle.name}"? This cannot be undone.`)) return
+  if (!(await confirmDialog(`Delete "${vehicle.name}"? This cannot be undone.`, { danger: true }))) return
   busyId.value = vehicle.id
   try {
     await apiClient.delete(`/admin/fleet/${vehicle.id}/`)

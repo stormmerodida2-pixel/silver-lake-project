@@ -6,6 +6,7 @@ import PasswordInput from '../../components/PasswordInput.vue'
 import PhoneInput from '../../components/PhoneInput.vue'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
+import { confirmDialog } from '../../utils/dialogs'
 
 const auth = useAuthStore()
 const filters = reactive({ search: '', role: '' })
@@ -104,7 +105,7 @@ async function toggleActive(user) {
 }
 
 async function deleteUser(user) {
-  if (!confirm(`Delete ${user.email}? This cannot be undone.`)) return
+  if (!(await confirmDialog(`Delete ${user.email}? This cannot be undone.`, { danger: true }))) return
   busyId.value = user.id
   try {
     await apiClient.delete(`/admin/users/${user.id}/`)

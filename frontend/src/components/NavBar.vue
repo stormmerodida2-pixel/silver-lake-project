@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth.js'
+import { confirmDialog } from '../utils/dialogs'
 import NotificationBell from './NotificationBell.vue'
 import SilverLakeLogo from './SilverLakeLogo.vue'
 
@@ -36,8 +37,8 @@ const links = computed(() => {
   return base
 })
 
-function handleLogout() {
-  if (!confirm('Are you sure you want to log out?')) return
+async function handleLogout() {
+  if (!(await confirmDialog('Are you sure you want to log out?'))) return
   auth.logout()
   isOpen.value = false
   router.push('/')

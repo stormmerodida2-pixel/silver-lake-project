@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
+import { promptDialog } from '../../utils/dialogs'
 
 const auth = useAuthStore()
 const { items: payouts, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/payouts/')
@@ -16,7 +17,7 @@ const filteredPayouts = computed(() => {
 })
 
 async function markPaid(payout) {
-  const reference = window.prompt('M-Pesa/bank reference for this payout (optional):', '')
+  const reference = await promptDialog('M-Pesa/bank reference for this payout (optional):')
   if (reference === null) return
   busyId.value = payout.id
   try {
@@ -32,9 +33,8 @@ async function markPaid(payout) {
 }
 
 async function verifyPayout(payout) {
-  const note = window.prompt(
+  const note = await promptDialog(
     'How was this reconciled? (required - e.g. "Called customer, confirmed KES 5000 received")',
-    '',
   )
   if (note === null) return
   if (!note.trim()) {

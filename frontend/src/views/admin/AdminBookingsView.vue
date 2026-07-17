@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
+import { confirmDialog } from '../../utils/dialogs'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -26,10 +27,10 @@ async function changeStatus(booking, newStatus) {
   // unavailable, or delayed without telling anyone), in which case it should be a full refund.
   let driverAtFault = false
   if (newStatus === 'cancelled' && booking.driver_acknowledged_at) {
-    driverAtFault = confirm(
+    driverAtFault = await confirmDialog(
       "The driver already acknowledged this trip, so cancelling it normally only refunds half of what's been paid. " +
-      "Was this the driver's fault (went unavailable, or delayed without telling anyone)? " +
-      'Click OK to flag it and refund the customer in full, or Cancel to proceed with the standard 50% refund.',
+      "Was this the driver's fault (went unavailable, or delayed without telling anyone)?",
+      { confirmText: "Yes, driver's fault - full refund", cancelText: 'No - standard 50% refund' },
     )
   }
 

@@ -6,6 +6,7 @@ import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 
 import apiClient from '../../api/client'
+import { promptDialog } from '../../utils/dialogs'
 
 const props = defineProps({ modelValue: { type: String, default: '' } })
 const emit = defineEmits(['update:modelValue'])
@@ -47,9 +48,9 @@ async function insertImage(event) {
   }
 }
 
-function setLink() {
+async function setLink() {
   const previousUrl = editor.value.getAttributes('link').href
-  const url = window.prompt('Link URL', previousUrl || 'https://')
+  const url = await promptDialog('Link URL', { defaultValue: previousUrl || 'https://' })
   if (url === null) return
   if (url === '') {
     editor.value.chain().focus().unsetLink().run()

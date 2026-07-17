@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
+import { confirmDialog } from '../../utils/dialogs'
 import RichTextEditor from '../../components/admin/RichTextEditor.vue'
 
 const { items: posts, loading, error, load } = useAdminList('/admin/blog/')
@@ -112,7 +113,7 @@ async function togglePublished(post) {
 }
 
 async function deletePost(post) {
-  if (!confirm(`Delete "${post.title}"? This cannot be undone.`)) return
+  if (!(await confirmDialog(`Delete "${post.title}"? This cannot be undone.`, { danger: true }))) return
   busyId.value = post.id
   try {
     await apiClient.delete(`/admin/blog/${post.id}/`)
