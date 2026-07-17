@@ -9,6 +9,7 @@ import { useAuthStore } from '../stores/auth'
 const auth = useAuthStore()
 
 const form = reactive({ firstName: '', lastName: '', email: '', phoneNumber: '', password: '' })
+const agreedToTerms = ref(false)
 const submitting = ref(false)
 const error = ref('')
 const submitted = ref(false)
@@ -94,19 +95,27 @@ async function submit() {
           </svg>
           <span>{{ error }}</span>
         </div>
+        <label class="flex items-start gap-2.5 text-sm text-slate-600">
+          <input
+            v-model="agreedToTerms"
+            type="checkbox"
+            required
+            class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-blue-600 focus:ring-brand-blue-500"
+          />
+          <span>
+            I agree to the
+            <RouterLink to="/terms" target="_blank" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Terms of Service</RouterLink>
+            and
+            <RouterLink to="/privacy" target="_blank" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Privacy Policy</RouterLink>.
+          </span>
+        </label>
         <button
           type="submit"
-          :disabled="submitting"
+          :disabled="submitting || !agreedToTerms"
           class="w-full rounded-md bg-gold-500 px-4 py-3 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
         >
           {{ submitting ? 'Creating account...' : 'Sign Up' }}
         </button>
-        <p class="text-center text-xs text-slate-500">
-          By signing up, you agree to our
-          <RouterLink to="/terms" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Terms of Service</RouterLink>
-          and
-          <RouterLink to="/privacy" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Privacy Policy</RouterLink>.
-        </p>
         <p class="text-center text-sm text-slate-500">
           Already have an account?
           <RouterLink to="/login" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Log in</RouterLink>
