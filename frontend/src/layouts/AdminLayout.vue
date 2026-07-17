@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
@@ -112,10 +112,31 @@ async function handleLogout() {
 
 // Mobile nav: a dropdown panel instead of the old horizontally-scrolling strip, which hid most
 // items off-screen with no visual hint more existed. Closes on navigation so it never lingers
-// open over the next page.
+// open over the next page - but route.path alone doesn't fire for a link back to the current
+// page, and gives no way to dismiss it by tapping elsewhere, so every link also closes it
+// directly and a document-level click handler closes it on any click outside both the toggle
+// button and the panel itself (same pattern as NotificationBell.vue).
 const mobileMenuOpen = ref(false)
+const mobileMenuButton = ref(null)
+const mobileMenuPanel = ref(null)
 watch(() => route.path, () => {
   mobileMenuOpen.value = false
+})
+
+function handleMobileMenuOutsideClick(event) {
+  if (
+    mobileMenuButton.value && !mobileMenuButton.value.contains(event.target) &&
+    mobileMenuPanel.value && !mobileMenuPanel.value.contains(event.target)
+  ) {
+    mobileMenuOpen.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleMobileMenuOutsideClick)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', handleMobileMenuOutsideClick)
 })
 </script>
 
@@ -187,6 +208,7 @@ watch(() => route.path, () => {
         <div class="flex items-center gap-2 text-sm text-slate-300 sm:gap-3">
           <NotificationBell base-path="/admin/notifications" />
           <button
+            ref="mobileMenuButton"
             class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-navy-800 hover:text-white md:hidden"
             :aria-expanded="mobileMenuOpen"
             aria-label="Toggle menu"
@@ -219,7 +241,7 @@ watch(() => route.path, () => {
         </div>
       </header>
 
-      <div v-if="mobileMenuOpen" class="border-b border-navy-800 bg-navy-900 md:hidden">
+      <div v-if="mobileMenuOpen" ref="mobileMenuPanel" class="border-b border-navy-800 bg-navy-900 md:hidden">
         <nav class="flex max-h-[60vh] flex-col gap-1 overflow-y-auto p-3">
           <RouterLink
             v-for="item in navItems"
@@ -231,6 +253,7 @@ watch(() => route.path, () => {
                 ? 'bg-gold-500 text-navy-950'
                 : 'text-slate-300 hover:bg-navy-800 hover:text-gold-400'
             "
+            @click="mobileMenuOpen = false"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
@@ -242,6 +265,7 @@ watch(() => route.path, () => {
           <RouterLink
             to="/account/profile"
             class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+            @click="mobileMenuOpen = false"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z" />
@@ -251,6 +275,7 @@ watch(() => route.path, () => {
           <RouterLink
             to="/"
             class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+            @click="mobileMenuOpen = false"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
