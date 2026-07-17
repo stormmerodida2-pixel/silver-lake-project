@@ -29,11 +29,19 @@ class VehicleSerializer(serializers.ModelSerializer):
     category = serializers.SlugRelatedField(slug_field='slug', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
     gallery_images = VehicleImageSerializer(many=True, read_only=True)
+    trips_completed = serializers.SerializerMethodField()
 
     class Meta:
         model = Vehicle
         fields = [
             'id', 'name', 'category', 'category_name', 'tagline', 'passenger_capacity',
             'price_per_day', 'description', 'image', 'gallery_images', 'is_available',
-            'allow_self_drive', 'allow_with_driver',
+            'allow_self_drive', 'allow_with_driver', 'trips_completed',
         ]
+
+    def get_trips_completed(self, obj):
+        # Real social proof, not a fabricated "X people viewing" counter - a genuine count of
+        # this vehicle's completed trips. Import kept local to sidestep a fleet<->bookings
+        # circular import at module load time (bookings.models already imports fleet.models).
+        from bookings.models import BookingStatus
+        return obj.bookings.filter(status=BookingStatus.COMPLETED).count()

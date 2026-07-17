@@ -56,7 +56,7 @@ const trustBadges = [
     </section>
 
     <!-- Rooted in Kisumu banner -->
-    <section class="border-b border-navy-800 bg-navy-900">
+    <section v-reveal class="border-b border-navy-800 bg-navy-900">
       <div class="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 md:grid-cols-2">
         <div>
           <h2 class="font-[Georgia] text-2xl font-bold text-white">
@@ -77,12 +77,12 @@ const trustBadges = [
     <!-- Fleet preview -->
     <section class="bg-white">
       <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <h2 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">
+        <h2 v-reveal class="text-center font-[Georgia] text-3xl font-bold text-navy-900">
           Our Fleet. <span class="text-brand-blue-600">Comfort for every need.</span>
         </h2>
 
         <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <VehicleCard v-for="vehicle in catalog.vehicles.slice(0, 4)" :key="vehicle.id" :vehicle="vehicle" />
+          <VehicleCard v-for="vehicle in catalog.vehicles.slice(0, 4)" :key="vehicle.id" v-reveal :vehicle="vehicle" />
         </div>
 
         <div class="mt-8 text-center">
@@ -96,11 +96,11 @@ const trustBadges = [
     <!-- Experience / trust badges -->
     <section class="border-y border-navy-800 bg-navy-900">
       <div class="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-        <h2 class="text-center font-[Georgia] text-2xl font-bold text-white">
+        <h2 v-reveal class="text-center font-[Georgia] text-2xl font-bold text-white">
           It's not just a journey, <span class="text-gold-400">it's an experience.</span>
         </h2>
         <div class="mt-8 grid gap-6 sm:grid-cols-3 lg:grid-cols-5">
-          <div v-for="badge in trustBadges" :key="badge.title" class="text-center">
+          <div v-for="badge in trustBadges" :key="badge.title" v-reveal class="text-center">
             <p class="font-semibold text-gold-400">{{ badge.title }}</p>
             <p class="mt-1 text-sm text-slate-300">{{ badge.text }}</p>
           </div>
@@ -111,7 +111,7 @@ const trustBadges = [
     <!-- Become a driver CTA (hidden once you're already an active driver-partner) -->
     <section v-if="auth.user?.driver_status !== 'active'" class="bg-white">
       <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <div class="flex flex-col items-center justify-between gap-6 rounded-2xl border border-navy-800 bg-navy-900 px-6 py-10 text-center sm:px-12 md:flex-row md:text-left">
+        <div v-reveal class="flex flex-col items-center justify-between gap-6 rounded-2xl border border-navy-800 bg-navy-900 px-6 py-10 text-center sm:px-12 md:flex-row md:text-left">
           <div>
             <h2 class="font-[Georgia] text-2xl font-bold text-white">
               Own a car? <span class="text-gold-400">Partner with SilverLake.</span>
@@ -141,9 +141,9 @@ const trustBadges = [
     <!-- Reviews preview -->
     <section class="bg-white">
       <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <h2 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">What our clients say</h2>
+        <h2 v-reveal class="text-center font-[Georgia] text-3xl font-bold text-navy-900">What our clients say</h2>
         <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <ReviewCard v-for="review in catalog.reviews.slice(0, 3)" :key="review.id" :review="review" />
+          <ReviewCard v-for="review in catalog.reviews.slice(0, 3)" :key="review.id" v-reveal :review="review" />
         </div>
         <div class="mt-8 text-center">
           <RouterLink to="/reviews" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">

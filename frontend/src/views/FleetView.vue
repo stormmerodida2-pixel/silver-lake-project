@@ -46,7 +46,7 @@ onMounted(() => {
       </div>
 
       <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <VehicleCard v-for="vehicle in filteredVehicles" :key="vehicle.id" :vehicle="vehicle" />
+        <VehicleCard v-for="vehicle in filteredVehicles" :key="vehicle.id" v-reveal :vehicle="vehicle" />
       </div>
 
       <p v-if="!filteredVehicles.length" class="mt-10 text-center text-slate-500">

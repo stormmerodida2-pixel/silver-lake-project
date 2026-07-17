@@ -121,6 +121,38 @@ class PublicFleetVisibilityTests(APITestCase):
         return [v['name'] for v in results]
 
 
+class PublicFleetTripsCompletedTests(APITestCase):
+    """trips_completed is real social proof (see VehicleSerializer.get_trips_completed) - a
+    genuine count of this vehicle's completed trips, not a fabricated urgency number."""
+
+    def _trips_completed_for(self, vehicle_name):
+        response = self.client.get('/api/vehicles/')
+        data = response.json()
+        results = data['results'] if isinstance(data, dict) and 'results' in data else data
+        return next(v['trips_completed'] for v in results if v['name'] == vehicle_name)
+
+    def _make_booking(self, vehicle, status, user):
+        return Booking.objects.create(
+            user=user, vehicle=vehicle, service_type=ServiceType.WITH_DRIVER,
+            customer_name='Jane', customer_phone='254700000000', pickup_location='Kisumu',
+            start_date=TODAY - timedelta(days=10), end_date=TODAY - timedelta(days=8),
+            status=status,
+        )
+
+    def test_vehicle_with_no_bookings_shows_zero(self):
+        make_vehicle(name='Untested Car')
+        self.assertEqual(self._trips_completed_for('Untested Car'), 0)
+
+    def test_only_completed_bookings_are_counted(self):
+        vehicle = make_vehicle(name='Popular Car')
+        user = User.objects.create_user(username='trips-client@example.com', password='pass12345!')
+        self._make_booking(vehicle, BookingStatus.COMPLETED, user)
+        self._make_booking(vehicle, BookingStatus.COMPLETED, user)
+        self._make_booking(vehicle, BookingStatus.CANCELLED, user)
+        self._make_booking(vehicle, BookingStatus.PENDING, user)
+        self.assertEqual(self._trips_completed_for('Popular Car'), 2)
+
+
 class PublicCategoryApiTests(APITestCase):
     """Fleet types are managed on the admin dashboard, but everyone needs to read them -
     the public fleet page's filters and the driver/become-a-driver forms all depend on this
