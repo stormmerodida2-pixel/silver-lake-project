@@ -146,9 +146,16 @@ This needs a one-time AWS setup this repo can't do for you:
 3. SSH in once and set the box up by hand: install Docker, install `nginx` and `certbot`
    (`sudo certbot --nginx` for a free auto-renewing Let's Encrypt certificate once a domain
    points at the instance), and configure nginx as a reverse proxy from 80/443 to
-   `localhost:8000`. Also create `/home/<user>/silverlake.env` on the box containing the real
-   production env vars (`SECRET_KEY`, `ALLOWED_HOSTS`, `DATABASE_URL` pointing at an RDS MySQL
-   instance, `AWS_STORAGE_BUCKET_NAME` etc. pointing at a real S3 bucket, `MPESA_*`,
+   `localhost:8000` for `/api/`, `/sitemap.xml`, `/static/`, serving `/media/` directly from
+   the host-mounted volume, and the SPA's own build (`/var/www/silverlake`) for everything else
+   - **enable gzip** (nothing compresses these by default - a real, measurable difference: the
+   main JS bundle drops from ~150KB to ~46KB) and set `Cache-Control: public, max-age=31536000,
+   immutable` on `/assets/` (Vite's hashed filenames make this safe - a new deploy always gets
+   new filenames) while leaving `index.html` itself uncached (`no-cache`), so a stale cached
+   copy never points at JS/CSS a previous deploy already deleted. Also create
+   `/home/<user>/silverlake.env` on the box containing the real production env vars
+   (`SECRET_KEY`, `ALLOWED_HOSTS`, `DATABASE_URL` pointing at an RDS MySQL instance,
+   `AWS_STORAGE_BUCKET_NAME` etc. pointing at a real S3 bucket, `MPESA_*`,
    `BEHIND_HTTPS_PROXY=true` since nginx terminates TLS, ...) - CI only ships and restarts the
    container, it never touches this file or the box's nginx/TLS config.
 4. Create an IAM user (separate from the instance role, scoped to ECR push only) for GitHub
