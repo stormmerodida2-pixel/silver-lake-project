@@ -225,6 +225,68 @@ class VehicleAvailabilityTests(APITestCase):
         self.assertEqual(response.status_code, 404)
 
 
+class DateRangeFleetSearchTests(APITestCase):
+    """?start_date=&end_date= on /api/vehicles/ powers date-first search on the Fleet page -
+    only vehicles free for the whole requested range should come back. Must use the exact same
+    overlap window as Booking.clean() and the availability action, or a vehicle shown as
+    available here could still get rejected on actual booking."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='search-client@example.com', password='pass12345!')
+
+    def _make_booking(self, vehicle, status, start_date, end_date):
+        return Booking.objects.create(
+            user=self.user, vehicle=vehicle, service_type=ServiceType.WITH_DRIVER,
+            customer_name='Jane', customer_phone='254700000000', pickup_location='Kisumu',
+            start_date=start_date, end_date=end_date, status=status,
+        )
+
+    def _names_for(self, start_date, end_date):
+        response = self.client.get('/api/vehicles/', {'start_date': start_date, 'end_date': end_date})
+        data = response.json()
+        results = data['results'] if isinstance(data, dict) and 'results' in data else data
+        return [v['name'] for v in results]
+
+    def test_vehicle_with_no_bookings_is_shown(self):
+        make_vehicle(name='Free Car')
+        self.assertIn('Free Car', self._names_for(TODAY + timedelta(days=5), TODAY + timedelta(days=7)))
+
+    def test_vehicle_with_an_overlapping_confirmed_booking_is_excluded(self):
+        vehicle = make_vehicle(name='Booked Car')
+        self._make_booking(vehicle, BookingStatus.CONFIRMED, TODAY + timedelta(days=5), TODAY + timedelta(days=7))
+        self.assertNotIn('Booked Car', self._names_for(TODAY + timedelta(days=6), TODAY + timedelta(days=8)))
+
+    def test_vehicle_with_a_non_overlapping_booking_is_shown(self):
+        vehicle = make_vehicle(name='Later Car')
+        self._make_booking(vehicle, BookingStatus.CONFIRMED, TODAY + timedelta(days=20), TODAY + timedelta(days=22))
+        self.assertIn('Later Car', self._names_for(TODAY + timedelta(days=5), TODAY + timedelta(days=7)))
+
+    def test_vehicle_with_only_a_cancelled_booking_in_range_is_shown(self):
+        vehicle = make_vehicle(name='Reopened Car')
+        self._make_booking(vehicle, BookingStatus.CANCELLED, TODAY + timedelta(days=5), TODAY + timedelta(days=7))
+        self.assertIn('Reopened Car', self._names_for(TODAY + timedelta(days=5), TODAY + timedelta(days=7)))
+
+    def test_no_date_params_returns_everything_unfiltered(self):
+        vehicle = make_vehicle(name='Booked Car No Filter')
+        self._make_booking(vehicle, BookingStatus.CONFIRMED, TODAY + timedelta(days=5), TODAY + timedelta(days=7))
+        response = self.client.get('/api/vehicles/')
+        data = response.json()
+        results = data['results'] if isinstance(data, dict) and 'results' in data else data
+        self.assertIn('Booked Car No Filter', [v['name'] for v in results])
+
+    def test_end_date_before_start_date_is_ignored_not_a_500(self):
+        make_vehicle(name='Backwards Range Car')
+        response = self.client.get(
+            '/api/vehicles/', {'start_date': str(TODAY + timedelta(days=7)), 'end_date': str(TODAY + timedelta(days=5))},
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_malformed_dates_are_ignored_not_a_500(self):
+        make_vehicle(name='Malformed Range Car')
+        response = self.client.get('/api/vehicles/', {'start_date': 'not-a-date', 'end_date': 'also-not-a-date'})
+        self.assertEqual(response.status_code, 200)
+
+
 class PublicCategoryApiTests(APITestCase):
     """Fleet types are managed on the admin dashboard, but everyone needs to read them -
     the public fleet page's filters and the driver/become-a-driver forms all depend on this

@@ -32,6 +32,25 @@ class VehicleViewSet(viewsets.ReadOnlyModelViewSet):
         category = self.request.query_params.get('category')
         if category:
             queryset = queryset.filter(category__slug=category)
+
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        if start_date and end_date:
+            try:
+                start = date.fromisoformat(start_date)
+                end = date.fromisoformat(end_date)
+            except ValueError:
+                return queryset
+            if end < start:
+                return queryset
+            # Same overlap window Booking.clean() and the availability action both use - a
+            # vehicle only counts as unavailable for a search if an actual blocking booking
+            # overlaps the requested range.
+            conflicting_vehicle_ids = Booking.objects.filter(
+                status__in=BLOCKING_BOOKING_STATUSES, start_date__lte=end, end_date__gte=start,
+            ).values_list('vehicle_id', flat=True)
+            queryset = queryset.exclude(id__in=conflicting_vehicle_ids)
+
         return queryset
 
     @action(detail=True, methods=['get'])
