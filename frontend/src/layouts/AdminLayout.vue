@@ -179,8 +179,14 @@ watch(() => route.path, () => {
     <div class="min-w-0 flex-1">
       <header class="flex items-center justify-between border-b border-navy-800 bg-navy-950/95 px-4 py-3 backdrop-blur md:px-8">
         <div class="flex items-center gap-2 md:hidden">
+          <SilverLakeLogo :size="24" />
+          <span class="font-[Georgia] text-sm font-bold text-white">Admin</span>
+        </div>
+        <div class="hidden text-sm text-slate-400 md:block">{{ route.meta.pageTitle || 'Admin Panel' }}</div>
+        <div class="flex items-center gap-2 text-sm text-slate-300 sm:gap-3">
+          <NotificationBell base-path="/admin/notifications" />
           <button
-            class="-ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-navy-800 hover:text-white"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-navy-800 hover:text-white md:hidden"
             :aria-expanded="mobileMenuOpen"
             aria-label="Toggle menu"
             @click="mobileMenuOpen = !mobileMenuOpen"
@@ -190,12 +196,6 @@ watch(() => route.path, () => {
               <path v-else stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <SilverLakeLogo :size="24" />
-          <span class="font-[Georgia] text-sm font-bold text-white">Admin</span>
-        </div>
-        <div class="hidden text-sm text-slate-400 md:block">{{ route.meta.pageTitle || 'Admin Panel' }}</div>
-        <div class="flex items-center gap-2 text-sm text-slate-300 sm:gap-3">
-          <NotificationBell base-path="/admin/notifications" />
           <span
             v-if="auth.user?.organization_name"
             class="hidden rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-xs font-semibold text-brand-blue-400 sm:inline-block"

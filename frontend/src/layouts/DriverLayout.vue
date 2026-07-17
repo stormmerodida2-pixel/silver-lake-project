@@ -148,8 +148,14 @@ onMounted(() => {
     <div class="min-w-0 flex-1">
       <header class="flex items-center justify-between border-b border-navy-800 bg-navy-950/95 px-4 py-3 backdrop-blur md:px-8">
         <div class="flex items-center gap-2 md:hidden">
+          <SilverLakeLogo :size="24" />
+          <span class="font-[Georgia] text-sm font-bold text-white">Driver</span>
+        </div>
+        <div class="hidden text-sm text-slate-400 md:block">{{ route.meta.pageTitle || 'Driver Portal' }}</div>
+        <div class="flex items-center gap-2 text-sm text-slate-300 sm:gap-3">
+          <NotificationBell base-path="/driver/notifications" />
           <button
-            class="-ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-navy-800 hover:text-white"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-navy-800 hover:text-white md:hidden"
             :aria-expanded="mobileMenuOpen"
             aria-label="Toggle menu"
             @click="mobileMenuOpen = !mobileMenuOpen"
@@ -159,13 +165,7 @@ onMounted(() => {
               <path v-else stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <SilverLakeLogo :size="24" />
-          <span class="font-[Georgia] text-sm font-bold text-white">Driver</span>
-        </div>
-        <div class="hidden text-sm text-slate-400 md:block">{{ route.meta.pageTitle || 'Driver Portal' }}</div>
-        <div class="flex items-center gap-3 text-sm text-slate-300">
-          <NotificationBell base-path="/driver/notifications" />
-          <RouterLink to="/account/profile" class="font-[Georgia] text-base tracking-wide transition hover:text-gold-400">
+          <RouterLink to="/account/profile" class="whitespace-nowrap font-[Georgia] text-sm tracking-wide transition hover:text-gold-400 sm:text-base">
             Hi, {{ auth.user?.first_name || 'Driver' }}
           </RouterLink>
         </div>
