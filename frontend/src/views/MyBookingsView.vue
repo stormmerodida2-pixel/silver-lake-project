@@ -2,11 +2,19 @@
 import { onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../api/client'
+import TrackVehicleMap from '../components/TrackVehicleMap.vue'
 
 const bookings = ref([])
 const loading = ref(true)
 const cancellingId = ref(null)
 const error = ref('')
+
+// ── Track vehicle ────────────────────────────────────────────────────────
+const trackingId = ref(null)
+const canTrack = (booking) => ['confirmed', 'ongoing'].includes(booking.status)
+function toggleTracking(booking) {
+  trackingId.value = trackingId.value === booking.id ? null : booking.id
+}
 
 // ── Leave a review ───────────────────────────────────────────────────────────
 const reviewingId = ref(null)
@@ -119,6 +127,13 @@ onMounted(() => {
               {{ Number(booking.balance_due).toLocaleString() }}
             </p>
             <button
+              v-if="canTrack(booking)"
+              class="rounded-md border border-brand-blue-600 px-3 py-1.5 text-sm font-semibold text-brand-blue-600 transition hover:bg-brand-blue-600 hover:text-white"
+              @click="toggleTracking(booking)"
+            >
+              {{ trackingId === booking.id ? 'Hide Map' : 'Track Vehicle' }}
+            </button>
+            <button
               v-if="canCancel(booking)"
               :disabled="cancellingId === booking.id"
               class="rounded-md border border-red-400 px-3 py-1.5 text-sm font-semibold text-red-600 transition hover:bg-red-500 hover:text-white disabled:opacity-60"
@@ -134,6 +149,8 @@ onMounted(() => {
               Leave a Review
             </button>
           </div>
+
+          <TrackVehicleMap v-if="trackingId === booking.id" :booking-id="booking.id" class="mt-3" />
 
           <!-- Submitted review -->
           <div v-if="booking.review" class="mt-3 rounded-lg border border-slate-200 bg-white p-4">

@@ -1601,6 +1601,86 @@ class DriverBookingLocationTests(APITestCase):
         self.assertEqual(response.status_code, 401)
 
 
+class CustomerBookingLocationTests(APITestCase):
+    """The customer-facing counterpart to DriverBookingLocationTests - a customer can see their
+    own vehicle's last reported position, but only within the same "trip is actually active"
+    window a driver is allowed to report one in, so this never leaks a stale or premature pin."""
+
+    def setUp(self):
+        driver_user = User.objects.create_user(username='track-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=driver_user, full_name='Track Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='track-client@example.com', password='pass12345!')
+        self.booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+            start_date=TODAY, end_date=TODAY + timedelta(days=2),
+        )
+        self.client.force_authenticate(user=self.customer)
+
+    def test_customer_sees_the_vehicles_last_reported_position(self):
+        self.vehicle.last_location_lat = -0.0917
+        self.vehicle.last_location_lng = 34.7680
+        self.vehicle.last_location_at = timezone.now()
+        self.vehicle.save(update_fields=['last_location_lat', 'last_location_lng', 'last_location_at'])
+
+        response = self.client.get(f'/api/bookings/{self.booking.id}/location/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data['tracking_available'])
+        self.assertEqual(float(response.data['last_location_lat']), -0.0917)
+        self.assertEqual(response.data['driver_name'], 'Track Driver')
+
+    def test_tracking_unavailable_before_the_driver_has_reported_a_position(self):
+        response = self.client.get(f'/api/bookings/{self.booking.id}/location/')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['tracking_available'])
+
+    def test_tracking_unavailable_for_a_pending_booking(self):
+        self.vehicle.last_location_lat = -0.09
+        self.vehicle.last_location_lng = 34.76
+        self.vehicle.save(update_fields=['last_location_lat', 'last_location_lng'])
+        self.booking.status = BookingStatus.PENDING
+        self.booking.save(update_fields=['status'])
+
+        response = self.client.get(f'/api/bookings/{self.booking.id}/location/')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['tracking_available'])
+
+    def test_tracking_unavailable_before_the_trip_dates_start(self):
+        self.vehicle.last_location_lat = -0.09
+        self.vehicle.last_location_lng = 34.76
+        self.vehicle.save(update_fields=['last_location_lat', 'last_location_lng'])
+        self.booking.start_date = TOMORROW
+        self.booking.end_date = NEXT_WEEK
+        self.booking.save(update_fields=['start_date', 'end_date'])
+
+        response = self.client.get(f'/api/bookings/{self.booking.id}/location/')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['tracking_available'])
+
+    def test_tracking_unavailable_for_a_completed_trip(self):
+        self.vehicle.last_location_lat = -0.09
+        self.vehicle.last_location_lng = 34.76
+        self.vehicle.save(update_fields=['last_location_lat', 'last_location_lng'])
+        self.booking.status = BookingStatus.COMPLETED
+        self.booking.save(update_fields=['status'])
+
+        response = self.client.get(f'/api/bookings/{self.booking.id}/location/')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['tracking_available'])
+
+    def test_customer_cannot_see_location_for_someone_elses_booking(self):
+        other_customer = User.objects.create_user(username='other-track-client@example.com', password='pass12345!')
+        self.client.force_authenticate(user=other_customer)
+
+        response = self.client.get(f'/api/bookings/{self.booking.id}/location/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_unauthenticated_request_is_rejected(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get(f'/api/bookings/{self.booking.id}/location/')
+        self.assertEqual(response.status_code, 401)
+
+
 class TripLifecycleTests(APITestCase):
     """Separates three distinct facts that used to be conflated: money arriving, the driver
     confirming the car was handed over, and the driver confirming it came back. Paying in full

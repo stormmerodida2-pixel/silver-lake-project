@@ -147,6 +147,29 @@ class BookingViewSet(
         )
         return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['get'])
+    def location(self, request, pk=None):
+        """Lets a customer see their own vehicle's live position - the same "trip is actually
+        active" window DriverBookingLocationView requires before a driver is allowed to report
+        one, so this never shows a stale pin from a past trip or a booking that hasn't started."""
+        booking = self.get_object()
+        vehicle = booking.vehicle
+        today = timezone.localdate()
+        trip_active = (
+            booking.status in (BookingStatus.CONFIRMED, BookingStatus.ONGOING)
+            and booking.start_date <= today <= booking.end_date
+        )
+        if not trip_active or not vehicle.last_location_lat:
+            return Response({'tracking_available': False})
+        return Response({
+            'tracking_available': True,
+            'last_location_lat': vehicle.last_location_lat,
+            'last_location_lng': vehicle.last_location_lng,
+            'last_location_at': vehicle.last_location_at,
+            'vehicle_name': vehicle.name,
+            'driver_name': booking.driver.full_name if booking.driver else None,
+        })
+
 
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
