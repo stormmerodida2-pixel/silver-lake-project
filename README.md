@@ -117,6 +117,14 @@ npm run dev
 Runs at `http://localhost:5173`. Configure `VITE_API_BASE_URL` (the backend API root) and
 `VITE_WHATSAPP_NUMBER` (the floating WhatsApp button's target number) in `frontend/.env`.
 
+Google Analytics (`frontend/src/utils/analytics.js`) loads only when `VITE_GA_MEASUREMENT_ID` is
+set - leave it blank locally so dev traffic never lands in real analytics data. Page views are
+tracked on every client-side route change (the router's `afterEach` hook), plus these funnel
+events: `view_item` (vehicle detail page), `select_item` (Book with Driver / Self Drive click),
+`generate_lead` (booking submitted, and separately, a driver application submitted), `purchase`
+(M-Pesa payment confirmed - the real revenue event, with the paid amount and vehicle attached),
+and `sign_up` (registration completed).
+
 ## Deployment
 
 The app is deployment-ready apart from M-Pesa (which needs your own Safaricom production
@@ -172,7 +180,10 @@ This needs a one-time AWS setup this repo can't do for you:
    `AWS_DEPLOY_READY=true` (the whole `deploy` job is skipped, not failed red, until this is set),
    and `PRODUCTION_URL` (e.g. `https://your-domain.com`, no trailing slash - used to build the
    frontend with the right API base URL). Also add `WHATSAPP_NUMBER` as a variable (international
-   format, no `+`, e.g. `254700000000`) for the floating WhatsApp button.
+   format, no `+`, e.g. `254700000000`) for the floating WhatsApp button, and optionally
+   `GA_MEASUREMENT_ID` (from analytics.google.com - Admin → Data Streams → your web stream,
+   format `G-XXXXXXXXXX`) to enable Google Analytics; leave it unset to ship with analytics
+   disabled entirely.
 
 The frontend is built fresh on every deploy (with the real `PRODUCTION_URL` baked in via Vite env
 vars, unlike the `frontend` job above which only compile-checks it) and copied into nginx's

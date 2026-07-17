@@ -5,6 +5,7 @@ import PasswordInput from '../components/PasswordInput.vue'
 import PhoneInput from '../components/PhoneInput.vue'
 import SilverLakeLogo from '../components/SilverLakeLogo.vue'
 import { useAuthStore } from '../stores/auth'
+import { trackEvent } from '../utils/analytics'
 
 const auth = useAuthStore()
 
@@ -20,6 +21,7 @@ async function submit() {
   try {
     await auth.register(form)
     submitted.value = true
+    trackEvent('sign_up', { method: 'email' })
   } catch (err) {
     const data = err.response?.data
     error.value = data ? Object.values(data).flat().join(' ') : 'Could not create your account.'

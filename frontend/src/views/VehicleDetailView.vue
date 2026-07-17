@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import apiClient from '../api/client'
 import { useCatalogStore } from '../stores/catalog'
+import { trackEvent } from '../utils/analytics'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,6 +14,13 @@ const vehicle = ref(null)
 const loading = ref(true)
 const error = ref('')
 
+function trackVehicleView(v) {
+  trackEvent('view_item', {
+    currency: 'KES', value: Number(v.price_per_day),
+    items: [{ item_id: String(v.id), item_name: v.name, price: Number(v.price_per_day) }],
+  })
+}
+
 onMounted(async () => {
   // Try catalog cache first, fall back to direct API call
   await catalog.fetchVehicles()
@@ -20,11 +28,13 @@ onMounted(async () => {
   if (cached) {
     vehicle.value = cached
     loading.value = false
+    trackVehicleView(cached)
     return
   }
   try {
     const { data } = await apiClient.get(`/fleet/vehicles/${route.params.id}/`)
     vehicle.value = data
+    trackVehicleView(data)
   } catch (err) {
     if (err.response?.status === 404) {
       router.replace('/fleet')
@@ -136,6 +146,7 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
                   v-if="vehicle.allow_with_driver"
                   :to="withDriverUrl"
                   class="flex w-full items-center justify-center rounded-xl bg-gold-500 py-3 font-semibold text-navy-950 transition hover:bg-gold-400"
+                  @click="trackEvent('select_item', { items: [{ item_id: String(vehicle.id), item_name: vehicle.name }], service_type: 'with_driver' })"
                 >
                   Book with Driver
                 </RouterLink>
@@ -143,6 +154,7 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
                   v-if="vehicle.allow_self_drive"
                   :to="selfDriveUrl"
                   class="flex w-full items-center justify-center rounded-xl border border-navy-900 py-3 font-semibold text-navy-900 transition hover:bg-navy-900 hover:text-white"
+                  @click="trackEvent('select_item', { items: [{ item_id: String(vehicle.id), item_name: vehicle.name }], service_type: 'self_drive' })"
                 >
                   Self Drive
                 </RouterLink>

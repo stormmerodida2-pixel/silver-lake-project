@@ -6,6 +6,7 @@ import apiClient from '../api/client'
 import PhoneInput from '../components/PhoneInput.vue'
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
+import { trackEvent } from '../utils/analytics'
 
 const route = useRoute()
 const catalog = useCatalogStore()
@@ -184,6 +185,11 @@ async function submitBooking() {
     const { data } = await apiClient.post('/bookings/', payload)
     booking.value = data
     step.value = 'confirmed'
+    trackEvent('generate_lead', {
+      currency: 'KES', value: Number(data.total_amount),
+      items: [{ item_id: String(data.vehicle), item_name: selectedVehicle.value?.name }],
+      service_type: form.service_type,
+    })
   } catch (err) {
     const data = err.response?.data
     if (data && typeof data === 'object') {
@@ -223,6 +229,10 @@ function startPolling(paymentId) {
       if (data.status === 'successful') {
         stopPolling()
         paymentOutcome.value = 'successful'
+        trackEvent('purchase', {
+          transaction_id: String(booking.value.id), currency: 'KES', value: amountToPay.value,
+          items: [{ item_id: String(booking.value.vehicle), item_name: selectedVehicle.value?.name }],
+        })
       } else if (data.status === 'failed') {
         stopPolling()
         paymentOutcome.value = 'failed'

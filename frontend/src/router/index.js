@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
+import { trackPageView } from '../utils/analytics'
 import { setPageMeta } from '../utils/seo'
 
 const routes = [
@@ -318,6 +319,7 @@ router.afterEach((to) => {
   // BlogPostView overrides this with the actual post's title/excerpt/cover image once it
   // loads - this just ensures every route starts from a sane, non-stale default first.
   setPageMeta({ title: to.meta.title, description: to.meta.description })
+  trackPageView(to.fullPath, to.meta.title)
 })
 
 export default router

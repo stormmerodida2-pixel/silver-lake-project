@@ -5,6 +5,7 @@ import apiClient from '../api/client'
 import PhoneInput from '../components/PhoneInput.vue'
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
+import { trackEvent } from '../utils/analytics'
 
 const auth = useAuthStore()
 const catalog = useCatalogStore()
@@ -46,6 +47,7 @@ async function submit() {
 
     await apiClient.post('/drivers/apply/', payload)
     submitted.value = true
+    trackEvent('generate_lead', { lead_type: 'driver_application' })
   } catch (err) {
     const data = err.response?.data
     error.value = data ? Object.values(data).flat().join(' ') : 'Could not submit your application.'
