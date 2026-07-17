@@ -1593,3 +1593,32 @@ class ImpersonationTests(APITestCase):
         refresh = RefreshToken(response.json()['refresh'])
         lifetime = refresh['exp'] - refresh['iat']
         self.assertLessEqual(lifetime, timedelta(hours=2).total_seconds())
+
+
+class AdminHealthTests(APITestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user(username='health-staff@example.com', password='x', is_staff=True)
+        self.customer = User.objects.create_user(username='health-customer@example.com', password='x')
+
+    def test_support_staff_can_view_health(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/admin/health/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        for key in ('database', 'email', 'mpesa', 'storage', 'scheduler', 'debug_mode'):
+            self.assertIn(key, data)
+            self.assertIn('ok', data[key])
+
+    def test_a_plain_customer_cannot_view_health(self):
+        self.client.force_authenticate(user=self.customer)
+        response = self.client.get('/api/admin/health/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_anonymous_cannot_view_health(self):
+        response = self.client.get('/api/admin/health/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_database_check_reports_ok(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/admin/health/')
+        self.assertTrue(response.json()['database']['ok'])

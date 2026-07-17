@@ -92,6 +92,11 @@ const baseNavItems = [
     platformOnly: true,
     icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10l6 6v10a2 2 0 01-2 2ZM9 13h6M9 17h4M13 4v6h6',
   },
+  {
+    to: '/admin/health',
+    label: 'System Health',
+    icon: 'M22 12h-4l-3 9L9 3l-3 9H2',
+  },
 ]
 
 const navItems = computed(() => baseNavItems.filter((item) => {

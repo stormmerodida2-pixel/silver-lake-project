@@ -196,6 +196,72 @@ class AdminStatsView(APIView):
         })
 
 
+class AdminHealthView(APIView):
+    """Lets staff see whether the app's own dependencies are actually working right now -
+    database, email, M-Pesa, file storage, the background sweep thread - without needing
+    someone to SSH into the server and check by hand. Read-only and non-destructive, so any
+    staff tier can view it, same as AdminStatsView."""
+
+    permission_classes = [IsSupportStaff]
+
+    def get(self, request):
+        from decouple import config as env_config
+        from django.conf import settings
+        from django.db import connection
+
+        from payments import scheduler
+
+        checks = {}
+
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT 1')
+            checks['database'] = {'ok': True, 'engine': connection.vendor}
+        except Exception as exc:
+            checks['database'] = {'ok': False, 'engine': connection.vendor, 'error': str(exc)}
+
+        email_configured = bool(settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD)
+        checks['email'] = {
+            'ok': email_configured,
+            'backend': settings.EMAIL_BACKEND.rsplit('.', 1)[-1],
+            'detail': 'Sending via real SMTP' if email_configured else 'Falling back to sent_emails/ - not actually sending',
+        }
+
+        # MPESA_*/AWS_* aren't Django settings attributes at all - payments/mpesa.py and
+        # settings/production.py both read them straight from decouple.config(), so check the
+        # same env vars they actually use rather than something that was never set here.
+        mpesa_env = env_config('MPESA_ENV', default='sandbox')
+        mpesa_configured = bool(env_config('MPESA_CONSUMER_KEY', default='') and env_config('MPESA_PASSKEY', default=''))
+        checks['mpesa'] = {
+            'ok': mpesa_configured,
+            'environment': mpesa_env,
+            'detail': f'{mpesa_env.capitalize()} credentials configured' if mpesa_configured else 'No credentials configured',
+        }
+
+        s3_bucket = env_config('AWS_STORAGE_BUCKET_NAME', default='')
+        checks['storage'] = {
+            'ok': True,
+            'backend': 's3' if s3_bucket else 'local disk',
+            'detail': f'Bucket: {s3_bucket}' if s3_bucket else 'Not persistent across redeploys on most hosts',
+        }
+
+        if scheduler.last_tick_at is None:
+            checks['scheduler'] = {
+                'ok': scheduler.is_running(),
+                'detail': 'Started, waiting for first tick' if scheduler.is_running() else 'Not running',
+            }
+        else:
+            seconds_since = (timezone.now() - scheduler.last_tick_at).total_seconds()
+            checks['scheduler'] = {
+                'ok': seconds_since < scheduler.SWEEP_INTERVAL_SECONDS * 2,
+                'detail': f'Last tick {int(seconds_since)}s ago',
+            }
+
+        checks['debug_mode'] = {'ok': not settings.DEBUG, 'detail': 'DEBUG is on' if settings.DEBUG else 'DEBUG is off'}
+
+        return Response(checks)
+
+
 class AdminUserViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,

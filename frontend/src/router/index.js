@@ -265,6 +265,12 @@ const routes = [
         component: () => import('../views/admin/AdminBlogView.vue'),
         meta: { title: 'Manage Blog | SilverLake Car Rentals', pageTitle: 'Blog' },
       },
+      {
+        path: 'health',
+        name: 'admin-health',
+        component: () => import('../views/admin/AdminHealthView.vue'),
+        meta: { title: 'System Health | SilverLake Car Rentals', pageTitle: 'System Health' },
+      },
     ],
   },
   // Catch-all 404

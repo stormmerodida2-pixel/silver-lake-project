@@ -9,6 +9,7 @@ from .views import (
     AdminDriverViewSet,
     AdminFleetPartnerViewSet,
     AdminFleetViewSet,
+    AdminHealthView,
     AdminRefundViewSet,
     AdminReviewViewSet,
     AdminStatsView,
@@ -33,5 +34,6 @@ router.register('admin/audit-log', AdminAuditLogViewSet, basename='admin-audit-l
 
 urlpatterns = [
     path('admin/stats/', AdminStatsView.as_view(), name='admin-stats'),
+    path('admin/health/', AdminHealthView.as_view(), name='admin-health'),
 ] + router.urls
 

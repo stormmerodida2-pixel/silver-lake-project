@@ -26,10 +26,15 @@ import os
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
 SWEEP_INTERVAL_SECONDS = 300
+
+# Set at the start of every sweep iteration - lets core.views' health check report whether this
+# thread is actually alive and ticking on schedule, not just that .start() was once called.
+last_tick_at = None
 
 # manage.py subcommands that never serve requests long enough for a background sweep to make
 # sense - and in the case of `test`, one we specifically must not touch the test database from.
@@ -55,12 +60,14 @@ def _should_run():
 
 
 def _sweep_loop():
+    global last_tick_at
     from bookings.services import escalate_unacknowledged_bookings
 
     from .services import escalate_stuck_bookings, expire_stale_mpesa_payments, remind_undeposited_cash
 
     while True:
         time.sleep(SWEEP_INTERVAL_SECONDS)
+        last_tick_at = datetime.now(timezone.utc)
         try:
             count = expire_stale_mpesa_payments()
             if count:
@@ -92,3 +99,7 @@ def start():
         return
     _started = True
     threading.Thread(target=_sweep_loop, daemon=True, name='payments-background-sweep').start()
+
+
+def is_running():
+    return _started
