@@ -915,6 +915,21 @@ class DriverConfirmPaymentTests(APITestCase):
         driver_emails = [m for m in mail.outbox if 'payment recorded' in m.subject and self.driver.email in m.to]
         self.assertEqual(len(driver_emails), 1)
 
+    @patch('notifications.sms.send_sms')
+    def test_confirming_sms_the_customer_a_confirmation(self, mock_send_sms):
+        self.client.post(self._url())
+        mock_send_sms.assert_called_once()
+        phone_arg, message_arg = mock_send_sms.call_args[0]
+        self.assertEqual(phone_arg, self.booking.customer_phone)
+        self.assertIn(str(self.booking.pk), message_arg)
+
+    @patch('notifications.sms.send_sms', side_effect=Exception('gateway down'))
+    def test_a_broken_sms_gateway_never_blocks_confirmation(self, mock_send_sms):
+        response = self.client.post(self._url())
+        self.assertEqual(response.status_code, 200)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.CONFIRMED)
+
     def test_confirming_a_cash_payment_notifies_staff(self):
         staff_user = User.objects.create_user(
             username='confirm-staff@example.com', email='confirm-staff@example.com',
@@ -1225,6 +1240,32 @@ class DriverBookingNotificationTests(APITestCase):
         response = self.client.post('/api/bookings/', self._booking_payload(), format='json')
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(mail.outbox), 0)
+
+    @patch('bookings.emails.send_sms')
+    def test_booking_a_driver_online_sms_notifies_them_immediately(self, mock_send_sms):
+        self.driver.phone_number = '254711111111'
+        self.driver.save(update_fields=['phone_number'])
+        response = self.client.post('/api/bookings/', self._booking_payload(), format='json')
+        self.assertEqual(response.status_code, 201)
+        mock_send_sms.assert_called_once()
+        phone_arg, message_arg = mock_send_sms.call_args[0]
+        self.assertEqual(phone_arg, '254711111111')
+        self.assertIn(self.vehicle.name, message_arg)
+
+    @patch('bookings.emails.send_sms')
+    def test_no_driver_sms_attempted_without_a_phone_number_on_file(self, mock_send_sms):
+        self.driver.phone_number = ''
+        self.driver.save(update_fields=['phone_number'])
+        response = self.client.post('/api/bookings/', self._booking_payload(), format='json')
+        self.assertEqual(response.status_code, 201)
+        mock_send_sms.assert_not_called()
+
+    @patch('bookings.emails.send_sms', side_effect=Exception('gateway down'))
+    def test_a_broken_sms_gateway_never_blocks_the_booking(self, mock_send_sms):
+        self.driver.phone_number = '254711111111'
+        self.driver.save(update_fields=['phone_number'])
+        response = self.client.post('/api/bookings/', self._booking_payload(), format='json')
+        self.assertEqual(response.status_code, 201)
 
     def test_driver_can_acknowledge_their_own_booking(self):
         response = self.client.post('/api/bookings/', self._booking_payload(), format='json')

@@ -435,6 +435,7 @@ class Booking(models.Model):
             self.status = BookingStatus.CONFIRMED
             self.save(update_fields=['status'])
             self._send_confirmation_email()
+            self._send_confirmation_sms()
 
             from notifications.models import NotificationEvent
             from notifications.services import notify
@@ -553,6 +554,24 @@ class Booking(models.Model):
             )
         except Exception:
             pass  # Never crash a booking over email
+
+    def _send_confirmation_sms(self):
+        """SMS companion to _send_confirmation_email() above - same trigger, same swallow-on-
+        failure rule. customer_phone is required at booking creation (unlike customer_email,
+        which can be blank for a driver-created walk-up booking), so this only ever no-ops if
+        the SMS gateway itself isn't configured/reachable."""
+        try:
+            from notifications.sms import send_sms
+
+            send_sms(
+                self.customer_phone,
+                f'Hi {self.customer_name.split()[0]}, your SilverLake booking #{self.pk} for '
+                f'{self.vehicle.name} ({self.start_date.strftime("%d %b")} - '
+                f'{self.end_date.strftime("%d %b")}) is confirmed. Balance due: '
+                f'KES {self.balance_due:,.2f}.',
+            )
+        except Exception:
+            pass  # Never crash a booking over SMS
 
     def _ensure_driver_payout(self):
         """Records what's owed once the booking is fully paid - not merely deposited, since the

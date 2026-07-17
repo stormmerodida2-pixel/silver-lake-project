@@ -84,9 +84,10 @@ class BookingViewSet(
         from notifications.services import notify
 
         if booking.driver_id:
-            from .emails import send_driver_booking_notification
+            from .emails import send_driver_booking_notification, send_driver_booking_sms
 
             send_driver_booking_notification(booking)
+            send_driver_booking_sms(booking)
             notify(
                 NotificationEvent.DRIVER_BOOKED,
                 f'{booking.customer_name} booked you for {booking.vehicle.name} - {booking.rental_days} day(s)',

@@ -2,8 +2,27 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from core.email_utils import send_branded_email
+from notifications.sms import send_sms
 
 User = get_user_model()
+
+
+def send_driver_booking_sms(booking):
+    """SMS companion to send_driver_booking_notification() below - same trigger, same no-op/
+    swallow-on-failure rules, just a different channel. SMS is genuinely more likely to actually
+    reach a driver quickly than email, so this isn't redundant with it."""
+    driver = booking.driver
+    if not driver or not driver.phone_number:
+        return
+    try:
+        send_sms(
+            driver.phone_number,
+            f'New SilverLake booking! {booking.customer_name} booked your {booking.vehicle.name} '
+            f'for {booking.rental_days} day(s) from {booking.start_date.strftime("%d %b")}. '
+            f'Open the driver app to acknowledge.',
+        )
+    except Exception:
+        pass
 
 
 def send_driver_booking_notification(booking):

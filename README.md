@@ -90,6 +90,12 @@ actually sending — open the `.html` file there to grab an activation/reset lin
 In `DEBUG` mode, CORS allows any localhost origin (Vite's port shifts to 5174+ if 5173 is busy);
 production locks back down to the `CORS_ALLOWED_ORIGINS` env var.
 
+A driver gets SMS'd (via Africa's Talking) the moment an online customer books them, and a
+customer gets SMS'd once their booking is confirmed - both alongside, not instead of, the
+equivalent email. Requires `AFRICASTALKING_USERNAME`/`AFRICASTALKING_API_KEY` in
+`settings/.env`; without them, sending just fails silently the same way a misconfigured email
+server does, never blocking the booking itself.
+
 ### Deposits & payouts
 
 Each booking has a `total_amount` computed from the vehicle's daily rate × nights (self-drive
