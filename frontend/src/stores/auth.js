@@ -28,7 +28,7 @@ export const useAuthStore = defineStore('auth', {
       const { data } = await apiClient.post('/auth/login/', { username: email, password })
       this.setSession(data)
     },
-    async register({ firstName, lastName, email, phoneNumber, password }) {
+    async register({ firstName, lastName, email, phoneNumber, password, referralCode }) {
       // No session returned here - the account is inactive until the user clicks the activation email link.
       const { data } = await apiClient.post('/auth/register/', {
         first_name: firstName,
@@ -36,6 +36,7 @@ export const useAuthStore = defineStore('auth', {
         email,
         phone_number: phoneNumber,
         password,
+        referral_code: referralCode || undefined,
       })
       return data
     },

@@ -31,6 +31,7 @@ from .serializers import (
     AdminDriverSerializer,
     AdminFleetPartnerSerializer,
     AdminRefundSerializer,
+    AdminReferralSettingsSerializer,
     AdminReviewSerializer,
     AdminUserSerializer,
     AdminVehicleSerializer,
@@ -260,6 +261,44 @@ class AdminHealthView(APIView):
         checks['debug_mode'] = {'ok': not settings.DEBUG, 'detail': 'DEBUG is on' if settings.DEBUG else 'DEBUG is off'}
 
         return Response(checks)
+
+
+class AdminReferralSettingsView(APIView):
+    """Lets a platform superadmin see and change the referral program's KES credit amount and
+    at-a-glance stats - platform-wide, not org-scoped, since the referral program itself isn't
+    something a FleetPartner's own org-admin can configure (matches other platform-wide
+    taxonomy, e.g. AdminFleetPartnerViewSet itself)."""
+
+    permission_classes = [IsPlatformSuperAdmin]
+
+    def get(self, request):
+        from accounts.models import ReferralCredit, ReferralSettings
+
+        settings_row, _ = ReferralSettings.objects.get_or_create(pk=ReferralSettings.SINGLETON_ID)
+        awarded = ReferralCredit.objects.aggregate(count=Count('id'), total=Sum('amount'))
+        redeemed = ReferralCredit.objects.filter(redeemed_booking__isnull=False).aggregate(
+            count=Count('id'), total=Sum('amount'),
+        )
+        outstanding = ReferralCredit.objects.filter(redeemed_booking__isnull=True).aggregate(total=Sum('amount'))
+
+        return Response({
+            **AdminReferralSettingsSerializer(settings_row).data,
+            'credits_awarded_count': awarded['count'] or 0,
+            'credits_awarded_total': awarded['total'] or Decimal('0'),
+            'credits_redeemed_count': redeemed['count'] or 0,
+            'credits_redeemed_total': redeemed['total'] or Decimal('0'),
+            'credits_outstanding_total': outstanding['total'] or Decimal('0'),
+        })
+
+    def patch(self, request):
+        from accounts.models import ReferralSettings
+
+        settings_row, _ = ReferralSettings.objects.get_or_create(pk=ReferralSettings.SINGLETON_ID)
+        serializer = AdminReferralSettingsSerializer(settings_row, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        log_admin_action(request, 'referral_settings.update', settings_row, detail=f'credit_amount={settings_row.credit_amount}')
+        return self.get(request)
 
 
 class AdminUserViewSet(

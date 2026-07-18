@@ -13,11 +13,22 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     phone_number = serializers.CharField(max_length=20)
     password = serializers.CharField(write_only=True, validators=[validate_password])
+    # Optional - whoever shared their code with this new signup. A typo'd/unknown code raises a
+    # clear error rather than silently failing, so a customer trying to credit a friend actually
+    # finds out if it didn't work instead of assuming it did.
+    referral_code = serializers.CharField(max_length=8, required=False, allow_blank=True, write_only=True)
 
     def validate_email(self, value):
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError('An account with this email already exists.')
         return value
+
+    def validate_referral_code(self, value):
+        if not value:
+            return value
+        if not CustomerProfile.objects.filter(referral_code=value.upper()).exists():
+            raise serializers.ValidationError('This referral code was not recognized.')
+        return value.upper()
 
     def create(self, validated_data):
         user = User.objects.create_user(
@@ -28,7 +39,13 @@ class RegisterSerializer(serializers.Serializer):
             password=validated_data['password'],
             is_active=False,
         )
-        CustomerProfile.objects.create(user=user, phone_number=validated_data['phone_number'])
+        referred_by = None
+        referral_code = validated_data.get('referral_code')
+        if referral_code:
+            referrer_profile = CustomerProfile.objects.filter(referral_code=referral_code).first()
+            if referrer_profile:
+                referred_by = referrer_profile.user
+        CustomerProfile.objects.create(user=user, phone_number=validated_data['phone_number'], referred_by=referred_by)
         return user
 
 
@@ -38,17 +55,28 @@ class UserSerializer(serializers.ModelSerializer):
     is_driver = serializers.SerializerMethodField()
     driver_status = serializers.SerializerMethodField()
     organization_name = serializers.SerializerMethodField()
+    referral_code = serializers.SerializerMethodField()
+    referral_credit_balance = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'first_name', 'last_name', 'email', 'phone_number', 'avatar',
             'is_staff', 'is_superuser', 'is_driver', 'driver_status', 'organization_name',
+            'referral_code', 'referral_credit_balance',
         ]
 
     def get_phone_number(self, user):
         profile = getattr(user, 'customer_profile', None)
         return profile.phone_number if profile else ''
+
+    def get_referral_code(self, user):
+        profile = getattr(user, 'customer_profile', None)
+        return profile.referral_code if profile else None
+
+    def get_referral_credit_balance(self, user):
+        from .services import get_available_credit_balance
+        return get_available_credit_balance(user)
 
     def get_avatar(self, user):
         profile = getattr(user, 'customer_profile', None)

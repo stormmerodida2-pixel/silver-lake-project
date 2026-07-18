@@ -28,3 +28,19 @@ def send_password_reset_email(user):
         context={'first_name': user.first_name, 'reset_url': link},
         recipient_list=[user.email],
     )
+
+
+def send_referral_credit_earned_email(referrer, referred_user, amount):
+    if not referrer.email:
+        return
+    send_branded_email(
+        subject='You earned referral credit!',
+        template_name='emails/referral_credit_earned.html',
+        context={
+            'first_name': referrer.first_name,
+            'referred_name': referred_user.first_name or referred_user.email,
+            'amount': f'{amount:,.0f}',
+            'profile_url': f'{settings.FRONTEND_URL}/account/profile',
+        },
+        recipient_list=[referrer.email],
+    )

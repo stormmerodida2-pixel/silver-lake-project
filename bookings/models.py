@@ -436,6 +436,7 @@ class Booking(models.Model):
             self.save(update_fields=['status'])
             self._send_confirmation_email()
             self._send_confirmation_sms()
+            self._award_referral_credit_if_first_booking()
 
             from notifications.models import NotificationEvent
             from notifications.services import notify
@@ -447,6 +448,19 @@ class Booking(models.Model):
 
         self._ensure_driver_payout()
         self._complete_if_ended_and_paid()
+
+    def _award_referral_credit_if_first_booking(self):
+        """Only the referred customer's genuine first confirmed trip triggers a credit for
+        whoever referred them - not every booking they ever make. accounts.award_referral_credit
+        is itself idempotent per (referrer, referred user) pair too, so this check is a
+        (cheaper) belt-and-braces guard, not the only thing preventing a double award."""
+        already_confirmed_before = Booking.objects.filter(
+            user_id=self.user_id, status__in=(BookingStatus.CONFIRMED, BookingStatus.ONGOING, BookingStatus.COMPLETED),
+        ).exclude(pk=self.pk).exists()
+        if already_confirmed_before:
+            return
+        from accounts.services import award_referral_credit
+        award_referral_credit(self.user)
 
     def _owed_refund_amount(self):
         """The refund rule this specific cancellation used (see cancellation_full_refund) applied

@@ -38,6 +38,36 @@ const submitting = ref(false)
 const error = ref('')
 const today = new Date().toISOString().split('T')[0]
 
+// ── Referral credit ──────────────────────────────────────────────────────────
+const referralCreditBalance = ref(0)
+const applyingCredit = ref(false)
+const creditError = ref('')
+
+async function refreshReferralCreditBalance() {
+  if (!auth.isAuthenticated) return
+  try {
+    const { data } = await apiClient.get('/auth/me/')
+    referralCreditBalance.value = data.referral_credit_balance
+  } catch (err) {
+    // Advisory only - the "Apply Credit" button just won't show if this fails.
+  }
+}
+
+async function applyReferralCredit() {
+  applyingCredit.value = true
+  creditError.value = ''
+  try {
+    await apiClient.post('/payments/referral-credit/redeem/', { booking: booking.value.id })
+    const { data } = await apiClient.get(`/bookings/${booking.value.id}/`)
+    booking.value = data
+    await refreshReferralCreditBalance()
+  } catch (err) {
+    creditError.value = err.response?.data?.detail || 'Could not apply your referral credit.'
+  } finally {
+    applyingCredit.value = false
+  }
+}
+
 // ── Card form (UI only - no gateway wired up yet, nothing here is ever sent anywhere) ──────
 const card = reactive({ number: '', name: '', expiry: '', cvv: '' })
 const cardNotice = ref('')
@@ -216,6 +246,7 @@ async function submitBooking() {
     const { data } = await apiClient.post('/bookings/', payload)
     booking.value = data
     step.value = 'confirmed'
+    refreshReferralCreditBalance()
     trackEvent('generate_lead', {
       currency: 'KES', value: Number(data.total_amount),
       items: [{ item_id: String(data.vehicle), item_name: selectedVehicle.value?.name }],
@@ -551,6 +582,24 @@ function retryPayment() {
                   </span>
                 </button>
               </div>
+
+              <div
+                v-if="referralCreditBalance > 0 && booking.balance_due > 0"
+                class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold-500/40 bg-gold-500/10 p-4"
+              >
+                <p class="text-sm text-navy-900">
+                  You have <span class="font-bold">KES {{ Number(referralCreditBalance).toLocaleString() }}</span> in referral credit available.
+                </p>
+                <button
+                  type="button"
+                  :disabled="applyingCredit"
+                  class="shrink-0 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+                  @click="applyReferralCredit"
+                >
+                  {{ applyingCredit ? 'Applying...' : 'Apply Credit' }}
+                </button>
+              </div>
+              <p v-if="creditError" class="mt-2 text-sm text-red-600">{{ creditError }}</p>
 
               <label class="mb-2 mt-5 block text-sm font-semibold text-navy-900">Payment method</label>
               <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">

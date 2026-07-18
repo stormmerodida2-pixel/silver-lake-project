@@ -1210,4 +1210,104 @@ class RemindUndepositedCashTests(APITestCase):
         self._run()
         payment.refresh_from_db()
         self.assertIsNone(payment.last_reminded_at)
+
+
+class RedeemReferralCreditTests(APITestCase):
+    """A customer applying their own referral credit toward their own booking - see
+    payments.services.redeem_referral_credit. The driver's own payout is based on total_amount
+    regardless of payment method, so these tests also confirm a credit-covered booking still
+    queues the driver's full payout once otherwise fully paid."""
+
+    def setUp(self):
+        from accounts.models import CustomerProfile, ReferralCredit, ReferralSettings
+
+        self.ReferralCredit = ReferralCredit
+        self.REFERRAL_CREDIT_AMOUNT = ReferralSettings.get_amount()
+
+        self.driver = Driver.objects.create(full_name='Credit Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='credit-client@example.com', password='pass12345!')
+        CustomerProfile.objects.create(user=self.customer)
+        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        self.client.force_authenticate(user=self.customer)
+
+    def _give_credit(self, count=1):
+        for _ in range(count):
+            self.ReferralCredit.objects.create(user=self.customer, amount=self.REFERRAL_CREDIT_AMOUNT)
+
+    def test_redeeming_applies_a_whole_credit_as_a_successful_payment(self):
+        self._give_credit(1)
+        response = self.client.post('/api/payments/referral-credit/redeem/', {'booking': self.booking.id}, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Decimal(str(response.data['amount'])), self.REFERRAL_CREDIT_AMOUNT)
+
+        payment = Payment.objects.get(booking=self.booking, method=PaymentMethod.CREDIT)
+        self.assertEqual(payment.status, PaymentStatus.SUCCESSFUL)
+        self.assertEqual(payment.amount, self.REFERRAL_CREDIT_AMOUNT)
+
+    def test_redeeming_marks_the_credit_as_redeemed_against_this_booking(self):
+        self._give_credit(1)
+        self.client.post('/api/payments/referral-credit/redeem/', {'booking': self.booking.id}, format='json')
+
+        credit = self.ReferralCredit.objects.get(user=self.customer)
+        self.assertTrue(credit.is_redeemed)
+        self.assertEqual(credit.redeemed_booking_id, self.booking.id)
+
+    def test_only_whole_credits_fitting_the_balance_are_applied(self):
+        # Two credits (1000) available, against a booking with only 700 outstanding entirely -
+        # only one whole 500 credit fits, the other stays unredeemed for a future booking.
+        today = timezone.localdate()
+        small_booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING,
+            total_amount=Decimal('700'), start_date=today + timedelta(days=30), end_date=today + timedelta(days=32),
+        )
+        self._give_credit(2)
+        response = self.client.post('/api/payments/referral-credit/redeem/', {'booking': small_booking.id}, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Decimal(str(response.data['amount'])), self.REFERRAL_CREDIT_AMOUNT)
+        self.assertEqual(self.ReferralCredit.objects.filter(user=self.customer, redeemed_booking__isnull=True).count(), 1)
+
+    def test_redeeming_with_no_available_credit_is_rejected(self):
+        response = self.client.post('/api/payments/referral-credit/redeem/', {'booking': self.booking.id}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("don't have any referral credit", response.data['detail'])
+
+    def test_cannot_redeem_against_someone_elses_booking(self):
+        other_customer = User.objects.create_user(username='other-credit-client@example.com', password='pass12345!')
+        self._give_credit(1)
+        self.client.force_authenticate(user=other_customer)
+
+        response = self.client.post('/api/payments/referral-credit/redeem/', {'booking': self.booking.id}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_unauthenticated_request_is_rejected(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.post('/api/payments/referral-credit/redeem/', {'booking': self.booking.id}, format='json')
+        self.assertEqual(response.status_code, 401)
+
+    def test_redeeming_enough_credit_to_fully_cover_the_deposit_confirms_the_booking(self):
+        self._give_credit(count=int(self.booking.deposit_amount // self.REFERRAL_CREDIT_AMOUNT) + 1)
+        self.client.post('/api/payments/referral-credit/redeem/', {'booking': self.booking.id}, format='json')
+
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.CONFIRMED)
+
+    def test_credit_covered_booking_still_queues_the_drivers_full_payout_once_fully_paid(self):
+        total = self.booking.total_amount
+        credit_count = int(-(-total // self.REFERRAL_CREDIT_AMOUNT))  # ceil division
+        self._give_credit(credit_count)
+
+        # Redeem repeatedly until the balance can't absorb another whole credit.
+        for _ in range(credit_count):
+            response = self.client.post('/api/payments/referral-credit/redeem/', {'booking': self.booking.id}, format='json')
+            if response.status_code != 201:
+                break
+
+        self.booking.refresh_from_db()
+        if self.booking.balance_due > 0:
+            Payment.objects.create(booking=self.booking, amount=self.booking.balance_due, status=PaymentStatus.SUCCESSFUL)
+            self.booking.confirm_if_deposit_met()
+
+        self.assertEqual(self.booking.balance_due, Decimal('0'))
+        self.assertEqual(self.booking.driver_payout.amount, self.booking.driver_payout_amount)
         self.assertEqual(len(mail.outbox), 0)

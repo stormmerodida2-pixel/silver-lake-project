@@ -1626,6 +1626,77 @@ class AdminHealthTests(APITestCase):
         self.assertTrue(response.json()['database']['ok'])
 
 
+class AdminReferralSettingsTests(APITestCase):
+    """Platform-superadmin-only, same tier as AdminFleetPartnerViewSet - a FleetPartner's own
+    org-admin has no business changing a platform-wide referral credit amount."""
+
+    def setUp(self):
+        self.platform_super = User.objects.create_superuser(username='referral-settings-super@example.com', password='x')
+        self.support_staff = User.objects.create_user(username='referral-settings-staff@example.com', password='x', is_staff=True)
+        org = FleetPartner.objects.create(name='Referral Org', platform_fee_percent=Decimal('10'))
+        self.org_admin = User.objects.create_user(
+            username='referral-settings-org-admin@example.com', password='x', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=self.org_admin, organization=org)
+        self.customer = User.objects.create_user(username='referral-settings-customer@example.com', password='x')
+
+    def test_platform_superadmin_can_view_and_update_the_amount(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.get('/api/admin/referral-settings/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Decimal(str(response.data['credit_amount'])), Decimal('500'))
+
+        response = self.client.patch('/api/admin/referral-settings/', {'credit_amount': '750'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Decimal(str(response.data['credit_amount'])), Decimal('750'))
+
+        from accounts.models import ReferralSettings
+        self.assertEqual(ReferralSettings.get_amount(), Decimal('750'))
+
+    def test_updating_rejects_a_non_positive_amount(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.patch('/api/admin/referral-settings/', {'credit_amount': '0'}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_response_includes_award_and_redemption_stats(self):
+        from accounts.models import ReferralCredit
+
+        other_user = User.objects.create_user(username='referral-settings-other@example.com', password='x')
+        ReferralCredit.objects.create(user=self.customer, amount=Decimal('500'))
+        booking = make_booking(other_user, make_vehicle())
+        ReferralCredit.objects.create(user=self.customer, amount=Decimal('500'), redeemed_booking=booking)
+
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.get('/api/admin/referral-settings/')
+        self.assertEqual(response.data['credits_awarded_count'], 2)
+        self.assertEqual(Decimal(str(response.data['credits_awarded_total'])), Decimal('1000'))
+        self.assertEqual(response.data['credits_redeemed_count'], 1)
+        self.assertEqual(Decimal(str(response.data['credits_redeemed_total'])), Decimal('500'))
+        self.assertEqual(Decimal(str(response.data['credits_outstanding_total'])), Decimal('500'))
+
+    def test_org_admin_cannot_view_or_update(self):
+        self.client.force_authenticate(user=self.org_admin)
+        response = self.client.get('/api/admin/referral-settings/')
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.patch('/api/admin/referral-settings/', {'credit_amount': '999'}, format='json')
+        self.assertEqual(response.status_code, 403)
+
+    def test_support_staff_cannot_view_or_update(self):
+        self.client.force_authenticate(user=self.support_staff)
+        response = self.client.get('/api/admin/referral-settings/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_plain_customer_cannot_view_or_update(self):
+        self.client.force_authenticate(user=self.customer)
+        response = self.client.get('/api/admin/referral-settings/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_anonymous_cannot_view(self):
+        response = self.client.get('/api/admin/referral-settings/')
+        self.assertEqual(response.status_code, 401)
+
+
 def _make_test_image(size, mode='RGB', fmt='JPEG'):
     """A genuinely valid, decodable image (unlike the placeholder-bytes fixtures used
     elsewhere in this file, which only need to satisfy "a file was uploaded", not

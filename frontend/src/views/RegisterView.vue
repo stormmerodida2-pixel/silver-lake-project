@@ -1,5 +1,6 @@
 <script setup>
 import { reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 
 import PasswordInput from '../components/PasswordInput.vue'
 import PhoneInput from '../components/PhoneInput.vue'
@@ -8,8 +9,14 @@ import { useAuthStore } from '../stores/auth'
 import { trackEvent } from '../utils/analytics'
 
 const auth = useAuthStore()
+const route = useRoute()
 
-const form = reactive({ firstName: '', lastName: '', email: '', phoneNumber: '', password: '' })
+// Prefills from a shared referral link (e.g. .../register?ref=ABC12345) - still editable, so
+// someone who was given a code verbally can type it in just as easily.
+const form = reactive({
+  firstName: '', lastName: '', email: '', phoneNumber: '', password: '',
+  referralCode: typeof route.query.ref === 'string' ? route.query.ref.toUpperCase() : '',
+})
 const agreedToTerms = ref(false)
 const submitting = ref(false)
 const error = ref('')
@@ -90,6 +97,16 @@ async function submit() {
             required
             input-class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
           />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm text-slate-600">Referral code (optional)</label>
+          <input
+            v-model="form.referralCode"
+            type="text"
+            placeholder="e.g. AB12CD34"
+            class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 uppercase text-navy-900 placeholder:normal-case focus:border-brand-blue-500 focus:outline-none"
+          />
+          <p class="mt-1 text-xs text-slate-500">Got a code from a friend? Enter it here and they'll earn referral credit.</p>
         </div>
         <div v-if="error" class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

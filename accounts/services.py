@@ -1,7 +1,13 @@
+import random
+import string
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
+from django.db.models import Sum
+from django.utils import timezone
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
-from .models import CustomerProfile
+from .models import CustomerProfile, ReferralCredit, ReferralSettings
 
 User = get_user_model()
 
@@ -44,3 +50,86 @@ def get_or_create_customer_account(full_name, phone_number, email=''):
     user.save(update_fields=['password'])
     CustomerProfile.objects.create(user=user, phone_number=phone_number)
     return user, True
+
+
+def generate_referral_code():
+    """An 8-character uppercase alphanumeric code - short enough to type or drop in a WhatsApp
+    message, long enough that guessing someone else's isn't practical. Collisions are possible
+    but vanishingly rare at this length; re-rolled on the rare hit rather than risking one."""
+    alphabet = string.ascii_uppercase + string.digits
+    while True:
+        code = ''.join(random.choices(alphabet, k=8))
+        if not CustomerProfile.objects.filter(referral_code=code).exists():
+            return code
+
+
+def award_referral_credit(referred_user):
+    """Credits the referrer once their referred friend's first booking is actually confirmed
+    (deposit paid) - not just registered, so a fake signup that never books can't farm credit.
+    Idempotent per (referrer, referred_user) pair - called again on the referred user's second,
+    third, etc. booking (see Booking.confirm_if_deposit_met) but only ever awards once. Uses
+    whatever ReferralSettings.get_amount() is *right now* - an admin changing it later never
+    retroactively changes a credit already awarded."""
+    profile = getattr(referred_user, 'customer_profile', None)
+    if not profile or not profile.referred_by_id:
+        return None
+    if ReferralCredit.objects.filter(user_id=profile.referred_by_id, referred_user=referred_user).exists():
+        return None
+
+    amount = ReferralSettings.get_amount()
+    credit = ReferralCredit.objects.create(
+        user_id=profile.referred_by_id, amount=amount, referred_user=referred_user,
+    )
+
+    from notifications.models import NotificationEvent
+    from notifications.services import notify
+    notify(
+        NotificationEvent.REFERRAL_CREDIT_EARNED,
+        f'You earned KES {amount:,.0f} in referral credit - '
+        f'{referred_user.first_name or "your friend"} just booked their first trip!',
+        user=profile.referred_by, link_path='/account/profile',
+    )
+
+    from .emails import send_referral_credit_earned_email
+    send_referral_credit_earned_email(profile.referred_by, referred_user, amount)
+
+    return credit
+
+
+def get_available_credit_balance(user):
+    """Sum of this user's own unredeemed referral credits - what's actually available to apply
+    toward a future booking right now."""
+    return ReferralCredit.objects.filter(user=user, redeemed_booking__isnull=True).aggregate(
+        total=Sum('amount')
+    )['total'] or Decimal('0')
+
+
+def get_redeemable_amount(user, max_amount):
+    """Sum of this user's own oldest unredeemed credits that cumulatively fit within max_amount,
+    stopping at the first one that would exceed it. Credits aren't all necessarily the same size
+    - the admin-configurable amount (ReferralSettings) can change over time, so two credits on
+    the same account may differ - this walks them oldest-first rather than assuming a uniform
+    size, and never partially spends a single credit to hit an exact amount."""
+    total = Decimal('0')
+    credits = ReferralCredit.objects.filter(user=user, redeemed_booking__isnull=True).order_by('created_at')
+    for credit in credits:
+        if total + credit.amount > max_amount:
+            break
+        total += credit.amount
+    return total
+
+
+def consume_referral_credit(user, amount, booking):
+    """Marks unredeemed credits (oldest first) as spent against this booking, up to `amount` -
+    the caller (payments.services.redeem_referral_credit) always derives `amount` from
+    get_redeemable_amount first, so it's guaranteed to exactly match a prefix of the customer's
+    own oldest credits and never requires splitting one."""
+    remaining = amount
+    credits = ReferralCredit.objects.filter(user=user, redeemed_booking__isnull=True).order_by('created_at')
+    for credit in credits:
+        if remaining <= 0:
+            break
+        credit.redeemed_booking = booking
+        credit.redeemed_at = timezone.now()
+        credit.save(update_fields=['redeemed_booking', 'redeemed_at'])
+        remaining -= credit.amount

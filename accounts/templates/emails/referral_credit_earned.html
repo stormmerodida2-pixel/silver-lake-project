@@ -1,0 +1,13 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  Good news - <strong>{{ referred_name }}</strong> just booked their first trip with SilverLake Car Rentals
+  using your referral code. You've earned <strong>KES {{ amount }}</strong> in referral credit, ready to use
+  toward your own next booking.
+</p>
+{% include "emails/_button.html" with url=profile_url label="View My Credit" %}
+<p style="margin:20px 0 0; font-size:13px; color:#94a3b8;">
+  Share your own referral code with more friends from your profile page to keep earning.
+</p>
+{% endblock %}

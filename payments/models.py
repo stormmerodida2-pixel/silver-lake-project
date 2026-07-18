@@ -9,6 +9,10 @@ class PaymentMethod(models.TextChoices):
     MPESA = 'mpesa', 'M-Pesa'
     CARD = 'card', 'Card'
     CASH = 'cash', 'Cash'
+    # A customer's own referral credit applied as a discount (see payments.services.
+    # redeem_referral_credit) - always created SUCCESSFUL immediately, since there's no
+    # gateway or driver confirmation involved, unlike every other method here.
+    CREDIT = 'credit', 'Referral Credit'
 
 
 class PaymentStatus(models.TextChoices):

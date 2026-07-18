@@ -50,6 +50,61 @@ class RegistrationTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn('last_name', response.json())
 
+    def test_register_with_a_valid_referral_code_links_the_referrer(self):
+        referrer = User.objects.create_user(username='referrer@example.com', password='x')
+        referrer_profile = CustomerProfile.objects.create(user=referrer)
+
+        response = self.client.post('/api/auth/register/', {
+            'first_name': 'Jane', 'last_name': 'Doe', 'email': 'jane@example.com',
+            'phone_number': '254700000000', 'password': 'StrongPass123!',
+            'referral_code': referrer_profile.referral_code,
+        })
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(username='jane@example.com')
+        self.assertEqual(user.customer_profile.referred_by_id, referrer.id)
+
+    def test_register_with_an_unknown_referral_code_is_rejected(self):
+        response = self.client.post('/api/auth/register/', {
+            'first_name': 'Jane', 'last_name': 'Doe', 'email': 'jane@example.com',
+            'phone_number': '254700000000', 'password': 'StrongPass123!',
+            'referral_code': 'NOTREAL1',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('referral_code', response.json())
+        self.assertFalse(User.objects.filter(username='jane@example.com').exists())
+
+    def test_register_without_a_referral_code_still_works(self):
+        response = self.client.post('/api/auth/register/', {
+            'first_name': 'Jane', 'last_name': 'Doe', 'email': 'jane@example.com',
+            'phone_number': '254700000000', 'password': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(username='jane@example.com')
+        self.assertIsNone(user.customer_profile.referred_by_id)
+
+
+class CustomerProfileReferralCodeTests(APITestCase):
+    def test_every_new_profile_gets_a_unique_code(self):
+        user_a = User.objects.create_user(username='a@example.com', password='x')
+        user_b = User.objects.create_user(username='b@example.com', password='x')
+        profile_a = CustomerProfile.objects.create(user=user_a)
+        profile_b = CustomerProfile.objects.create(user=user_b)
+
+        self.assertTrue(profile_a.referral_code)
+        self.assertTrue(profile_b.referral_code)
+        self.assertNotEqual(profile_a.referral_code, profile_b.referral_code)
+
+    def test_saving_again_does_not_change_an_existing_code(self):
+        user = User.objects.create_user(username='a@example.com', password='x')
+        profile = CustomerProfile.objects.create(user=user)
+        original_code = profile.referral_code
+
+        profile.phone_number = '254700000000'
+        profile.save()
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.referral_code, original_code)
+
 
 class LoginThrottleTests(APITestCase):
     """settings.py forces every throttle scope to 10000/min under 'test' so the rest of the

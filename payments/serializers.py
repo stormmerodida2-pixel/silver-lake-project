@@ -43,6 +43,10 @@ class StkPushRequestSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
 
 
+class RedeemCreditRequestSerializer(serializers.Serializer):
+    booking = serializers.PrimaryKeyRelatedField(queryset=Booking.objects.all())
+
+
 class TokenStkPushRequestSerializer(serializers.Serializer):
     """Same as StkPushRequestSerializer but without `booking` - the booking is already
     resolved from the URL's customer_token, so there's nothing to look up or trust from the body."""

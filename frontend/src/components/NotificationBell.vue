@@ -51,6 +51,7 @@ const EVENT_LABELS = {
   trip_completed: 'Trip Completed',
   payment_recorded: 'Payment Recorded',
   refund_issued: 'Refund Issued',
+  referral_credit_earned: 'Referral Credit Earned',
 }
 
 // Which events show up in the "manage notifications" panel depends on which bell this is - a
@@ -69,6 +70,7 @@ const MANAGEABLE_EVENTS_BY_BASE_PATH = {
   ],
   '/notifications': [
     'booking_confirmed', 'booking_cancelled', 'payment_recorded', 'trip_completed', 'refund_issued',
+    'referral_credit_earned',
   ],
 }
 const manageableEvents = MANAGEABLE_EVENTS_BY_BASE_PATH[props.basePath] || []

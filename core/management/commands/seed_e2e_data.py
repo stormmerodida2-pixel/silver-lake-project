@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
-from accounts.models import CustomerProfile
+from accounts.models import CustomerProfile, ReferralCredit
 from fleet.models import Vehicle, VehicleCategory
 
 User = get_user_model()
@@ -73,6 +73,20 @@ class Command(BaseCommand):
             },
         )
         self.stdout.write(f'{"Created" if created else "Already exists"}: vehicle "{vehicle.name}"')
+
+        # referred_user=None marks this as the synthetic e2e fixture credit specifically (a real
+        # earned one always has referred_user set - see accounts.services.award_referral_credit).
+        # Checked as "an unredeemed one exists" rather than "any one exists at all" - an e2e test
+        # that actually redeems this credit would otherwise leave the fixture permanently spent
+        # on every later re-run of this command.
+        has_unredeemed = ReferralCredit.objects.filter(
+            user=customer, referred_user=None, redeemed_booking__isnull=True,
+        ).exists()
+        if has_unredeemed:
+            self.stdout.write(f'Already exists: unredeemed referral credit for "{E2E_CUSTOMER_EMAIL}"')
+        else:
+            ReferralCredit.objects.create(user=customer, referred_user=None, amount=Decimal('500'))
+            self.stdout.write(f'Created: referral credit for "{E2E_CUSTOMER_EMAIL}"')
 
         self.stdout.write(self.style.SUCCESS(
             f'E2E fixtures ready. Customer/Admin password for both accounts: {E2E_PASSWORD}'

@@ -33,6 +33,7 @@ class NotificationEvent(models.TextChoices):
     TRIP_COMPLETED = 'trip_completed', 'Trip Completed'
     PAYMENT_RECORDED = 'payment_recorded', 'Payment Recorded'
     REFUND_ISSUED = 'refund_issued', 'Refund Issued'
+    REFERRAL_CREDIT_EARNED = 'referral_credit_earned', 'Referral Credit Earned'
 
 
 class Notification(models.Model):

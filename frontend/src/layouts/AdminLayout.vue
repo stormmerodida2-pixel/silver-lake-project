@@ -97,6 +97,13 @@ const baseNavItems = [
     label: 'System Health',
     icon: 'M22 12h-4l-3 9L9 3l-3 9H2',
   },
+  {
+    to: '/admin/referral-settings',
+    label: 'Referral Program',
+    superAdminOnly: true,
+    platformOnly: true,
+    icon: 'M12 4.5a5.5 5.5 0 019.33 3.976M12 4.5a5.5 5.5 0 00-9.33 3.976M12 4.5v15m0 0l-6-6m6 6l6-6M2.67 8.476C2.24 9.402 2 10.42 2 11.5c0 1.518.474 2.926 1.28 4.083',
+  },
 ]
 
 const navItems = computed(() => baseNavItems.filter((item) => {

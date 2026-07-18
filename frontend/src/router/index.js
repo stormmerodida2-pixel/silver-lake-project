@@ -278,6 +278,12 @@ const routes = [
         component: () => import('../views/admin/AdminHealthView.vue'),
         meta: { title: 'System Health | SilverLake Car Rentals', pageTitle: 'System Health' },
       },
+      {
+        path: 'referral-settings',
+        name: 'admin-referral-settings',
+        component: () => import('../views/admin/AdminReferralSettingsView.vue'),
+        meta: { title: 'Referral Program | SilverLake Car Rentals', pageTitle: 'Referral Program' },
+      },
     ],
   },
   // Catch-all 404

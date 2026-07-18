@@ -17,8 +17,14 @@ from core.utils import parse_amount, search_filter
 
 from .emails import send_cash_deposit_reminder_email, send_payment_reminder_email
 from .models import Payment, PaymentMethod, PaymentStatus
-from .serializers import PublicBookingPaymentSerializer, PaymentSerializer, StkPushRequestSerializer, TokenStkPushRequestSerializer
-from .services import PaymentValidationError, declare_offline_payment, initiate_stk_push_payment
+from .serializers import (
+    PublicBookingPaymentSerializer,
+    PaymentSerializer,
+    RedeemCreditRequestSerializer,
+    StkPushRequestSerializer,
+    TokenStkPushRequestSerializer,
+)
+from .services import PaymentValidationError, declare_offline_payment, initiate_stk_push_payment, redeem_referral_credit
 
 # How often staff can re-nudge the same driver about the same pending payment - long enough that
 # a reminder isn't just spam, short enough that a driver who genuinely forgot can be re-poked
@@ -194,6 +200,25 @@ def stk_push(request):
 
 
 stk_push.cls.throttle_scope = 'mpesa-stk'
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def redeem_credit(request):
+    """A customer applying their own referral credit toward their own booking - unlike stk_push,
+    this is never usable on someone else's booking (not even by staff), since it's specifically
+    the referrer's personal credit balance being spent, not a payment method available to
+    whoever's managing the booking."""
+    serializer = RedeemCreditRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    booking = serializer.validated_data['booking']
+
+    try:
+        payment = redeem_referral_credit(booking, request.user)
+    except PaymentValidationError as exc:
+        return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({'payment_id': payment.id, 'amount': payment.amount}, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])

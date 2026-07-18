@@ -207,6 +207,71 @@ class BookingMoneyMathTests(TestCase):
         self.assertEqual(booking.driver.payouts.filter(booking=booking).count(), 1)
 
 
+class ReferralCreditAwardTests(TestCase):
+    """A referrer earns credit the moment their referred friend's *first* booking is confirmed
+    (deposit paid) - not on registration, and not again on a later booking. See
+    Booking._award_referral_credit_if_first_booking / accounts.services.award_referral_credit."""
+
+    def setUp(self):
+        from accounts.models import CustomerProfile
+
+        self.referrer = User.objects.create_user(username='referrer@example.com', password='x')
+        CustomerProfile.objects.create(user=self.referrer)
+        self.referred_user = User.objects.create_user(username='referred@example.com', password='x', first_name='Alex')
+        CustomerProfile.objects.create(user=self.referred_user, referred_by=self.referrer)
+        self.vehicle = make_vehicle()
+
+    def test_referrers_first_booking_confirmation_awards_credit(self):
+        from accounts.models import ReferralCredit, ReferralSettings
+
+        booking = make_booking(self.referred_user, self.vehicle)
+        Payment.objects.create(booking=booking, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+
+        booking.confirm_if_deposit_met()
+
+        credit = ReferralCredit.objects.get(user=self.referrer)
+        self.assertEqual(credit.amount, ReferralSettings.get_amount())
+        self.assertEqual(credit.referred_user_id, self.referred_user.id)
+        self.assertFalse(credit.is_redeemed)
+
+    def test_a_second_booking_by_the_same_referred_user_does_not_award_again(self):
+        from accounts.models import ReferralCredit
+
+        first_booking = make_booking(self.referred_user, self.vehicle, start_date=TOMORROW, end_date=TOMORROW + timedelta(days=2))
+        Payment.objects.create(booking=first_booking, amount=first_booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+        first_booking.confirm_if_deposit_met()
+
+        second_booking = make_booking(
+            self.referred_user, self.vehicle,
+            start_date=TOMORROW + timedelta(days=10), end_date=TOMORROW + timedelta(days=12),
+        )
+        Payment.objects.create(booking=second_booking, amount=second_booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+        second_booking.confirm_if_deposit_met()
+
+        self.assertEqual(ReferralCredit.objects.filter(user=self.referrer).count(), 1)
+
+    def test_a_user_with_no_referrer_awards_nothing(self):
+        from accounts.models import ReferralCredit
+
+        unreferred_user = User.objects.create_user(username='unreferred@example.com', password='x')
+        booking = make_booking(unreferred_user, self.vehicle)
+        Payment.objects.create(booking=booking, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+
+        booking.confirm_if_deposit_met()
+
+        self.assertEqual(ReferralCredit.objects.count(), 0)
+
+    def test_in_app_notification_sent_to_the_referrer(self):
+        from notifications.models import Notification, NotificationEvent
+
+        booking = make_booking(self.referred_user, self.vehicle)
+        Payment.objects.create(booking=booking, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+        booking.confirm_if_deposit_met()
+
+        notification = Notification.objects.get(event=NotificationEvent.REFERRAL_CREDIT_EARNED)
+        self.assertEqual(notification.user_id, self.referrer.id)
+
+
 class PlatformFeeOwnershipTests(TestCase):
     """SilverLake owns most of its own fleet - a driver merely assigned to drive a
     company-owned vehicle is an employee/operator, not an owner, so there's no 85% payout to

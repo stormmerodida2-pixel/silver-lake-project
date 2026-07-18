@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from accounts.models import CustomerProfile
+from accounts.models import CustomerProfile, ReferralSettings
 from drivers.models import Driver
 from drivers.serializers import VehicleSubmissionPhotoSerializer
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleSubmission
@@ -252,3 +252,15 @@ class AdminReviewSerializer(serializers.ModelSerializer):
 
     def get_booking_id(self, obj):
         return obj.booking_id
+
+
+class AdminReferralSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReferralSettings
+        fields = ['credit_amount', 'updated_at']
+        read_only_fields = ['updated_at']
+
+    def validate_credit_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Must be greater than zero.')
+        return value

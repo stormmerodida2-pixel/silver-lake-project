@@ -14,9 +14,12 @@ applied.
    python manage.py runserver
    ```
    `seed_e2e_data` creates a fixed, already-active customer account, a fixed superadmin
-   account, and one dedicated bookable vehicle ("E2E Test Vehicle") - see
-   `core/management/commands/seed_e2e_data.py` for the exact credentials. It refuses to run
-   unless `DEBUG=True`, so it can never be run against a real/production database.
+   account, one dedicated bookable vehicle ("E2E Test Vehicle"), and KES 500 of referral
+   credit for the customer account - see `core/management/commands/seed_e2e_data.py` for the
+   exact credentials. It refuses to run unless `DEBUG=True`, so it can never be run against a
+   real/production database. Re-run it between suite runs if referral.spec.js has consumed
+   the seeded credit - it tops the fixture back up to an unredeemed KES 500 rather than
+   duplicating it.
 
 2. In `frontend/`, run the suite:
    ```
@@ -36,6 +39,10 @@ applied.
   run so repeated/parallel runs never collide with a leftover booking on the same vehicle.
 - **admin.spec.js** - superadmin login, the Dashboard loads, the Fleet Map's searchable
   vehicle list loads, and System Health loads.
+- **favorites.spec.js** - favoriting a vehicle from the Fleet page, seeing it on My Favorites,
+  and un-favoriting it there.
+- **referral.spec.js** - the profile page shows a referral code and available credit, and
+  applying that credit during checkout actually reduces the amount owed.
 
 ## What's deliberately not covered
 

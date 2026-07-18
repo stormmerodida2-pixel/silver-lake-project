@@ -69,6 +69,18 @@ async function removeAvatar() {
   }
 }
 
+// ── Referrals ────────────────────────────────────────────────────────────────
+const referralCode = ref('')
+const referralCreditBalance = ref(0)
+const referralLink = computed(() => `${window.location.origin}/register?ref=${referralCode.value}`)
+const copied = ref(false)
+
+async function copyReferralLink() {
+  await navigator.clipboard.writeText(referralLink.value)
+  copied.value = true
+  setTimeout(() => { copied.value = false }, 2000)
+}
+
 async function loadProfile() {
   loading.value = true
   try {
@@ -78,6 +90,8 @@ async function loadProfile() {
     form.phone_number = data.phone_number
     email.value = data.email
     avatarUrl.value = data.avatar
+    referralCode.value = data.referral_code
+    referralCreditBalance.value = data.referral_credit_balance
   } catch (err) {
     error.value = 'Could not load your profile.'
   } finally {
@@ -153,6 +167,36 @@ onMounted(loadProfile)
                 Remove
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- Referrals -->
+        <div class="mt-6 rounded-2xl border border-navy-800 bg-navy-900 p-8 sm:p-10">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="font-[Georgia] text-lg font-bold text-white">Give KES 500, Get KES 500</p>
+              <p class="mt-1 max-w-md text-sm text-slate-300">
+                Share your code - once a friend's first trip is confirmed, you earn KES 500 in
+                credit toward your own next booking.
+              </p>
+            </div>
+            <div class="rounded-lg border border-gold-500/40 bg-gold-500/10 px-4 py-2 text-center">
+              <p class="font-[Georgia] text-2xl font-bold text-gold-400">KES {{ Number(referralCreditBalance).toLocaleString() }}</p>
+              <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Available Credit</p>
+            </div>
+          </div>
+
+          <div class="mt-5 flex flex-wrap items-center gap-3">
+            <span class="rounded-md bg-navy-800 px-4 py-2 font-mono text-lg font-bold tracking-widest text-gold-400">
+              {{ referralCode }}
+            </span>
+            <button
+              type="button"
+              class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+              @click="copyReferralLink"
+            >
+              {{ copied ? 'Link Copied!' : 'Copy Referral Link' }}
+            </button>
           </div>
         </div>
 

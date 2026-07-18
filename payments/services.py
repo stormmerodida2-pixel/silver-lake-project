@@ -302,6 +302,51 @@ def initiate_stk_push_payment(booking, phone_number, amount):
     return payment, result
 
 
+def redeem_referral_credit(booking, user):
+    """Applies as many of the customer's own oldest whole referral credits as fit within the
+    booking's remaining balance - the admin-configurable amount (accounts.models.
+    ReferralSettings) can change over time, so credits on the same account aren't necessarily
+    all the same size (see accounts.services.get_redeemable_amount). Immediately SUCCESSFUL,
+    unlike M-Pesa/offline payments - there's no external gateway or driver confirmation
+    involved, the amount either fits or it doesn't. Recorded as a normal Payment (method=CREDIT)
+    so it flows through the exact same amount_paid/balance_due/driver-payout math as any other
+    method - Booking.driver_payout_amount is based on total_amount regardless of how the customer
+    paid, so this discount comes out of SilverLake's own margin, not the driver's cut. Never
+    splits a single credit across two bookings."""
+    from accounts.services import consume_referral_credit, get_available_credit_balance, get_redeemable_amount
+
+    if booking.user_id != user.id:
+        raise PaymentValidationError("This isn't your booking.")
+    if booking.status in _CLOSED_BOOKING_STATUSES:
+        raise PaymentValidationError(f'This booking is already {booking.get_status_display().lower()}.')
+
+    try:
+        with transaction.atomic():
+            _lock_booking(booking)
+
+            available_balance = booking.balance_due - _pending_payments_total(booking)
+            amount = get_redeemable_amount(user, available_balance)
+
+            if amount <= 0:
+                available_credit = get_available_credit_balance(user)
+                if available_credit <= 0:
+                    raise PaymentValidationError("You don't have any referral credit available.")
+                raise PaymentValidationError(
+                    f"Your available credit doesn't fit within the KES {available_balance:,.0f} left to pay "
+                    "on this booking."
+                )
+
+            payment = Payment.objects.create(
+                booking=booking, method=PaymentMethod.CREDIT, amount=amount, status=PaymentStatus.SUCCESSFUL,
+            )
+            consume_referral_credit(user, amount, booking)
+    except OperationalError:
+        raise PaymentValidationError(CONCURRENT_UPDATE_MESSAGE)
+
+    booking.confirm_if_deposit_met()
+    return payment
+
+
 # Cash and card both go through the same declare-then-confirm flow, since neither has a live
 # gateway confirming them the way M-Pesa's STK Push callback does - mpesa payments never use
 # these, they go through initiate_stk_push_payment instead.
