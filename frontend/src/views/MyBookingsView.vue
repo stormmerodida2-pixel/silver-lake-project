@@ -86,6 +86,26 @@ async function cancelBooking(booking) {
 
 const canCancel = (booking) => !['cancelled', 'completed'].includes(booking.status)
 
+// ── Download receipt ─────────────────────────────────────────────────────────
+const downloadingId = ref(null)
+async function downloadReceipt(booking) {
+  downloadingId.value = booking.id
+  error.value = ''
+  try {
+    const response = await apiClient.get(`/bookings/${booking.id}/receipt/`, { responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `SilverLake-Receipt-${booking.id}.pdf`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    error.value = 'Could not download the receipt.'
+  } finally {
+    downloadingId.value = null
+  }
+}
+
 onMounted(() => {
   loadBookings()
 })
@@ -147,6 +167,14 @@ onMounted(() => {
               @click="openReviewForm(booking)"
             >
               Leave a Review
+            </button>
+            <button
+              v-if="Number(booking.amount_paid) > 0"
+              :disabled="downloadingId === booking.id"
+              class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:border-slate-400 disabled:opacity-60"
+              @click="downloadReceipt(booking)"
+            >
+              {{ downloadingId === booking.id ? 'Downloading...' : 'Download Receipt' }}
             </button>
           </div>
 

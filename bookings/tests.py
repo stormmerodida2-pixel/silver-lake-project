@@ -1746,6 +1746,54 @@ class CustomerBookingLocationTests(APITestCase):
         self.assertEqual(response.status_code, 401)
 
 
+class BookingReceiptTests(APITestCase):
+    """A downloadable PDF receipt - only ever offered once at least one payment has actually
+    succeeded. Scoped through the same get_object()/get_queryset() as the rest of
+    BookingViewSet, so a customer only ever gets their own."""
+
+    def setUp(self):
+        self.customer = User.objects.create_user(username='receipt-client@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.booking = make_booking(self.customer, self.vehicle, status=BookingStatus.CONFIRMED)
+        self.client.force_authenticate(user=self.customer)
+
+    def test_receipt_requires_at_least_one_successful_payment(self):
+        response = self.client.get(f'/api/bookings/{self.booking.id}/receipt/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_receipt_downloads_as_a_pdf_once_paid(self):
+        Payment.objects.create(booking=self.booking, amount=self.booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+        response = self.client.get(f'/api/bookings/{self.booking.id}/receipt/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn(f'SilverLake-Receipt-{self.booking.id}.pdf', response['Content-Disposition'])
+        self.assertTrue(response.content.startswith(b'%PDF'))
+
+    def test_a_pending_unpaid_payment_does_not_unlock_the_receipt(self):
+        Payment.objects.create(booking=self.booking, amount=self.booking.deposit_amount, status=PaymentStatus.PENDING)
+        response = self.client.get(f'/api/bookings/{self.booking.id}/receipt/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_customer_cannot_download_someone_elses_receipt(self):
+        Payment.objects.create(booking=self.booking, amount=self.booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+        other_customer = User.objects.create_user(username='other-receipt-client@example.com', password='pass12345!')
+        self.client.force_authenticate(user=other_customer)
+        response = self.client.get(f'/api/bookings/{self.booking.id}/receipt/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_unauthenticated_request_is_rejected(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get(f'/api/bookings/{self.booking.id}/receipt/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_staff_can_download_a_receipt_for_any_booking(self):
+        Payment.objects.create(booking=self.booking, amount=self.booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+        staff = User.objects.create_user(username='receipt-staff@example.com', password='pass12345!', is_staff=True)
+        self.client.force_authenticate(user=staff)
+        response = self.client.get(f'/api/bookings/{self.booking.id}/receipt/')
+        self.assertEqual(response.status_code, 200)
+
+
 class TripLifecycleTests(APITestCase):
     """Separates three distinct facts that used to be conflated: money arriving, the driver
     confirming the car was handed over, and the driver confirming it came back. Paying in full

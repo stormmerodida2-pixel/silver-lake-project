@@ -93,6 +93,27 @@ async function remindBalance(booking) {
   }
 }
 
+const downloadingId = ref(null)
+async function downloadReceipt(booking) {
+  downloadingId.value = booking.id
+  try {
+    // Same customer-facing endpoint, not /admin/bookings/ - BookingViewSet.get_queryset()
+    // already scopes staff to their own org (or everyone, platform-wide), so no separate
+    // admin route is needed for this.
+    const response = await apiClient.get(`/bookings/${booking.id}/receipt/`, { responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `SilverLake-Receipt-${booking.id}.pdf`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    error.value = 'Could not download the receipt.'
+  } finally {
+    downloadingId.value = null
+  }
+}
+
 onMounted(() => {
   load()
   loadDriverOptions()
@@ -198,6 +219,14 @@ onMounted(() => {
                 </button>
                 <p v-else-if="!booking.driver_name" class="text-xs text-slate-600">No driver to remind</p>
               </div>
+              <button
+                v-if="Number(booking.amount_paid) > 0"
+                :disabled="downloadingId === booking.id"
+                class="mt-1 rounded-md border border-navy-700 px-2 py-0.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                @click="downloadReceipt(booking)"
+              >
+                {{ downloadingId === booking.id ? 'Downloading...' : 'Receipt' }}
+              </button>
             </td>
             <td class="px-4 py-3">
               <select

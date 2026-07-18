@@ -1,0 +1,186 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page {
+    size: A4;
+    margin: 2cm;
+  }
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    color: #1e2937;
+    font-size: 11pt;
+  }
+  .header {
+    background-color: #0a1730;
+    color: #ffffff;
+    padding: 18px 24px;
+  }
+  .brand-name {
+    font-family: 'Times New Roman', Georgia, serif;
+    font-size: 20pt;
+    font-weight: bold;
+    color: #ffffff;
+  }
+  .brand-tagline {
+    font-size: 8pt;
+    letter-spacing: 3px;
+    color: #c9a227;
+  }
+  .receipt-title {
+    font-size: 13pt;
+    font-weight: bold;
+    color: #0a1730;
+    margin-top: 20px;
+  }
+  .meta-table td {
+    font-size: 10pt;
+    color: #475569;
+    padding: 1px 0;
+  }
+  .divider {
+    background-color: #c9a227;
+    height: 3px;
+  }
+  .section-title {
+    font-size: 10pt;
+    font-weight: bold;
+    color: #0a1730;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 18px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 4px;
+  }
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  table.data-table td, table.data-table th {
+    padding: 5px 6px;
+    font-size: 10pt;
+    text-align: left;
+  }
+  table.data-table th {
+    background-color: #f8fafc;
+    color: #64748b;
+    font-size: 9pt;
+    text-transform: uppercase;
+  }
+  table.data-table tr {
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .text-right {
+    text-align: right;
+  }
+  .summary-table td {
+    padding: 4px 6px;
+    font-size: 10.5pt;
+  }
+  .summary-total td {
+    font-weight: bold;
+    font-size: 12pt;
+    color: #0a1730;
+    border-top: 1px solid #cbd5e1;
+    padding-top: 8px;
+  }
+  .balance-due {
+    color: #b91c1c;
+    font-weight: bold;
+  }
+  .paid-in-full {
+    color: #15803d;
+    font-weight: bold;
+  }
+  .footer {
+    margin-top: 30px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 9pt;
+    color: #64748b;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+  <table width="100%" class="header">
+    <tr>
+      <td width="60">
+        <img src="{{ logo_uri }}" width="42" height="42" />
+      </td>
+      <td>
+        <div class="brand-name">SILVERLAKE</div>
+        <div class="brand-tagline">CAR RENTALS</div>
+      </td>
+    </tr>
+  </table>
+  <div class="divider"></div>
+
+  <table width="100%">
+    <tr>
+      <td width="60%">
+        <div class="receipt-title">Payment Receipt</div>
+      </td>
+      <td width="40%" class="text-right" style="font-size:10pt; color:#475569;">
+        Receipt # SL-{{ booking.id }}<br/>
+        Date issued {{ issued_at|date:"d M Y" }}
+      </td>
+    </tr>
+  </table>
+
+  <div class="section-title">Billed To</div>
+  <table class="meta-table">
+    <tr><td width="120">Name</td><td>{{ booking.customer_name }}</td></tr>
+    <tr><td>Phone</td><td>{{ booking.customer_phone }}</td></tr>
+    {% if booking.customer_email %}<tr><td>Email</td><td>{{ booking.customer_email }}</td></tr>{% endif %}
+  </table>
+
+  <div class="section-title">Trip Details</div>
+  <table class="data-table">
+    <tr><td width="160"><strong>Vehicle</strong></td><td>{{ vehicle.name }} ({{ vehicle.category.name }})</td></tr>
+    <tr><td><strong>Service</strong></td><td>{{ booking.get_service_type_display }}</td></tr>
+    <tr><td><strong>Pickup Location</strong></td><td>{{ booking.pickup_location }}</td></tr>
+    <tr><td><strong>Dates</strong></td><td>{{ booking.start_date|date:"d M Y" }} to {{ booking.end_date|date:"d M Y" }} ({{ booking.rental_days }} day{{ booking.rental_days|pluralize }})</td></tr>
+  </table>
+
+  <div class="section-title">Payments Received</div>
+  <table class="data-table">
+    <tr>
+      <th width="22%">Date</th>
+      <th width="20%">Method</th>
+      <th width="33%">Reference</th>
+      <th width="25%" class="text-right">Amount (KES)</th>
+    </tr>
+    {% for payment in payments %}
+    <tr>
+      <td width="22%">{{ payment.created_at|date:"d M Y" }}</td>
+      <td width="20%">{{ payment.get_method_display }}</td>
+      <td width="33%">{{ payment.mpesa_receipt_number|default:payment.card_transaction_ref|default:"-" }}</td>
+      <td width="25%" class="text-right">{{ payment.amount|floatformat:2|intcomma }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <table width="100%" class="summary-table" style="margin-top: 14px;">
+    <tr><td>Trip Total</td><td class="text-right">KES {{ booking.total_amount|floatformat:2|intcomma }}</td></tr>
+    <tr><td>Total Paid</td><td class="text-right">KES {{ booking.amount_paid|floatformat:2|intcomma }}</td></tr>
+    <tr class="summary-total">
+      <td>{% if booking.balance_due > 0 %}Balance Due{% else %}Balance{% endif %}</td>
+      <td class="text-right {% if booking.balance_due > 0 %}balance-due{% else %}paid-in-full{% endif %}">
+        {% if booking.balance_due > 0 %}KES {{ booking.balance_due|floatformat:2|intcomma }}{% else %}Paid in Full{% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <div class="footer">
+    SilverLake Car Rentals &middot; Kisumu, Kenya<br>
+    0790 111 000 &middot; info@silverlakecarrentals.co.ke<br>
+    Thank you for choosing SilverLake Car Rentals.
+  </div>
+
+</body>
+</html>

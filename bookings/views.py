@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import OperationalError, transaction
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
@@ -146,6 +147,26 @@ class BookingViewSet(
             **serializer.validated_data,
         )
         return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get'])
+    def receipt(self, request, pk=None):
+        """A downloadable PDF receipt - only offered once at least one payment has actually
+        succeeded (a booking nobody has paid anything toward has nothing to receipt). Scoped
+        through the same get_object()/get_queryset() as the rest of this viewset - a customer
+        only ever gets their own, staff get their own organization's (or everyone's, if
+        platform-wide)."""
+        booking = self.get_object()
+        if booking.amount_paid <= 0:
+            return Response(
+                {'detail': 'No payment has been recorded for this booking yet.'}, status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from .receipts import generate_receipt_pdf
+
+        pdf_bytes = generate_receipt_pdf(booking)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="SilverLake-Receipt-{booking.id}.pdf"'
+        return response
 
     @action(detail=True, methods=['get'])
     def location(self, request, pk=None):
