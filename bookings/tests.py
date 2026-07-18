@@ -2212,6 +2212,85 @@ class EscalateUnacknowledgedBookingsTests(APITestCase):
         self.assertIsNone(booking.ack_escalated_at)
 
 
+class ExpireStalePendingBookingsTests(APITestCase):
+    """An abandoned checkout - a PENDING booking nobody ever paid anything toward - shouldn't
+    block a vehicle from public visibility or from being booked by someone else forever. See
+    bookings.services.expire_stale_pending_bookings / STALE_PENDING_BOOKING_THRESHOLD."""
+
+    def setUp(self):
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='stale-pending-client@example.com', password='pass12345!')
+
+    def _run(self):
+        from bookings.services import expire_stale_pending_bookings
+
+        return expire_stale_pending_bookings()
+
+    def _make_stale_booking(self, **kwargs):
+        kwargs.setdefault('status', BookingStatus.PENDING)
+        booking = make_booking(self.customer, self.vehicle, start_date=TODAY, end_date=TOMORROW, **kwargs)
+        Booking.objects.filter(pk=booking.pk).update(created_at=timezone.now() - timedelta(hours=25))
+        booking.refresh_from_db()
+        return booking
+
+    def test_unpaid_pending_booking_older_than_the_threshold_is_cancelled(self):
+        booking = self._make_stale_booking()
+        count = self._run()
+        booking.refresh_from_db()
+        self.assertEqual(count, 1)
+        self.assertEqual(booking.status, BookingStatus.CANCELLED)
+
+    def test_customer_is_notified_by_email(self):
+        booking = self._make_stale_booking(customer_email='stale-pending-client@example.com')
+        mail.outbox = []
+        self._run()
+        self.assertTrue(len(mail.outbox) >= 1)
+
+    def test_a_booking_younger_than_the_threshold_is_left_alone(self):
+        booking = make_booking(
+            self.customer, self.vehicle, status=BookingStatus.PENDING, start_date=TODAY, end_date=TOMORROW,
+        )
+        count = self._run()
+        booking.refresh_from_db()
+        self.assertEqual(count, 0)
+        self.assertEqual(booking.status, BookingStatus.PENDING)
+
+    def test_a_booking_with_a_successful_payment_is_left_alone(self):
+        booking = self._make_stale_booking()
+        Payment.objects.create(booking=booking, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+        count = self._run()
+        booking.refresh_from_db()
+        self.assertEqual(count, 0)
+        self.assertEqual(booking.status, BookingStatus.PENDING)
+
+    def test_a_booking_with_a_pending_cash_declaration_is_left_alone(self):
+        # Represents real in-progress intent (e.g. a driver-declared cash handoff awaiting
+        # confirmation) - shouldn't be nuked by an automatic sweep just because it's old.
+        booking = self._make_stale_booking()
+        Payment.objects.create(booking=booking, amount=booking.deposit_amount, status=PaymentStatus.PENDING)
+        count = self._run()
+        booking.refresh_from_db()
+        self.assertEqual(count, 0)
+        self.assertEqual(booking.status, BookingStatus.PENDING)
+
+    def test_a_booking_with_only_a_failed_payment_is_still_expired(self):
+        # A failed/abandoned M-Pesa attempt (already marked FAILED by expire_stale_mpesa_payments)
+        # is not "activity in progress" - this booking is just as abandoned as one with no
+        # payment record at all.
+        booking = self._make_stale_booking()
+        Payment.objects.create(booking=booking, amount=booking.deposit_amount, status=PaymentStatus.FAILED)
+        count = self._run()
+        booking.refresh_from_db()
+        self.assertEqual(count, 1)
+        self.assertEqual(booking.status, BookingStatus.CANCELLED)
+
+    def test_a_confirmed_booking_is_left_alone_regardless_of_age(self):
+        booking = self._make_stale_booking(status=BookingStatus.CONFIRMED)
+        count = self._run()
+        booking.refresh_from_db()
+        self.assertEqual(count, 0)
+        self.assertEqual(booking.status, BookingStatus.CONFIRMED)
+
 class SelfDriveSurchargeTests(TestCase):
     """Self-drive costs 3% more than the vehicle's own with-driver rate - the customer is
     driving SilverLake's own vehicle themselves, which carries more risk/liability than a
