@@ -46,7 +46,7 @@ const links = computed(() => {
     { to: '/contact', label: 'Contact' },
   ]
   if (auth.isAuthenticated) {
-    base.splice(2, 0, { to: '/account/bookings', label: 'My Bookings' }, { to: '/account/favorites', label: 'Favorites' })
+    base.splice(2, 0, { to: '/account/bookings', label: 'My Bookings' })
   }
   if (auth.user?.driver_status === 'active') {
     base.push({ to: '/driver', label: 'Driver Dashboard' })
@@ -96,9 +96,6 @@ async function handleLogout() {
               </span>
               Hi, {{ auth.user?.first_name || 'there' }}
             </RouterLink>
-            <button class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400" @click="handleLogout">
-              Log Out
-            </button>
           </template>
           <template v-else>
             <RouterLink to="/login" class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400">
@@ -114,6 +111,14 @@ async function handleLogout() {
         </div>
 
         <NotificationBell v-if="auth.isAuthenticated" base-path="/notifications" />
+
+        <button
+          v-if="auth.isAuthenticated"
+          class="hidden font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400 md:block"
+          @click="handleLogout"
+        >
+          Log Out
+        </button>
 
         <button
           ref="mobileMenuButton"
