@@ -3,7 +3,6 @@ import { useRoute } from 'vue-router'
 
 import NavBar from './components/NavBar.vue'
 import Footer from './components/Footer.vue'
-import WhatsAppButton from './components/WhatsAppButton.vue'
 import AnnouncementBanner from './components/AnnouncementBanner.vue'
 import ImpersonationBanner from './components/ImpersonationBanner.vue'
 
@@ -23,9 +22,6 @@ const route = useRoute()
     <main class="flex-1">
       <RouterView />
     </main>
-    <template v-if="!route.meta.hideChrome">
-      <Footer />
-      <WhatsAppButton />
-    </template>
+    <Footer v-if="!route.meta.hideChrome" />
   </div>
 </template>
