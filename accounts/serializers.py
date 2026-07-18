@@ -57,13 +57,14 @@ class UserSerializer(serializers.ModelSerializer):
     organization_name = serializers.SerializerMethodField()
     referral_code = serializers.SerializerMethodField()
     referral_credit_balance = serializers.SerializerMethodField()
+    referral_credit_amount = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'first_name', 'last_name', 'email', 'phone_number', 'avatar',
             'is_staff', 'is_superuser', 'is_driver', 'driver_status', 'organization_name',
-            'referral_code', 'referral_credit_balance',
+            'referral_code', 'referral_credit_balance', 'referral_credit_amount',
         ]
 
     def get_phone_number(self, user):
@@ -77,6 +78,14 @@ class UserSerializer(serializers.ModelSerializer):
     def get_referral_credit_balance(self, user):
         from .services import get_available_credit_balance
         return get_available_credit_balance(user)
+
+    def get_referral_credit_amount(self, user):
+        # The admin-configurable amount a referrer currently earns per confirmed referral - see
+        # ReferralSettings. Included here (rather than requiring a separate request) so the
+        # ProfileView referral card can display the real, current promo amount instead of a
+        # hardcoded figure that would go stale the moment an admin changes it.
+        from .models import ReferralSettings
+        return ReferralSettings.get_amount()
 
     def get_avatar(self, user):
         profile = getattr(user, 'customer_profile', None)

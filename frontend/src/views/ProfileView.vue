@@ -72,6 +72,7 @@ async function removeAvatar() {
 // ── Referrals ────────────────────────────────────────────────────────────────
 const referralCode = ref('')
 const referralCreditBalance = ref(0)
+const referralCreditAmount = ref(0)
 const referralLink = computed(() => `${window.location.origin}/register?ref=${referralCode.value}`)
 const copied = ref(false)
 
@@ -92,6 +93,7 @@ async function loadProfile() {
     avatarUrl.value = data.avatar
     referralCode.value = data.referral_code
     referralCreditBalance.value = data.referral_credit_balance
+    referralCreditAmount.value = data.referral_credit_amount
   } catch (err) {
     error.value = 'Could not load your profile.'
   } finally {
@@ -174,10 +176,12 @@ onMounted(loadProfile)
         <div class="mt-6 rounded-2xl border border-navy-800 bg-navy-900 p-8 sm:p-10">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="font-[Georgia] text-lg font-bold text-white">Give KES 500, Get KES 500</p>
+              <p class="font-[Georgia] text-lg font-bold text-white">
+                Give KES {{ Number(referralCreditAmount).toLocaleString() }}, Get KES {{ Number(referralCreditAmount).toLocaleString() }}
+              </p>
               <p class="mt-1 max-w-md text-sm text-slate-300">
-                Share your code - once a friend's first trip is confirmed, you earn KES 500 in
-                credit toward your own next booking.
+                Share your code - once a friend's first trip is confirmed, you earn KES
+                {{ Number(referralCreditAmount).toLocaleString() }} in credit toward your own next booking.
               </p>
             </div>
             <div class="rounded-lg border border-gold-500/40 bg-gold-500/10 px-4 py-2 text-center">
