@@ -27,6 +27,34 @@ const form = reactive({
   customer_license_number: '',
 })
 
+// ── Booking for someone else ─────────────────────────────────────────────────
+// customer_name/phone/email have always been independent of the account's own info (the
+// backend never assumed they matched - see BookingViewSet.perform_create, which always sets
+// booking.user=request.user regardless of these fields) - this just makes that possibility
+// visible in the UI instead of it only working if you happened to overwrite the prefilled values.
+const bookingFor = ref('myself') // 'myself' | 'someone_else'
+const ownName = auth.user ? `${auth.user.first_name} ${auth.user.last_name}`.trim() : ''
+const ownPhone = auth.user?.phone_number || ''
+const ownEmail = auth.user?.email || ''
+
+watch(bookingFor, (value) => {
+  if (value === 'myself') {
+    form.customer_name = ownName
+    form.customer_phone = ownPhone
+    form.customer_email = ownEmail
+  } else {
+    form.customer_name = ''
+    form.customer_phone = ''
+    form.customer_email = ''
+  }
+})
+
+// The M-Pesa prompt always goes to whoever is actually paying (the account holder), never to
+// the rider's own contact number above - those are two different people when bookingFor is
+// 'someone_else', and even when booking for yourself this is just clearer as its own field
+// than silently reusing the trip-contact phone for payment too.
+const paymentPhone = ref(ownPhone)
+
 const licenseDocument = ref(null)
 const idDocument = ref(null)
 
@@ -357,12 +385,16 @@ function startPolling(paymentId) {
 onUnmounted(stopPolling)
 
 async function payWithMpesa() {
+  if (!paymentPhone.value) {
+    error.value = 'Enter the M-Pesa number to charge.'
+    return
+  }
   submitting.value = true
   error.value = ''
   try {
     const { data } = await apiClient.post('/payments/mpesa/stk-push/', {
       booking: booking.value.id,
-      phone_number: form.customer_phone,
+      phone_number: paymentPhone.value,
       amount: amountToPay.value,
     })
     paymentOutcome.value = null
@@ -502,9 +534,34 @@ function retryPayment() {
               />
             </div>
 
+            <div>
+              <label class="mb-1 block text-sm text-slate-600">Who is this trip for?</label>
+              <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
+                  :class="bookingFor === 'myself' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-navy-900'"
+                  @click="bookingFor = 'myself'"
+                >
+                  Myself
+                </button>
+                <button
+                  type="button"
+                  class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
+                  :class="bookingFor === 'someone_else' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-navy-900'"
+                  @click="bookingFor = 'someone_else'"
+                >
+                  Someone else
+                </button>
+              </div>
+              <p v-if="bookingFor === 'someone_else'" class="mt-1.5 text-xs text-slate-500">
+                Enter the rider's details below - the M-Pesa payment step further down still charges your own number.
+              </p>
+            </div>
+
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="mb-1 block text-sm text-slate-600">Your name</label>
+                <label class="mb-1 block text-sm text-slate-600">{{ bookingFor === 'someone_else' ? "Rider's name" : 'Your name' }}</label>
                 <input
                   v-model="form.customer_name"
                   type="text"
@@ -513,13 +570,15 @@ function retryPayment() {
                 />
               </div>
               <div>
-                <label class="mb-1 block text-sm text-slate-600">Phone (M-Pesa)</label>
+                <label class="mb-1 block text-sm text-slate-600">{{ bookingFor === 'someone_else' ? "Rider's phone" : 'Your phone' }}</label>
                 <PhoneInput v-model="form.customer_phone" required />
               </div>
             </div>
 
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Email (optional)</label>
+              <label class="mb-1 block text-sm text-slate-600">
+                {{ bookingFor === 'someone_else' ? "Rider's email (optional)" : 'Email (optional)' }}
+              </label>
               <input
                 v-model="form.customer_email"
                 type="email"
@@ -683,7 +742,11 @@ function retryPayment() {
               </div>
 
               <div v-if="paymentMethod === 'mpesa'" class="mt-5">
-                <p v-if="error" class="mb-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                <label class="mb-1 block text-sm text-slate-600">M-Pesa number to charge</label>
+                <PhoneInput v-model="paymentPhone" required />
+                <p class="mt-1 text-xs text-slate-500">This is charged to you, the account holder - it doesn't need to match the rider's own phone above.</p>
+
+                <p v-if="error" class="mb-3 mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
                   <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M10.29 3.86L1.82 18a1.5 1.5 0 001.29 2.25h17.78a1.5 1.5 0 001.29-2.25L13.71 3.86a1.5 1.5 0 00-2.42 0z" />
                   </svg>
@@ -691,7 +754,7 @@ function retryPayment() {
                 </p>
                 <button
                   :disabled="submitting"
-                  class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+                  class="mt-3 w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
                   @click="payWithMpesa"
                 >
                   {{ submitting ? 'Sending prompt...' : `Pay KES ${amountToPay.toLocaleString()} via M-Pesa` }}
@@ -836,7 +899,7 @@ function retryPayment() {
               </div>
               <h2 class="mt-4 font-[Georgia] text-xl font-bold text-navy-900">Check Your Phone</h2>
               <p class="mt-2 text-sm text-slate-600">
-                We've sent an M-Pesa prompt to {{ form.customer_phone }}. Enter your PIN to complete payment for
+                We've sent an M-Pesa prompt to {{ paymentPhone }}. Enter your PIN to complete payment for
                 booking #{{ booking?.id }}.
               </p>
             </template>

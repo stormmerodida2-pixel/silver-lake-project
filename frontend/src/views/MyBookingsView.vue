@@ -3,11 +3,18 @@ import { onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../api/client'
 import TrackVehicleMap from '../components/TrackVehicleMap.vue'
+import { useAuthStore } from '../stores/auth'
 
+const auth = useAuthStore()
 const bookings = ref([])
 const loading = ref(true)
 const cancellingId = ref(null)
 const error = ref('')
+
+// A booking made for someone else has a customer_name that doesn't match your own account -
+// worth calling out so a list of several bookings doesn't read as if they're all your own trips.
+const ownName = () => `${auth.user?.first_name || ''} ${auth.user?.last_name || ''}`.trim()
+const isBookedForSomeoneElse = (booking) => booking.customer_name && booking.customer_name !== ownName()
 
 // ── Track vehicle ────────────────────────────────────────────────────────
 const trackingId = ref(null)
@@ -132,6 +139,9 @@ onMounted(() => {
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
               <h3 class="font-[Georgia] text-lg font-bold text-navy-900">{{ booking.vehicle_name }}</h3>
+              <p v-if="isBookedForSomeoneElse(booking)" class="text-sm font-semibold text-brand-blue-600">
+                Booking for {{ booking.customer_name }}
+              </p>
               <p class="text-sm text-slate-500">{{ booking.start_date }} to {{ booking.end_date }}</p>
               <p class="text-sm text-slate-500">{{ booking.pickup_location }}</p>
             </div>

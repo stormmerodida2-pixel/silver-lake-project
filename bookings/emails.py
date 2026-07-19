@@ -58,22 +58,35 @@ def send_driver_booking_notification(booking):
 def send_booking_cancelled_email(booking):
     """Sent whenever a booking is cancelled, whether by the customer themselves or by staff -
     previously there was no notification at all, so a staff-initiated cancellation would leave
-    the customer finding out only by checking 'My Bookings'. Swallowed silently on failure so a
+    the customer finding out only by checking 'My Bookings'. Also sent to the account holder
+    (whoever actually paid) when this trip was booked for someone else - see
+    Booking._send_confirmation_email for the same reasoning. Swallowed silently on failure so a
     misconfigured SMTP server never blocks the cancellation."""
-    if not booking.customer_email:
-        return
     try:
-        send_branded_email(
-            subject=f'Your SilverLake booking #{booking.pk} has been cancelled',
-            template_name='emails/booking_cancelled.html',
-            context={
-                'first_name': booking.customer_name.split()[0],
-                'booking_id': booking.pk,
-                'vehicle_name': booking.vehicle.name,
-                'amount_paid': f'{booking.amount_paid:,.2f}' if booking.amount_paid > 0 else None,
-            },
-            recipient_list=[booking.customer_email],
-        )
+        subject = f'Your SilverLake booking #{booking.pk} has been cancelled'
+        base_context = {
+            'booking_id': booking.pk,
+            'vehicle_name': booking.vehicle.name,
+            'amount_paid': f'{booking.amount_paid:,.2f}' if booking.amount_paid > 0 else None,
+        }
+
+        if booking.customer_email:
+            send_branded_email(
+                subject=subject, template_name='emails/booking_cancelled.html',
+                context={**base_context, 'first_name': booking.customer_name.split()[0]},
+                recipient_list=[booking.customer_email],
+            )
+
+        if booking.user.email and booking.user.email != booking.customer_email:
+            send_branded_email(
+                subject=subject, template_name='emails/booking_cancelled.html',
+                context={
+                    **base_context,
+                    'first_name': booking.user.first_name.split()[0] if booking.user.first_name else 'there',
+                    'booked_for_name': booking.customer_name,
+                },
+                recipient_list=[booking.user.email],
+            )
     except Exception:
         pass
 

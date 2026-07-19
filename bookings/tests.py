@@ -583,6 +583,62 @@ class WaitlistNotificationTests(APITestCase):
         self.assertEqual(len(mail.outbox), 0)
 
 
+class BookForSomeoneElseEmailTests(APITestCase):
+    """When customer_name/phone/email describe a different rider than the account holder (e.g.
+    booking a ride for a family member), both people should hear about it - the rider gets trip
+    details, and the account holder (who actually paid) gets their own copy too."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='payer@example.com', password='pass12345!', email='payer@example.com', first_name='Mark',
+        )
+        self.vehicle = make_vehicle()
+
+    def test_confirming_a_booking_made_for_someone_else_emails_both_people(self):
+        booking = make_booking(
+            self.user, self.vehicle, status=BookingStatus.PENDING,
+            customer_name='Jane Rider', customer_email='jane.rider@example.com',
+        )
+        mail.outbox = []
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.confirm_if_deposit_met()
+
+        confirmation_emails = [m for m in mail.outbox if 'Booking Confirmed' in m.subject]
+        self.assertEqual(len(confirmation_emails), 2)
+        recipients = {recipient for m in confirmation_emails for recipient in m.to}
+        self.assertEqual(recipients, {'jane.rider@example.com', 'payer@example.com'})
+
+    def test_confirming_a_booking_for_yourself_only_sends_one_email(self):
+        booking = make_booking(
+            self.user, self.vehicle, status=BookingStatus.PENDING,
+            customer_name='Mark Payer', customer_email='payer@example.com',
+        )
+        mail.outbox = []
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.confirm_if_deposit_met()
+
+        confirmation_emails = [m for m in mail.outbox if 'Booking Confirmed' in m.subject]
+        self.assertEqual(len(confirmation_emails), 1)
+
+    def test_cancelling_a_booking_made_for_someone_else_emails_both_people(self):
+        booking = make_booking(
+            self.user, self.vehicle, status=BookingStatus.PENDING,
+            customer_name='Jane Rider', customer_email='jane.rider@example.com',
+        )
+        mail.outbox = []
+        self.client.force_authenticate(user=self.user)
+        self.client.post(f'/api/bookings/{booking.id}/cancel/')
+
+        cancel_emails = [m for m in mail.outbox if 'has been cancelled' in m.subject]
+        self.assertEqual(len(cancel_emails), 2)
+        recipients = {recipient for m in cancel_emails for recipient in m.to}
+        self.assertEqual(recipients, {'jane.rider@example.com', 'payer@example.com'})
+
+
 class CancellationRefundPercentageTests(APITestCase):
     """A client cancelling before the driver has actually committed to the trip (or a self-drive
     booking, which has no driver-commitment concept at all) gets everything back. Once the

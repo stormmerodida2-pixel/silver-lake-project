@@ -544,32 +544,48 @@ class Booking(models.Model):
         notify_waitlist_for_freed_dates(self.vehicle, self.start_date, self.end_date)
 
     def _send_confirmation_email(self):
-        """Sends a booking confirmed email to the customer. Swallowed silently on failure
-        so a misconfigured SMTP server never blocks a successful booking."""
+        """Sends a booking confirmed email to the customer - and, when this trip was booked for
+        someone else (the account holder's own email differs from the trip's own customer_email,
+        e.g. booking a ride for a family member), a second copy to the account holder too, since
+        they're the one who actually paid and should get their own confirmation of that. Swallowed
+        silently on failure so a misconfigured SMTP server never blocks a successful booking."""
         try:
             from django.conf import settings
             from core.email_utils import send_branded_email
 
             service_label = 'Book with Driver' if self.service_type == ServiceType.WITH_DRIVER else 'Self Drive'
-            send_branded_email(
-                subject=f'Booking Confirmed — SilverLake Car Rentals #{self.pk}',
-                template_name='emails/booking_confirmed.html',
-                context={
-                    'first_name': self.customer_name.split()[0],
-                    'booking_id': self.pk,
-                    'vehicle_name': self.vehicle.name,
-                    'service_type': service_label,
-                    'driver_name': self.driver.full_name if self.driver else None,
-                    'start_date': self.start_date.strftime('%d %b %Y'),
-                    'end_date': self.end_date.strftime('%d %b %Y'),
-                    'pickup_location': self.pickup_location,
-                    'total_amount': f'{self.total_amount:,.2f}',
-                    'amount_paid': f'{self.amount_paid:,.2f}',
-                    'balance_due': f'{self.balance_due:,.2f}',
-                    'bookings_url': f'{settings.FRONTEND_URL}/account/bookings',
-                },
-                recipient_list=[self.customer_email] if self.customer_email else [],
-            )
+            base_context = {
+                'booking_id': self.pk,
+                'vehicle_name': self.vehicle.name,
+                'service_type': service_label,
+                'driver_name': self.driver.full_name if self.driver else None,
+                'start_date': self.start_date.strftime('%d %b %Y'),
+                'end_date': self.end_date.strftime('%d %b %Y'),
+                'pickup_location': self.pickup_location,
+                'total_amount': f'{self.total_amount:,.2f}',
+                'amount_paid': f'{self.amount_paid:,.2f}',
+                'balance_due': f'{self.balance_due:,.2f}',
+                'bookings_url': f'{settings.FRONTEND_URL}/account/bookings',
+            }
+            subject = f'Booking Confirmed — SilverLake Car Rentals #{self.pk}'
+
+            if self.customer_email:
+                send_branded_email(
+                    subject=subject, template_name='emails/booking_confirmed.html',
+                    context={**base_context, 'first_name': self.customer_name.split()[0]},
+                    recipient_list=[self.customer_email],
+                )
+
+            if self.user.email and self.user.email != self.customer_email:
+                send_branded_email(
+                    subject=subject, template_name='emails/booking_confirmed.html',
+                    context={
+                        **base_context,
+                        'first_name': self.user.first_name.split()[0] if self.user.first_name else 'there',
+                        'booked_for_name': self.customer_name,
+                    },
+                    recipient_list=[self.user.email],
+                )
         except Exception:
             pass  # Never crash a booking over email
 
