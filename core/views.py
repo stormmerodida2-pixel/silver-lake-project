@@ -12,13 +12,14 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.serializers import UserSerializer
-from bookings.models import Booking, BookingStatus
-from bookings.serializers import BookingSerializer
+from accounts.services import get_or_create_customer_account
+from bookings.models import Booking, BookingSource, BookingStatus
+from bookings.serializers import AdminGovernmentBookingSerializer, BookingSerializer
 from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
 from fleet.serializers import VehicleCategorySerializer, VehicleImageSerializer, VehicleServiceRecordSerializer
-from payments.models import DriverPayout, Payment, PaymentStatus, Refund, RefundStatus
+from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund, RefundStatus
 from reviews.models import Review
 
 from .audit import log_admin_action
@@ -37,7 +38,7 @@ from .serializers import (
     AdminVehicleSerializer,
     AdminVehicleSubmissionSerializer,
 )
-from .utils import capture_replaced_files, delete_files, search_filter
+from .utils import capture_replaced_files, delete_files, parse_amount, search_filter
 
 User = get_user_model()
 
@@ -625,8 +626,10 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Guard: Cannot complete with outstanding balance
-        if new_status == BookingStatus.COMPLETED and booking.balance_due > 0:
+        # Guard: Cannot complete with outstanding balance - except a government contract, whose
+        # balance stays outstanding until its invoice eventually clears (see
+        # Booking._complete_if_ended_and_paid).
+        if new_status == BookingStatus.COMPLETED and not booking.is_government_contract and booking.balance_due > 0:
             return Response(
                 {'detail': f'Cannot complete trip. There is an outstanding balance of KES {booking.balance_due:,.2f}.'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -697,6 +700,68 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         booking.save(update_fields=['last_balance_reminder_at'])
         send_booking_balance_reminder_email(booking)
         log_admin_action(request, 'booking.remind_balance', booking)
+        return Response(BookingSerializer(booking).data)
+
+    @action(detail=False, methods=['post'], url_path='create-government')
+    def create_government(self, request):
+        """Creates a booking for a government contract - confirmed immediately, no deposit
+        required, since payment for these arrives later via invoice rather than upfront like a
+        normal customer booking (see Booking.is_government_contract). Staff-only: these are
+        negotiated B2B arrangements, never something a customer sets up themselves. Reuses
+        get_or_create_customer_account (the same helper the driver walk-in flow uses) since the
+        department contact never registers or logs in - it's found/created by name/phone/email,
+        not tied to whichever staff member happens to be creating this."""
+        serializer = AdminGovernmentBookingSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        organization = get_user_organization(request.user)
+        if organization is not None and data['vehicle'].owner_id != organization.id:
+            return Response({'detail': 'You can only book your own organization\'s vehicles.'}, status=status.HTTP_403_FORBIDDEN)
+
+        customer, _ = get_or_create_customer_account(
+            full_name=data['customer_name'], phone_number=data['customer_phone'], email=data['customer_email'],
+        )
+
+        booking = Booking(
+            user=customer, vehicle=data['vehicle'], driver=data.get('driver'), service_type=data['service_type'],
+            source=BookingSource.ADMIN, status=BookingStatus.CONFIRMED,
+            is_government_contract=True, government_contract_reference=data['government_contract_reference'],
+            customer_name=data['customer_name'], customer_phone=data['customer_phone'],
+            customer_email=data['customer_email'], pickup_location=data['pickup_location'],
+            dropoff_location=data['dropoff_location'], start_date=data['start_date'],
+            end_date=data['end_date'], notes=data['notes'],
+        )
+        booking.save()
+        booking.confirm_government_contract()
+        log_admin_action(request, 'booking.create_government', booking, detail=data['government_contract_reference'])
+
+        return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='record-invoice-payment')
+    def record_invoice_payment(self, request, pk=None):
+        """Logs the real payment once a government department's invoice actually clears - weeks
+        or months after the trip, unlike a normal customer's upfront M-Pesa/card/cash. No other
+        side effects: the driver's payout already happened at trip completion (see
+        Booking._ensure_driver_payout), this is purely a bookkeeping record so amount_paid/
+        balance_due (and the receipt) reflect reality."""
+        booking = self.get_object()
+        if not booking.is_government_contract:
+            return Response({'detail': 'This action is only for government-contract bookings.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            amount = parse_amount(request.data.get('amount'))
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        if amount <= 0:
+            return Response({'detail': 'Amount must be greater than zero.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        reference = request.data.get('reference', '').strip()
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.INVOICE, status=PaymentStatus.SUCCESSFUL,
+            amount=amount, note=reference,
+        )
+        log_admin_action(request, 'booking.record_invoice_payment', booking, detail=f'KES {amount}')
         return Response(BookingSerializer(booking).data)
 
 

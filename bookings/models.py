@@ -32,6 +32,7 @@ class BookingStatus(models.TextChoices):
 class BookingSource(models.TextChoices):
     ONLINE = 'online', 'Online'
     DRIVER_ONSITE = 'driver_onsite', 'Driver (on-site)'
+    ADMIN = 'admin', 'Staff (Admin)'
 
 
 # Bookings in these statuses hold the vehicle; cancelled/completed ones don't block dates.
@@ -75,6 +76,18 @@ class Booking(models.Model):
     # Lets a customer with no account (or who never logs in) open a no-login payment page for
     # this specific booking - shared with them directly by the driver.
     customer_token = models.UUIDField(default=uuid.uuid4, editable=False, null=True, unique=True)
+
+    # A government department's trip, arranged and paid for under a negotiated contract rather
+    # than an ordinary customer paying up front - see Booking.confirm_government_contract,
+    # _complete_if_ended_and_paid, and _ensure_driver_payout, all of which treat this booking's
+    # (permanently nonzero, until an invoice eventually clears) balance_due as expected rather
+    # than something blocking the trip from starting, completing, or paying its driver out.
+    # Only ever set by an admin (see core.views.AdminBookingViewSet.create_government) - never
+    # something a customer can opt into themselves.
+    is_government_contract = models.BooleanField(default=False)
+    government_contract_reference = models.CharField(
+        max_length=100, blank=True, help_text='e.g. department name and LPO/PO number',
+    )
 
     customer_name = models.CharField(max_length=100)
     customer_phone = models.CharField(max_length=20)
@@ -394,13 +407,20 @@ class Booking(models.Model):
         to SilverLake too, not just the client's word that they paid the driver. Silently defers
         rather than erroring, matching how a nonzero balance_due already defers this the same way
         - see DriverBookingCompleteView/AdminBookingViewSet.set_status for the user-facing 400
-        this produces when someone tries to force completion directly instead."""
-        if self.status == BookingStatus.COMPLETED or not self.trip_ended_at or self.balance_due > 0:
+        this produces when someone tries to force completion directly instead.
+
+        A government contract's balance_due stays nonzero until its invoice eventually clears,
+        possibly weeks after the trip - waiting on that here would mean these trips never
+        auto-complete at all, so this is the one case a nonzero balance doesn't hold things up."""
+        if self.status == BookingStatus.COMPLETED or not self.trip_ended_at:
+            return
+        if not self.is_government_contract and self.balance_due > 0:
             return
         if self.has_undeposited_cash:
             return
         self.status = BookingStatus.COMPLETED
         self.save(update_fields=['status'])
+        self._ensure_driver_payout()
 
         from .emails import send_trip_completed_email
 
@@ -662,6 +682,40 @@ class Booking(models.Model):
         except Exception:
             pass  # Never crash a booking over email
 
+    def confirm_government_contract(self):
+        """Called once, right after an admin creates this as a government-contract booking (see
+        core.views.AdminBookingViewSet.create_government) - already CONFIRMED at creation, no
+        deposit to wait on, so this only handles the notification side: a purpose-built
+        confirmation email that skips the "deposit received"/"balance due before pickup"
+        wording that makes no sense here (payment arrives later via invoice, not upfront), the
+        same SMS every other confirmed booking gets, and letting the assigned driver know
+        exactly like an online customer's own booking would."""
+        from .emails import send_government_contract_confirmed_email
+
+        send_government_contract_confirmed_email(self)
+        self._send_confirmation_sms()
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        if self.driver_id:
+            from .emails import send_driver_booking_notification, send_driver_booking_sms
+
+            send_driver_booking_notification(self)
+            send_driver_booking_sms(self)
+            notify(
+                NotificationEvent.DRIVER_BOOKED,
+                f'{self.customer_name} booked you for {self.vehicle.name} - {self.rental_days} day(s)',
+                driver=self.driver, link_path='/driver',
+            )
+
+        notify(
+            NotificationEvent.BOOKING_CREATED,
+            f'{self.vehicle.name} booked (government contract: {self.government_contract_reference}) '
+            f'for {self.rental_days} day(s)',
+            organization=self.vehicle.owner, link_path='/admin/bookings',
+        )
+
     def _send_confirmation_sms(self):
         """SMS companion to _send_confirmation_email() above - same trigger, same swallow-on-
         failure rule. customer_phone is required at booking creation (unlike customer_email,
@@ -690,8 +744,15 @@ class Booking(models.Model):
         owe you, staff disburse by hand" record either way. Doesn't pay anyone - staff mark
         DriverPayout.is_paid once the money has actually been sent out. If any of the payments
         behind this were self-reported cash or card (no independent gateway confirming either,
-        unlike M-Pesa), the payout is flagged for admin to verify before it can be paid out."""
-        if self.driver_payout_amount <= 0 or self.balance_due > 0:
+        unlike M-Pesa), the payout is flagged for admin to verify before it can be paid out.
+
+        A government contract's driver is paid out once the trip completes regardless of
+        balance_due (see _complete_if_ended_and_paid) - the department's invoice can take weeks
+        or months to clear, and a driver-partner shouldn't wait that long to be paid for a trip
+        they've already done."""
+        if self.driver_payout_amount <= 0:
+            return
+        if not self.is_government_contract and self.balance_due > 0:
             return
         from payments.models import DriverPayout, PaymentMethod, PaymentStatus
 

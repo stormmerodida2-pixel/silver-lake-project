@@ -11,8 +11,8 @@ from PIL import Image as PILImage
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from bookings.models import BookingStatus
-from bookings.tests import make_booking, make_vehicle
+from bookings.models import Booking, BookingStatus
+from bookings.tests import NEXT_WEEK, TOMORROW, make_booking, make_vehicle
 from drivers.models import Driver, DriverApplication
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
@@ -705,6 +705,141 @@ class AdminSetStatusTripLifecycleTests(APITestCase):
         self.assertNotEqual(self.booking.status, BookingStatus.COMPLETED)
 
 
+class GovernmentContractBookingTests(APITestCase):
+    """A government contract is confirmed with no deposit and paid for later via invoice,
+    rather than upfront like an ordinary customer - see Booking.is_government_contract."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='gov-staff@example.com', password='pass12345!', is_staff=True)
+        self.plain_user = User.objects.create_user(username='gov-plain@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(full_name='Gov Driver', is_active=True, email='gov-driver@example.com')
+        self.vehicle = make_vehicle(name='Gov Car', price_per_day=Decimal('1000'), driver=self.driver)
+        self.client.force_authenticate(user=self.staff)
+
+    def _create_payload(self, **overrides):
+        payload = {
+            'vehicle': self.vehicle.id, 'driver': self.driver.id, 'customer_name': 'Ministry of Health',
+            'customer_phone': '254711222333', 'customer_email': 'procurement@health.go.ke',
+            'pickup_location': 'Kisumu CBD', 'start_date': str(TOMORROW), 'end_date': str(NEXT_WEEK),
+            'government_contract_reference': 'Ministry of Health - LPO#4821',
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_creating_a_government_booking_confirms_immediately_with_no_deposit(self):
+        mail.outbox = []
+        response = self.client.post('/api/admin/bookings/create-government/', self._create_payload())
+        self.assertEqual(response.status_code, 201)
+        booking_id = response.data['id']
+        booking = Booking.objects.get(pk=booking_id)
+        self.assertEqual(booking.status, BookingStatus.CONFIRMED)
+        self.assertTrue(booking.is_government_contract)
+        self.assertEqual(booking.government_contract_reference, 'Ministry of Health - LPO#4821')
+        self.assertEqual(booking.amount_paid, Decimal('0'))
+        self.assertGreater(booking.balance_due, 0)
+        self.assertTrue(any('Booking Confirmed' in m.subject for m in mail.outbox))
+        self.assertTrue(any('procurement@health.go.ke' in m.to for m in mail.outbox))
+
+    def test_creating_a_government_booking_notifies_the_assigned_driver(self):
+        mail.outbox = []
+        self.client.post('/api/admin/bookings/create-government/', self._create_payload())
+        self.assertTrue(any('gov-driver@example.com' in m.to for m in mail.outbox))
+
+    def test_plain_customer_cannot_create_a_government_booking(self):
+        self.client.force_authenticate(user=self.plain_user)
+        response = self.client.post('/api/admin/bookings/create-government/', self._create_payload())
+        self.assertEqual(response.status_code, 403)
+
+    def test_missing_contract_reference_is_rejected(self):
+        payload = self._create_payload()
+        del payload['government_contract_reference']
+        response = self.client.post('/api/admin/bookings/create-government/', payload)
+        self.assertEqual(response.status_code, 400)
+
+    def test_conflicting_dates_are_rejected(self):
+        make_booking(
+            self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+            start_date=TOMORROW, end_date=NEXT_WEEK,
+        )
+        response = self.client.post('/api/admin/bookings/create-government/', self._create_payload())
+        self.assertEqual(response.status_code, 400)
+
+    def test_a_government_contract_trip_completes_despite_an_outstanding_balance(self):
+        booking = make_booking(
+            self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+            is_government_contract=True, government_contract_reference='LPO#1',
+        )
+        response = self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'ongoing'})
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'completed'})
+        self.assertEqual(response.status_code, 200)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, BookingStatus.COMPLETED)
+        self.assertGreater(booking.balance_due, 0)
+
+    def test_completing_a_government_contract_queues_the_driver_payout_despite_the_balance(self):
+        driver_owned_vehicle = make_vehicle(name='Gov Payout Car', price_per_day=Decimal('1000'), driver=self.driver)
+        booking = make_booking(
+            self.plain_user, driver_owned_vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+            is_government_contract=True, government_contract_reference='LPO#2',
+        )
+        self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'ongoing'})
+        self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'completed'})
+        self.assertTrue(DriverPayout.objects.filter(booking=booking).exists())
+
+    def test_a_normal_booking_still_cannot_complete_with_an_outstanding_balance(self):
+        booking = make_booking(self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED)
+        self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'ongoing'})
+        response = self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'completed'})
+        self.assertEqual(response.status_code, 400)
+
+    def test_recording_an_invoice_payment_creates_a_successful_payment(self):
+        booking = make_booking(
+            self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+            is_government_contract=True, government_contract_reference='LPO#3',
+        )
+        response = self.client.post(
+            f'/api/admin/bookings/{booking.id}/record-invoice-payment/',
+            {'amount': str(booking.total_amount), 'reference': 'Bank transfer - Treasury ref 55821'},
+        )
+        self.assertEqual(response.status_code, 200)
+        payment = Payment.objects.get(booking=booking)
+        self.assertEqual(payment.method, PaymentMethod.INVOICE)
+        self.assertEqual(payment.status, PaymentStatus.SUCCESSFUL)
+        self.assertEqual(payment.amount, booking.total_amount)
+        self.assertEqual(payment.note, 'Bank transfer - Treasury ref 55821')
+        booking.refresh_from_db()
+        self.assertEqual(booking.balance_due, Decimal('0.00'))
+
+    def test_recording_an_invoice_payment_rejects_a_non_government_booking(self):
+        booking = make_booking(self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED)
+        response = self.client.post(
+            f'/api/admin/bookings/{booking.id}/record-invoice-payment/', {'amount': '1000'},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_recording_an_invoice_payment_requires_a_positive_amount(self):
+        booking = make_booking(
+            self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+            is_government_contract=True, government_contract_reference='LPO#4',
+        )
+        response = self.client.post(
+            f'/api/admin/bookings/{booking.id}/record-invoice-payment/', {'amount': '0'},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_non_staff_cannot_record_an_invoice_payment(self):
+        booking = make_booking(
+            self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+            is_government_contract=True, government_contract_reference='LPO#5',
+        )
+        self.client.force_authenticate(user=self.plain_user)
+        response = self.client.post(
+            f'/api/admin/bookings/{booking.id}/record-invoice-payment/', {'amount': '1000'},
+        )
+        self.assertEqual(response.status_code, 403)
+
+
 class AdminVehicleGalleryTests(APITestCase):
     """A company-created vehicle previously had no way to get more than its single cover photo -
     only a driver's own submission required (and got) a real photo gallery."""
@@ -1343,6 +1478,29 @@ class OrganizationScopingTests(APITestCase):
         self.client.post(f'/api/admin/fleet-partners/{self.org_a.id}/notify/', {'message': 'Logged message.'})
         entry = AuditLog.objects.get(action='fleet_partner.notify')
         self.assertEqual(entry.detail, 'Logged message.')
+
+    # ── Government contract bookings ────────────────────────────────────────
+    def test_org_admin_cannot_create_a_government_booking_for_another_orgs_vehicle(self):
+        # Dates offset well clear of org_b_booking's own TOMORROW-NEXT_WEEK range from setUp,
+        # so this fails on the org-scoping check and nothing else.
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.post('/api/admin/bookings/create-government/', {
+            'vehicle': self.org_b_vehicle.id, 'customer_name': 'Ministry Contact',
+            'customer_phone': '254711000000', 'pickup_location': 'Kisumu',
+            'start_date': str(TOMORROW + timedelta(days=30)), 'end_date': str(TOMORROW + timedelta(days=35)),
+            'government_contract_reference': 'LPO#1',
+        })
+        self.assertEqual(response.status_code, 403)
+
+    def test_org_admin_can_create_a_government_booking_for_their_own_vehicle(self):
+        self.client.force_authenticate(user=self.org_a_admin)
+        response = self.client.post('/api/admin/bookings/create-government/', {
+            'vehicle': self.org_a_vehicle.id, 'customer_name': 'Ministry Contact',
+            'customer_phone': '254711000001', 'pickup_location': 'Kisumu',
+            'start_date': str(TOMORROW + timedelta(days=30)), 'end_date': str(TOMORROW + timedelta(days=35)),
+            'government_contract_reference': 'LPO#2',
+        })
+        self.assertEqual(response.status_code, 201)
 
 
 class AdminSearchAndFilterTests(APITestCase):

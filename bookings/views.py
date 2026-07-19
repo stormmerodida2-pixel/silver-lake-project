@@ -387,7 +387,7 @@ class DriverBookingCompleteView(APIView):
             return Response({'detail': 'Cannot complete a cancelled trip.'}, status=status.HTTP_400_BAD_REQUEST)
         if booking.status == BookingStatus.COMPLETED:
             return Response({'detail': 'This trip is already completed.'}, status=status.HTTP_400_BAD_REQUEST)
-        if booking.balance_due > 0:
+        if not booking.is_government_contract and booking.balance_due > 0:
             return Response(
                 {'detail': f'Cannot complete this trip - there is an outstanding balance of KES {booking.balance_due:,.2f}.'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -407,6 +407,10 @@ class DriverBookingCompleteView(APIView):
 
         booking.status = BookingStatus.COMPLETED
         booking.save(update_fields=['status'])
+        # Normally already queued by confirm_if_deposit_met() once the balance cleared (get_or_create
+        # makes this a harmless no-op then) - but a government contract's balance never clears
+        # through that path, so this is the only place its payout actually gets queued.
+        booking._ensure_driver_payout()
 
         from .emails import send_trip_completed_email
 

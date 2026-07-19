@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import apiClient from '../../api/client'
+import GovernmentBookingModal from '../../components/admin/GovernmentBookingModal.vue'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 import { confirmDialog } from '../../utils/dialogs'
@@ -93,6 +94,46 @@ async function remindBalance(booking) {
   }
 }
 
+// ── Government contract bookings ─────────────────────────────────────────────
+const showGovModal = ref(false)
+const govModal = ref(null)
+
+function openGovModal() {
+  govModal.value.open()
+  showGovModal.value = true
+}
+
+function onGovernmentBookingCreated(booking) {
+  bookings.value.unshift(booking)
+}
+
+const recordingInvoiceId = ref(null)
+const invoiceForm = reactive({ amount: '', reference: '' })
+const invoiceError = ref('')
+
+function openInvoiceForm(booking) {
+  recordingInvoiceId.value = booking.id
+  invoiceError.value = ''
+  Object.assign(invoiceForm, { amount: '', reference: '' })
+}
+
+async function submitInvoicePayment(booking) {
+  invoiceError.value = ''
+  busyId.value = booking.id
+  try {
+    const { data } = await apiClient.post(`/admin/bookings/${booking.id}/record-invoice-payment/`, {
+      amount: invoiceForm.amount,
+      reference: invoiceForm.reference,
+    })
+    Object.assign(booking, data)
+    recordingInvoiceId.value = null
+  } catch (err) {
+    invoiceError.value = err.response?.data?.detail || 'Could not record this payment.'
+  } finally {
+    busyId.value = null
+  }
+}
+
 const downloadingId = ref(null)
 async function downloadReceipt(booking) {
   downloadingId.value = booking.id
@@ -148,7 +189,20 @@ onMounted(() => {
         <option value="with_driver">With Driver</option>
         <option value="self_drive">Self Drive</option>
       </select>
+      <button
+        class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+        @click="openGovModal"
+      >
+        + Government Booking
+      </button>
     </div>
+
+    <GovernmentBookingModal
+      ref="govModal"
+      v-model="showGovModal"
+      :driver-options="driverOptions"
+      @created="onGovernmentBookingCreated"
+    />
 
     <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
     <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
@@ -181,6 +235,13 @@ onMounted(() => {
                 class="mt-1 inline-block rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-400"
               >
                 Walk-in
+              </span>
+              <span
+                v-if="booking.is_government_contract"
+                :title="booking.government_contract_reference"
+                class="mt-1 inline-block rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-blue-400"
+              >
+                Gov: {{ booking.government_contract_reference }}
               </span>
             </td>
             <td class="px-4 py-3 text-slate-300">
@@ -218,6 +279,42 @@ onMounted(() => {
                   {{ busyId === booking.id ? 'Sending...' : (booking.last_balance_reminder_at ? 'Remind Again' : 'Remind Driver') }}
                 </button>
                 <p v-else-if="!booking.driver_name" class="text-xs text-slate-600">No driver to remind</p>
+
+                <div v-if="booking.is_government_contract" class="mt-2">
+                  <button
+                    v-if="recordingInvoiceId !== booking.id"
+                    class="rounded-md border border-brand-blue-500 px-2 py-0.5 text-xs font-semibold text-brand-blue-400 hover:bg-brand-blue-500 hover:text-white"
+                    @click="openInvoiceForm(booking)"
+                  >
+                    Record Invoice Payment
+                  </button>
+                  <div v-else class="space-y-1.5 rounded-md border border-navy-700 bg-navy-900 p-2">
+                    <input
+                      v-model="invoiceForm.amount" type="number" step="0.01" placeholder="Amount (KES)"
+                      class="w-full rounded border border-navy-700 bg-navy-950 px-2 py-1 text-xs text-white focus:border-gold-400 focus:outline-none"
+                    />
+                    <input
+                      v-model="invoiceForm.reference" type="text" placeholder="Reference (optional)"
+                      class="w-full rounded border border-navy-700 bg-navy-950 px-2 py-1 text-xs text-white focus:border-gold-400 focus:outline-none"
+                    />
+                    <p v-if="invoiceError" class="text-xs text-red-400">{{ invoiceError }}</p>
+                    <div class="flex gap-1.5">
+                      <button
+                        class="flex-1 rounded border border-navy-700 px-2 py-1 text-xs text-slate-300 hover:border-slate-500"
+                        @click="recordingInvoiceId = null"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        :disabled="busyId === booking.id"
+                        class="flex-1 rounded bg-gold-500 px-2 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                        @click="submitInvoicePayment(booking)"
+                      >
+                        {{ busyId === booking.id ? 'Saving...' : 'Save' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
               <button
                 v-if="Number(booking.amount_paid) > 0"

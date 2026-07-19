@@ -13,6 +13,10 @@ class PaymentMethod(models.TextChoices):
     # redeem_referral_credit) - always created SUCCESSFUL immediately, since there's no
     # gateway or driver confirmation involved, unlike every other method here.
     CREDIT = 'credit', 'Referral Credit'
+    # A government contract's invoice settling, weeks or months after the trip - staff-recorded
+    # once it actually clears (see core.views.AdminBookingViewSet.record_invoice_payment), never
+    # created automatically the way an M-Pesa/card payment is.
+    INVOICE = 'invoice', 'Government Invoice'
 
 
 class PaymentStatus(models.TextChoices):

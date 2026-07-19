@@ -3,6 +3,7 @@ from copy import copy
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from drivers.models import Driver
 from fleet.models import Vehicle
 from payments.models import PaymentMethod, PaymentStatus
 from reviews.serializers import ReviewSerializer
@@ -42,10 +43,12 @@ class BookingSerializer(serializers.ModelSerializer):
             'trip_started_at', 'trip_ended_at', 'needs_attention', 'acknowledgment_deadline',
             'is_acknowledgment_overdue', 'pending_payments',
             'pending_cash_deposits', 'last_balance_reminder_at',
+            'is_government_contract', 'government_contract_reference',
         ]
         read_only_fields = [
             'status', 'source', 'total_amount', 'created_at', 'driver_acknowledged_at',
             'trip_started_at', 'trip_ended_at', 'last_balance_reminder_at',
+            'is_government_contract', 'government_contract_reference',
         ]
 
     def get_vehicle_name(self, obj):
@@ -127,6 +130,37 @@ class DriverOnsiteBookingSerializer(serializers.Serializer):
         driver = self.context['driver']
         candidate = Booking(
             vehicle=attrs['vehicle'], driver=driver, service_type=ServiceType.WITH_DRIVER,
+            start_date=attrs['start_date'], end_date=attrs['end_date'],
+        )
+        try:
+            candidate.clean()
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
+        return attrs
+
+
+class AdminGovernmentBookingSerializer(serializers.Serializer):
+    """An admin creating a government-contract booking on behalf of a department that will
+    never register or log in itself - mirrors DriverOnsiteBookingSerializer's plain-Serializer
+    + Booking.clean() reuse, but with an explicit driver choice (an admin can assign any of the
+    vehicle's eligible drivers, not just their own) and a required contract reference."""
+
+    vehicle = serializers.PrimaryKeyRelatedField(queryset=Vehicle.objects.all())
+    driver = serializers.PrimaryKeyRelatedField(queryset=Driver.objects.all(), required=False, allow_null=True)
+    service_type = serializers.ChoiceField(choices=ServiceType.choices, default=ServiceType.WITH_DRIVER)
+    customer_name = serializers.CharField(max_length=100)
+    customer_phone = serializers.CharField(max_length=20)
+    customer_email = serializers.EmailField(required=False, allow_blank=True, default='')
+    pickup_location = serializers.CharField(max_length=200)
+    dropoff_location = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+    government_contract_reference = serializers.CharField(max_length=100)
+    notes = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate(self, attrs):
+        candidate = Booking(
+            vehicle=attrs['vehicle'], driver=attrs.get('driver'), service_type=attrs['service_type'],
             start_date=attrs['start_date'], end_date=attrs['end_date'],
         )
         try:
