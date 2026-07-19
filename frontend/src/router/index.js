@@ -284,6 +284,12 @@ const routes = [
         component: () => import('../views/admin/AdminReferralSettingsView.vue'),
         meta: { title: 'Referral Program | SilverLake Car Rentals', pageTitle: 'Referral Program' },
       },
+      {
+        path: 'discounts',
+        name: 'admin-discounts',
+        component: () => import('../views/admin/AdminDiscountsView.vue'),
+        meta: { title: 'Discount Codes | SilverLake Car Rentals', pageTitle: 'Discount Codes' },
+      },
     ],
   },
   // Catch-all 404

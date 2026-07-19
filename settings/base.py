@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'reviews',
     'announcements',
     'blog',
+    'discounts',
     'notifications',
     'core',
 ]

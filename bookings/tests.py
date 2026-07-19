@@ -662,6 +662,205 @@ class ChangeDatesActionTests(APITestCase):
         self.assertIn('jane@example.com', dates_changed_emails[0].to)
 
 
+class DiscountCodeBookingTests(APITestCase):
+    """A discount code (see discounts.DiscountCode) reduces total_amount at booking creation,
+    before the 30% deposit is calculated off the already-discounted total - see Booking.save()."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='jane-disc@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))  # 7 days -> 7000
+        self.client.force_authenticate(user=self.user)
+
+    def _payload(self, **overrides):
+        payload = {
+            'vehicle': self.vehicle.id, 'service_type': 'with_driver',
+            'customer_name': 'Jane Doe', 'customer_phone': '254700000000',
+            'pickup_location': 'Kisumu', 'start_date': str(TOMORROW), 'end_date': str(NEXT_WEEK),
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_a_fixed_discount_code_reduces_the_total(self):
+        from discounts.models import DiscountCode
+
+        DiscountCode.objects.create(code='SAVE1000', discount_type='fixed', value=Decimal('1000'))
+        response = self.client.post('/api/bookings/', self._payload(discount_code='save1000'), format='json')
+        self.assertEqual(response.status_code, 201)
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.total_amount, Decimal('6000.00'))
+        self.assertEqual(booking.discount_amount, Decimal('1000.00'))
+        self.assertEqual(booking.discount_code.code, 'SAVE1000')
+
+    def test_a_percentage_discount_code_reduces_the_total(self):
+        from discounts.models import DiscountCode
+
+        DiscountCode.objects.create(code='TENOFF', discount_type='percent', value=Decimal('10'))
+        response = self.client.post('/api/bookings/', self._payload(discount_code='TENOFF'), format='json')
+        self.assertEqual(response.status_code, 201)
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.total_amount, Decimal('6300.00'))
+        self.assertEqual(booking.discount_amount, Decimal('700.00'))
+
+    def test_the_deposit_is_calculated_off_the_already_discounted_total(self):
+        from discounts.models import DiscountCode
+
+        DiscountCode.objects.create(code='HALFOFF', discount_type='percent', value=Decimal('50'))
+        response = self.client.post('/api/bookings/', self._payload(discount_code='HALFOFF'), format='json')
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.total_amount, Decimal('3500.00'))
+        self.assertEqual(booking.deposit_amount, Decimal('1050.00'))  # 30% of 3500
+
+    def test_the_code_is_marked_redeemed_and_tied_to_the_booking(self):
+        from discounts.models import DiscountCode
+
+        code = DiscountCode.objects.create(code='ONCE', value=Decimal('500'))
+        response = self.client.post('/api/bookings/', self._payload(discount_code='ONCE'), format='json')
+        booking_id = response.json()['id']
+        code.refresh_from_db()
+        self.assertTrue(code.is_redeemed)
+        self.assertIsNotNone(code.redeemed_at)
+        self.assertEqual(code.redeemed_booking_id, booking_id)
+
+    def test_an_already_redeemed_code_cannot_be_used_again(self):
+        from discounts.models import DiscountCode
+
+        DiscountCode.objects.create(code='SPENT', value=Decimal('500'), is_redeemed=True)
+        response = self.client.post('/api/bookings/', self._payload(discount_code='SPENT'), format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('discount_code', response.json())
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_an_inactive_code_cannot_be_used(self):
+        from discounts.models import DiscountCode
+
+        DiscountCode.objects.create(code='RETIRED', value=Decimal('500'), is_active=False)
+        response = self.client.post('/api/bookings/', self._payload(discount_code='RETIRED'), format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_an_unknown_code_cannot_be_used(self):
+        response = self.client.post('/api/bookings/', self._payload(discount_code='NOSUCHCODE'), format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_a_blank_discount_code_is_simply_ignored(self):
+        response = self.client.post('/api/bookings/', self._payload(discount_code=''), format='json')
+        self.assertEqual(response.status_code, 201)
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.total_amount, Decimal('7000.00'))
+        self.assertEqual(booking.discount_amount, Decimal('0'))
+        self.assertIsNone(booking.discount_code)
+
+    def test_a_fixed_discount_larger_than_the_total_just_zeroes_it_out(self):
+        from discounts.models import DiscountCode
+
+        DiscountCode.objects.create(code='HUGE', discount_type='fixed', value=Decimal('99999'))
+        response = self.client.post('/api/bookings/', self._payload(discount_code='HUGE'), format='json')
+        self.assertEqual(response.status_code, 201)
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.total_amount, Decimal('0.00'))
+
+    def test_a_discount_code_cannot_be_applied_through_a_plain_update(self):
+        from discounts.models import DiscountCode
+
+        DiscountCode.objects.create(code='LATE', value=Decimal('500'))
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        response = self.client.patch(f'/api/bookings/{booking.id}/', {'discount_code': 'LATE'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        booking.refresh_from_db()
+        self.assertIsNone(booking.discount_code)
+
+    def test_changing_dates_reapplies_the_same_discount_to_the_new_total(self):
+        from discounts.models import DiscountCode
+
+        code = DiscountCode.objects.create(code='STAYSON', discount_type='percent', value=Decimal('10'))
+        response = self.client.post('/api/bookings/', self._payload(discount_code='STAYSON'), format='json')
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.total_amount, Decimal('6300.00'))  # 7000 - 10%
+
+        new_start, new_end = TOMORROW, TOMORROW + timedelta(days=1)  # 2 days -> 2000
+        self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(new_start), 'end_date': str(new_end)},
+        )
+        booking.refresh_from_db()
+        self.assertEqual(booking.total_amount, Decimal('1800.00'))  # 2000 - 10%
+        self.assertEqual(booking.discount_amount, Decimal('200.00'))
+        # Single-use code isn't re-consumed by a later date change - it's still tied to the
+        # same one booking it was originally redeemed against.
+        code.refresh_from_db()
+        self.assertEqual(code.redeemed_booking_id, booking.id)
+
+
+class DiscountCodeRaceConditionTests(TransactionTestCase):
+    """Proves two concurrent bookings can't both redeem the same single-use code - mirrors
+    BookingRaceConditionTests below, using the same slow-down-the-window-and-race-two-real-
+    threads technique (a single-connection test can't reproduce a genuine race)."""
+
+    def setUp(self):
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.user_a = User.objects.create_user(username='disc-race-a@example.com', password='pass12345!')
+        self.user_b = User.objects.create_user(username='disc-race-b@example.com', password='pass12345!')
+        from discounts.models import DiscountCode
+
+        DiscountCode.objects.create(code='RACEME', value=Decimal('100'))
+
+    def _payload(self, start, end):
+        return {
+            'vehicle': self.vehicle.id, 'service_type': 'with_driver',
+            'customer_name': 'Racer', 'customer_phone': '254700000000',
+            'pickup_location': 'Kisumu', 'start_date': str(start), 'end_date': str(end),
+            'discount_code': 'RACEME',
+        }
+
+    def test_two_concurrent_bookings_cant_both_redeem_the_same_code(self):
+        from discounts.services import reserve_code
+
+        original_reserve_code = reserve_code
+
+        def slow_reserve_code(code_str):
+            result = original_reserve_code(code_str)
+            time.sleep(0.3)
+            return result
+
+        results = {}
+
+        def attempt(user, key, start, end):
+            client = APIClient()
+            client.force_authenticate(user=user)
+            response = client.post('/api/bookings/', self._payload(start, end), format='json')
+            results[key] = response.status_code
+            connection.close()
+
+        # Different, non-conflicting date ranges - only the shared discount code should be
+        # contested here, not the vehicle itself.
+        with patch('bookings.serializers.reserve_code', side_effect=slow_reserve_code):
+            t1 = threading.Thread(target=attempt, args=(self.user_a, 'a', TOMORROW, NEXT_WEEK))
+            t2 = threading.Thread(
+                target=attempt, args=(self.user_b, 'b', TOMORROW + timedelta(days=30), TOMORROW + timedelta(days=35)),
+            )
+            t1.start()
+            time.sleep(0.05)
+            t2.start()
+            t1.join()
+            t2.join()
+
+        # Whichever thread loses gets either a clean 400 (its own reserve_code call saw the
+        # code already redeemed) or a 409 (it hit the *vehicle* lock - both requests touch the
+        # same vehicle row first - and gave up rather than waiting forever); either way, exactly
+        # one booking ever actually redeems the code. See BookingRaceConditionTests above for
+        # the same two-outcomes-for-the-loser reasoning.
+        statuses = sorted(results.values())
+        self.assertEqual(len(statuses), 2, f'expected both requests to get a response, got {results}')
+        self.assertEqual(statuses.count(201), 1, f'expected exactly one booking to redeem the code, got {results}')
+        self.assertIn(statuses[0] if statuses[1] == 201 else statuses[1], (400, 409))
+
+        from discounts.models import DiscountCode
+
+        self.assertTrue(DiscountCode.objects.get(code='RACEME').is_redeemed)
+        self.assertEqual(Booking.objects.filter(discount_code__code='RACEME').count(), 1)
+
+
 class WaitlistNotificationTests(APITestCase):
     """Cancelling a booking should tell anyone waitlisted for a date range that overlapped it -
     but only once that range genuinely has no other blocking booking left covering it, and only

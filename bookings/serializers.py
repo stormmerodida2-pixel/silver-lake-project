@@ -1,8 +1,11 @@
 from copy import copy
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from rest_framework import serializers
 
+from discounts.models import DiscountCode
+from discounts.services import DiscountCodeError, find_active_code, reserve_code
 from drivers.models import Driver
 from fleet.models import Vehicle
 from payments.models import PaymentMethod, PaymentStatus
@@ -30,6 +33,11 @@ class BookingSerializer(serializers.ModelSerializer):
     review = serializers.SerializerMethodField()
     pending_payments = serializers.SerializerMethodField()
     pending_cash_deposits = serializers.SerializerMethodField()
+    # Write-only: a customer optionally types a discount code (see discounts.DiscountCode) at
+    # booking time - it's applied and consumed inside create() below, never exposed as the raw
+    # FK. discount_code_display/discount_amount (both read-only) show what actually got applied.
+    discount_code = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=20)
+    discount_code_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -39,6 +47,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'pickup_location', 'dropoff_location', 'start_date', 'end_date',
             'customer_license_number', 'customer_license_document', 'customer_id_document',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid',
+            'discount_code', 'discount_code_display', 'discount_amount',
             'status', 'notes', 'review', 'created_at', 'driver_acknowledged_at',
             'trip_started_at', 'trip_ended_at', 'needs_attention', 'acknowledgment_deadline',
             'is_acknowledgment_overdue', 'pending_payments',
@@ -46,9 +55,9 @@ class BookingSerializer(serializers.ModelSerializer):
             'is_government_contract', 'government_contract_reference',
         ]
         read_only_fields = [
-            'status', 'source', 'total_amount', 'created_at', 'driver_acknowledged_at',
-            'trip_started_at', 'trip_ended_at', 'last_balance_reminder_at',
-            'is_government_contract', 'government_contract_reference',
+            'status', 'source', 'total_amount', 'discount_amount', 'created_at',
+            'driver_acknowledged_at', 'trip_started_at', 'trip_ended_at',
+            'last_balance_reminder_at', 'is_government_contract', 'government_contract_reference',
         ]
 
     def get_vehicle_name(self, obj):
@@ -56,6 +65,9 @@ class BookingSerializer(serializers.ModelSerializer):
 
     def get_driver_name(self, obj):
         return obj.driver.full_name if obj.driver else None
+
+    def get_discount_code_display(self, obj):
+        return obj.discount_code.code if obj.discount_code_id else None
 
     def get_review(self, obj):
         review = getattr(obj, 'review', None)
@@ -102,7 +114,44 @@ class BookingSerializer(serializers.ModelSerializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(exc.messages)
 
+        discount_code = attrs.get('discount_code')
+        if discount_code:
+            if self.instance is not None:
+                # Only ever applied at creation, when total_amount is first computed (see
+                # Booking.save()) - an existing booking's total can't retroactively pick up a
+                # code applied after the fact through this same general-purpose update endpoint.
+                raise serializers.ValidationError(
+                    {'discount_code': 'A discount code can only be applied when creating a booking.'}
+                )
+            # A cheap, friendly pre-check - not itself a reservation (see find_active_code's own
+            # docstring). The actual single-use guarantee happens atomically in create() below.
+            try:
+                find_active_code(discount_code)
+            except DiscountCodeError as exc:
+                raise serializers.ValidationError({'discount_code': str(exc)})
+
         return attrs
+
+    def create(self, validated_data):
+        discount_code_str = (validated_data.pop('discount_code', '') or '').strip()
+        discount_code_obj = None
+        if discount_code_str:
+            try:
+                discount_code_obj = reserve_code(discount_code_str)
+            except DiscountCodeError as exc:
+                raise serializers.ValidationError({'discount_code': str(exc)})
+
+        booking = Booking(**validated_data)
+        if discount_code_obj:
+            booking.discount_code = discount_code_obj
+        booking.save()
+
+        if discount_code_obj:
+            DiscountCode.objects.filter(pk=discount_code_obj.pk).update(
+                redeemed_booking=booking, redeemed_at=timezone.now(),
+            )
+
+        return booking
 
 
 class DriverOnsiteBookingSerializer(serializers.Serializer):

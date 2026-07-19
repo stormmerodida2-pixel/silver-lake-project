@@ -104,6 +104,13 @@ const baseNavItems = [
     platformOnly: true,
     icon: 'M12 4.5a5.5 5.5 0 019.33 3.976M12 4.5a5.5 5.5 0 00-9.33 3.976M12 4.5v15m0 0l-6-6m6 6l6-6M2.67 8.476C2.24 9.402 2 10.42 2 11.5c0 1.518.474 2.926 1.28 4.083',
   },
+  {
+    to: '/admin/discounts',
+    label: 'Discount Codes',
+    superAdminOnly: true,
+    platformOnly: true,
+    icon: 'M9 5H7a2 2 0 00-2 2v2m0 6v2a2 2 0 002 2h2m6-16h2a2 2 0 012 2v2m0 6v2a2 2 0 01-2 2h-2M9 12h6',
+  },
 ]
 
 const navItems = computed(() => baseNavItems.filter((item) => {

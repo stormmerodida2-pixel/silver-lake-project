@@ -25,6 +25,7 @@ const form = reactive({
   end_date: '',
   notes: '',
   customer_license_number: '',
+  discount_code: '',
 })
 
 // ── Booking for someone else ─────────────────────────────────────────────────
@@ -654,6 +655,10 @@ function retryPayment() {
                 <span class="text-slate-500">Vehicle</span>
                 <span class="font-medium text-navy-900">{{ selectedVehicle?.name }}</span>
               </div>
+              <div v-if="Number(booking.discount_amount) > 0" class="flex items-center justify-between py-1.5 text-emerald-600">
+                <span>Discount ({{ booking.discount_code_display }})</span>
+                <span class="font-medium">- KES {{ Number(booking.discount_amount).toLocaleString() }}</span>
+              </div>
               <div class="flex items-center justify-between border-t border-dashed border-slate-200 py-1.5 pt-2.5">
                 <span class="font-semibold text-navy-900">Trip Total</span>
                 <span class="font-[Georgia] text-lg font-bold text-navy-900">
@@ -996,6 +1001,17 @@ function retryPayment() {
                 <div v-if="totalDays" class="mt-3 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-500">
                   A 30% deposit (KES {{ Math.round(totalCost * 0.3).toLocaleString() }}) secures your booking - pay the
                   rest anytime before pickup.
+                </div>
+
+                <div class="mt-4 border-t border-slate-200 pt-4">
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Discount Code (optional)
+                  </label>
+                  <input
+                    v-model="form.discount_code" type="text" placeholder="e.g. WELCOME500"
+                    class="w-full rounded-md border border-slate-200 px-3 py-2 text-sm uppercase text-slate-800 placeholder-slate-400 placeholder:normal-case focus:border-brand-blue-600 focus:outline-none"
+                  />
+                  <p class="mt-1 text-xs text-slate-400">Applied automatically when you book - it'll show on your total below.</p>
                 </div>
               </div>
           </div>

@@ -8,6 +8,7 @@ from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
 
+from discounts.models import DiscountCode
 from drivers.models import Driver
 from fleet.models import Vehicle
 
@@ -113,6 +114,21 @@ class Booking(models.Model):
     )
 
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, editable=False, default=0)
+
+    # An admin-generated single-use code (see discounts.DiscountCode) applied at booking
+    # creation to reduce total_amount - never touched again afterward except by change_dates()
+    # recomputing the same code's discount against the new total. SET_NULL: a discount code
+    # being fully deleted later (unusual - normally just deactivated) shouldn't cascade into
+    # losing this booking's own money/payment history.
+    discount_code = models.ForeignKey(
+        DiscountCode, on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings',
+    )
+    # The actual KES amount discount_code took off total_amount at creation (or after a later
+    # change_dates() recompute) - stored explicitly rather than re-derived from
+    # discount_code.value, since a percentage code's real KES value depends on the total at the
+    # time, and the code itself might later be deactivated or deleted.
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, editable=False, default=0)
+
     status = models.CharField(max_length=20, choices=BookingStatus.choices, default=BookingStatus.PENDING)
     notes = models.TextField(blank=True)
 
@@ -233,6 +249,9 @@ class Booking(models.Model):
             total = self.vehicle.price_per_day * self.rental_days
             if self.service_type == ServiceType.SELF_DRIVE:
                 total = (total * (Decimal('100') + SELF_DRIVE_SURCHARGE_PERCENT) / Decimal('100')).quantize(Decimal('0.01'))
+            if self.discount_code_id:
+                self.discount_amount = self.discount_code.compute_discount(total)
+                total -= self.discount_amount
             self.total_amount = total
         super().save(*args, **kwargs)
 
@@ -604,8 +623,11 @@ class Booking(models.Model):
         total = self.vehicle.price_per_day * self.rental_days
         if self.service_type == ServiceType.SELF_DRIVE:
             total = (total * (Decimal('100') + SELF_DRIVE_SURCHARGE_PERCENT) / Decimal('100')).quantize(Decimal('0.01'))
+        if self.discount_code_id:
+            self.discount_amount = self.discount_code.compute_discount(total)
+            total -= self.discount_amount
         self.total_amount = total
-        self.save(update_fields=['start_date', 'end_date', 'total_amount'])
+        self.save(update_fields=['start_date', 'end_date', 'total_amount', 'discount_amount'])
 
         from payments.models import Refund, RefundStatus
 
