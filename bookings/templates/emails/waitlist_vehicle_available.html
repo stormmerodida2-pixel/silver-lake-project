@@ -1,0 +1,19 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name }},</p>
+<p style="margin:0 0 16px;">
+  Good news - the <strong>{{ vehicle_name }}</strong> you were waiting on is now available for
+  <strong>{{ start_date|date:"d M Y" }}</strong> to <strong>{{ end_date|date:"d M Y" }}</strong>.
+</p>
+<p style="margin:0 0 16px; padding:12px 16px; background:#f1f5f9; border-radius:8px; color:#334155;">
+  This isn't a hold - it's first-come, first-served, so book soon if you still want it.
+</p>
+<p style="margin:0 0 24px;">
+  <a href="{{ booking_url }}" style="display:inline-block; padding:12px 24px; background:#c9a227; color:#0a1730; font-weight:bold; text-decoration:none; border-radius:6px;">
+    Book Now
+  </a>
+</p>
+<p style="margin:0; font-size:13px; color:#64748b;">
+  Questions? Call us on <strong>0790 111 000</strong> or reply to this email.
+</p>
+{% endblock %}

@@ -539,6 +539,10 @@ class Booking(models.Model):
             user=self.user, link_path='/account/bookings',
         )
 
+        from .services import notify_waitlist_for_freed_dates
+
+        notify_waitlist_for_freed_dates(self.vehicle, self.start_date, self.end_date)
+
     def _send_confirmation_email(self):
         """Sends a booking confirmed email to the customer. Swallowed silently on failure
         so a misconfigured SMTP server never blocks a successful booking."""
@@ -613,3 +617,28 @@ class Booking(models.Model):
             defaults['driver_id'] = self.driver_id
 
         DriverPayout.objects.get_or_create(booking=self, defaults=defaults)
+
+
+class WaitlistEntry(models.Model):
+    """A customer's request to be emailed the moment a specific vehicle opens up for a date
+    range that's currently blocked by another booking - see
+    bookings.services.notify_waitlist_for_freed_dates, called from Booking.mark_cancelled().
+    Purely advisory: it's a heads-up, not a hold - whoever actually books first once notified
+    still wins, same as any other vehicle."""
+
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='waitlist_entries')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='waitlist_entries')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    # Set the first time notify_waitlist_for_freed_dates finds this range genuinely free - a
+    # one-shot notification. Left null forever if the vehicle simply never frees up in time.
+    notified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vehicle', 'user', 'start_date', 'end_date'], name='unique_waitlist_entry',
+            ),
+        ]

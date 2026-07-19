@@ -4,7 +4,7 @@ from urllib.parse import quote
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import Booking, BookingStatus
+from .models import BLOCKING_BOOKING_STATUSES, Booking, BookingStatus, WaitlistEntry
 
 # Long enough that a genuine customer arranging an M-Pesa retry, a Paybill payment, or an
 # in-person cash handoff with their driver has ample time, short enough that a checkout nobody
@@ -80,3 +80,30 @@ def expire_stale_pending_bookings():
         except ValidationError:
             pass
     return count
+
+
+def notify_waitlist_for_freed_dates(vehicle, start_date, end_date):
+    """Called right after a booking is cancelled (see Booking.mark_cancelled) - tells anyone
+    waitlisted for a date range that overlapped it, but only once that range genuinely has no
+    remaining overlap with any other blocking booking on this vehicle (a second booking could
+    still cover part of the same range). One-shot per entry (notified_at), even if it later gets
+    re-blocked by a different booking - re-notifying on every subsequent cancellation would be
+    noisy for no benefit, since the first notification already told them to act fast."""
+    candidates = WaitlistEntry.objects.filter(
+        vehicle=vehicle, notified_at__isnull=True, start_date__lte=end_date, end_date__gte=start_date,
+    ).select_related('user')
+
+    for entry in candidates:
+        still_blocked = Booking.objects.filter(
+            vehicle=vehicle, status__in=BLOCKING_BOOKING_STATUSES,
+            start_date__lte=entry.end_date, end_date__gte=entry.start_date,
+        ).exists()
+        if still_blocked:
+            continue
+
+        entry.notified_at = timezone.now()
+        entry.save(update_fields=['notified_at'])
+
+        from .emails import send_waitlist_vehicle_available_email
+
+        send_waitlist_vehicle_available_email(entry)

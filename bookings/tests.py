@@ -500,6 +500,89 @@ class BookingCancelActionTests(APITestCase):
         self.assertEqual(len(mail.outbox), 0)
 
 
+class WaitlistNotificationTests(APITestCase):
+    """Cancelling a booking should tell anyone waitlisted for a date range that overlapped it -
+    but only once that range genuinely has no other blocking booking left covering it, and only
+    once ever per entry. See Booking.mark_cancelled -> bookings.services.notify_waitlist_for_freed_dates."""
+
+    def setUp(self):
+        self.vehicle = make_vehicle()
+        self.owner = User.objects.create_user(username='owner@example.com', password='pass12345!')
+        self.waiter = User.objects.create_user(
+            username='waiter@example.com', password='pass12345!', first_name='Wanjiru',
+            email='waiter@example.com',
+        )
+
+    def test_cancelling_the_only_blocking_booking_notifies_and_emails_the_waiter(self):
+        from .models import WaitlistEntry
+
+        booking = make_booking(self.owner, self.vehicle, status=BookingStatus.PENDING)
+        entry = WaitlistEntry.objects.create(
+            vehicle=self.vehicle, user=self.waiter, start_date=booking.start_date, end_date=booking.end_date,
+        )
+        mail.outbox = []
+
+        booking.mark_cancelled()
+
+        entry.refresh_from_db()
+        self.assertIsNotNone(entry.notified_at)
+        waitlist_emails = [m for m in mail.outbox if 'is now available' in m.subject]
+        self.assertEqual(len(waitlist_emails), 1)
+        self.assertIn('waiter@example.com', waitlist_emails[0].to)
+
+    def test_not_notified_if_a_different_booking_still_blocks_the_range(self):
+        from .models import WaitlistEntry
+
+        booking_a = make_booking(self.owner, self.vehicle, status=BookingStatus.PENDING)
+        make_booking(
+            self.owner, self.vehicle, status=BookingStatus.CONFIRMED,
+            start_date=booking_a.start_date, end_date=booking_a.end_date,
+        )
+        entry = WaitlistEntry.objects.create(
+            vehicle=self.vehicle, user=self.waiter, start_date=booking_a.start_date, end_date=booking_a.end_date,
+        )
+        mail.outbox = []
+
+        booking_a.mark_cancelled()
+
+        entry.refresh_from_db()
+        self.assertIsNone(entry.notified_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_an_already_notified_entry_is_not_notified_again(self):
+        from .models import WaitlistEntry
+
+        booking = make_booking(self.owner, self.vehicle, status=BookingStatus.PENDING)
+        original_notified_at = timezone.now() - timedelta(days=1)
+        entry = WaitlistEntry.objects.create(
+            vehicle=self.vehicle, user=self.waiter, start_date=booking.start_date, end_date=booking.end_date,
+            notified_at=original_notified_at,
+        )
+        mail.outbox = []
+
+        booking.mark_cancelled()
+
+        self.assertEqual(len(mail.outbox), 0)
+        entry.refresh_from_db()
+        self.assertEqual(entry.notified_at, original_notified_at)
+
+    def test_entry_for_a_non_overlapping_date_range_is_not_notified(self):
+        from .models import WaitlistEntry
+
+        booking = make_booking(self.owner, self.vehicle, status=BookingStatus.PENDING)
+        entry = WaitlistEntry.objects.create(
+            vehicle=self.vehicle, user=self.waiter,
+            start_date=booking.end_date + timedelta(days=30), end_date=booking.end_date + timedelta(days=37),
+        )
+        mail.outbox = []
+
+        booking.mark_cancelled()
+
+        entry.refresh_from_db()
+        self.assertIsNone(entry.notified_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+
 class CancellationRefundPercentageTests(APITestCase):
     """A client cancelling before the driver has actually committed to the trip (or a self-drive
     booking, which has no driver-commitment concept at all) gets everything back. Once the

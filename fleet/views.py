@@ -5,7 +5,8 @@ from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from bookings.models import BLOCKING_BOOKING_STATUSES, Booking
+from bookings.models import BLOCKING_BOOKING_STATUSES, Booking, WaitlistEntry
+from bookings.serializers import WaitlistEntrySerializer
 
 from .models import FavoriteVehicle, Vehicle, VehicleCategory, visible_vehicles
 from .serializers import VehicleCategorySerializer, VehicleSerializer
@@ -89,3 +90,46 @@ class VehicleViewSet(viewsets.ReadOnlyModelViewSet):
         )
         serializer = self.get_serializer(vehicles, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post', 'delete'], permission_classes=[permissions.IsAuthenticated])
+    def waitlist(self, request, pk=None):
+        """Lets a customer ask to be emailed the moment this vehicle opens up for a date range
+        that's currently blocked by another booking - see
+        bookings.services.notify_waitlist_for_freed_dates. Not self.get_object() for the same
+        reason availability() isn't - a vehicle worth waitlisting for is exactly one
+        visible_vehicles() might exclude for being mid-booking right now."""
+        vehicle = get_object_or_404(Vehicle, pk=pk)
+        try:
+            start = date.fromisoformat(request.data.get('start_date') or '')
+            end = date.fromisoformat(request.data.get('end_date') or '')
+        except ValueError:
+            return Response({'detail': 'A valid start_date and end_date are required.'}, status=400)
+        if end < start:
+            return Response({'detail': 'End date cannot be before start date.'}, status=400)
+
+        if request.method == 'DELETE':
+            WaitlistEntry.objects.filter(vehicle=vehicle, user=request.user, start_date=start, end_date=end).delete()
+            return Response(status=204)
+
+        if start < date.today():
+            return Response({'detail': 'Start date cannot be in the past.'}, status=400)
+
+        conflict = Booking.objects.filter(
+            vehicle=vehicle, status__in=BLOCKING_BOOKING_STATUSES, start_date__lte=end, end_date__gte=start,
+        ).exists()
+        if not conflict:
+            return Response(
+                {'detail': 'This vehicle is already available for these dates - you can book it directly.'},
+                status=400,
+            )
+
+        entry, _ = WaitlistEntry.objects.get_or_create(
+            vehicle=vehicle, user=request.user, start_date=start, end_date=end,
+        )
+        return Response(WaitlistEntrySerializer(entry, context={'request': request}).data, status=201)
+
+    @action(detail=False, methods=['get'], url_path='waitlist', permission_classes=[permissions.IsAuthenticated])
+    def my_waitlist(self, request):
+        """The logged-in customer's own waitlist entries, most recent first."""
+        entries = WaitlistEntry.objects.filter(user=request.user).select_related('vehicle')
+        return Response(WaitlistEntrySerializer(entries, many=True, context={'request': request}).data)

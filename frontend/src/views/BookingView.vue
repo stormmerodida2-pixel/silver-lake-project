@@ -147,6 +147,48 @@ const dateConflictWarning = computed(() => {
     : ''
 })
 
+// ── Waitlist for fully-booked dates ──────────────────────────────────────────
+const joiningWaitlist = ref(false)
+const waitlistError = ref('')
+const onWaitlistFor = ref(null) // { vehicle, start_date, end_date } once joined for the current selection
+
+// A fresh vehicle/date pick always needs a fresh join - never assume yesterday's confirmation
+// still applies to today's selection.
+watch([() => form.vehicle, () => form.start_date, () => form.end_date], () => {
+  onWaitlistFor.value = null
+  waitlistError.value = ''
+})
+
+async function joinWaitlist() {
+  joiningWaitlist.value = true
+  waitlistError.value = ''
+  try {
+    await apiClient.post(`/vehicles/${form.vehicle}/waitlist/`, {
+      start_date: form.start_date,
+      end_date: form.end_date,
+    })
+    onWaitlistFor.value = { vehicle: form.vehicle, start_date: form.start_date, end_date: form.end_date }
+  } catch (err) {
+    waitlistError.value = err.response?.data?.detail || 'Could not join the waitlist for this vehicle.'
+  } finally {
+    joiningWaitlist.value = false
+  }
+}
+
+async function leaveWaitlist() {
+  joiningWaitlist.value = true
+  try {
+    await apiClient.delete(`/vehicles/${form.vehicle}/waitlist/`, {
+      data: { start_date: form.start_date, end_date: form.end_date },
+    })
+    onWaitlistFor.value = null
+  } catch (err) {
+    waitlistError.value = 'Could not leave the waitlist.'
+  } finally {
+    joiningWaitlist.value = false
+  }
+}
+
 // Keep the layout shape stable while filling the form (no shifting as fields fill in) -
 // only the confirmation/payment steps (which have no live sidebar use) switch to a centered column.
 const showTwoColumn = computed(() => step.value === 'form')
@@ -413,12 +455,33 @@ function retryPayment() {
               </div>
             </div>
 
-            <p v-if="dateConflictWarning" class="flex items-start gap-2 rounded-lg border border-gold-500/40 bg-gold-500/10 px-3 py-2.5 text-sm text-navy-900">
-              <svg class="mt-0.5 h-4 w-4 shrink-0 text-gold-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M10.29 3.86L1.82 18a1.5 1.5 0 001.29 2.25h17.78a1.5 1.5 0 001.29-2.25L13.71 3.86a1.5 1.5 0 00-2.42 0z" />
-              </svg>
-              <span>{{ dateConflictWarning }}</span>
-            </p>
+            <div v-if="dateConflictWarning" class="rounded-lg border border-gold-500/40 bg-gold-500/10 px-3 py-2.5 text-sm text-navy-900">
+              <p class="flex items-start gap-2">
+                <svg class="mt-0.5 h-4 w-4 shrink-0 text-gold-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M10.29 3.86L1.82 18a1.5 1.5 0 001.29 2.25h17.78a1.5 1.5 0 001.29-2.25L13.71 3.86a1.5 1.5 0 00-2.42 0z" />
+                </svg>
+                <span>{{ dateConflictWarning }}</span>
+              </p>
+
+              <div class="mt-2 pl-6">
+                <p v-if="onWaitlistFor" class="text-brand-blue-600">
+                  You're on the waitlist for these dates - we'll email you if it opens up.
+                  <button type="button" :disabled="joiningWaitlist" class="ml-1 font-semibold underline disabled:opacity-60" @click="leaveWaitlist">
+                    Leave waitlist
+                  </button>
+                </p>
+                <button
+                  v-else
+                  type="button"
+                  :disabled="joiningWaitlist"
+                  class="rounded-md border border-navy-800 px-3 py-1.5 text-sm font-semibold text-navy-900 transition hover:bg-navy-900 hover:text-white disabled:opacity-60"
+                  @click="joinWaitlist"
+                >
+                  {{ joiningWaitlist ? 'Joining...' : 'Notify me if it opens up' }}
+                </button>
+                <p v-if="waitlistError" class="mt-1 text-red-600">{{ waitlistError }}</p>
+              </div>
+            </div>
 
             <div>
               <label class="mb-1 block text-sm text-slate-600">Pickup location</label>

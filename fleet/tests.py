@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from bookings.models import Booking, BookingStatus, ServiceType
+from bookings.models import Booking, BookingStatus, ServiceType, WaitlistEntry
 from drivers.models import Driver
 
 from .models import FavoriteVehicle, FleetPartner, Vehicle, VehicleCategory, VehicleServiceRecord
@@ -327,6 +327,7 @@ class FavoriteVehicleTests(APITestCase):
         self.assertFalse(response.data['is_favorited'])
         self.assertFalse(FavoriteVehicle.objects.filter(user=self.user, vehicle=self.vehicle).exists())
 
+
     def test_authenticated_vehicle_list_reflects_their_own_favorite(self):
         FavoriteVehicle.objects.create(user=self.user, vehicle=self.vehicle)
         self.client.force_authenticate(user=self.user)
@@ -356,6 +357,83 @@ class FavoriteVehicleTests(APITestCase):
         FavoriteVehicle.objects.create(user=self.user, vehicle=self.vehicle)
         with self.assertRaises(Exception):
             FavoriteVehicle.objects.create(user=self.user, vehicle=self.vehicle)
+
+
+class VehicleWaitlistTests(APITestCase):
+    """Joining the waitlist only makes sense when the requested dates are actually blocked by
+    another booking - see bookings.services.notify_waitlist_for_freed_dates for the other half
+    (getting told once they free up)."""
+
+    def setUp(self):
+        self.vehicle = make_vehicle(name='Waitlist Car')
+        self.other_user = User.objects.create_user(username='owner@example.com', password='pass12345!')
+        self.user = User.objects.create_user(username='waiter@example.com', password='pass12345!')
+        self.start = TODAY + timedelta(days=10)
+        self.end = TODAY + timedelta(days=15)
+        Booking.objects.create(
+            user=self.other_user, vehicle=self.vehicle, service_type=ServiceType.WITH_DRIVER,
+            customer_name='Someone Else', customer_phone='254700000001', pickup_location='Kisumu',
+            start_date=self.start, end_date=self.end, status=BookingStatus.CONFIRMED,
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def test_joining_the_waitlist_requires_login(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.post(
+            f'/api/vehicles/{self.vehicle.id}/waitlist/',
+            {'start_date': str(self.start), 'end_date': str(self.end)},
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_joining_the_waitlist_for_dates_that_actually_conflict_succeeds(self):
+        response = self.client.post(
+            f'/api/vehicles/{self.vehicle.id}/waitlist/',
+            {'start_date': str(self.start), 'end_date': str(self.end)},
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(
+            WaitlistEntry.objects.filter(vehicle=self.vehicle, user=self.user, start_date=self.start, end_date=self.end).exists()
+        )
+
+    def test_joining_the_waitlist_for_dates_that_are_actually_free_is_rejected(self):
+        free_start = self.end + timedelta(days=30)
+        free_end = free_start + timedelta(days=3)
+        response = self.client.post(
+            f'/api/vehicles/{self.vehicle.id}/waitlist/',
+            {'start_date': str(free_start), 'end_date': str(free_end)},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(WaitlistEntry.objects.filter(vehicle=self.vehicle, user=self.user).exists())
+
+    def test_joining_twice_for_the_same_range_does_not_duplicate(self):
+        payload = {'start_date': str(self.start), 'end_date': str(self.end)}
+        self.client.post(f'/api/vehicles/{self.vehicle.id}/waitlist/', payload)
+        self.client.post(f'/api/vehicles/{self.vehicle.id}/waitlist/', payload)
+        self.assertEqual(WaitlistEntry.objects.filter(vehicle=self.vehicle, user=self.user).count(), 1)
+
+    def test_invalid_dates_are_rejected(self):
+        response = self.client.post(
+            f'/api/vehicles/{self.vehicle.id}/waitlist/',
+            {'start_date': str(self.end), 'end_date': str(self.start)},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_leaving_the_waitlist_removes_the_entry(self):
+        payload = {'start_date': str(self.start), 'end_date': str(self.end)}
+        self.client.post(f'/api/vehicles/{self.vehicle.id}/waitlist/', payload)
+        response = self.client.delete(f'/api/vehicles/{self.vehicle.id}/waitlist/', payload)
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(WaitlistEntry.objects.filter(vehicle=self.vehicle, user=self.user).exists())
+
+    def test_my_waitlist_only_shows_the_current_users_own_entries(self):
+        WaitlistEntry.objects.create(vehicle=self.vehicle, user=self.user, start_date=self.start, end_date=self.end)
+        WaitlistEntry.objects.create(
+            vehicle=self.vehicle, user=self.other_user, start_date=self.start, end_date=self.end,
+        )
+        response = self.client.get('/api/vehicles/waitlist/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['vehicle'], self.vehicle.id)
 
 
 class PublicCategoryApiTests(APITestCase):

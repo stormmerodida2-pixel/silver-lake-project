@@ -187,3 +187,30 @@ def send_trip_completed_email(booking):
     except Exception:
         pass
 
+
+def send_waitlist_vehicle_available_email(entry):
+    """Sent once (see bookings.services.notify_waitlist_for_freed_dates) when a vehicle a
+    customer was waitlisted for opens up for their requested dates. Purely a heads-up - it's not
+    a hold, so whoever actually books first still wins. No-ops if the account somehow has no
+    email on file. Swallowed silently on failure so a misconfigured SMTP server never blocks the
+    waitlist entry from being marked notified."""
+    if not entry.user.email:
+        return
+    try:
+        from django.conf import settings
+
+        send_branded_email(
+            subject=f'{entry.vehicle.name} is now available for your dates - SilverLake Car Rentals',
+            template_name='emails/waitlist_vehicle_available.html',
+            context={
+                'first_name': entry.user.first_name.split()[0] if entry.user.first_name else 'there',
+                'vehicle_name': entry.vehicle.name,
+                'start_date': entry.start_date,
+                'end_date': entry.end_date,
+                'booking_url': f'{settings.FRONTEND_URL}/book?vehicle={entry.vehicle_id}',
+            },
+            recipient_list=[entry.user.email],
+        )
+    except Exception:
+        pass
+

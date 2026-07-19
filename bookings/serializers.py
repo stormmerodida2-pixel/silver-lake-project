@@ -7,7 +7,7 @@ from fleet.models import Vehicle
 from payments.models import PaymentMethod, PaymentStatus
 from reviews.serializers import ReviewSerializer
 
-from .models import Booking, ServiceType
+from .models import Booking, ServiceType, WaitlistEntry
 
 # Fields Booking.clean() actually looks at - kept in sync with the validation logic there.
 CLEAN_RELEVANT_FIELDS = (
@@ -134,3 +134,20 @@ class DriverOnsiteBookingSerializer(serializers.Serializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(exc.messages)
         return attrs
+
+
+class WaitlistEntrySerializer(serializers.ModelSerializer):
+    vehicle_name = serializers.CharField(source='vehicle.name', read_only=True)
+    vehicle_image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WaitlistEntry
+        fields = ['id', 'vehicle', 'vehicle_name', 'vehicle_image', 'start_date', 'end_date', 'notified_at', 'created_at']
+        read_only_fields = ['id', 'vehicle_name', 'vehicle_image', 'notified_at', 'created_at']
+
+    def get_vehicle_image(self, entry):
+        if not entry.vehicle.image:
+            return None
+        request = self.context.get('request')
+        url = entry.vehicle.image.url
+        return request.build_absolute_uri(url) if request else url
