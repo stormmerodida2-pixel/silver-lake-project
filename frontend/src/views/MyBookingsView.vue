@@ -16,6 +16,21 @@ const error = ref('')
 const ownName = () => `${auth.user?.first_name || ''} ${auth.user?.last_name || ''}`.trim()
 const isBookedForSomeoneElse = (booking) => booking.customer_name && booking.customer_name !== ownName()
 
+// ── Book again ────────────────────────────────────────────────────────────────
+// Pre-fills the same vehicle/pickup/dropoff on a fresh booking form - only the dates (and
+// payment) still need picking, since a completed trip's own dates are obviously in the past.
+function bookAgainLink(booking) {
+  return {
+    path: '/book',
+    query: {
+      vehicle: booking.vehicle,
+      service: booking.service_type,
+      pickup: booking.pickup_location || undefined,
+      dropoff: booking.dropoff_location || undefined,
+    },
+  }
+}
+
 // ── Track vehicle ────────────────────────────────────────────────────────
 const trackingId = ref(null)
 const canTrack = (booking) => ['confirmed', 'ongoing'].includes(booking.status)
@@ -178,6 +193,13 @@ onMounted(() => {
             >
               Leave a Review
             </button>
+            <RouterLink
+              v-if="booking.status === 'completed'"
+              :to="bookAgainLink(booking)"
+              class="rounded-md border border-brand-blue-600 px-3 py-1.5 text-sm font-semibold text-brand-blue-600 transition hover:bg-brand-blue-600 hover:text-white"
+            >
+              Book Again
+            </RouterLink>
             <button
               v-if="Number(booking.amount_paid) > 0"
               :disabled="downloadingId === booking.id"
