@@ -48,6 +48,7 @@ const EVENT_LABELS = {
   vehicle_submission_rejected: 'Vehicle Rejected',
   // Client account
   booking_confirmed: 'Booking Confirmed',
+  booking_dates_changed: 'Booking Dates Updated',
   trip_completed: 'Trip Completed',
   payment_recorded: 'Payment Recorded',
   refund_issued: 'Refund Issued',
@@ -60,7 +61,7 @@ const EVENT_LABELS = {
 // only about which toggles this particular bell bothers to show.
 const MANAGEABLE_EVENTS_BY_BASE_PATH = {
   '/admin/notifications': [
-    'driver_acknowledged', 'booking_created', 'booking_cancelled', 'cash_payment_recorded',
+    'driver_acknowledged', 'booking_created', 'booking_cancelled', 'booking_dates_changed', 'cash_payment_recorded',
     'cash_deposit_logged', 'payment_escalated', 'acknowledgment_overdue', 'payment_disputed',
     'dispute_resolved', 'driver_away', 'vehicle_submission', 'driver_application',
   ],
@@ -69,8 +70,8 @@ const MANAGEABLE_EVENTS_BY_BASE_PATH = {
     'payout_paid', 'vehicle_submission_approved', 'vehicle_submission_rejected',
   ],
   '/notifications': [
-    'booking_confirmed', 'booking_cancelled', 'payment_recorded', 'trip_completed', 'refund_issued',
-    'referral_credit_earned',
+    'booking_confirmed', 'booking_dates_changed', 'booking_cancelled', 'payment_recorded',
+    'trip_completed', 'refund_issued', 'referral_credit_earned',
   ],
 }
 const manageableEvents = MANAGEABLE_EVENTS_BY_BASE_PATH[props.basePath] || []

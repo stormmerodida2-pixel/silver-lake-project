@@ -108,6 +108,39 @@ async function cancelBooking(booking) {
 
 const canCancel = (booking) => !['cancelled', 'completed'].includes(booking.status)
 
+// ── Change dates ─────────────────────────────────────────────────────────────
+// Adjusts a PENDING/CONFIRMED booking's dates in place - cheaper than cancel-and-rebook, which
+// would trigger the cancellation refund rules and a whole new deposit even for a simple shift.
+const canChangeDates = (booking) => ['pending', 'confirmed'].includes(booking.status)
+const changingDatesId = ref(null)
+const changeDatesSaving = ref(false)
+const changeDatesError = ref('')
+const changeDatesForm = reactive({ start_date: '', end_date: '' })
+
+function openChangeDatesForm(booking) {
+  changingDatesId.value = booking.id
+  changeDatesError.value = ''
+  Object.assign(changeDatesForm, { start_date: booking.start_date, end_date: booking.end_date })
+}
+
+async function submitChangeDates(booking) {
+  changeDatesError.value = ''
+  changeDatesSaving.value = true
+  try {
+    const { data } = await apiClient.post(`/bookings/${booking.id}/change_dates/`, {
+      start_date: changeDatesForm.start_date,
+      end_date: changeDatesForm.end_date,
+    })
+    const index = bookings.value.findIndex((b) => b.id === booking.id)
+    bookings.value[index] = data
+    changingDatesId.value = null
+  } catch (err) {
+    changeDatesError.value = err.response?.data?.detail || 'Could not change these dates.'
+  } finally {
+    changeDatesSaving.value = false
+  }
+}
+
 // ── Download receipt ─────────────────────────────────────────────────────────
 const downloadingId = ref(null)
 async function downloadReceipt(booking) {
@@ -179,6 +212,13 @@ onMounted(() => {
               {{ trackingId === booking.id ? 'Hide Map' : 'Track Vehicle' }}
             </button>
             <button
+              v-if="canChangeDates(booking) && changingDatesId !== booking.id"
+              class="rounded-md border border-brand-blue-600 px-3 py-1.5 text-sm font-semibold text-brand-blue-600 transition hover:bg-brand-blue-600 hover:text-white"
+              @click="openChangeDatesForm(booking)"
+            >
+              Change Dates
+            </button>
+            <button
               v-if="canCancel(booking)"
               :disabled="cancellingId === booking.id"
               class="rounded-md border border-red-400 px-3 py-1.5 text-sm font-semibold text-red-600 transition hover:bg-red-500 hover:text-white disabled:opacity-60"
@@ -211,6 +251,49 @@ onMounted(() => {
           </div>
 
           <TrackVehicleMap v-if="trackingId === booking.id" :booking-id="booking.id" class="mt-3" />
+
+          <!-- Change dates form -->
+          <div v-if="changingDatesId === booking.id" class="mt-3 space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-sm text-slate-600">New start date</label>
+                <input
+                  v-model="changeDatesForm.start_date"
+                  type="date"
+                  class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm text-slate-600">New end date</label>
+                <input
+                  v-model="changeDatesForm.end_date"
+                  type="date"
+                  :min="changeDatesForm.start_date"
+                  class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                />
+              </div>
+            </div>
+            <p class="text-xs text-slate-500">
+              The trip total is recalculated for the new dates - if it's now lower than what you've already paid, we'll refund the difference.
+            </p>
+            <p v-if="changeDatesError" class="text-sm text-red-600">{{ changeDatesError }}</p>
+            <div class="flex gap-3">
+              <button
+                type="button"
+                class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:border-slate-400"
+                @click="changingDatesId = null"
+              >
+                Cancel
+              </button>
+              <button
+                :disabled="changeDatesSaving"
+                class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+                @click="submitChangeDates(booking)"
+              >
+                {{ changeDatesSaving ? 'Saving...' : 'Save New Dates' }}
+              </button>
+            </div>
+          </div>
 
           <!-- Submitted review -->
           <div v-if="booking.review" class="mt-3 rounded-lg border border-slate-200 bg-white p-4">

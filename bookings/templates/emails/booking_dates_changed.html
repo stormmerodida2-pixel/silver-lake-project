@@ -1,0 +1,51 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="font-size:18px; font-weight:bold; color:#0a1730; margin:0 0 16px;">
+  Booking Dates Updated, {{ first_name }}
+</p>
+
+<p style="margin:0 0 20px;">
+  {% if booked_for_name %}The booking{% else %}Your booking{% endif %} <strong>#{{ booking_id }}</strong>
+  for the <strong>{{ vehicle_name }}</strong>{% if booked_for_name %} for <strong>{{ booked_for_name }}</strong>{% endif %}
+  has been rescheduled.
+</p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+  style="border:1px solid #e5e7eb; border-radius:8px; border-collapse:collapse; margin-bottom:24px;">
+  <tr style="background-color:#f8fafc;">
+    <td colspan="2" style="padding:12px 16px; font-size:13px; font-weight:bold;
+      text-transform:uppercase; letter-spacing:0.5px; color:#64748b; border-bottom:1px solid #e5e7eb;">
+      Updated Dates
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb; width:40%;">Previously</td>
+    <td style="padding:12px 16px; font-size:14px; color:#94a3b8; text-decoration:line-through; border-bottom:1px solid #e5e7eb;">{{ old_start_date }} &rarr; {{ old_end_date }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb;">Now</td>
+    <td style="padding:12px 16px; font-size:14px; color:#0a1730; font-weight:bold; border-bottom:1px solid #e5e7eb;">{{ new_start_date }} &rarr; {{ new_end_date }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb;">Total Amount</td>
+    <td style="padding:12px 16px; font-size:14px; color:#0a1730; font-weight:bold; border-bottom:1px solid #e5e7eb;">KES {{ total_amount }}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b;">Balance Due</td>
+    <td style="padding:12px 16px; font-size:14px; color:#c9a227; font-weight:bold;">KES {{ balance_due }}</td>
+  </tr>
+</table>
+
+{% if refund_amount %}
+<p style="margin:0 0 20px; padding:12px 16px; background:#f1f5f9; border-radius:8px; color:#334155;">
+  Your shorter trip means you've overpaid by <strong>KES {{ refund_amount }}</strong> - our team will
+  be in touch about sending that back to you.
+</p>
+{% endif %}
+
+{% include "emails/_button.html" with url=bookings_url label="View My Bookings" %}
+
+<p style="margin:24px 0 0; font-size:13px; color:#94a3b8;">
+  Didn't request this change, or have questions? Call us on <strong>0790 111 000</strong> or reply to this email.
+</p>
+{% endblock %}

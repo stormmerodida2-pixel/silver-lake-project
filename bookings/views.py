@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.core.exceptions import ValidationError
 from django.db import OperationalError, transaction
 from django.http import HttpResponse
@@ -121,6 +123,23 @@ class BookingViewSet(
         driver_at_fault = bool(request.data.get('driver_at_fault')) and request.user.is_staff
         try:
             booking.mark_cancelled(driver_at_fault=driver_at_fault)
+        except ValidationError as exc:
+            return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(BookingSerializer(booking).data)
+
+    @action(detail=True, methods=['post'])
+    def change_dates(self, request, pk=None):
+        """Lets a customer adjust their own PENDING/CONFIRMED booking's dates in place, instead
+        of cancelling and rebooking - see Booking.change_dates for why that's worth avoiding."""
+        booking = self.get_object()
+        try:
+            new_start_date = date.fromisoformat(request.data.get('start_date') or '')
+            new_end_date = date.fromisoformat(request.data.get('end_date') or '')
+        except ValueError:
+            return Response({'detail': 'A valid start_date and end_date are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            booking.change_dates(new_start_date, new_end_date)
         except ValidationError as exc:
             return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
         return Response(BookingSerializer(booking).data)

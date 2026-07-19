@@ -30,6 +30,7 @@ class NotificationEvent(models.TextChoices):
     VEHICLE_SUBMISSION_REJECTED = 'vehicle_submission_rejected', 'Vehicle Submission Rejected'
     # Client-facing (see ClientNotificationViewSet) - BOOKING_CANCELLED above is reused here too.
     BOOKING_CONFIRMED = 'booking_confirmed', 'Booking Confirmed'
+    BOOKING_DATES_CHANGED = 'booking_dates_changed', 'Booking Dates Updated'
     TRIP_COMPLETED = 'trip_completed', 'Trip Completed'
     PAYMENT_RECORDED = 'payment_recorded', 'Payment Recorded'
     REFUND_ISSUED = 'refund_issued', 'Refund Issued'

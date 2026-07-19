@@ -543,6 +543,79 @@ class Booking(models.Model):
 
         notify_waitlist_for_freed_dates(self.vehicle, self.start_date, self.end_date)
 
+    def change_dates(self, new_start_date, new_end_date):
+        """Adjusts a PENDING or CONFIRMED booking's dates in place, instead of the customer
+        having to cancel and rebook - which would trigger mark_cancelled's refund-percentage
+        rules and a whole new deposit collection even for something as simple as shifting the
+        same trip a few days later. Re-runs the exact same conflict check clean() applies at
+        creation, and recomputes total_amount for the new range (Booking.save() only ever
+        computes this once, on creation, so it has to be redone explicitly here).
+
+        Never changes status - an extended trip (higher total) simply means a bigger balance is
+        now due before pickup, same as always; nothing here un-confirms a booking just because
+        the deposit no longer happens to cover 30% of the new, larger total. A shortened trip
+        (lower total) that leaves the customer having overpaid becomes a real, honestly-owed
+        Refund - not the "cancelling always refunds something" churn this method exists to
+        avoid in the first place."""
+        if self.status not in (BookingStatus.PENDING, BookingStatus.CONFIRMED):
+            raise ValidationError(f'Cannot change dates on a booking that is {self.get_status_display().lower()}.')
+
+        if new_end_date < new_start_date:
+            raise ValidationError('End date cannot be before start date.')
+        if new_start_date < timezone.localdate():
+            raise ValidationError('Start date cannot be in the past.')
+
+        conflicts = Booking.objects.filter(
+            status__in=BLOCKING_BOOKING_STATUSES, start_date__lte=new_end_date, end_date__gte=new_start_date,
+        ).exclude(pk=self.pk)
+        if conflicts.filter(vehicle_id=self.vehicle_id).exists():
+            raise ValidationError(
+                f'{self.vehicle.name} is already booked for part of that date range. Please choose different dates.'
+            )
+        if self.driver_id and conflicts.filter(driver_id=self.driver_id).exists():
+            raise ValidationError(
+                f'{self.driver.full_name} is already assigned to another booking for part of that date range.'
+            )
+
+        old_start_date, old_end_date = self.start_date, self.end_date
+        self.start_date = new_start_date
+        self.end_date = new_end_date
+
+        total = self.vehicle.price_per_day * self.rental_days
+        if self.service_type == ServiceType.SELF_DRIVE:
+            total = (total * (Decimal('100') + SELF_DRIVE_SURCHARGE_PERCENT) / Decimal('100')).quantize(Decimal('0.01'))
+        self.total_amount = total
+        self.save(update_fields=['start_date', 'end_date', 'total_amount'])
+
+        from payments.models import Refund, RefundStatus
+
+        existing_refund = getattr(self, 'refund', None)
+        excess = self.amount_paid - self.total_amount
+        if excess > 0:
+            refund, created = Refund.objects.get_or_create(booking=self, defaults={'amount': excess})
+            if not created and refund.status == RefundStatus.PENDING and refund.amount != excess:
+                refund.amount = excess
+                refund.save(update_fields=['amount'])
+        elif existing_refund and existing_refund.status == RefundStatus.PENDING:
+            existing_refund.delete()
+
+        from .emails import send_booking_dates_changed_email
+
+        send_booking_dates_changed_email(self, old_start_date, old_end_date)
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.BOOKING_DATES_CHANGED,
+            f'Booking #{self.pk} dates changed to {new_start_date:%d %b} - {new_end_date:%d %b}',
+            user=self.user, link_path='/account/bookings',
+        )
+        notify(
+            NotificationEvent.BOOKING_DATES_CHANGED, f'Booking #{self.pk} for {self.customer_name} had its dates changed',
+            organization=self.vehicle.owner, link_path='/admin/bookings',
+        )
+
     def _send_confirmation_email(self):
         """Sends a booking confirmed email to the customer - and, when this trip was booked for
         someone else (the account holder's own email differs from the trip's own customer_email,

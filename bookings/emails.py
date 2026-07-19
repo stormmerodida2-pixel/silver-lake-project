@@ -227,3 +227,48 @@ def send_waitlist_vehicle_available_email(entry):
     except Exception:
         pass
 
+
+def send_booking_dates_changed_email(booking, old_start_date, old_end_date):
+    """Sent whenever Booking.change_dates() succeeds - also to the account holder (whoever
+    actually paid) when this trip was booked for someone else, same reasoning as
+    Booking._send_confirmation_email. Swallowed silently on failure so a misconfigured SMTP
+    server never blocks the date change itself."""
+    try:
+        from django.conf import settings
+        from payments.models import RefundStatus
+
+        has_pending_refund = hasattr(booking, 'refund') and booking.refund.status == RefundStatus.PENDING
+        subject = f'Booking #{booking.pk} dates updated - SilverLake Car Rentals'
+        base_context = {
+            'booking_id': booking.pk,
+            'vehicle_name': booking.vehicle.name,
+            'old_start_date': old_start_date.strftime('%d %b %Y'),
+            'old_end_date': old_end_date.strftime('%d %b %Y'),
+            'new_start_date': booking.start_date.strftime('%d %b %Y'),
+            'new_end_date': booking.end_date.strftime('%d %b %Y'),
+            'total_amount': f'{booking.total_amount:,.2f}',
+            'balance_due': f'{booking.balance_due:,.2f}',
+            'refund_amount': f'{booking.refund.amount:,.2f}' if has_pending_refund else None,
+            'bookings_url': f'{settings.FRONTEND_URL}/account/bookings',
+        }
+
+        if booking.customer_email:
+            send_branded_email(
+                subject=subject, template_name='emails/booking_dates_changed.html',
+                context={**base_context, 'first_name': booking.customer_name.split()[0]},
+                recipient_list=[booking.customer_email],
+            )
+
+        if booking.user.email and booking.user.email != booking.customer_email:
+            send_branded_email(
+                subject=subject, template_name='emails/booking_dates_changed.html',
+                context={
+                    **base_context,
+                    'first_name': booking.user.first_name.split()[0] if booking.user.first_name else 'there',
+                    'booked_for_name': booking.customer_name,
+                },
+                recipient_list=[booking.user.email],
+            )
+    except Exception:
+        pass
+

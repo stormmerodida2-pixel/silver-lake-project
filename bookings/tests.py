@@ -500,6 +500,168 @@ class BookingCancelActionTests(APITestCase):
         self.assertEqual(len(mail.outbox), 0)
 
 
+class ChangeDatesActionTests(APITestCase):
+    """Adjusting dates in place instead of cancel-and-rebook - see Booking.change_dates."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='jane@example.com', password='pass12345!', email='jane@example.com')
+        self.vehicle = make_vehicle()  # price_per_day=1000
+        self.client.force_authenticate(user=self.user)
+
+    def test_customer_can_change_dates_of_a_pending_booking(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        new_start, new_end = TOMORROW + timedelta(days=2), TOMORROW + timedelta(days=4)
+        response = self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(new_start), 'end_date': str(new_end)},
+        )
+        self.assertEqual(response.status_code, 200)
+        booking.refresh_from_db()
+        self.assertEqual(booking.start_date, new_start)
+        self.assertEqual(booking.end_date, new_end)
+        self.assertEqual(booking.status, BookingStatus.PENDING)
+
+    def test_changing_dates_recomputes_the_total_for_the_new_trip_length(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)  # 7 days -> 7000
+        new_start = TOMORROW
+        new_end = TOMORROW + timedelta(days=2)  # 3 days -> 3000
+        self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(new_start), 'end_date': str(new_end)},
+        )
+        booking.refresh_from_db()
+        self.assertEqual(booking.total_amount, Decimal('3000.00'))
+
+    def test_confirmed_booking_stays_confirmed_after_an_extension_even_if_deposit_no_longer_covers_30_percent(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.CONFIRMED)  # 7000 total
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA, amount=Decimal('2100'), status=PaymentStatus.SUCCESSFUL,
+        )  # exactly the old 30% deposit
+        new_start, new_end = TOMORROW, TOMORROW + timedelta(days=20)  # much longer trip -> much bigger total
+        response = self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(new_start), 'end_date': str(new_end)},
+        )
+        self.assertEqual(response.status_code, 200)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, BookingStatus.CONFIRMED)
+        self.assertGreater(booking.balance_due, 0)
+
+    def test_shortening_a_fully_paid_trip_creates_a_refund_for_the_overpayment(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.CONFIRMED)  # 7000 total
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA, amount=Decimal('7000'), status=PaymentStatus.SUCCESSFUL,
+        )
+        new_start = TOMORROW
+        new_end = TOMORROW + timedelta(days=1)  # 2 days -> 2000, so 5000 overpaid
+        self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(new_start), 'end_date': str(new_end)},
+        )
+        refund = Refund.objects.get(booking=booking)
+        self.assertEqual(refund.amount, Decimal('5000.00'))
+        self.assertEqual(refund.status, 'pending')
+
+    def test_changing_dates_again_updates_an_existing_pending_refund_instead_of_duplicating(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.CONFIRMED)  # 7000 total
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA, amount=Decimal('7000'), status=PaymentStatus.SUCCESSFUL,
+        )
+        self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(TOMORROW), 'end_date': str(TOMORROW + timedelta(days=1))},  # 2000 -> 5000 overpaid
+        )
+        self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(TOMORROW), 'end_date': str(TOMORROW)},  # 1000 -> 6000 overpaid
+        )
+        self.assertEqual(Refund.objects.filter(booking=booking).count(), 1)
+        refund = Refund.objects.get(booking=booking)
+        self.assertEqual(refund.amount, Decimal('6000.00'))
+
+    def test_changing_dates_back_up_removes_a_now_stale_pending_refund(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.CONFIRMED)  # 7000 total
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA, amount=Decimal('7000'), status=PaymentStatus.SUCCESSFUL,
+        )
+        self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(TOMORROW), 'end_date': str(TOMORROW + timedelta(days=1))},  # overpaid by 5000
+        )
+        self.assertTrue(Refund.objects.filter(booking=booking).exists())
+
+        self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(TOMORROW), 'end_date': str(TOMORROW + timedelta(days=9))},  # 10 days -> 10000, no longer overpaid
+        )
+        self.assertFalse(Refund.objects.filter(booking=booking).exists())
+
+    def test_cannot_change_dates_to_a_range_that_conflicts_with_another_booking(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        blocking_start, blocking_end = TOMORROW + timedelta(days=30), TOMORROW + timedelta(days=35)
+        make_booking(self.user, self.vehicle, status=BookingStatus.CONFIRMED, start_date=blocking_start, end_date=blocking_end)
+
+        response = self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(blocking_start), 'end_date': str(blocking_end)},
+        )
+        self.assertEqual(response.status_code, 400)
+        booking.refresh_from_db()
+        self.assertEqual(booking.start_date, TOMORROW)
+
+    def test_cannot_change_start_date_into_the_past(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        response = self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(TODAY - timedelta(days=1)), 'end_date': str(NEXT_WEEK)},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_end_date_before_start_date_is_rejected(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        response = self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(NEXT_WEEK), 'end_date': str(TOMORROW)},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_change_dates_of_a_cancelled_booking(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.CANCELLED)
+        response = self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(TOMORROW), 'end_date': str(NEXT_WEEK)},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_change_dates_of_a_completed_booking(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.COMPLETED)
+        response = self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(TOMORROW), 'end_date': str(NEXT_WEEK)},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_customer_cannot_change_dates_on_someone_elses_booking(self):
+        other_user = User.objects.create_user(username='other@example.com', password='pass12345!')
+        booking = make_booking(other_user, self.vehicle, status=BookingStatus.PENDING)
+        response = self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(TOMORROW), 'end_date': str(NEXT_WEEK)},
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_changing_dates_emails_the_customer(self):
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING, customer_email='jane@example.com')
+        mail.outbox = []
+        self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(TOMORROW + timedelta(days=2)), 'end_date': str(TOMORROW + timedelta(days=4))},
+        )
+        dates_changed_emails = [m for m in mail.outbox if 'dates updated' in m.subject]
+        self.assertEqual(len(dates_changed_emails), 1)
+        self.assertIn('jane@example.com', dates_changed_emails[0].to)
+
+
 class WaitlistNotificationTests(APITestCase):
     """Cancelling a booking should tell anyone waitlisted for a date range that overlapped it -
     but only once that range genuinely has no other blocking booking left covering it, and only
