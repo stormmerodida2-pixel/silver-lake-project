@@ -1,9 +1,10 @@
 name: CI
 
-# Runs the Django test suite and the frontend build on every push/PR. There used to be a
-# second, near-identical set of jobs for a duplicate nested silverlake/ project tree - that
-# tree has been removed (it was pure redundancy, not a real second environment) so this only
-# tests the one real project now.
+# Runs the Django test suite, the frontend build, and the Playwright e2e suite on every
+# push/PR - deploy only fires once all three pass. There used to be a second, near-identical
+# set of jobs for a duplicate nested silverlake/ project tree - that tree has been removed
+# (it was pure redundancy, not a real second environment) so this only tests the one real
+# project now.
 on:
   push:
     branches: [main]
@@ -40,6 +41,49 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  # Drives a real browser against the real app - backend and frontend both have to run in this
+  # same job (not split like the two jobs above) since they need to reach each other over
+  # localhost. Mirrors frontend/e2e/README.md's own local setup exactly: migrate, seed, backend
+  # in the background, then `npm run test:e2e` (which starts the frontend dev server itself, per
+  # playwright.config.js's webServer block).
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python manage.py migrate --settings=settings.local
+      - run: python manage.py seed_e2e_data --settings=settings.local
+      - run: python manage.py runserver --settings=settings.local &
+      - name: Wait for the backend to come up
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/api/vehicles/ > /dev/null && exit 0
+            sleep 1
+          done
+          echo "Backend never came up" && exit 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - working-directory: frontend
+        run: npm run test:e2e
+        env:
+          VITE_API_BASE_URL: http://localhost:8000/api/
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: frontend/test-results
+          retention-days: 7
+
   # Builds the backend's Dockerfile, pushes it to ECR, then SSHes into the EC2 instance to pull
   # and restart it - chosen over AWS App Runner specifically because App Runner has no free-tier
   # allowance at all, while a single t2/t3.micro EC2 instance is free for 12 months. This trades
@@ -48,7 +92,7 @@ jobs:
   # container, it doesn't touch nginx/TLS/the box's own config. Only runs on an actual push to
   # main (never on a PR, and only after both test jobs above pass).
   deploy:
-    needs: [backend, frontend]
+    needs: [backend, frontend, e2e]
     # Also requires the secrets below to actually be set - skipped (not failed) until the
     # AWS_DEPLOY_READY repo variable is flipped to 'true', so CI stays green while the EC2 box
     # isn't set up yet rather than red on every push to main.
