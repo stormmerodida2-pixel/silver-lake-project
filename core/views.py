@@ -402,7 +402,16 @@ class AdminUserViewSet(
         abandoned impersonation session can't linger anywhere near that long. Returns the same
         {access, refresh, user} shape as a normal login, via the same UserSerializer the app's
         own session state already expects everywhere else - not AdminUserSerializer's shape,
-        since the frontend runs as this user afterward, not as an admin viewing them."""
+        since the frontend runs as this user afterward, not as an admin viewing them.
+
+        A driver target gets a read-only session instead of full access (see
+        drivers.permissions.IsDriverUser) - acknowledging a booking, starting/ending a trip, or
+        declaring a payment is meant to mean the driver themselves actually did it, and letting
+        a superadmin do those things "as" the driver would quietly break that meaning. The access
+        token's own lifetime is stretched to match the refresh token's here (rather than the
+        usual 15 minutes) specifically so this never needs a mid-session refresh - the stock
+        token-refresh endpoint doesn't carry custom claims like this one over to the new access
+        token it mints, which would silently turn a read-only session back into a full one."""
         target = self.get_object()
         if target.is_staff or target.is_superuser:
             return Response(
@@ -410,11 +419,17 @@ class AdminUserViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        is_driver_target = bool(getattr(target, 'driver_profile', None) and target.driver_profile.is_active)
+
         refresh = RefreshToken.for_user(target)
         refresh.set_exp(lifetime=timedelta(hours=2))
         refresh['impersonated_by'] = request.user.id
         access = refresh.access_token
         access['impersonated_by'] = request.user.id
+        if is_driver_target:
+            refresh['read_only'] = True
+            access['read_only'] = True
+            access.set_exp(lifetime=timedelta(hours=2))
 
         log_admin_action(request, 'user.impersonate', target, detail=f'By {request.user.email}')
         return Response({

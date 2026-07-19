@@ -58,6 +58,7 @@ class UserSerializer(serializers.ModelSerializer):
     referral_code = serializers.SerializerMethodField()
     referral_credit_balance = serializers.SerializerMethodField()
     referral_credit_amount = serializers.SerializerMethodField()
+    is_read_only_session = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -65,6 +66,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'first_name', 'last_name', 'email', 'phone_number', 'avatar',
             'is_staff', 'is_superuser', 'is_driver', 'driver_status', 'organization_name',
             'referral_code', 'referral_credit_balance', 'referral_credit_amount',
+            'is_read_only_session',
         ]
 
     def get_phone_number(self, user):
@@ -86,6 +88,15 @@ class UserSerializer(serializers.ModelSerializer):
         # hardcoded figure that would go stale the moment an admin changes it.
         from .models import ReferralSettings
         return ReferralSettings.get_amount()
+
+    def get_is_read_only_session(self, user):
+        # True only for a superadmin's read-only driver-impersonation session (see
+        # AdminUserViewSet.impersonate / drivers.permissions.IsDriverUser) - lets
+        # ImpersonationBanner.vue show that clearly, and the driver portal itself could use this
+        # later to grey out actions instead of just letting them 403.
+        request = self.context.get('request')
+        token = getattr(request, 'auth', None) if request else None
+        return bool(token and token.get('read_only'))
 
     def get_avatar(self, user):
         profile = getattr(user, 'customer_profile', None)

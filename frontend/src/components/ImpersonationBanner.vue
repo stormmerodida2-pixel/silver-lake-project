@@ -20,6 +20,7 @@ function stop() {
     <span>
       Impersonating {{ auth.user?.first_name || auth.user?.email }}
       <span class="font-normal">({{ auth.user?.email }})</span>
+      <span v-if="auth.user?.is_read_only_session" class="font-normal">- read-only, view only</span>
     </span>
     <button
       class="rounded-md bg-navy-950 px-3 py-1 text-xs font-bold text-gold-400 transition hover:bg-navy-800"

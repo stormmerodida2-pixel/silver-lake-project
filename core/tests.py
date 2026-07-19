@@ -1719,6 +1719,40 @@ class ImpersonationTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['user']['is_driver'])
 
+    def test_impersonating_a_driver_yields_a_read_only_session(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post(f'/api/admin/users/{self.driver_user.id}/impersonate/')
+        access = response.json()['access']
+
+        # Real Authorization header (not force_authenticate, which bypasses JWTAuthentication
+        # entirely and would leave request.auth empty) - IsDriverUser reads the read_only claim
+        # off request.auth, so this has to go through the real token parsing to prove anything.
+        # force_authenticate(None) first: it otherwise silently overrides credentials() on the
+        # same client instance, since it doesn't get cleared just by setting a header.
+        self.client.force_authenticate(user=None)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+        me_response = self.client.get('/api/auth/me/')
+        self.assertTrue(me_response.json()['is_read_only_session'])
+
+        read_response = self.client.get('/api/driver/bookings/mine/')
+        self.assertEqual(read_response.status_code, 200)
+
+        booking = make_booking(self.customer, make_vehicle(price_per_day=Decimal('1000')), driver=self.driver, status=BookingStatus.CONFIRMED)
+        write_response = self.client.post(f'/api/driver/bookings/{booking.id}/acknowledge/')
+        self.assertEqual(write_response.status_code, 403)
+        booking.refresh_from_db()
+        self.assertIsNone(booking.driver_acknowledged_at)
+
+    def test_impersonating_a_customer_still_gets_full_read_write_access(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post(f'/api/admin/users/{self.customer.id}/impersonate/')
+        access = response.json()['access']
+
+        self.client.force_authenticate(user=None)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+        me_response = self.client.get('/api/auth/me/')
+        self.assertFalse(me_response.json()['is_read_only_session'])
+
     def test_cannot_impersonate_a_staff_account(self):
         self.client.force_authenticate(user=self.platform_super)
         response = self.client.post(f'/api/admin/users/{self.support_staff.id}/impersonate/')
