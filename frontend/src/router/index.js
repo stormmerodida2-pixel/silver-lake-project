@@ -290,6 +290,12 @@ const routes = [
         component: () => import('../views/admin/AdminDiscountsView.vue'),
         meta: { title: 'Discount Codes | SilverLake Car Rentals', pageTitle: 'Discount Codes' },
       },
+      {
+        path: 'analytics',
+        name: 'admin-analytics',
+        component: () => import('../views/admin/AdminAnalyticsView.vue'),
+        meta: { title: 'Analytics | SilverLake Car Rentals', pageTitle: 'Analytics' },
+      },
     ],
   },
   // Catch-all 404

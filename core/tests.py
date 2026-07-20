@@ -1066,6 +1066,127 @@ class AdminStatsFleetPartnerTests(APITestCase):
         self.assertEqual(response.json()['fleet_partners'], [])
 
 
+class AdminAnalyticsViewTests(APITestCase):
+    """Revenue trend, top vehicles, and new-vs-repeat customers over the trailing 12 calendar
+    months - the "how's the business doing" picture AdminStatsView's snapshot doesn't cover."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='staff-analytics@example.com', password='pass12345!', is_staff=True)
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='analytics-client@example.com', password='pass12345!')
+        self.client.force_authenticate(user=self.staff)
+
+    def test_anonymous_cannot_view_analytics(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get('/api/admin/analytics/')
+        self.assertIn(response.status_code, (401, 403))
+
+    def test_response_shape(self):
+        response = self.client.get('/api/admin/analytics/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['window_months'], 12)
+        self.assertEqual(len(data['revenue_trend']), 12)
+        self.assertIn('top_vehicles', data)
+        self.assertIn('new', data['customers'])
+        self.assertIn('repeat', data['customers'])
+        self.assertIn('repeat_rate', data['customers'])
+
+    def test_revenue_trend_zero_fills_months_with_no_activity(self):
+        response = self.client.get('/api/admin/analytics/')
+        self.assertTrue(all(month['revenue'] == 0 for month in response.json()['revenue_trend']))
+
+    def test_revenue_trend_includes_a_payment_made_this_month(self):
+        booking = make_booking(self.customer, self.vehicle, status=BookingStatus.CONFIRMED)
+        Payment.objects.create(booking=booking, amount=Decimal('5000'), status=PaymentStatus.SUCCESSFUL)
+
+        response = self.client.get('/api/admin/analytics/')
+        current_month_total = response.json()['revenue_trend'][-1]['revenue']
+        self.assertEqual(Decimal(str(current_month_total)), Decimal('5000'))
+
+    def test_revenue_trend_excludes_payments_older_than_the_window(self):
+        booking = make_booking(self.customer, self.vehicle, status=BookingStatus.CONFIRMED)
+        payment = Payment.objects.create(booking=booking, amount=Decimal('5000'), status=PaymentStatus.SUCCESSFUL)
+        old_date = timezone.now() - timedelta(days=400)
+        Payment.objects.filter(pk=payment.pk).update(created_at=old_date)
+
+        response = self.client.get('/api/admin/analytics/')
+        self.assertTrue(all(month['revenue'] == 0 for month in response.json()['revenue_trend']))
+
+    def test_revenue_trend_excludes_unsuccessful_payments(self):
+        booking = make_booking(self.customer, self.vehicle, status=BookingStatus.PENDING)
+        Payment.objects.create(booking=booking, amount=Decimal('5000'), status=PaymentStatus.PENDING)
+
+        response = self.client.get('/api/admin/analytics/')
+        self.assertTrue(all(month['revenue'] == 0 for month in response.json()['revenue_trend']))
+
+    def test_top_vehicles_are_ranked_by_revenue(self):
+        big_vehicle = make_vehicle(name='Big Earner', price_per_day=Decimal('1000'))
+        small_vehicle = make_vehicle(name='Small Earner', price_per_day=Decimal('1000'))
+        big_booking = make_booking(self.customer, big_vehicle, status=BookingStatus.CONFIRMED)
+        Payment.objects.create(booking=big_booking, amount=Decimal('9000'), status=PaymentStatus.SUCCESSFUL)
+        small_booking = make_booking(self.customer, small_vehicle, status=BookingStatus.CONFIRMED)
+        Payment.objects.create(booking=small_booking, amount=Decimal('1000'), status=PaymentStatus.SUCCESSFUL)
+
+        response = self.client.get('/api/admin/analytics/')
+        names = [row['name'] for row in response.json()['top_vehicles']]
+        self.assertEqual(names[:2], ['Big Earner', 'Small Earner'])
+
+    def test_pending_bookings_dont_count_toward_top_vehicles(self):
+        make_booking(self.customer, self.vehicle, status=BookingStatus.PENDING)
+        response = self.client.get('/api/admin/analytics/')
+        self.assertEqual(response.json()['top_vehicles'], [])
+
+    def test_cancelled_bookings_dont_count_toward_top_vehicles(self):
+        booking = make_booking(self.customer, self.vehicle, status=BookingStatus.CANCELLED)
+        Payment.objects.create(booking=booking, amount=Decimal('5000'), status=PaymentStatus.SUCCESSFUL)
+        response = self.client.get('/api/admin/analytics/')
+        self.assertEqual(response.json()['top_vehicles'], [])
+
+    def test_a_customers_first_ever_booking_counts_as_new(self):
+        make_booking(self.customer, self.vehicle, status=BookingStatus.CONFIRMED)
+        response = self.client.get('/api/admin/analytics/')
+        customers = response.json()['customers']
+        self.assertEqual(customers['new'], 1)
+        self.assertEqual(customers['repeat'], 0)
+
+    def test_a_customer_with_a_booking_before_the_window_counts_as_repeat(self):
+        old_booking = make_booking(self.customer, self.vehicle, status=BookingStatus.CONFIRMED)
+        Booking.objects.filter(pk=old_booking.pk).update(created_at=timezone.now() - timedelta(days=400))
+        make_booking(self.customer, self.vehicle, status=BookingStatus.CONFIRMED, start_date=TOMORROW + timedelta(days=60), end_date=NEXT_WEEK + timedelta(days=60))
+
+        response = self.client.get('/api/admin/analytics/')
+        customers = response.json()['customers']
+        self.assertEqual(customers['new'], 0)
+        self.assertEqual(customers['repeat'], 1)
+        self.assertEqual(customers['repeat_rate'], 100.0)
+
+    def test_a_pending_booking_doesnt_count_as_customer_activity(self):
+        make_booking(self.customer, self.vehicle, status=BookingStatus.PENDING)
+        response = self.client.get('/api/admin/analytics/')
+        customers = response.json()['customers']
+        self.assertEqual(customers['new'], 0)
+        self.assertEqual(customers['repeat'], 0)
+        self.assertEqual(customers['repeat_rate'], 0)
+
+    def test_org_admin_only_sees_their_own_organizations_data(self):
+        org = FleetPartner.objects.create(name='Analytics Org', platform_fee_percent=Decimal('10'))
+        org_admin = User.objects.create_user(
+            username='org-admin-analytics@example.com', password='pass12345!', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=org_admin, organization=org)
+
+        other_orgs_booking = make_booking(self.customer, self.vehicle, status=BookingStatus.CONFIRMED)
+        Payment.objects.create(booking=other_orgs_booking, amount=Decimal('9000'), status=PaymentStatus.SUCCESSFUL)
+
+        self.client.force_authenticate(user=org_admin)
+        response = self.client.get('/api/admin/analytics/')
+        data = response.json()
+        self.assertEqual(data['top_vehicles'], [])
+        self.assertTrue(all(month['revenue'] == 0 for month in data['revenue_trend']))
+        self.assertEqual(data['customers']['new'], 0)
+
+
 class AdminVehicleCategoryTests(APITestCase):
     """Fleet types used to be a fixed enum in code - now a plain admin-editable list.
     Create/update/delete are superadmin-only (fleet composition tier); support staff can

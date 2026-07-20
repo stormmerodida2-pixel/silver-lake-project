@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    AdminAnalyticsView,
     AdminAuditLogViewSet,
     AdminBookingViewSet,
     AdminDriverApplicationViewSet,
@@ -35,6 +36,7 @@ router.register('admin/audit-log', AdminAuditLogViewSet, basename='admin-audit-l
 
 urlpatterns = [
     path('admin/stats/', AdminStatsView.as_view(), name='admin-stats'),
+    path('admin/analytics/', AdminAnalyticsView.as_view(), name='admin-analytics'),
     path('admin/health/', AdminHealthView.as_view(), name='admin-health'),
     path('admin/referral-settings/', AdminReferralSettingsView.as_view(), name='admin-referral-settings'),
 ] + router.urls

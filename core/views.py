@@ -2,7 +2,8 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count, ProtectedError, Sum
+from django.db.models import Count, Min, ProtectedError, Sum
+from django.db.models.functions import TruncMonth
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
@@ -196,6 +197,95 @@ class AdminStatsView(APIView):
                 'pending': refunds_qs.filter(status=RefundStatus.PENDING).count(),
             },
             'fleet_partners': fleet_partners,
+        })
+
+
+# A booking only counts as genuine customer activity once it's actually confirmed - matches
+# Booking._award_referral_credit_if_first_booking's own definition of a customer's "real" first
+# trip, so a still-pending or cancelled booking never inflates either the trend or the
+# new-vs-repeat split below.
+CONFIRMED_OR_LATER_STATUSES = (BookingStatus.CONFIRMED, BookingStatus.ONGOING, BookingStatus.COMPLETED)
+
+
+class AdminAnalyticsView(APIView):
+    """Revenue/fleet/customer trends over the trailing 12 calendar months - the "how's the
+    business doing" picture neither AdminStatsView's point-in-time snapshot nor
+    AdminHealthView's uptime check covers. Same day-to-day operational tier and org-scoping as
+    AdminStatsView - a FleetPartner's own admin only ever sees their own vehicles/customers."""
+
+    permission_classes = [IsSupportStaff]
+
+    def get(self, request):
+        now = timezone.now()
+        organization = get_user_organization(request.user)
+
+        current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        month_starts = []
+        cursor = current_month_start
+        for _ in range(12):
+            month_starts.append(cursor)
+            cursor = (cursor - timedelta(days=1)).replace(day=1)
+        month_starts.reverse()
+        window_start = month_starts[0]
+
+        payments_qs = Payment.objects.filter(status=PaymentStatus.SUCCESSFUL, created_at__gte=window_start)
+        bookings_qs = Booking.objects.filter(created_at__gte=window_start, status__in=CONFIRMED_OR_LATER_STATUSES)
+        vehicles_qs = Vehicle.objects.all()
+        all_confirmed_bookings_qs = Booking.objects.filter(status__in=CONFIRMED_OR_LATER_STATUSES)
+        if organization is not None:
+            payments_qs = payments_qs.filter(booking__vehicle__owner=organization)
+            bookings_qs = bookings_qs.filter(vehicle__owner=organization)
+            vehicles_qs = vehicles_qs.filter(owner=organization)
+            all_confirmed_bookings_qs = all_confirmed_bookings_qs.filter(vehicle__owner=organization)
+
+        # Revenue trend - successful payments collected each month, oldest to newest. Zero-fills
+        # any month with no payments at all, so a quiet month shows as a real dip, not a gap.
+        by_month = {
+            (row['month'].year, row['month'].month): row['total']
+            for row in (
+                payments_qs.annotate(month=TruncMonth('created_at')).values('month').annotate(total=Sum('amount'))
+            )
+        }
+        revenue_trend = [
+            {'month': month.strftime('%Y-%m'), 'revenue': by_month.get((month.year, month.month), 0)}
+            for month in month_starts
+        ]
+
+        # Top vehicles by revenue over the window - a Count+Sum in one annotated query would
+        # double-count via join fan-out (two separate joins - bookings, bookings__payments - off
+        # the same base row), so this stays a plain per-vehicle loop instead of one clever query.
+        vehicle_rows = []
+        for vehicle in vehicles_qs.filter(bookings__in=bookings_qs).distinct():
+            revenue = payments_qs.filter(booking__vehicle=vehicle).aggregate(total=Sum('amount'))['total'] or 0
+            vehicle_rows.append({
+                'id': vehicle.id, 'name': vehicle.name,
+                'bookings': bookings_qs.filter(vehicle=vehicle).count(), 'revenue': revenue,
+            })
+        vehicle_rows.sort(key=lambda row: row['revenue'], reverse=True)
+
+        # New vs repeat customers - among everyone with a genuine (confirmed-or-later) booking in
+        # the window, a "repeat" customer had already booked before the window started; a "new"
+        # one's very first-ever booking falls inside it. Scoped to this same organization's own
+        # booking history only - an org-admin sees repeat business with THEM, not a customer's
+        # activity on another partner's fleet they can't see anyway.
+        first_booking_by_user = dict(
+            all_confirmed_bookings_qs.values('user_id').annotate(first_at=Min('created_at'))
+            .values_list('user_id', 'first_at')
+        )
+        user_ids_in_window = set(bookings_qs.values_list('user_id', flat=True))
+        new_customers = sum(1 for uid in user_ids_in_window if first_booking_by_user.get(uid, now) >= window_start)
+        repeat_customers = len(user_ids_in_window) - new_customers
+        total_customers = len(user_ids_in_window)
+
+        return Response({
+            'window_months': 12,
+            'revenue_trend': revenue_trend,
+            'top_vehicles': vehicle_rows[:8],
+            'customers': {
+                'new': new_customers,
+                'repeat': repeat_customers,
+                'repeat_rate': round(repeat_customers / total_customers * 100, 1) if total_customers else 0,
+            },
         })
 
 
