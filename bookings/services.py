@@ -4,7 +4,16 @@ from urllib.parse import quote
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import BLOCKING_BOOKING_STATUSES, Booking, BookingStatus, WaitlistEntry
+from .models import (
+    BLOCKING_BOOKING_STATUSES,
+    Booking,
+    BookingStatus,
+    ConditionReportType,
+    FuelLevel,
+    VehicleConditionPhoto,
+    VehicleConditionReport,
+    WaitlistEntry,
+)
 
 # Long enough that a genuine customer arranging an M-Pesa retry, a Paybill payment, or an
 # in-person cash handoff with their driver has ample time, short enough that a checkout nobody
@@ -107,3 +116,35 @@ def notify_waitlist_for_freed_dates(vehicle, start_date, end_date):
         from .emails import send_waitlist_vehicle_available_email
 
         send_waitlist_vehicle_available_email(entry)
+
+
+def create_condition_report(booking, report_type, mileage_raw, fuel_level, notes, photos, logged_by=None):
+    """Shared by the driver-portal and admin creation endpoints (see bookings.views.
+    DriverConditionReportCreateView / core.views.AdminBookingViewSet.condition_reports) - one
+    report per type per booking (see VehicleConditionReport's own unique constraint), so a
+    second attempt at the same type raises rather than silently overwriting the first. Raises
+    django.core.exceptions.ValidationError on any bad input - callers translate that into a
+    clean 400, matching how Booking.clean()/change_dates() are handled elsewhere in this app."""
+    if report_type not in ConditionReportType.values:
+        raise ValidationError(f'report_type must be one of: {", ".join(ConditionReportType.values)}.')
+    if VehicleConditionReport.objects.filter(booking=booking, report_type=report_type).exists():
+        raise ValidationError(
+            f'A {ConditionReportType(report_type).label.lower()} condition report already exists for this booking.'
+        )
+    if fuel_level and fuel_level not in FuelLevel.values:
+        raise ValidationError(f'fuel_level must be one of: {", ".join(FuelLevel.values)}.')
+
+    mileage = None
+    if mileage_raw not in (None, ''):
+        try:
+            mileage = int(mileage_raw)
+        except (TypeError, ValueError):
+            raise ValidationError('mileage must be a whole number.')
+
+    report = VehicleConditionReport.objects.create(
+        booking=booking, report_type=report_type, mileage=mileage,
+        fuel_level=fuel_level, notes=notes or '', logged_by=logged_by,
+    )
+    for image in photos:
+        VehicleConditionPhoto.objects.create(report=report, image=image)
+    return report

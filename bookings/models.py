@@ -8,6 +8,7 @@ from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
 
+from core.images import optimize_image
 from discounts.models import DiscountCode
 from drivers.models import Driver
 from fleet.models import Vehicle
@@ -814,3 +815,58 @@ class WaitlistEntry(models.Model):
                 fields=['vehicle', 'user', 'start_date', 'end_date'], name='unique_waitlist_entry',
             ),
         ]
+
+
+class ConditionReportType(models.TextChoices):
+    PICKUP = 'pickup', 'Pickup'
+    RETURN = 'return', 'Return'
+
+
+class FuelLevel(models.TextChoices):
+    EMPTY = 'empty', 'Empty'
+    QUARTER = 'quarter', '1/4'
+    HALF = 'half', '1/2'
+    THREE_QUARTERS = 'three_quarters', '3/4'
+    FULL = 'full', 'Full'
+
+
+class VehicleConditionReport(models.Model):
+    """A driver's (or admin's) record of the vehicle's condition at pickup or return - odometer,
+    fuel level, notes, and photos (see VehicleConditionPhoto) - existing purely as evidence if a
+    damage dispute comes up later. Optional, never required to Start/End Trip
+    (Booking.start_trip/end_trip): a self-drive or admin-driven completion may have no driver
+    physically present to fill one in, and forcing it would add friction to what's otherwise a
+    one-click action for every other trip too. Internal only - never exposed to the customer
+    (BookingSerializer doesn't include this at all)."""
+
+    booking = models.ForeignKey(
+        'bookings.Booking', on_delete=models.CASCADE, related_name='condition_reports',
+    )
+    report_type = models.CharField(max_length=10, choices=ConditionReportType.choices)
+    mileage = models.PositiveIntegerField(null=True, blank=True, help_text='Odometer reading, km')
+    fuel_level = models.CharField(max_length=20, choices=FuelLevel.choices, blank=True)
+    notes = models.TextField(blank=True, help_text='Existing damage, scratches, anything worth noting')
+    # Null when logged by an admin rather than the assigned driver - mirrors
+    # fleet.VehicleServiceRecord.logged_by exactly.
+    logged_by = models.ForeignKey(Driver, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['booking', 'report_type'], name='one_report_per_type_per_booking'),
+        ]
+
+    def __str__(self):
+        return f'{self.get_report_type_display()} report - booking #{self.booking_id}'
+
+
+class VehicleConditionPhoto(models.Model):
+    report = models.ForeignKey(VehicleConditionReport, on_delete=models.CASCADE, related_name='photos')
+    image = models.ImageField(upload_to='bookings/condition/', validators=[validate_file_size])
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.image and not self.image._committed:
+            optimize_image(self.image)
+        super().save(*args, **kwargs)

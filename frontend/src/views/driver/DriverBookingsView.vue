@@ -1,7 +1,8 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import apiClient from '../../api/client'
+import ConditionReportModal from '../../components/ConditionReportModal.vue'
 import BookingPaymentCollector from '../../components/driver/BookingPaymentCollector.vue'
 import WalkUpBookingModal from '../../components/driver/WalkUpBookingModal.vue'
 import { useDriverPortalStore } from '../../stores/driverPortal'
@@ -101,6 +102,21 @@ async function endTrip(booking) {
     endingId.value = null
   }
 }
+
+// ── Condition report (optional - never blocks Start/End Trip) ───────────────────────────────
+const showConditionModal = ref(false)
+const conditionModal = ref(null)
+const conditionBookingId = ref(null)
+const conditionReportType = ref('pickup')
+
+function openConditionModal(booking, reportType) {
+  conditionBookingId.value = booking.id
+  conditionReportType.value = reportType
+  conditionModal.value.open()
+  showConditionModal.value = true
+}
+
+const conditionEndpoint = computed(() => `/driver/bookings/${conditionBookingId.value}/condition-reports/`)
 
 // ── Live location sharing ────────────────────────────────────────────────────
 // Reported from the driver's own browser via the Geolocation API - only works while this tab
@@ -259,6 +275,13 @@ function openOnsiteModal() {
             >
               {{ startingId === booking.id ? 'Starting...' : 'Start Trip' }}
             </button>
+            <button
+              v-if="['confirmed', 'ongoing'].includes(booking.status)"
+              class="rounded-md border border-navy-800 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-gold-400 hover:text-gold-400"
+              @click="openConditionModal(booking, 'pickup')"
+            >
+              + Pickup Condition
+            </button>
 
             <button
               v-if="['confirmed', 'ongoing'].includes(booking.status) && !booking.trip_ended_at"
@@ -267,6 +290,13 @@ function openOnsiteModal() {
               @click="endTrip(booking)"
             >
               {{ endingId === booking.id ? 'Ending...' : 'End Trip' }}
+            </button>
+            <button
+              v-if="['confirmed', 'ongoing', 'completed'].includes(booking.status)"
+              class="rounded-md border border-navy-800 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-gold-400 hover:text-gold-400"
+              @click="openConditionModal(booking, 'return')"
+            >
+              + Return Condition
             </button>
 
             <button
@@ -323,5 +353,9 @@ function openOnsiteModal() {
     </section>
 
     <WalkUpBookingModal ref="onsiteModal" v-model="showOnsiteModal" />
+    <ConditionReportModal
+      ref="conditionModal" v-model="showConditionModal"
+      :endpoint="conditionEndpoint" :report-type="conditionReportType"
+    />
   </div>
 </template>

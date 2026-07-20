@@ -840,6 +840,57 @@ class GovernmentContractBookingTests(APITestCase):
         self.assertEqual(response.status_code, 403)
 
 
+class AdminConditionReportActionTests(APITestCase):
+    """Staff-side equivalent of the driver portal's own condition-report action - covers a
+    booking with no driver present to log one themselves (self-drive, or a company-owned
+    vehicle's admin-driven trip). See bookings.views.DriverConditionReportView for the
+    driver-facing counterpart."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='cond-staff@example.com', password='pass12345!', is_staff=True)
+        self.plain_user = User.objects.create_user(username='cond-plain@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(name='Condition Car', price_per_day=Decimal('1000'))
+        self.booking = make_booking(self.plain_user, self.vehicle, status=BookingStatus.CONFIRMED)
+        self.client.force_authenticate(user=self.staff)
+
+    def test_staff_can_log_a_condition_report(self):
+        response = self.client.post(
+            f'/api/admin/bookings/{self.booking.id}/condition-reports/',
+            {'report_type': 'return', 'mileage': '50000', 'fuel_level': 'half'},
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertEqual(data['report_type'], 'return')
+        self.assertIsNone(data['logged_by_name'])
+
+    def test_staff_can_list_condition_reports(self):
+        self.client.post(f'/api/admin/bookings/{self.booking.id}/condition-reports/', {'report_type': 'pickup'})
+        response = self.client.get(f'/api/admin/bookings/{self.booking.id}/condition-reports/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+
+    def test_a_second_report_of_the_same_type_is_rejected(self):
+        self.client.post(f'/api/admin/bookings/{self.booking.id}/condition-reports/', {'report_type': 'pickup'})
+        response = self.client.post(f'/api/admin/bookings/{self.booking.id}/condition-reports/', {'report_type': 'pickup'})
+        self.assertEqual(response.status_code, 400)
+
+    def test_non_staff_cannot_log_a_condition_report(self):
+        self.client.force_authenticate(user=self.plain_user)
+        response = self.client.post(f'/api/admin/bookings/{self.booking.id}/condition-reports/', {'report_type': 'pickup'})
+        self.assertEqual(response.status_code, 403)
+
+    def test_org_admin_cannot_reach_another_orgs_booking(self):
+        org = FleetPartner.objects.create(name='Condition Org', platform_fee_percent=Decimal('10'))
+        org_admin = User.objects.create_user(
+            username='cond-org-admin@example.com', password='pass12345!', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=org_admin, organization=org)
+        self.client.force_authenticate(user=org_admin)
+
+        response = self.client.post(f'/api/admin/bookings/{self.booking.id}/condition-reports/', {'report_type': 'pickup'})
+        self.assertEqual(response.status_code, 404)
+
+
 class AdminVehicleGalleryTests(APITestCase):
     """A company-created vehicle previously had no way to get more than its single cover photo -
     only a driver's own submission required (and got) a real photo gallery."""

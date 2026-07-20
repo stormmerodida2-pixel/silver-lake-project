@@ -1,8 +1,9 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import apiClient from '../../api/client'
+import ConditionReportModal from '../../components/ConditionReportModal.vue'
 import GovernmentBookingModal from '../../components/admin/GovernmentBookingModal.vue'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
@@ -134,6 +135,20 @@ async function submitInvoicePayment(booking) {
   }
 }
 
+// ── Condition report (optional - never blocks a status change) ──────────────────────────────
+const showConditionModal = ref(false)
+const conditionModal = ref(null)
+const conditionBookingId = ref(null)
+const conditionReportType = ref('pickup')
+const conditionEndpoint = computed(() => `/admin/bookings/${conditionBookingId.value}/condition-reports/`)
+
+function openConditionModal(booking, reportType) {
+  conditionBookingId.value = booking.id
+  conditionReportType.value = reportType
+  conditionModal.value.open()
+  showConditionModal.value = true
+}
+
 const downloadingId = ref(null)
 async function downloadReceipt(booking) {
   downloadingId.value = booking.id
@@ -202,6 +217,10 @@ onMounted(() => {
       v-model="showGovModal"
       :driver-options="driverOptions"
       @created="onGovernmentBookingCreated"
+    />
+    <ConditionReportModal
+      ref="conditionModal" v-model="showConditionModal"
+      :endpoint="conditionEndpoint" :report-type="conditionReportType"
     />
 
     <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
@@ -363,6 +382,20 @@ onMounted(() => {
                 class="text-slate-600"
               >
                 —
+              </div>
+              <div v-if="['confirmed', 'ongoing', 'completed'].includes(booking.status)" class="mt-1.5 flex gap-1">
+                <button
+                  class="rounded border border-navy-800 px-1.5 py-0.5 text-slate-500 hover:border-gold-400 hover:text-gold-400"
+                  @click="openConditionModal(booking, 'pickup')"
+                >
+                  + Pickup
+                </button>
+                <button
+                  class="rounded border border-navy-800 px-1.5 py-0.5 text-slate-500 hover:border-gold-400 hover:text-gold-400"
+                  @click="openConditionModal(booking, 'return')"
+                >
+                  + Return
+                </button>
               </div>
             </td>
           </tr>

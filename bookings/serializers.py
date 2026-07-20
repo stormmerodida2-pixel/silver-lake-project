@@ -11,7 +11,7 @@ from fleet.models import Vehicle
 from payments.models import PaymentMethod, PaymentStatus
 from reviews.serializers import ReviewSerializer
 
-from .models import Booking, ServiceType, WaitlistEntry
+from .models import Booking, ServiceType, VehicleConditionPhoto, VehicleConditionReport, WaitlistEntry
 
 # Fields Booking.clean() actually looks at - kept in sync with the validation logic there.
 CLEAN_RELEVANT_FIELDS = (
@@ -234,3 +234,25 @@ class WaitlistEntrySerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         url = entry.vehicle.image.url
         return request.build_absolute_uri(url) if request else url
+
+
+class VehicleConditionPhotoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VehicleConditionPhoto
+        fields = ['id', 'image']
+
+
+class VehicleConditionReportSerializer(serializers.ModelSerializer):
+    """Internal-only - never wired into BookingSerializer/the customer-facing booking API. See
+    VehicleConditionReport's own docstring for why."""
+
+    logged_by_name = serializers.CharField(source='logged_by.full_name', read_only=True, default=None)
+    photos = VehicleConditionPhotoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = VehicleConditionReport
+        fields = [
+            'id', 'booking', 'report_type', 'mileage', 'fuel_level', 'notes',
+            'logged_by_name', 'photos', 'created_at',
+        ]
+        read_only_fields = ['created_at']

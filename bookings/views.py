@@ -229,7 +229,8 @@ from payments.services import (
 )
 
 from .models import BookingSource
-from .serializers import DriverOnsiteBookingSerializer
+from .serializers import DriverOnsiteBookingSerializer, VehicleConditionReportSerializer
+from .services import create_condition_report
 
 
 class DriverOnsiteBookingCreateView(APIView):
@@ -530,5 +531,37 @@ class DriverBookingAcknowledgeView(APIView):
                 organization=booking.vehicle.owner, link_path='/admin/bookings',
             )
         return Response(BookingSerializer(booking).data)
+
+
+class DriverConditionReportView(APIView):
+    """Lets a driver view and log the vehicle's condition (odometer, fuel level, notes, photos)
+    at pickup or return for one of their own bookings - see VehicleConditionReport for why this
+    is optional, never required to Start/End Trip."""
+
+    permission_classes = [IsDriverUser]
+
+    def get(self, request, pk):
+        driver = request.user.driver_profile
+        booking = get_object_or_404(Booking, pk=pk, driver=driver)
+        reports = booking.condition_reports.all()
+        return Response(VehicleConditionReportSerializer(reports, many=True, context={'request': request}).data)
+
+    def post(self, request, pk):
+        driver = request.user.driver_profile
+        booking = get_object_or_404(Booking, pk=pk, driver=driver)
+
+        try:
+            report = create_condition_report(
+                booking, request.data.get('report_type'), request.data.get('mileage'),
+                request.data.get('fuel_level', ''), request.data.get('notes', ''),
+                request.FILES.getlist('photos'), logged_by=driver,
+            )
+        except ValidationError as exc:
+            return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            VehicleConditionReportSerializer(report, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 

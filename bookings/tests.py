@@ -20,7 +20,7 @@ from fleet.models import FleetPartner, Vehicle, VehicleCategory
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 from reviews.models import Review
 
-from .models import Booking, BookingSource, BookingStatus, ServiceType
+from .models import Booking, BookingSource, BookingStatus, ServiceType, VehicleConditionReport
 
 User = get_user_model()
 
@@ -2085,6 +2085,93 @@ class DriverBookingCompleteTests(APITestCase):
 
         response = self.client.post(f'/api/driver/bookings/{self.booking.id}/complete/')
         self.assertEqual(response.status_code, 404)
+
+
+class DriverConditionReportTests(APITestCase):
+    """A driver's optional record of the vehicle's condition at pickup/return - see
+    VehicleConditionReport for why this is never required to Start/End Trip."""
+
+    def setUp(self):
+        driver_user = User.objects.create_user(username='condition-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=driver_user, full_name='Condition Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='condition-client@example.com', password='pass12345!')
+        self.booking = make_booking(customer, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED)
+        self.client.force_authenticate(user=driver_user)
+
+    def test_driver_can_log_a_pickup_report(self):
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/condition-reports/',
+            {'report_type': 'pickup', 'mileage': '45200', 'fuel_level': 'full', 'notes': 'Small scratch on rear bumper'},
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertEqual(data['report_type'], 'pickup')
+        self.assertEqual(data['mileage'], 45200)
+        self.assertEqual(data['fuel_level'], 'full')
+        self.assertEqual(data['logged_by_name'], 'Condition Driver')
+        self.assertEqual(data['photos'], [])
+
+    def test_photos_are_attached_to_the_report(self):
+        photo1 = SimpleUploadedFile('p1.jpg', b'x', content_type='image/jpeg')
+        photo2 = SimpleUploadedFile('p2.jpg', b'x', content_type='image/jpeg')
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/condition-reports/',
+            {'report_type': 'pickup', 'photos': [photo1, photo2]},
+            format='multipart',
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(response.json()['photos']), 2)
+
+    def test_pickup_and_return_reports_can_coexist(self):
+        self.client.post(f'/api/driver/bookings/{self.booking.id}/condition-reports/', {'report_type': 'pickup'})
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/condition-reports/', {'report_type': 'return'})
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(VehicleConditionReport.objects.filter(booking=self.booking).count(), 2)
+
+    def test_a_second_report_of_the_same_type_is_rejected(self):
+        self.client.post(f'/api/driver/bookings/{self.booking.id}/condition-reports/', {'report_type': 'pickup'})
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/condition-reports/', {'report_type': 'pickup'})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(VehicleConditionReport.objects.filter(booking=self.booking, report_type='pickup').count(), 1)
+
+    def test_invalid_report_type_is_rejected(self):
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/condition-reports/', {'report_type': 'bogus'})
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_fuel_level_is_rejected(self):
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/condition-reports/',
+            {'report_type': 'pickup', 'fuel_level': 'brimming'},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_non_numeric_mileage_is_rejected(self):
+        response = self.client.post(
+            f'/api/driver/bookings/{self.booking.id}/condition-reports/',
+            {'report_type': 'pickup', 'mileage': 'not-a-number'},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_driver_cannot_log_a_report_for_another_drivers_booking(self):
+        other_driver_user = User.objects.create_user(username='other-condition-driver@example.com', password='pass12345!')
+        Driver.objects.create(user=other_driver_user, full_name='Other Driver', is_active=True)
+        self.client.force_authenticate(user=other_driver_user)
+
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/condition-reports/', {'report_type': 'pickup'})
+        self.assertEqual(response.status_code, 404)
+
+    def test_listing_returns_empty_when_no_reports_exist(self):
+        response = self.client.get(f'/api/driver/bookings/{self.booking.id}/condition-reports/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    def test_listing_returns_existing_reports(self):
+        self.client.post(f'/api/driver/bookings/{self.booking.id}/condition-reports/', {'report_type': 'pickup'})
+        response = self.client.get(f'/api/driver/bookings/{self.booking.id}/condition-reports/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(response.json()[0]['report_type'], 'pickup')
 
 
 class DriverBookingLocationTests(APITestCase):

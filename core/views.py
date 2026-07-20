@@ -14,7 +14,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from accounts.serializers import UserSerializer
 from accounts.services import get_or_create_customer_account
 from bookings.models import Booking, BookingSource, BookingStatus
-from bookings.serializers import AdminGovernmentBookingSerializer, BookingSerializer
+from bookings.serializers import AdminGovernmentBookingSerializer, BookingSerializer, VehicleConditionReportSerializer
+from bookings.services import create_condition_report
 from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
@@ -778,6 +779,33 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         )
         log_admin_action(request, 'booking.record_invoice_payment', booking, detail=f'KES {amount}')
         return Response(BookingSerializer(booking).data)
+
+    @action(detail=True, methods=['get', 'post'], url_path='condition-reports')
+    def condition_reports(self, request, pk=None):
+        """Staff-side equivalent of the driver portal's own condition-report action (see
+        bookings.views.DriverConditionReportView) - covers a booking with no driver present to
+        log one themselves (self-drive, or a company-owned vehicle's admin-driven trip)."""
+        booking = self.get_object()
+        if request.method == 'GET':
+            reports = booking.condition_reports.all()
+            return Response(VehicleConditionReportSerializer(reports, many=True, context={'request': request}).data)
+
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        try:
+            report = create_condition_report(
+                booking, request.data.get('report_type'), request.data.get('mileage'),
+                request.data.get('fuel_level', ''), request.data.get('notes', ''),
+                request.FILES.getlist('photos'),
+            )
+        except DjangoValidationError as exc:
+            return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
+
+        log_admin_action(request, 'booking.add_condition_report', booking, detail=report.report_type)
+        return Response(
+            VehicleConditionReportSerializer(report, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
