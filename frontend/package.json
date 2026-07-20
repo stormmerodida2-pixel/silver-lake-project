@@ -10,6 +10,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@sentry/vue": "^10.66.0",
     "@tailwindcss/typography": "^0.5.20",
     "@tiptap/extension-image": "^2.27.2",
     "@tiptap/extension-link": "^2.27.2",

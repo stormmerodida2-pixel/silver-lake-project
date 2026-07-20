@@ -338,6 +338,14 @@ class AdminHealthView(APIView):
             'detail': f'Bucket: {s3_bucket}' if s3_bucket else 'Not persistent across redeploys on most hosts',
         }
 
+        # SENTRY_DSN isn't a Django setting either - settings/production.py reads it straight
+        # from decouple.config() the same way, only actually calling sentry_sdk.init() when set.
+        sentry_configured = bool(env_config('SENTRY_DSN', default=''))
+        checks['error_tracking'] = {
+            'ok': sentry_configured,
+            'detail': 'Reporting to Sentry' if sentry_configured else 'Not configured - errors are only ever found by a user reporting them',
+        }
+
         if scheduler.last_tick_at is None:
             checks['scheduler'] = {
                 'ok': scheduler.is_running(),

@@ -106,3 +106,26 @@ if AWS_STORAGE_BUCKET_NAME:
     # who can reach a file. django-storages' own default is signed, expiring URLs, which matters
     # here since MEDIA holds public marketing images (vehicle photos) and private compliance
     # documents (driver licenses, logbooks, insurance certs) side by side in the same bucket.
+
+# Error tracking (Sentry) - without this, an unhandled exception in production is only ever
+# discovered when a user complains, not when it actually happens. Left unset, nothing below runs
+# at all - local dev and any deploy that hasn't set SENTRY_DSN stays completely untouched, same
+# pattern as email/M-Pesa/S3 above.
+SENTRY_DSN = config('SENTRY_DSN', default='')
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        environment=config('SENTRY_ENVIRONMENT', default='production'),
+        # A modest sample of transactions for performance monitoring, not every single request -
+        # errors themselves are always captured regardless of this; only tune it upward if
+        # Sentry's own quota/cost tolerates the extra volume.
+        traces_sample_rate=config('SENTRY_TRACES_SAMPLE_RATE', default=0.1, cast=float),
+        # This app's own request bodies routinely carry driver licenses, ID documents, and
+        # customer contact details - never let an error report also become a second place those
+        # end up, even inside SilverLake's own Sentry project.
+        send_default_pii=False,
+    )

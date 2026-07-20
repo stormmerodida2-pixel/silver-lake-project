@@ -1971,7 +1971,7 @@ class AdminHealthTests(APITestCase):
         response = self.client.get('/api/admin/health/')
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        for key in ('database', 'email', 'mpesa', 'storage', 'scheduler', 'debug_mode'):
+        for key in ('database', 'email', 'mpesa', 'storage', 'scheduler', 'error_tracking', 'debug_mode'):
             self.assertIn(key, data)
             self.assertIn('ok', data[key])
 

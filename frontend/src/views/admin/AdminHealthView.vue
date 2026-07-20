@@ -14,6 +14,7 @@ const labels = {
   mpesa: 'M-Pesa',
   storage: 'File Storage',
   scheduler: 'Background Sweeps',
+  error_tracking: 'Error Tracking',
   debug_mode: 'Debug Mode',
 }
 
