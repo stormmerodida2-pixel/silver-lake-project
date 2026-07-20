@@ -72,7 +72,7 @@ async function submit() {
       >
         <div class="w-full max-w-lg rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
           <div class="mb-6 flex items-center justify-between">
-            <h2 class="font-[Georgia] text-xl font-bold text-white">New Government Booking</h2>
+            <h2 class="font-[Georgia] text-xl font-bold text-white">New Contract Booking</h2>
             <button class="text-slate-400 transition-colors hover:text-white" @click="close">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />

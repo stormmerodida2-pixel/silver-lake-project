@@ -208,7 +208,7 @@ onMounted(() => {
         class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
         @click="openGovModal"
       >
-        + Government Booking
+        + Contract Booking
       </button>
     </div>
 
@@ -260,7 +260,7 @@ onMounted(() => {
                 :title="booking.government_contract_reference"
                 class="mt-1 inline-block rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-blue-400"
               >
-                Gov: {{ booking.government_contract_reference }}
+                Contract: {{ booking.government_contract_reference }}
               </span>
             </td>
             <td class="px-4 py-3 text-slate-300">
