@@ -127,14 +127,16 @@ const howItWorks = [
                not a fabricated photo, sitting behind the real fleet photography. -->
           <div class="absolute inset-0 rounded-full bg-radial from-gold-500/25 via-brand-blue-500/10 to-transparent blur-3xl"></div>
 
-          <!-- No card/frame around the photo itself - it bleeds edge to edge and fades into the
-               glow at the bottom instead of hard-stopping at a visible border. -->
+          <!-- No card/frame around the photo itself. Real fleet photos are studio shots on a
+               plain light backdrop, so object-cover alone would still read as a hard-edged
+               rectangle against the dark hero - a radial fade on every side dissolves that
+               backdrop into the glow instead, so only the vehicle itself reads as solid. -->
           <Transition name="hero-fade" mode="out-in">
             <img
               :key="heroVehicle.id"
               :src="heroVehicle.image"
               :alt="heroVehicle.name"
-              class="absolute inset-0 h-full w-full object-cover [mask-image:linear-gradient(to_bottom,black_72%,transparent)]"
+              class="absolute inset-0 h-full w-full object-cover [mask-image:radial-gradient(ellipse_62%_60%_at_center,black_45%,transparent_88%)]"
             />
           </Transition>
 
