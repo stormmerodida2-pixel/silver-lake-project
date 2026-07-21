@@ -3,6 +3,7 @@ import re
 from datetime import timedelta
 from decimal import Decimal
 
+from decouple import UndefinedValueError
 from django.db import OperationalError, transaction
 from django.db.models import Sum
 from django.utils import timezone
@@ -505,3 +506,66 @@ def log_cash_deposit(payment, amount, mpesa_reference, driver):
     )
 
     return cash_deposit
+
+
+# A driver's/organization's phone number is entered once, at signup/setup time, by an admin -
+# unlike a customer's own STK Push number (typed fresh at checkout), it could have been stored in
+# any of the shapes Kenyan phone numbers commonly get written in (07..., +254..., 254...).
+_MPESA_PHONE_PATTERN = re.compile(r'^254[17]\d{8}$')
+
+
+def _normalize_mpesa_phone(raw):
+    digits = re.sub(r'\D', '', raw or '')
+    if digits.startswith('0') and len(digits) == 10:
+        digits = '254' + digits[1:]
+    elif len(digits) == 9 and digits[0] in '17':
+        digits = '254' + digits
+    return digits
+
+
+def initiate_payout_disbursement(payout):
+    """Sends a driver's/FleetPartner's verified payout straight to their M-Pesa number via
+    Safaricom's B2C API (see payments.mpesa.initiate_b2c_payment), instead of a staff member
+    wiring it by hand and clicking Mark Paid. Leaves the payout unpaid (is_paid stays False)
+    until Safaricom's own result callback confirms it actually landed (see
+    payments.views.mpesa_b2c_result) - the same initiate-then-callback shape
+    initiate_stk_push_payment already uses for customer payments. Reuses the exact same guard
+    checks AdminDriverPayoutViewSet.mark_paid/verify already enforce for the manual path, so B2C
+    can't be used to route around them."""
+    if payout.is_paid:
+        raise PaymentValidationError('This payout has already been paid.')
+    if payout.is_voided:
+        raise PaymentValidationError('This payout was voided because the booking was cancelled.')
+    if payout.needs_verification and not payout.is_verified:
+        raise PaymentValidationError('This payout must be verified before it can be disbursed.')
+
+    if payout.driver_id:
+        raw_phone, recipient_label = payout.driver.phone_number, 'driver'
+    else:
+        raw_phone, recipient_label = payout.organization.payout_phone_number, 'partner organization'
+    phone = _normalize_mpesa_phone(raw_phone)
+    if not _MPESA_PHONE_PATTERN.match(phone):
+        raise PaymentValidationError(
+            f'This {recipient_label} has no valid M-Pesa number on file to disburse this payout to.'
+        )
+
+    try:
+        result = mpesa.initiate_b2c_payment(
+            phone_number=phone, amount=payout.amount,
+            remarks=f'SilverLake payout for booking #{payout.booking_id}',
+            occasion=f'Payout {payout.id}',
+        )
+    except UndefinedValueError as exc:
+        raise PaymentValidationError(
+            'M-Pesa B2C payouts are not configured yet - use Mark Paid to pay this out manually instead.'
+        ) from exc
+    except Exception as exc:
+        logger.exception('M-Pesa B2C disbursement failed for payout %s', payout.pk)
+        raise PaymentValidationError(
+            'Could not reach M-Pesa right now. Please try again shortly, or use Mark Paid to pay this out manually.'
+        ) from exc
+
+    payout.b2c_conversation_id = result.get('ConversationID', '')
+    payout.b2c_failed_at = None
+    payout.save(update_fields=['b2c_conversation_id', 'b2c_failed_at'])
+    return payout

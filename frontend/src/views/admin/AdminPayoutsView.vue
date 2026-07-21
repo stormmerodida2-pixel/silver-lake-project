@@ -4,7 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
-import { promptDialog } from '../../utils/dialogs'
+import { confirmDialog, promptDialog } from '../../utils/dialogs'
 
 const auth = useAuthStore()
 const { items: payouts, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/payouts/')
@@ -47,6 +47,27 @@ async function verifyPayout(payout) {
     Object.assign(payout, data)
   } catch (err) {
     error.value = err.response?.data?.note?.[0] || 'Could not verify this payout.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+// A payout is "pending B2C" the moment Safaricom accepts the disbursement request, until its
+// own result callback confirms either way (see payments.services.initiate_payout_disbursement /
+// payments.views.mpesa_b2c_result) - is_paid stays false the whole time, so this is the only way
+// to tell "waiting on Safaricom" apart from "never attempted."
+function isB2cPending(payout) {
+  return !!payout.b2c_conversation_id && !payout.is_paid && !payout.b2c_failed_at
+}
+
+async function disbursePayout(payout) {
+  if (!(await confirmDialog(`Send KES ${Number(payout.amount).toLocaleString()} to ${payout.recipient_phone_number} via M-Pesa now?`))) return
+  busyId.value = payout.id
+  try {
+    const { data } = await apiClient.post(`/admin/payouts/${payout.id}/disburse/`)
+    Object.assign(payout, data)
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Could not start this M-Pesa disbursement.'
   } finally {
     busyId.value = null
   }
@@ -151,6 +172,20 @@ onMounted(load)
                     {{ payout.is_paid ? 'Paid' : 'Pending' }}
                   </span>
                   <span
+                    v-if="isB2cPending(payout)"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-xs font-semibold text-brand-blue-400"
+                    title="Sent to M-Pesa - waiting for Safaricom to confirm it landed"
+                  >
+                    M-Pesa Disbursement Pending
+                  </span>
+                  <span
+                    v-else-if="payout.b2c_failed_at"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-400"
+                    :title="payout.notes"
+                  >
+                    ⚠ M-Pesa Disbursement Failed
+                  </span>
+                  <span
                     v-if="payout.needs_verification"
                     class="inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold"
                     :class="payout.is_verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gold-500/10 text-gold-400'"
@@ -186,14 +221,23 @@ onMounted(load)
                   >
                     Verify
                   </button>
-                  <button
-                    v-else-if="auth.user?.is_superuser"
-                    :disabled="busyId === payout.id || (payout.needs_verification && !payout.is_verified)"
-                    class="rounded-md bg-gold-500 px-2 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
-                    @click="markPaid(payout)"
-                  >
-                    Mark Paid
-                  </button>
+                  <div v-else-if="auth.user?.is_superuser" class="flex flex-col items-start gap-1.5">
+                    <button
+                      :disabled="busyId === payout.id"
+                      class="rounded-md bg-gold-500 px-2 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                      @click="markPaid(payout)"
+                    >
+                      Mark Paid
+                    </button>
+                    <button
+                      v-if="payout.recipient_phone_number && !isB2cPending(payout)"
+                      :disabled="busyId === payout.id"
+                      class="rounded-md border border-brand-blue-500 px-2 py-1 text-xs font-semibold text-brand-blue-400 hover:bg-brand-blue-500 hover:text-white disabled:opacity-50"
+                      @click="disbursePayout(payout)"
+                    >
+                      {{ payout.b2c_failed_at ? 'Retry via M-Pesa' : 'Disburse via M-Pesa' }}
+                    </button>
+                  </div>
                   <span v-else class="text-xs text-slate-500">Superadmin only</span>
                 </template>
               </td>

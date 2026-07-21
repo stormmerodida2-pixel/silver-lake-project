@@ -130,6 +130,10 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
     booking_balance_due = serializers.DecimalField(source='booking.balance_due', max_digits=10, decimal_places=2, read_only=True)
     has_disputed_payment = serializers.SerializerMethodField()
     has_undeposited_cash = serializers.SerializerMethodField()
+    # The number a "Disburse via M-Pesa" action would send to - lets the frontend decide whether
+    # to even show that button (see payments.services.initiate_payout_disbursement, which
+    # re-validates this itself regardless; this is purely for UI, not a security boundary).
+    recipient_phone_number = serializers.SerializerMethodField()
 
     class Meta:
         model = DriverPayout
@@ -138,11 +142,12 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
             'booking_total_amount', 'booking_amount_paid', 'booking_balance_due',
             'amount', 'is_paid', 'paid_at', 'payout_reference', 'notes',
             'needs_verification', 'is_verified', 'verification_note', 'verified_at',
-            'has_disputed_payment', 'has_undeposited_cash', 'created_at',
+            'has_disputed_payment', 'has_undeposited_cash', 'recipient_phone_number',
+            'b2c_conversation_id', 'b2c_failed_at', 'created_at',
         ]
         read_only_fields = [
             'driver', 'organization', 'amount', 'paid_at', 'needs_verification', 'is_verified',
-            'verification_note', 'verified_at', 'created_at',
+            'verification_note', 'verified_at', 'b2c_conversation_id', 'b2c_failed_at', 'created_at',
         ]
 
     def get_driver_name(self, obj):
@@ -150,6 +155,9 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
 
     def get_organization_name(self, obj):
         return obj.organization.name if obj.organization_id else None
+
+    def get_recipient_phone_number(self, obj):
+        return obj.driver.phone_number if obj.driver_id else obj.organization.payout_phone_number
 
     def get_has_disputed_payment(self, obj):
         return obj.booking.payments.filter(is_disputed=True).exists()

@@ -137,6 +137,18 @@ class DriverPayout(models.Model):
     is_voided = models.BooleanField(default=False)
     voided_at = models.DateTimeField(null=True, blank=True)
 
+    # Safaricom's own ID for an in-flight B2C disbursement (see
+    # payments.services.initiate_payout_disbursement) - blank means no automated disbursement
+    # has ever been attempted (manual Mark Paid is still the only path). Set the moment Safaricom
+    # accepts the request, used to match its later result callback (see
+    # payments.views.mpesa_b2c_result) back to this payout; cleared again once that callback
+    # confirms success (mark_paid) or failure (b2c_failed_at set instead).
+    b2c_conversation_id = models.CharField(max_length=100, blank=True)
+    # Set if the most recent B2C attempt was declined or timed out - staff can retry (which
+    # clears this) or fall back to Mark Paid. Distinct from is_voided, which is about the
+    # underlying booking, not the disbursement mechanism.
+    b2c_failed_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -157,7 +169,11 @@ class DriverPayout(models.Model):
         self.paid_at = timezone.now()
         if reference:
             self.payout_reference = reference
-        self.save(update_fields=['is_paid', 'paid_at', 'payout_reference'])
+        # Clears any earlier failed-B2C-attempt marker too - whether this call came from the
+        # B2C result callback succeeding on a retry, or staff falling back to a manual Mark Paid
+        # after B2C failed, the payout is settled either way and shouldn't still show as failed.
+        self.b2c_failed_at = None
+        self.save(update_fields=['is_paid', 'paid_at', 'payout_reference', 'b2c_failed_at'])
 
         from .emails import send_payout_paid_email
 

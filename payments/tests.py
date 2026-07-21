@@ -21,6 +21,7 @@ from .services import (
     PaymentValidationError,
     confirm_offline_payment,
     declare_offline_payment,
+    initiate_payout_disbursement,
     initiate_stk_push_payment,
 )
 
@@ -1372,3 +1373,208 @@ class PaymentExportTests(APITestCase):
         response = self.client.get('/api/payments/export/')
         rows = self._rows(response)
         self.assertEqual(len(rows), 1)  # header only - this payment belongs to a different org
+
+
+def _make_fully_paid_payout(phone_number='0700000000', organization=None):
+    """A DriverPayout that doesn't need verification (an M-Pesa-sourced payment, not cash/card -
+    see Booking._ensure_driver_payout) - the baseline fixture most disbursement tests build on."""
+    if organization:
+        driver = None
+        vehicle = make_vehicle(price_per_day=Decimal('1000'), owner=organization, is_company_owned=False)
+    else:
+        driver = Driver.objects.create(full_name='Payout Driver', phone_number=phone_number, is_active=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+    customer = User.objects.create_user(username=f'payout-client-{uuid.uuid4().hex[:8]}@example.com', password='pass12345!')
+    booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
+    Payment.objects.create(
+        booking=booking, method=PaymentMethod.MPESA, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+    )
+    booking.confirm_if_deposit_met()
+    return DriverPayout.objects.get(booking=booking)
+
+
+class PayoutDisbursementServiceTests(APITestCase):
+    """payments.services.initiate_payout_disbursement - the B2C counterpart to
+    initiate_stk_push_payment, used to send a driver/FleetPartner's payout straight to their
+    M-Pesa number instead of a staff member wiring it by hand."""
+
+    def test_b2c_not_configured_gives_a_friendly_error(self):
+        # No MPESA_B2C_* env vars are set in the test environment at all - this is the default,
+        # "still on manual Mark Paid" state most deployments start in.
+        payout = _make_fully_paid_payout()
+        with self.assertRaises(PaymentValidationError) as ctx:
+            initiate_payout_disbursement(payout)
+        self.assertIn('not configured', str(ctx.exception))
+
+    @patch('payments.services.mpesa.initiate_b2c_payment')
+    def test_successful_disbursement_stores_the_conversation_id(self, mock_b2c):
+        mock_b2c.return_value = {'ConversationID': 'AG_20260721_0000abc123'}
+        payout = _make_fully_paid_payout()
+        initiate_payout_disbursement(payout)
+        payout.refresh_from_db()
+        self.assertEqual(payout.b2c_conversation_id, 'AG_20260721_0000abc123')
+        self.assertFalse(payout.is_paid)  # still pending until the result callback confirms it
+        self.assertIsNone(payout.b2c_failed_at)
+        mock_b2c.assert_called_once()
+        self.assertEqual(mock_b2c.call_args.kwargs['phone_number'], '254700000000')
+
+    @patch('payments.services.mpesa.initiate_b2c_payment')
+    def test_driver_phone_number_is_normalized_from_leading_zero(self, mock_b2c):
+        mock_b2c.return_value = {'ConversationID': 'AG_1'}
+        payout = _make_fully_paid_payout(phone_number='0712345678')
+        initiate_payout_disbursement(payout)
+        self.assertEqual(mock_b2c.call_args.kwargs['phone_number'], '254712345678')
+
+    @patch('payments.services.mpesa.initiate_b2c_payment')
+    def test_organization_payout_uses_payout_phone_number(self, mock_b2c):
+        mock_b2c.return_value = {'ConversationID': 'AG_1'}
+        org = FleetPartner.objects.create(
+            name='Disbursement Org', platform_fee_percent=Decimal('10'), payout_phone_number='254733000000',
+        )
+        payout = _make_fully_paid_payout(organization=org)
+        initiate_payout_disbursement(payout)
+        self.assertEqual(mock_b2c.call_args.kwargs['phone_number'], '254733000000')
+
+    @patch('payments.services.mpesa.initiate_b2c_payment')
+    def test_recipient_with_no_phone_number_is_rejected(self, mock_b2c):
+        payout = _make_fully_paid_payout(phone_number='')
+        with self.assertRaises(PaymentValidationError) as ctx:
+            initiate_payout_disbursement(payout)
+        self.assertIn('no valid M-Pesa number', str(ctx.exception))
+        mock_b2c.assert_not_called()
+
+    @patch('payments.services.mpesa.initiate_b2c_payment')
+    def test_already_paid_payout_is_rejected(self, mock_b2c):
+        payout = _make_fully_paid_payout()
+        payout.mark_paid()
+        with self.assertRaises(PaymentValidationError):
+            initiate_payout_disbursement(payout)
+        mock_b2c.assert_not_called()
+
+    @patch('payments.services.mpesa.initiate_b2c_payment')
+    def test_voided_payout_is_rejected(self, mock_b2c):
+        payout = _make_fully_paid_payout()
+        payout.void()
+        with self.assertRaises(PaymentValidationError):
+            initiate_payout_disbursement(payout)
+        mock_b2c.assert_not_called()
+
+    @patch('payments.services.mpesa.initiate_b2c_payment')
+    def test_unverified_cash_sourced_payout_is_rejected(self, mock_b2c):
+        driver = Driver.objects.create(full_name='Cash Payout Driver', phone_number='0700000001', is_active=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='cash-payout-client@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.CASH, amount=booking.total_amount,
+            status=PaymentStatus.SUCCESSFUL, recorded_by_driver=driver,
+        )
+        booking.confirm_if_deposit_met()
+        payout = DriverPayout.objects.get(booking=booking)
+        self.assertTrue(payout.needs_verification and not payout.is_verified)
+
+        with self.assertRaises(PaymentValidationError) as ctx:
+            initiate_payout_disbursement(payout)
+        self.assertIn('must be verified', str(ctx.exception))
+        mock_b2c.assert_not_called()
+
+
+class PayoutDisbursementAdminActionTests(APITestCase):
+    """/api/admin/payouts/<id>/disburse/ - the button-facing side of
+    initiate_payout_disbursement, gated the same superadmin-only tier as mark-paid/verify."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='disburse-super@example.com', password='pass12345!')
+        self.staff = User.objects.create_user(username='disburse-staff@example.com', password='pass12345!', is_staff=True)
+        self.payout = _make_fully_paid_payout()
+
+    @patch('payments.services.mpesa.initiate_b2c_payment')
+    def test_superadmin_can_disburse(self, mock_b2c):
+        mock_b2c.return_value = {'ConversationID': 'AG_1'}
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(f'/api/admin/payouts/{self.payout.id}/disburse/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['b2c_conversation_id'], 'AG_1')
+
+    def test_support_staff_cannot_disburse(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/admin/payouts/{self.payout.id}/disburse/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_not_configured_returns_a_400_not_a_500(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(f'/api/admin/payouts/{self.payout.id}/disburse/')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('not configured', response.json()['detail'])
+
+
+class MpesaB2cResultCallbackTests(APITestCase):
+    """/api/payments/mpesa/b2c-result/<secret>/ - Safaricom's async confirmation of a payout
+    disbursement (see initiate_payout_disbursement), sharing the same secret-guarded pattern as
+    the customer-facing STK Push callback (MpesaCallbackSecurityTests)."""
+
+    def setUp(self):
+        self.payout = _make_fully_paid_payout()
+        self.payout.b2c_conversation_id = 'AG_real_conversation'
+        self.payout.save(update_fields=['b2c_conversation_id'])
+
+    def _result_body(self, conversation_id, result_code=0, receipt='NLJ7RT61SV'):
+        body = {
+            'Result': {
+                'ResultCode': result_code,
+                'ResultDesc': 'The service request is processed successfully.' if result_code == 0 else 'Insufficient funds.',
+                'ConversationID': conversation_id,
+            }
+        }
+        if result_code == 0:
+            body['Result']['ResultParameters'] = {
+                'ResultParameter': [{'Key': 'TransactionReceipt', 'Value': receipt}]
+            }
+        return body
+
+    @patch('payments.views.config')
+    def test_wrong_secret_is_rejected_and_payout_is_untouched(self, mock_config):
+        mock_config.side_effect = lambda key, default='': REAL_SECRET if key == 'MPESA_CALLBACK_SECRET' else default
+        response = self.client.post(
+            '/api/payments/mpesa/b2c-result/wrong-secret/',
+            self._result_body('AG_real_conversation'), format='json',
+        )
+        self.assertEqual(response.status_code, 404)
+        self.payout.refresh_from_db()
+        self.assertFalse(self.payout.is_paid)
+
+    @patch('payments.views.config')
+    def test_successful_result_marks_the_payout_paid(self, mock_config):
+        mail.outbox = []
+        mock_config.side_effect = lambda key, default='': REAL_SECRET if key == 'MPESA_CALLBACK_SECRET' else default
+        response = self.client.post(
+            f'/api/payments/mpesa/b2c-result/{REAL_SECRET}/',
+            self._result_body('AG_real_conversation', result_code=0, receipt='QGH7XXXXXX'), format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.payout.refresh_from_db()
+        self.assertTrue(self.payout.is_paid)
+        self.assertEqual(self.payout.payout_reference, 'QGH7XXXXXX')
+        self.assertIsNotNone(self.payout.paid_at)
+
+    @patch('payments.views.config')
+    def test_failed_result_marks_the_payout_as_failed_not_paid(self, mock_config):
+        mock_config.side_effect = lambda key, default='': REAL_SECRET if key == 'MPESA_CALLBACK_SECRET' else default
+        response = self.client.post(
+            f'/api/payments/mpesa/b2c-result/{REAL_SECRET}/',
+            self._result_body('AG_real_conversation', result_code=1), format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.payout.refresh_from_db()
+        self.assertFalse(self.payout.is_paid)
+        self.assertIsNotNone(self.payout.b2c_failed_at)
+        self.assertIn('Insufficient funds', self.payout.notes)
+
+    @patch('payments.views.config')
+    def test_unknown_conversation_id_is_ignored_gracefully(self, mock_config):
+        mock_config.side_effect = lambda key, default='': REAL_SECRET if key == 'MPESA_CALLBACK_SECRET' else default
+        response = self.client.post(
+            f'/api/payments/mpesa/b2c-result/{REAL_SECRET}/',
+            self._result_body('AG_never_heard_of_it', result_code=0), format='json',
+        )
+        self.assertEqual(response.status_code, 200)

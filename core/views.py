@@ -51,7 +51,7 @@ User = get_user_model()
 # needs regular staff (IsSupportStaff).
 SUPERADMIN_ONLY_ACTIONS = {
     'create', 'update', 'partial_update', 'destroy', 'mark_paid', 'verify', 'mark_issued',
-    'add_gallery_images', 'remove_gallery_image', 'add_service_record', 'invite_staff',
+    'add_gallery_images', 'remove_gallery_image', 'add_service_record', 'invite_staff', 'disburse',
 }
 
 # Mirrors payments.views.REMINDER_COOLDOWN - long enough that it isn't spam, short enough that a
@@ -346,6 +346,18 @@ class AdminHealthView(APIView):
         checks['error_tracking'] = {
             'ok': sentry_configured,
             'detail': 'Reporting to Sentry' if sentry_configured else 'Not configured - errors are only ever found by a user reporting them',
+        }
+
+        # A separate Daraja product from customer-facing STK Push above - see
+        # payments.mpesa.initiate_b2c_payment. Entirely optional: unset just means payouts stay
+        # on the existing manual Mark Paid flow, so this is 'ok' either way, not a real failure.
+        b2c_configured = bool(
+            env_config('MPESA_B2C_SHORTCODE', default='') and env_config('MPESA_B2C_INITIATOR_NAME', default='')
+            and env_config('MPESA_B2C_SECURITY_CREDENTIAL', default='') and env_config('MPESA_B2C_CALLBACK_URL', default='')
+        )
+        checks['payout_disbursement'] = {
+            'ok': True,
+            'detail': 'Automated M-Pesa payouts configured' if b2c_configured else 'Not configured - payouts are disbursed manually via Mark Paid',
         }
 
         if scheduler.last_tick_at is None:
@@ -1029,6 +1041,24 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
             )
         payout.verify(note)
         log_admin_action(request, 'payout.verify', payout, detail=note)
+        return Response(AdminDriverPayoutSerializer(payout).data)
+
+    @action(detail=True, methods=['post'])
+    def disburse(self, request, pk=None):
+        """Sends this payout straight to the recipient's M-Pesa number via Safaricom's B2C API,
+        instead of a staff member wiring it by hand and clicking Mark Paid - see
+        payments.services.initiate_payout_disbursement. Leaves is_paid False until Safaricom's
+        result callback confirms it actually landed; staff can retry this or fall back to Mark
+        Paid at any point before then. Same superadmin-only tier as mark_paid/verify, since this
+        moves real money the instant Safaricom accepts the request."""
+        from payments.services import PaymentValidationError, initiate_payout_disbursement
+
+        payout = self.get_object()
+        try:
+            initiate_payout_disbursement(payout)
+        except PaymentValidationError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        log_admin_action(request, 'payout.disburse', payout)
         return Response(AdminDriverPayoutSerializer(payout).data)
 
     @action(detail=False, methods=['get'])

@@ -16,7 +16,7 @@ from core.permissions import IsSupportStaff, get_user_organization
 from core.utils import csv_response, parse_amount, parse_date_range, search_filter
 
 from .emails import send_cash_deposit_reminder_email, send_payment_reminder_email
-from .models import Payment, PaymentMethod, PaymentStatus
+from .models import DriverPayout, Payment, PaymentMethod, PaymentStatus
 from .serializers import (
     PublicBookingPaymentSerializer,
     PaymentSerializer,
@@ -422,5 +422,42 @@ def mpesa_callback(request, secret):
     else:
         payment.status = PaymentStatus.FAILED
         payment.save()
+
+    return Response(status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def mpesa_b2c_result(request, secret):
+    """Daraja calls this with the outcome of a payout disbursement (see
+    payments.services.initiate_payout_disbursement) - same secret-guarded pattern as
+    mpesa_callback above. Also configured as Safaricom's QueueTimeOutURL, not just ResultURL
+    (see payments.mpesa.initiate_b2c_payment) - a timeout arrives in the same Result-wrapper
+    shape with a nonzero ResultCode, so one handler covers both without needing to tell them
+    apart."""
+    expected_secret = config('MPESA_CALLBACK_SECRET', default='')
+    if not expected_secret or not hmac.compare_digest(secret, expected_secret):
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    result = request.data.get('Result', {})
+    conversation_id = result.get('ConversationID')
+    result_code = result.get('ResultCode')
+
+    try:
+        payout = DriverPayout.objects.get(b2c_conversation_id=conversation_id)
+    except DriverPayout.DoesNotExist:
+        return Response(status=status.HTTP_200_OK)
+
+    if result_code == 0:
+        params = {
+            item['Key']: item.get('Value')
+            for item in result.get('ResultParameters', {}).get('ResultParameter', [])
+        }
+        payout.mark_paid(reference=str(params.get('TransactionReceipt', '')))
+    else:
+        payout.b2c_failed_at = timezone.now()
+        reason = result.get('ResultDesc', 'unknown error')
+        payout.notes = (payout.notes + '\n' if payout.notes else '') + f'B2C disbursement failed: {reason}'
+        payout.save(update_fields=['b2c_failed_at', 'notes'])
 
     return Response(status=status.HTTP_200_OK)
