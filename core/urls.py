@@ -5,6 +5,7 @@ from .views import (
     AdminAnalyticsView,
     AdminAuditLogViewSet,
     AdminBookingViewSet,
+    AdminClientErrorReportViewSet,
     AdminDriverApplicationViewSet,
     AdminDriverPayoutViewSet,
     AdminDriverViewSet,
@@ -35,6 +36,7 @@ router.register('admin/fleet-types', AdminVehicleCategoryViewSet, basename='admi
 router.register('admin/reviews', AdminReviewViewSet, basename='admin-review')
 router.register('admin/vehicle-submissions', AdminVehicleSubmissionViewSet, basename='admin-vehicle-submission')
 router.register('admin/audit-log', AdminAuditLogViewSet, basename='admin-audit-log')
+router.register('admin/client-errors', AdminClientErrorReportViewSet, basename='admin-client-error')
 router.register('admin/loyalty-tiers', AdminLoyaltyTierViewSet, basename='admin-loyalty-tier')
 
 urlpatterns = [

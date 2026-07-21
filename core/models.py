@@ -50,3 +50,28 @@ class AuditLog(models.Model):
     def __str__(self):
         who = self.actor.email if self.actor_id else 'unknown'
         return f'{who} - {self.action} - {self.target_repr}'
+
+
+class ClientErrorReport(models.Model):
+    """A frontend JS crash, reported by frontend/src/utils/clientErrorReporting.js via
+    core.views.ReportClientErrorView - the persisted, browsable counterpart to that view's
+    log-and-maybe-email side effects, so staff can see "did a specific client hit an error"
+    from the admin dashboard itself instead of grepping server logs. user is null for an error
+    that happened to a visitor who wasn't logged in at the time - still worth keeping, just with
+    no client to tie it to."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+    )
+    message = models.CharField(max_length=500)
+    stack = models.TextField(blank=True)
+    url = models.CharField(max_length=500, blank=True)
+    user_agent = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        who = self.user.email if self.user_id else 'anonymous visitor'
+        return f'{who} - {self.message[:80]}'

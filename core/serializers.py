@@ -11,7 +11,7 @@ from fleet.serializers import VehicleImageSerializer, VehicleServiceRecordSerial
 from payments.models import DriverPayout, Refund
 from reviews.models import Review
 
-from .models import AuditLog
+from .models import AuditLog, ClientErrorReport
 
 User = get_user_model()
 
@@ -186,6 +186,17 @@ class AdminAuditLogSerializer(serializers.ModelSerializer):
 
     def get_organization_name(self, obj):
         return obj.organization.name if obj.organization_id else None
+
+
+class AdminClientErrorReportSerializer(serializers.ModelSerializer):
+    user_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ClientErrorReport
+        fields = ['id', 'user_email', 'message', 'stack', 'url', 'user_agent', 'created_at']
+
+    def get_user_email(self, obj):
+        return obj.user.email if obj.user_id else None
 
 
 class AdminRefundSerializer(serializers.ModelSerializer):

@@ -10,7 +10,7 @@ const REPORT_URL = `${(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '
 const recentErrors = new Map()
 const DEDUPE_WINDOW_MS = 60000
 
-function report(message, stack) {
+export function reportClientError(message, stack) {
   const safeMessage = message || '(no message)'
   const safeStack = stack || ''
   const key = `${safeMessage}::${safeStack.slice(0, 200)}`
@@ -33,10 +33,10 @@ function report(message, stack) {
 
 export function initClientErrorReporting() {
   window.addEventListener('error', (event) => {
-    report(event.message, event.error?.stack)
+    reportClientError(event.message, event.error?.stack)
   })
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason
-    report(reason?.message || String(reason), reason?.stack)
+    reportClientError(reason?.message || String(reason), reason?.stack)
   })
 }

@@ -29,10 +29,11 @@ from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus,
 from reviews.models import Review
 
 from .audit import log_admin_action
-from .models import AuditLog
+from .models import AuditLog, ClientErrorReport
 from .permissions import IsPlatformStaff, IsPlatformSuperAdmin, IsSuperAdmin, IsSupportStaff, get_user_organization
 from .serializers import (
     AdminAuditLogSerializer,
+    AdminClientErrorReportSerializer,
     AdminCreateUserSerializer,
     AdminDriverPayoutSerializer,
     AdminDriverSerializer,
@@ -411,10 +412,15 @@ class ReportClientErrorView(APIView):
         stack = str(request.data.get('stack', ''))[:4000]
         url = str(request.data.get('url', ''))[:500]
         user_agent = request.META.get('HTTP_USER_AGENT', '')[:300]
+        user = request.user if request.user and request.user.is_authenticated else None
 
         logger.error(
             'Frontend error: %s\nURL: %s\nUser-Agent: %s\nStack:\n%s',
             message, url, user_agent, stack,
+        )
+
+        ClientErrorReport.objects.create(
+            user=user, message=message, stack=stack, url=url, user_agent=user_agent,
         )
 
         if settings.ADMINS:
@@ -1169,6 +1175,17 @@ class AdminAuditLogViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, vie
         if organization is None:
             return self.queryset
         return self.queryset.filter(organization=organization)
+
+
+class AdminClientErrorReportViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    """Recent frontend crashes/API failures reported by clientErrorReporting.js and the
+    apiClient response interceptor (see core.views.ReportClientErrorView) - the System Health
+    page's "did a specific client hit an error" table. Platform-only: a JS bug isn't owned by
+    any one FleetPartner, so unlike AdminAuditLogViewSet there's no org-scoping here."""
+
+    queryset = ClientErrorReport.objects.all().select_related('user')
+    serializer_class = AdminClientErrorReportSerializer
+    permission_classes = [IsPlatformStaff]
 
 
 class AdminRefundViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):

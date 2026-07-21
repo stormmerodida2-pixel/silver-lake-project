@@ -21,7 +21,7 @@ from drivers.models import Driver, DriverApplication
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 
-from .models import AuditLog, StaffOrganization
+from .models import AuditLog, ClientErrorReport, StaffOrganization
 from .utils import parse_amount
 from .validators import validate_kenyan_phone_number
 
@@ -2462,3 +2462,72 @@ class ReportClientErrorTests(APITestCase):
         finally:
             ScopedRateThrottle.THROTTLE_RATES['client-error-report'] = original
         self.assertEqual(response.status_code, 429)
+
+    def test_report_is_persisted_for_an_anonymous_visitor(self):
+        self.client.post('/api/report-client-error/', {
+            'message': 'TypeError: cannot read property of undefined',
+            'stack': 'at RegisterView.vue:88',
+            'url': 'https://silverlakecarentals.com/register',
+        }, format='json')
+
+        report = ClientErrorReport.objects.get(message='TypeError: cannot read property of undefined')
+        self.assertIsNone(report.user)
+        self.assertEqual(report.stack, 'at RegisterView.vue:88')
+        self.assertEqual(report.url, 'https://silverlakecarentals.com/register')
+
+    def test_report_is_tied_to_the_authenticated_user(self):
+        customer = User.objects.create_user(username='client-err@example.com', password='pass12345!')
+        self.client.force_authenticate(user=customer)
+        self.client.post('/api/report-client-error/', {'message': 'Signup failed unexpectedly'}, format='json')
+
+        report = ClientErrorReport.objects.get(message='Signup failed unexpectedly')
+        self.assertEqual(report.user, customer)
+
+    def test_missing_fields_still_persist_a_report(self):
+        self.client.post('/api/report-client-error/', {}, format='json')
+        self.assertTrue(ClientErrorReport.objects.filter(message='(no message)').exists())
+
+
+class AdminClientErrorReportViewSetTests(APITestCase):
+    """The System Health page's "Recent Client Errors" table - lets staff see a specific
+    visitor's exact error (including during signup) instead of grepping server logs."""
+
+    def setUp(self):
+        self.platform_staff = User.objects.create_user(
+            username='platform-staff-err@example.com', password='pass12345!', is_staff=True,
+        )
+        self.report = ClientErrorReport.objects.create(
+            message='Network Error', stack='at apiClient', url='https://silverlakecarentals.com/register',
+        )
+
+    def test_platform_staff_can_list_reports(self):
+        self.client.force_authenticate(user=self.platform_staff)
+        response = self.client.get('/api/admin/client-errors/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['results'][0]['message'], 'Network Error')
+
+    def test_org_admin_cannot_view_client_error_reports(self):
+        org = FleetPartner.objects.create(name='Client Error Org', platform_fee_percent=Decimal('10'))
+        org_admin = User.objects.create_user(
+            username='org-admin-err@example.com', password='pass12345!', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=org_admin, organization=org)
+
+        self.client.force_authenticate(user=org_admin)
+        response = self.client.get('/api/admin/client-errors/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_unauthenticated_user_cannot_view_client_error_reports(self):
+        response = self.client.get('/api/admin/client-errors/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_report_shows_the_reporting_users_email(self):
+        customer = User.objects.create_user(
+            username='reporter@example.com', email='reporter@example.com', password='pass12345!',
+        )
+        ClientErrorReport.objects.create(user=customer, message='Booking crash')
+
+        self.client.force_authenticate(user=self.platform_staff)
+        response = self.client.get('/api/admin/client-errors/')
+        entry = next(r for r in response.data['results'] if r['message'] == 'Booking crash')
+        self.assertEqual(entry['user_email'], 'reporter@example.com')

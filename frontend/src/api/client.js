@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+import { reportClientError } from '../utils/clientErrorReporting'
+
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
 })
@@ -31,6 +33,19 @@ apiClient.interceptors.response.use(
     const status = error.response?.status
     const url = original?.url || ''
     const isAuthRequest = url.includes('auth/login') || url.includes('auth/register') || url.includes('auth/activate') || url.includes('token/refresh')
+
+    // A 400 ("email already taken", wrong password) is normal, expected user-input feedback -
+    // not a bug. But a 500 or a request that never got a response at all (network drop, CORS,
+    // timeout, DNS failure) during something like signup is a real problem the visitor hit,
+    // even though the calling component catches it and shows a friendly message instead of
+    // letting it crash - so window.onerror/unhandledrejection alone would never see it. Skip
+    // the report endpoint itself and deliberate cancellations to avoid noise/loops.
+    const isReportEndpoint = url.includes('report-client-error')
+    const isCancelled = error.code === 'ERR_CANCELED' || axios.isCancel(error)
+    if (!isReportEndpoint && !isCancelled && (status >= 500 || !error.response)) {
+      const method = (original?.method || '?').toUpperCase()
+      reportClientError(`API error: ${method} ${url} - ${status || error.message || 'network error'}`, '')
+    }
 
     if (status === 401 && !original._retry && !isAuthRequest) {
       const refresh = localStorage.getItem('sl_refresh')
