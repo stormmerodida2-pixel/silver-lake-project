@@ -129,3 +129,16 @@ if SENTRY_DSN:
         # end up, even inside SilverLake's own Sentry project.
         send_default_pii=False,
     )
+
+# Django's own free, built-in alternative/complement to Sentry - an unhandled exception in any
+# view (DEBUG=False only) emails everyone in ADMINS the full traceback and request details, via
+# whatever EMAIL_BACKEND is already configured above. Left unset, this is a silent no-op exactly
+# like every other optional integration in this file - ADMINS defaults to [] either way, so
+# nothing changes if this var is never set.
+ADMIN_ERROR_EMAIL = config('ADMIN_ERROR_EMAIL', default='')
+if ADMIN_ERROR_EMAIL:
+    ADMINS = [('SilverLake Admin', ADMIN_ERROR_EMAIL)]
+    # The From: address Django puts on these error emails specifically (separate from
+    # DEFAULT_FROM_EMAIL, which everything else uses) - defaults to 'root@localhost' if left
+    # unset, which most real inboxes silently spam-filter or bounce outright.
+    SERVER_EMAIL = DEFAULT_FROM_EMAIL

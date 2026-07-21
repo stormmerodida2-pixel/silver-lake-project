@@ -1,14 +1,17 @@
+import logging
 from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.mail import mail_admins
 from django.db.models import Count, Min, ProtectedError, Sum
 from django.db.models.functions import TruncMonth
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import mixins, status, viewsets
+from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -43,6 +46,8 @@ from .serializers import (
     AdminVehicleSubmissionSerializer,
 )
 from .utils import capture_replaced_files, csv_response, delete_files, parse_amount, parse_date_range, search_filter
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -343,9 +348,17 @@ class AdminHealthView(APIView):
         # SENTRY_DSN isn't a Django setting either - settings/production.py reads it straight
         # from decouple.config() the same way, only actually calling sentry_sdk.init() when set.
         sentry_configured = bool(env_config('SENTRY_DSN', default=''))
+        # Django's own ADMINS/mail_admins mechanism (see settings/production.py) - a free
+        # complement to Sentry, not a replacement: it only ever fires for an unhandled backend
+        # exception, never a caught/handled error or a frontend-only one.
+        admin_email_configured = bool(env_config('ADMIN_ERROR_EMAIL', default=''))
         checks['error_tracking'] = {
-            'ok': sentry_configured,
-            'detail': 'Reporting to Sentry' if sentry_configured else 'Not configured - errors are only ever found by a user reporting them',
+            'ok': sentry_configured or admin_email_configured,
+            'detail': (
+                ('Reporting to Sentry' if sentry_configured else '')
+                + (' and ' if sentry_configured and admin_email_configured else '')
+                + ('Emailing admins on unhandled backend errors' if admin_email_configured else '')
+            ) or 'Not configured - errors are only ever found by a user reporting them',
         }
 
         # A separate Daraja product from customer-facing STK Push above - see
@@ -375,6 +388,43 @@ class AdminHealthView(APIView):
         checks['debug_mode'] = {'ok': not settings.DEBUG, 'detail': 'DEBUG is on' if settings.DEBUG else 'DEBUG is off'}
 
         return Response(checks)
+
+
+class ReportClientErrorView(APIView):
+    """A frontend JS crash has no equivalent to a backend 500 - nothing catches it unless the
+    browser tab happens to be open in front of someone watching the console. This is the
+    lightweight, no-Sentry-required side of that: frontend/src/utils/clientErrorReporting.js
+    posts here on every uncaught error/unhandled promise rejection, and this just logs it (always
+    visible via `docker logs`) and, if ADMIN_ERROR_EMAIL is configured, emails admins the same way
+    an unhandled backend exception already does. AllowAny and throttled, not authenticated - an
+    error can happen to a visitor who was never logged in at all, and this must never itself be
+    the thing that breaks when something's already gone wrong client-side."""
+
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'client-error-report'
+
+    def post(self, request):
+        from django.conf import settings
+
+        message = str(request.data.get('message', ''))[:500] or '(no message)'
+        stack = str(request.data.get('stack', ''))[:4000]
+        url = str(request.data.get('url', ''))[:500]
+        user_agent = request.META.get('HTTP_USER_AGENT', '')[:300]
+
+        logger.error(
+            'Frontend error: %s\nURL: %s\nUser-Agent: %s\nStack:\n%s',
+            message, url, user_agent, stack,
+        )
+
+        if settings.ADMINS:
+            mail_admins(
+                subject=f'Frontend error: {message[:100]}',
+                message=f'URL: {url}\nUser-Agent: {user_agent}\n\n{stack}',
+                fail_silently=True,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AdminReferralSettingsView(APIView):

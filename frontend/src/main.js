@@ -6,10 +6,12 @@ import App from './App.vue'
 import reveal from './directives/reveal'
 import router from './router'
 import { initAnalytics } from './utils/analytics'
+import { initClientErrorReporting } from './utils/clientErrorReporting'
 import { initErrorTracking } from './utils/errorTracking'
 import { registerServiceWorker } from './utils/pushNotifications'
 
 initAnalytics()
+initClientErrorReporting()
 registerServiceWorker()
 const app = createApp(App)
 initErrorTracking(app, router)

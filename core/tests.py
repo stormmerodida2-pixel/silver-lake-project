@@ -4,12 +4,14 @@ from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from PIL import Image as PILImage
 from rest_framework.test import APITestCase
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import CustomerProfile
@@ -2413,3 +2415,50 @@ class AdminPhoneNumberValidationTests(APITestCase):
         }, format='json')
         self.assertEqual(response.status_code, 400)
         self.assertIn('payout_phone_number', response.json())
+
+
+class ReportClientErrorTests(APITestCase):
+    """core.views.ReportClientErrorView - the no-Sentry-required side of frontend error
+    visibility (see frontend/src/utils/clientErrorReporting.js)."""
+
+    def test_anonymous_visitor_can_report_an_error(self):
+        response = self.client.post('/api/report-client-error/', {
+            'message': 'TypeError: cannot read property of undefined',
+            'stack': 'at BookingView.vue:42',
+            'url': 'https://silverlakecarentals.com/book/5',
+        }, format='json')
+        self.assertEqual(response.status_code, 204)
+
+    def test_missing_fields_do_not_crash(self):
+        response = self.client.post('/api/report-client-error/', {}, format='json')
+        self.assertEqual(response.status_code, 204)
+
+    @override_settings(ADMINS=[('Test Admin', 'admin-alerts@example.com')])
+    def test_emails_admins_when_admin_error_email_is_configured(self):
+        mail.outbox = []
+        self.client.post('/api/report-client-error/', {
+            'message': 'ReferenceError: x is not defined', 'stack': 'at HomeView.vue:10',
+            'url': 'https://silverlakecarentals.com/',
+        }, format='json')
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('admin-alerts@example.com', mail.outbox[0].to)
+        self.assertIn('ReferenceError', mail.outbox[0].subject)
+
+    def test_does_not_email_when_no_admins_configured(self):
+        # settings.ADMINS defaults to [] when ADMIN_ERROR_EMAIL is unset - confirms this view
+        # doesn't blow up or misbehave in that (default) state.
+        mail.outbox = []
+        self.client.post('/api/report-client-error/', {'message': 'x', 'stack': 'y'}, format='json')
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_repeated_requests_are_throttled(self):
+        cache.clear()
+        original = ScopedRateThrottle.THROTTLE_RATES.get('client-error-report')
+        ScopedRateThrottle.THROTTLE_RATES['client-error-report'] = '2/min'
+        try:
+            for _ in range(2):
+                self.client.post('/api/report-client-error/', {'message': 'x'}, format='json')
+            response = self.client.post('/api/report-client-error/', {'message': 'x'}, format='json')
+        finally:
+            ScopedRateThrottle.THROTTLE_RATES['client-error-report'] = original
+        self.assertEqual(response.status_code, 429)

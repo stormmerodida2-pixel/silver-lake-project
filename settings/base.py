@@ -89,6 +89,7 @@ REST_FRAMEWORK = {
         'token-payment-view': '20/min',
         'driver-application': '5/hour',
         'payment-dispute': '10/hour',
+        'client-error-report': '20/min',
     },
 }
 

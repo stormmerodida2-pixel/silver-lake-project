@@ -19,6 +19,7 @@ from .views import (
     AdminUserViewSet,
     AdminVehicleCategoryViewSet,
     AdminVehicleSubmissionViewSet,
+    ReportClientErrorView,
 )
 
 router = DefaultRouter()
@@ -41,4 +42,5 @@ urlpatterns = [
     path('admin/analytics/', AdminAnalyticsView.as_view(), name='admin-analytics'),
     path('admin/health/', AdminHealthView.as_view(), name='admin-health'),
     path('admin/referral-settings/', AdminReferralSettingsView.as_view(), name='admin-referral-settings'),
+    path('report-client-error/', ReportClientErrorView.as_view(), name='report-client-error'),
 ] + router.urls
