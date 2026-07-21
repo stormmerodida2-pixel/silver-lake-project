@@ -6,7 +6,7 @@ import Swal from 'sweetalert2'
 import apiClient from '../api/client'
 import PhoneInput from '../components/PhoneInput.vue'
 import { useAuthStore } from '../stores/auth'
-import { confirmDialog } from '../utils/dialogs'
+import { confirmDialog, promptDialog } from '../utils/dialogs'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -89,6 +89,42 @@ async function copyReferralLink() {
   setTimeout(() => { copied.value = false }, 2000)
 }
 
+// ── Two-factor authentication (staff/admin accounts only) ─────────────────────
+const twoFactorEnabled = ref(false)
+const twoFactorBusy = ref(false)
+const twoFactorError = ref('')
+
+async function enableTwoFactor() {
+  if (!(await confirmDialog(
+    "You'll need to enter a code emailed to you every time you log in from now on. Enable two-factor authentication?",
+  ))) return
+  twoFactorError.value = ''
+  twoFactorBusy.value = true
+  try {
+    await apiClient.post('/auth/2fa/enable/')
+    twoFactorEnabled.value = true
+  } catch (err) {
+    twoFactorError.value = 'Could not enable two-factor authentication.'
+  } finally {
+    twoFactorBusy.value = false
+  }
+}
+
+async function disableTwoFactor() {
+  const password = await promptDialog('Enter your current password to confirm:', { inputType: 'password' })
+  if (password === null) return
+  twoFactorError.value = ''
+  twoFactorBusy.value = true
+  try {
+    await apiClient.post('/auth/2fa/disable/', { password })
+    twoFactorEnabled.value = false
+  } catch (err) {
+    twoFactorError.value = err.response?.data?.password?.[0] || 'Could not disable two-factor authentication.'
+  } finally {
+    twoFactorBusy.value = false
+  }
+}
+
 async function loadProfile() {
   loading.value = true
   try {
@@ -106,6 +142,7 @@ async function loadProfile() {
     completedTripCount.value = data.completed_trip_count
     nextLoyaltyTierName.value = data.next_loyalty_tier_name
     tripsToNextLoyaltyTier.value = data.trips_to_next_loyalty_tier
+    twoFactorEnabled.value = data.two_factor_enabled
   } catch (err) {
     error.value = 'Could not load your profile.'
   } finally {
@@ -243,6 +280,49 @@ onMounted(loadProfile)
               {{ copied ? 'Link Copied!' : 'Copy Referral Link' }}
             </button>
           </div>
+        </div>
+
+        <!-- Security (staff/admin accounts only) -->
+        <div v-if="auth.user?.is_staff" class="mt-6 rounded-2xl border border-navy-800 bg-navy-900 p-8 sm:p-10">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="font-[Georgia] text-lg font-bold text-white">Two-Factor Authentication</p>
+              <p class="mt-1 max-w-md text-sm text-slate-300">
+                <template v-if="twoFactorEnabled">
+                  Enabled - a code is emailed to you every time you log in.
+                </template>
+                <template v-else>
+                  Adds a second step at login (a code emailed to you) - recommended for staff and
+                  admin accounts, since they can move money and manage users.
+                </template>
+              </p>
+            </div>
+            <span
+              class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+              :class="twoFactorEnabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-navy-800 text-slate-400'"
+            >
+              {{ twoFactorEnabled ? 'Enabled' : 'Disabled' }}
+            </span>
+          </div>
+          <p v-if="twoFactorError" class="mt-3 text-sm text-red-400">{{ twoFactorError }}</p>
+          <button
+            v-if="!twoFactorEnabled"
+            type="button"
+            :disabled="twoFactorBusy"
+            class="mt-5 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+            @click="enableTwoFactor"
+          >
+            {{ twoFactorBusy ? 'Enabling...' : 'Enable Two-Factor Authentication' }}
+          </button>
+          <button
+            v-else
+            type="button"
+            :disabled="twoFactorBusy"
+            class="mt-5 rounded-md border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/10 disabled:opacity-60"
+            @click="disableTwoFactor"
+          >
+            {{ twoFactorBusy ? 'Disabling...' : 'Disable Two-Factor Authentication' }}
+          </button>
         </div>
 
       <form class="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 sm:p-10" @submit.prevent="submit">

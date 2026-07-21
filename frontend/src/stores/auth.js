@@ -26,6 +26,15 @@ export const useAuthStore = defineStore('auth', {
     },
     async login(email, password) {
       const { data } = await apiClient.post('/auth/login/', { username: email, password })
+      // A staff account with 2FA enabled gets a one-time code emailed instead of tokens here -
+      // the caller (LoginView) checks two_factor_required and prompts for the code, then calls
+      // verifyTwoFactorLogin() below to actually establish the session.
+      if (data.two_factor_required) return data
+      this.setSession(data)
+      return data
+    },
+    async verifyTwoFactorLogin(userId, code) {
+      const { data } = await apiClient.post('/auth/2fa/verify/', { user_id: userId, code })
       this.setSession(data)
     },
     async register({ firstName, lastName, email, phoneNumber, password, referralCode }) {

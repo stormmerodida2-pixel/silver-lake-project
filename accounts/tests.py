@@ -402,3 +402,148 @@ class LoyaltyFieldsOnUserSerializerTests(APITestCase):
         self.assertIsNone(data['loyalty_tier_name'])
         self.assertEqual(data['next_loyalty_tier_name'], 'Silver')
         self.assertEqual(data['trips_to_next_loyalty_tier'], 1)
+
+
+class TwoFactorLoginTests(APITestCase):
+    """The full opt-in 2FA flow: enabling it via Profile, the password step withholding tokens
+    and emailing a code instead, and the code step actually issuing them. Staff-only throughout -
+    see TwoFactorEnableView."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            username='2fa-staff@example.com', password='pass12345!', email='2fa-staff@example.com', is_staff=True,
+        )
+        self.customer = User.objects.create_user(
+            username='2fa-customer@example.com', password='pass12345!', email='2fa-customer@example.com',
+        )
+
+    def _enable(self, user):
+        from .models import TwoFactorSettings
+        TwoFactorSettings.objects.create(user=user, is_enabled=True)
+
+    def _latest_code(self, user):
+        from .models import LoginOTP
+        return LoginOTP.objects.filter(user=user).latest('created_at').code
+
+    def test_login_without_2fa_enabled_returns_tokens_immediately(self):
+        response = self.client.post('/api/auth/login/', {'username': self.staff.email, 'password': 'pass12345!'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('access', response.json())
+        self.assertNotIn('two_factor_required', response.json())
+
+    def test_login_with_2fa_enabled_withholds_tokens_and_emails_a_code(self):
+        from django.core import mail
+        self._enable(self.staff)
+        mail.outbox = []
+        response = self.client.post('/api/auth/login/', {'username': self.staff.email, 'password': 'pass12345!'})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['two_factor_required'])
+        self.assertEqual(data['user_id'], self.staff.id)
+        self.assertNotIn('access', data)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('2fa-staff@example.com', mail.outbox[0].to)
+
+    def test_wrong_password_never_reaches_the_2fa_step(self):
+        self._enable(self.staff)
+        response = self.client.post('/api/auth/login/', {'username': self.staff.email, 'password': 'wrong'})
+        self.assertEqual(response.status_code, 401)
+
+    def test_customer_2fa_flag_is_ignored_even_if_somehow_set(self):
+        # 2FA is meant to be staff-only (enforced in TwoFactorEnableView), but a row could still
+        # exist for a plain customer (e.g. if their account was later demoted from staff) -
+        # the login flow itself must also gate on is_staff, not just trust the row's existence.
+        self._enable(self.customer)
+        response = self.client.post('/api/auth/login/', {'username': self.customer.email, 'password': 'pass12345!'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('access', response.json())
+
+    def test_correct_code_completes_the_login(self):
+        self._enable(self.staff)
+        self.client.post('/api/auth/login/', {'username': self.staff.email, 'password': 'pass12345!'})
+        code = self._latest_code(self.staff)
+        response = self.client.post('/api/auth/2fa/verify/', {'user_id': self.staff.id, 'code': code})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('access', response.json())
+        self.assertEqual(response.json()['user']['email'], '2fa-staff@example.com')
+
+    def test_wrong_code_is_rejected(self):
+        self._enable(self.staff)
+        self.client.post('/api/auth/login/', {'username': self.staff.email, 'password': 'pass12345!'})
+        response = self.client.post('/api/auth/2fa/verify/', {'user_id': self.staff.id, 'code': '000000'})
+        self.assertEqual(response.status_code, 400)
+
+    def test_code_cannot_be_reused(self):
+        self._enable(self.staff)
+        self.client.post('/api/auth/login/', {'username': self.staff.email, 'password': 'pass12345!'})
+        code = self._latest_code(self.staff)
+        self.client.post('/api/auth/2fa/verify/', {'user_id': self.staff.id, 'code': code})
+        second_attempt = self.client.post('/api/auth/2fa/verify/', {'user_id': self.staff.id, 'code': code})
+        self.assertEqual(second_attempt.status_code, 400)
+
+    def test_code_locks_out_after_too_many_wrong_attempts(self):
+        self._enable(self.staff)
+        self.client.post('/api/auth/login/', {'username': self.staff.email, 'password': 'pass12345!'})
+        code = self._latest_code(self.staff)
+        for _ in range(5):
+            self.client.post('/api/auth/2fa/verify/', {'user_id': self.staff.id, 'code': '000000'})
+        # The real code should now be rejected too - the code is dead, not just the guesses.
+        response = self.client.post('/api/auth/2fa/verify/', {'user_id': self.staff.id, 'code': code})
+        self.assertEqual(response.status_code, 400)
+
+    def test_expired_code_is_rejected(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from .models import LoginOTP
+        from .services import OTP_LIFETIME
+
+        self._enable(self.staff)
+        otp = LoginOTP.objects.create(user=self.staff, code='123456')
+        LoginOTP.objects.filter(pk=otp.pk).update(created_at=timezone.now() - OTP_LIFETIME - timedelta(minutes=1))
+        response = self.client.post('/api/auth/2fa/verify/', {'user_id': self.staff.id, 'code': '123456'})
+        self.assertEqual(response.status_code, 400)
+
+
+class TwoFactorEnableDisableTests(APITestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user(username='2fa-toggle-staff@example.com', password='pass12345!', is_staff=True)
+        self.customer = User.objects.create_user(username='2fa-toggle-customer@example.com', password='pass12345!')
+
+    def test_staff_can_enable_2fa(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post('/api/auth/2fa/enable/')
+        self.assertEqual(response.status_code, 200)
+        self.staff.two_factor_settings.refresh_from_db()
+        self.assertTrue(self.staff.two_factor_settings.is_enabled)
+
+    def test_customer_cannot_enable_2fa(self):
+        self.client.force_authenticate(user=self.customer)
+        response = self.client.post('/api/auth/2fa/enable/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_staff_can_disable_2fa_with_correct_password(self):
+        from .models import TwoFactorSettings
+        TwoFactorSettings.objects.create(user=self.staff, is_enabled=True)
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post('/api/auth/2fa/disable/', {'password': 'pass12345!'})
+        self.assertEqual(response.status_code, 200)
+        self.staff.two_factor_settings.refresh_from_db()
+        self.assertFalse(self.staff.two_factor_settings.is_enabled)
+
+    def test_disabling_2fa_requires_the_correct_password(self):
+        from .models import TwoFactorSettings
+        TwoFactorSettings.objects.create(user=self.staff, is_enabled=True)
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post('/api/auth/2fa/disable/', {'password': 'wrong-password'})
+        self.assertEqual(response.status_code, 400)
+        self.staff.two_factor_settings.refresh_from_db()
+        self.assertTrue(self.staff.two_factor_settings.is_enabled)
+
+    def test_two_factor_enabled_reflected_on_user_serializer(self):
+        from .models import TwoFactorSettings
+        TwoFactorSettings.objects.create(user=self.staff, is_enabled=True)
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/auth/me/')
+        self.assertTrue(response.json()['two_factor_enabled'])

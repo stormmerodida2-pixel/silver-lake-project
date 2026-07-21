@@ -30,6 +30,15 @@ def send_password_reset_email(user):
     )
 
 
+def send_login_otp_email(user, code):
+    send_branded_email(
+        subject=f'Your SilverLake login code: {code}',
+        template_name='emails/login_otp.html',
+        context={'first_name': user.first_name, 'code': code},
+        recipient_list=[user.email],
+    )
+
+
 def send_referral_credit_earned_email(referrer, referred_user, amount):
     if not referrer.email:
         return

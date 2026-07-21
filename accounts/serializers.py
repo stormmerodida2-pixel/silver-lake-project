@@ -66,6 +66,7 @@ class UserSerializer(serializers.ModelSerializer):
     completed_trip_count = serializers.SerializerMethodField()
     next_loyalty_tier_name = serializers.SerializerMethodField()
     trips_to_next_loyalty_tier = serializers.SerializerMethodField()
+    two_factor_enabled = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -75,6 +76,7 @@ class UserSerializer(serializers.ModelSerializer):
             'referral_code', 'referral_credit_balance', 'referral_credit_amount',
             'is_read_only_session', 'loyalty_tier_name', 'loyalty_discount_percent',
             'completed_trip_count', 'next_loyalty_tier_name', 'trips_to_next_loyalty_tier',
+            'two_factor_enabled',
         ]
 
     def get_phone_number(self, user):
@@ -123,6 +125,10 @@ class UserSerializer(serializers.ModelSerializer):
         if not next_tier:
             return None
         return next_tier.min_completed_trips - get_completed_trip_count(user)
+
+    def get_two_factor_enabled(self, user):
+        settings_obj = getattr(user, 'two_factor_settings', None)
+        return bool(settings_obj and settings_obj.is_enabled)
 
     def get_is_read_only_session(self, user):
         # True only for a superadmin's read-only driver-impersonation session (see

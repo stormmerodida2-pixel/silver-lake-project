@@ -26,12 +26,13 @@ export async function confirmDialog(text, { title, danger = false, confirmText =
 }
 
 // Drop-in async replacement for window.prompt() - returns the entered string, or null if
-// cancelled (same contract as prompt() itself).
-export async function promptDialog(text, { title, defaultValue = '', placeholder = '' } = {}) {
+// cancelled (same contract as prompt() itself). inputType: 'password' masks the field, for
+// re-confirming a password rather than free text (e.g. disabling 2FA).
+export async function promptDialog(text, { title, defaultValue = '', placeholder = '', inputType = 'text' } = {}) {
   const result = await Swal.fire({
     title,
     text,
-    input: 'text',
+    input: inputType,
     inputValue: defaultValue,
     inputPlaceholder: placeholder,
     showCancelButton: true,

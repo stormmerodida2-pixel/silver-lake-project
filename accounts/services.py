@@ -1,5 +1,7 @@
 import random
+import secrets
 import string
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -7,9 +9,53 @@ from django.db.models import Sum
 from django.utils import timezone
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
-from .models import CustomerProfile, LoyaltyTier, ReferralCredit, ReferralSettings
+from .models import CustomerProfile, LoginOTP, LoyaltyTier, ReferralCredit, ReferralSettings
 
 User = get_user_model()
+
+# How long a login OTP stays valid, and how many wrong guesses it tolerates before it's dead -
+# long enough that a real email delivery delay doesn't lock someone out, short enough (combined
+# with MAX_OTP_ATTEMPTS) that a 6-digit code (1M combinations) is never remotely brute-forceable
+# within its own lifetime.
+OTP_LIFETIME = timedelta(minutes=10)
+MAX_OTP_ATTEMPTS = 5
+
+
+def generate_otp_code():
+    return ''.join(secrets.choice(string.digits) for _ in range(6))
+
+
+def request_login_otp(user):
+    """Issues a fresh login OTP and emails it - called once a staff account with 2FA enabled has
+    already passed the password check (see accounts.views.EmailTokenObtainPairSerializer.
+    validate). Doesn't invalidate any earlier still-pending code for this user; verify_login_otp
+    only ever looks at the most recent one, so an old code simply becomes unreachable rather than
+    needing to be explicitly revoked."""
+    otp = LoginOTP.objects.create(user=user, code=generate_otp_code())
+    from .emails import send_login_otp_email
+    send_login_otp_email(user, otp.code)
+    return otp
+
+
+def verify_login_otp(user, submitted_code):
+    """Raises ValueError with a message safe to show the user for anything that fails - no code
+    requested yet/expired, too many wrong guesses already, or a wrong code this time. Uses
+    secrets.compare_digest rather than == so comparing the code doesn't leak timing information
+    about how many leading digits matched."""
+    cutoff = timezone.now() - OTP_LIFETIME
+    otp = LoginOTP.objects.filter(user=user, is_used=False, created_at__gte=cutoff).order_by('-created_at').first()
+    if not otp:
+        raise ValueError('That code has expired. Please log in again to get a new one.')
+    if otp.attempts >= MAX_OTP_ATTEMPTS:
+        raise ValueError('Too many incorrect attempts. Please log in again to get a new code.')
+
+    otp.attempts += 1
+    if not secrets.compare_digest(otp.code, (submitted_code or '').strip()):
+        otp.save(update_fields=['attempts'])
+        raise ValueError('Incorrect code.')
+
+    otp.is_used = True
+    otp.save(update_fields=['is_used', 'attempts'])
 
 
 def blacklist_all_tokens_for_user(user):

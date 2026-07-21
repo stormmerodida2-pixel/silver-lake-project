@@ -13,7 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .emails import send_activation_email, send_password_reset_email
-from .models import CustomerProfile
+from .models import CustomerProfile, TwoFactorSettings
 from .serializers import (
     ChangePasswordSerializer,
     PasswordResetConfirmSerializer,
@@ -22,7 +22,7 @@ from .serializers import (
     UpdateProfileSerializer,
     UserSerializer,
 )
-from .services import blacklist_all_tokens_for_user
+from .services import blacklist_all_tokens_for_user, request_login_otp, verify_login_otp
 
 User = get_user_model()
 
@@ -40,6 +40,17 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
                 attrs[self.username_field] = user.get_username()
 
         data = super().validate(attrs)
+
+        # The password's already been checked by this point (super().validate() raises
+        # AuthenticationFailed otherwise) - a staff account with 2FA on doesn't get its tokens
+        # yet, it gets a one-time code emailed instead (see TwoFactorVerifyView, which is where
+        # the real tokens actually get issued). 2FA is staff-only (see TwoFactorEnableView), so a
+        # regular customer account is never affected even if this row somehow existed for one.
+        two_factor = getattr(self.user, 'two_factor_settings', None)
+        if self.user.is_staff and two_factor and two_factor.is_enabled:
+            request_login_otp(self.user)
+            return {'two_factor_required': True, 'user_id': self.user.id}
+
         data['user'] = UserSerializer(self.user, context=self.context).data
         return data
 
@@ -48,6 +59,69 @@ class LoginView(TokenObtainPairView):
     serializer_class = EmailTokenObtainPairSerializer
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'auth-login'
+
+
+class TwoFactorVerifyView(APIView):
+    """The second step of logging in once EmailTokenObtainPairSerializer.validate() has replied
+    with two_factor_required - takes the code emailed to the account and, if it checks out,
+    issues the real access/refresh tokens (identical shape to a normal login response) that
+    validate() withheld. AllowAny, same as LoginView itself - the caller isn't authenticated yet,
+    that's the whole point of this step."""
+
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth-2fa'
+
+    def post(self, request):
+        user = User.objects.filter(pk=request.data.get('user_id'), is_staff=True).first()
+        if not user:
+            return Response({'detail': 'Invalid request.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            verify_login_otp(user, request.data.get('code', ''))
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserSerializer(user, context={'request': request}).data,
+        })
+
+
+class TwoFactorEnableView(APIView):
+    """A staff account opting into 2FA for itself (see Profile -> Security) - no extra
+    confirmation needed beyond already being logged in, since turning protection ON is never the
+    risky direction (unlike TwoFactorDisableView, which is)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if not request.user.is_staff:
+            return Response(
+                {'detail': 'Two-factor authentication is only available for staff accounts.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        settings_obj, _ = TwoFactorSettings.objects.get_or_create(user=request.user)
+        settings_obj.enable()
+        return Response({'detail': 'Two-factor authentication enabled.'})
+
+
+class TwoFactorDisableView(APIView):
+    """Requires the account's current password to turn 2FA back off - the same
+    already-logged-in session that could enable it could otherwise disable it just as easily
+    (e.g. an unattended unlocked laptop), which would defeat the point of having 2FA at all."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if not request.user.check_password(request.data.get('password', '')):
+            return Response({'password': ['Current password is incorrect.']}, status=status.HTTP_400_BAD_REQUEST)
+        settings_obj = getattr(request.user, 'two_factor_settings', None)
+        if settings_obj:
+            settings_obj.disable()
+        return Response({'detail': 'Two-factor authentication disabled.'})
 
 
 class RegisterView(APIView):

@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from core.images import optimize_image
 from fleet.validators import validate_file_size
@@ -125,3 +126,47 @@ class LoyaltyTier(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.min_completed_trips}+ trips, {self.discount_percent}% off)'
+
+
+class TwoFactorSettings(models.Model):
+    """Per-account opt-in for email-based 2FA at login (see accounts.services.request_login_otp/
+    verify_login_otp) - staff/admin accounts only (enforced in accounts.views.
+    TwoFactorEnableView), since that's where the real risk sits (money movement, user
+    management), not every customer account. A separate model from CustomerProfile rather than a
+    field bolted onto it, since plenty of staff accounts (support staff, superadmins created via
+    createsuperuser) have no CustomerProfile at all."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='two_factor_settings')
+    is_enabled = models.BooleanField(default=False)
+    enabled_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.user} - 2FA {"enabled" if self.is_enabled else "disabled"}'
+
+    def enable(self):
+        self.is_enabled = True
+        self.enabled_at = timezone.now()
+        self.save(update_fields=['is_enabled', 'enabled_at'])
+
+    def disable(self):
+        self.is_enabled = False
+        self.save(update_fields=['is_enabled'])
+
+
+class LoginOTP(models.Model):
+    """A short-lived one-time code emailed at login time once TwoFactorSettings.is_enabled is
+    True (see accounts.views.EmailTokenObtainPairSerializer.validate) - the password has already
+    been checked by this point, this is purely the second factor. `attempts` caps how many wrong
+    guesses a single code tolerates (see accounts.services.verify_login_otp) - without it, a
+    6-digit code would otherwise be brute-forceable within its own lifetime given enough
+    requests. is_used flips True the moment it's successfully verified, so it can never be
+    replayed even if the client resubmits it."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='login_otps')
+    code = models.CharField(max_length=6)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    is_used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']

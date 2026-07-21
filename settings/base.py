@@ -84,6 +84,7 @@ REST_FRAMEWORK = {
         'auth-login': '10/min',
         'auth-register': '5/hour',
         'auth-password-reset': '5/hour',
+        'auth-2fa': '10/min',
         'mpesa-stk': '5/min',
         'token-payment-view': '20/min',
         'driver-application': '5/hour',
