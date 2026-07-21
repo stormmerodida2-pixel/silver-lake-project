@@ -136,6 +136,20 @@ else:
 # Where the SPA lives, so emails can link back to activation/reset pages.
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
 
+# Web Push (browser notifications) - reaches someone who isn't actively looking at the app or
+# its email/SMS. Unlike the other optional integrations in this file, this needs no third-party
+# account: a VAPID keypair is just a self-generated ECDSA key, safe to leave unset (push is
+# silently skipped - see notifications.push.send_push_notifications_for) but just as safe to set
+# in every environment including local dev, since browsers allow the Push API on localhost
+# without HTTPS. Generate a pair with:
+#   python -c "from py_vapid import Vapid02; v = Vapid02(); v.generate_keys(); ..." (see
+#   settings/.env.example for the full one-liner) - or any other VAPID key generator.
+VAPID_PUBLIC_KEY = config('VAPID_PUBLIC_KEY', default='')
+VAPID_PRIVATE_KEY = config('VAPID_PRIVATE_KEY', default='')
+# A real contact address - required by the Web Push protocol (RFC 8292) so a push service can
+# reach the sender if it needs to (e.g. their key is sending abusive volume).
+VAPID_CLAIM_EMAIL = config('VAPID_CLAIM_EMAIL', default='support@silverlakecarrentals.co.ke')
+
 ROOT_URLCONF = 'silverlake.urls'
 
 TEMPLATES = [

@@ -7,6 +7,7 @@ nh3
 python-decouple
 requests
 xhtml2pdf
+pywebpush
 
 # Production deployment - all safe to leave installed but unused in local dev, since each only
 # activates when its own env var is set (see settings/base.py and settings/.env.example).

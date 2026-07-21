@@ -1,15 +1,19 @@
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APITestCase
 
 from core.models import StaffOrganization
 from drivers.models import Driver
 from fleet.models import FleetPartner
 
-from .models import Notification, NotificationEvent
+from .models import Notification, NotificationEvent, NotificationPreference, PushSubscription
+from .push import _recipients_for
 from .services import notify
+
+FAKE_VAPID = override_settings(VAPID_PRIVATE_KEY='fake-private-key', VAPID_PUBLIC_KEY='fake-public-key')
 
 User = get_user_model()
 
@@ -310,3 +314,137 @@ class NotificationPreferenceTests(APITestCase):
 
         response = self.client.get('/api/notifications/preferences/')
         self.assertEqual(response.json()['muted_events'], [NotificationEvent.BOOKING_CREATED])
+
+
+class PushRecipientResolutionTests(TestCase):
+    """_recipients_for mirrors exactly what each NotificationViewSet.get_queryset already
+    computes for the in-app bell - see NotificationViewSetTests above for the same org-scoping
+    rules being exercised there."""
+
+    def setUp(self):
+        self.platform_staff = User.objects.create_user(username='push-platform@example.com', password='x', is_staff=True)
+        self.org = FleetPartner.objects.create(name='Push Org', platform_fee_percent=Decimal('10'))
+        self.org_staff = User.objects.create_user(username='push-org-staff@example.com', password='x', is_staff=True)
+        StaffOrganization.objects.create(user=self.org_staff, organization=self.org)
+        self.other_org_staff = User.objects.create_user(username='push-other-org-staff@example.com', password='x', is_staff=True)
+        StaffOrganization.objects.create(
+            user=self.other_org_staff, organization=FleetPartner.objects.create(name='Push Org 2', platform_fee_percent=Decimal('10')),
+        )
+        self.plain_user = User.objects.create_user(username='push-plain@example.com', password='x')
+        self.driver_user = User.objects.create_user(username='push-driver@example.com', password='x')
+        self.driver = Driver.objects.create(user=self.driver_user, full_name='Push Driver', is_active=True)
+
+    def test_user_scoped_notification_resolves_to_that_user_only(self):
+        notification = notify(NotificationEvent.BOOKING_CONFIRMED, 'x', user=self.plain_user)
+        self.assertEqual(list(_recipients_for(notification)), [self.plain_user])
+
+    def test_driver_scoped_notification_resolves_to_that_drivers_own_account(self):
+        notification = notify(NotificationEvent.DRIVER_BOOKED, 'x', driver=self.driver)
+        self.assertEqual(list(_recipients_for(notification)), [self.driver_user])
+
+    def test_platform_wide_notification_resolves_to_platform_staff_only(self):
+        notification = notify(NotificationEvent.DRIVER_APPLICATION, 'x')
+        recipients = set(_recipients_for(notification))
+        self.assertIn(self.platform_staff, recipients)
+        self.assertNotIn(self.org_staff, recipients)
+
+    def test_org_scoped_notification_resolves_to_that_orgs_staff_and_platform_staff(self):
+        notification = notify(NotificationEvent.BOOKING_CREATED, 'x', organization=self.org)
+        recipients = set(_recipients_for(notification))
+        self.assertIn(self.org_staff, recipients)
+        self.assertIn(self.platform_staff, recipients)
+        self.assertNotIn(self.other_org_staff, recipients)
+
+
+@FAKE_VAPID
+class SendPushNotificationsTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='push-send@example.com', password='x')
+        self.subscription = PushSubscription.objects.create(
+            user=self.user, endpoint='https://push.example.com/abc', p256dh='p256dh-key', auth='auth-key',
+        )
+
+    @patch('notifications.push.webpush')
+    def test_sends_to_a_subscribed_recipient(self, mock_webpush):
+        notify(NotificationEvent.BOOKING_CONFIRMED, 'Your booking is confirmed', user=self.user)
+        mock_webpush.assert_called_once()
+        call_kwargs = mock_webpush.call_args.kwargs
+        self.assertEqual(call_kwargs['subscription_info']['endpoint'], self.subscription.endpoint)
+
+    @patch('notifications.push.webpush')
+    def test_muted_event_is_not_pushed(self, mock_webpush):
+        NotificationPreference.objects.create(user=self.user, event=NotificationEvent.BOOKING_CONFIRMED)
+        notify(NotificationEvent.BOOKING_CONFIRMED, 'Your booking is confirmed', user=self.user)
+        mock_webpush.assert_not_called()
+
+    @patch('notifications.push.webpush')
+    def test_a_user_with_no_subscription_is_silently_skipped(self, mock_webpush):
+        other_user = User.objects.create_user(username='push-no-sub@example.com', password='x')
+        notify(NotificationEvent.BOOKING_CONFIRMED, 'x', user=other_user)
+        mock_webpush.assert_not_called()
+
+    @override_settings(VAPID_PRIVATE_KEY='')
+    @patch('notifications.push.webpush')
+    def test_no_op_when_vapid_is_not_configured(self, mock_webpush):
+        notify(NotificationEvent.BOOKING_CONFIRMED, 'x', user=self.user)
+        mock_webpush.assert_not_called()
+
+    @patch('notifications.push.webpush')
+    def test_a_dead_subscription_is_deleted_on_410(self, mock_webpush):
+        from pywebpush import WebPushException
+
+        class FakeResponse:
+            status_code = 410
+
+        mock_webpush.side_effect = WebPushException('gone', response=FakeResponse())
+        notify(NotificationEvent.BOOKING_CONFIRMED, 'x', user=self.user)
+        self.assertFalse(PushSubscription.objects.filter(pk=self.subscription.pk).exists())
+
+    @patch('notifications.push.webpush')
+    def test_a_transient_failure_does_not_delete_the_subscription(self, mock_webpush):
+        from pywebpush import WebPushException
+
+        class FakeResponse:
+            status_code = 500
+
+        mock_webpush.side_effect = WebPushException('server error', response=FakeResponse())
+        notify(NotificationEvent.BOOKING_CONFIRMED, 'x', user=self.user)
+        self.assertTrue(PushSubscription.objects.filter(pk=self.subscription.pk).exists())
+
+
+class PushSubscriptionAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='push-api@example.com', password='pass12345!')
+        self.client.force_authenticate(user=self.user)
+
+    def test_can_subscribe(self):
+        response = self.client.post('/api/push/subscription/', {
+            'endpoint': 'https://push.example.com/xyz',
+            'keys': {'p256dh': 'p', 'auth': 'a'},
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(PushSubscription.objects.filter(user=self.user, endpoint='https://push.example.com/xyz').exists())
+
+    def test_missing_keys_rejected(self):
+        response = self.client.post('/api/push/subscription/', {'endpoint': 'https://push.example.com/xyz'}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_can_unsubscribe(self):
+        PushSubscription.objects.create(user=self.user, endpoint='https://push.example.com/xyz', p256dh='p', auth='a')
+        response = self.client.delete('/api/push/subscription/', {'endpoint': 'https://push.example.com/xyz'}, format='json')
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(PushSubscription.objects.exists())
+
+    def test_anonymous_cannot_subscribe(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.post('/api/push/subscription/', {
+            'endpoint': 'https://push.example.com/xyz', 'keys': {'p256dh': 'p', 'auth': 'a'},
+        }, format='json')
+        self.assertIn(response.status_code, (401, 403))
+
+    @FAKE_VAPID
+    def test_vapid_public_key_endpoint_returns_the_configured_key(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get('/api/push/vapid-public-key/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['public_key'], 'fake-public-key')

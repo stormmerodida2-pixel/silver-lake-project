@@ -7,8 +7,10 @@ import reveal from './directives/reveal'
 import router from './router'
 import { initAnalytics } from './utils/analytics'
 import { initErrorTracking } from './utils/errorTracking'
+import { registerServiceWorker } from './utils/pushNotifications'
 
 initAnalytics()
+registerServiceWorker()
 const app = createApp(App)
 initErrorTracking(app, router)
 app.use(createPinia()).use(router).directive('reveal', reveal).mount('#app')

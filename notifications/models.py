@@ -102,3 +102,23 @@ class NotificationPreference(models.Model):
 
     def __str__(self):
         return f'{self.user} muted {self.event}'
+
+
+class PushSubscription(models.Model):
+    """One browser's Web Push registration for one logged-in account - a customer, driver, or
+    staff account can have several (phone, laptop, work computer), each subscribed
+    independently. Lets a nudge (booking confirmed, a payment reminder, a new support ticket...)
+    reach someone who isn't actively looking at the app or its email, the one gap none of the
+    existing channels (in-app bell, email, SMS) cover. Deleted the moment a push to it comes back
+    permanently invalid (see notifications.push.send_push_notifications_for) - a browser that's
+    uninstalled the site or revoked permission would otherwise leave a dead endpoint that just
+    keeps failing forever."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='push_subscriptions')
+    endpoint = models.URLField(max_length=500, unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.user} - {self.endpoint[:50]}'

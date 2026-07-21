@@ -1,11 +1,13 @@
+from django.conf import settings
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from core.permissions import IsSupportStaff, get_user_organization
 from drivers.permissions import IsDriverUser
 
-from .models import Notification, NotificationEvent, NotificationPreference
+from .models import Notification, NotificationEvent, NotificationPreference, PushSubscription
 from .serializers import NotificationSerializer
 
 
@@ -100,3 +102,45 @@ class ClientNotificationViewSet(_NotificationReadStateMixin, mixins.ListModelMix
     def get_queryset(self):
         queryset = Notification.objects.filter(user=self.request.user)
         return self._exclude_muted(queryset).prefetch_related('read_by')
+
+
+class PushVapidPublicKeyView(APIView):
+    """Lets the frontend ask whether Web Push is even configured before offering an "Enable
+    Notifications" toggle at all - blank means notifications.push.send_push_notifications_for is
+    a silent no-op, same as everywhere else VAPID_PRIVATE_KEY isn't set. Not auth-gated - the
+    public key isn't secret (it's sent to the browser's push service on every subscription
+    either way), and the toggle needs to know this before a user has necessarily logged in on
+    this particular device."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response({'public_key': settings.VAPID_PUBLIC_KEY})
+
+
+class PushSubscriptionView(APIView):
+    """Registers (or removes) one browser's Web Push subscription for the logged-in account -
+    see PushSubscription's own docstring. The subscription payload's shape (endpoint +
+    keys.p256dh/keys.auth) is exactly what the browser's own PushSubscription.toJSON() already
+    produces, so the frontend passes it straight through unchanged."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        endpoint = request.data.get('endpoint')
+        keys = request.data.get('keys') or {}
+        if not endpoint or not keys.get('p256dh') or not keys.get('auth'):
+            return Response({'detail': 'endpoint and keys.p256dh/keys.auth are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        PushSubscription.objects.update_or_create(
+            endpoint=endpoint,
+            defaults={'user': request.user, 'p256dh': keys['p256dh'], 'auth': keys['auth']},
+        )
+        return Response(status=status.HTTP_201_CREATED)
+
+    def delete(self, request):
+        endpoint = request.data.get('endpoint')
+        if not endpoint:
+            return Response({'detail': 'endpoint is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

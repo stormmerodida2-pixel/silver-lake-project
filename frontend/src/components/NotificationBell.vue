@@ -1,8 +1,9 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useNotifications } from '../composables/useNotifications'
+import { disablePushNotifications, enablePushNotifications, getPushSubscriptionStatus } from '../utils/pushNotifications'
 
 const props = defineProps({
   // '/admin/notifications' for the admin dashboard, '/driver/notifications' for the driver
@@ -23,6 +24,36 @@ const root = ref(null)
 const open = ref(false)
 const showPreferences = ref(false)
 let pollTimer = null
+
+// ── Browser (Web Push) notifications - separate from the per-event mute list below, this is
+// whether this device gets pushed to at all. ─────────────────────────────────────────────────
+const pushStatus = ref('loading') // 'loading' | 'unsupported' | 'denied' | 'subscribed' | 'unsubscribed'
+const pushBusy = ref(false)
+
+async function refreshPushStatus() {
+  pushStatus.value = await getPushSubscriptionStatus()
+}
+
+async function togglePush() {
+  pushBusy.value = true
+  try {
+    if (pushStatus.value === 'subscribed') {
+      await disablePushNotifications()
+    } else {
+      await enablePushNotifications()
+    }
+  } catch (err) {
+    // Permission denied, unsupported, or the user dismissed the browser prompt - refreshPushStatus
+    // below reflects whatever actually happened either way.
+  } finally {
+    await refreshPushStatus()
+    pushBusy.value = false
+  }
+}
+
+watch(showPreferences, (value) => {
+  if (value) refreshPushStatus()
+})
 
 const EVENT_LABELS = {
   // Admin dashboard
@@ -174,6 +205,29 @@ onUnmounted(() => {
       </div>
 
       <div v-if="showPreferences" class="max-h-96 overflow-y-auto p-2">
+        <div class="mb-2 border-b border-navy-800 pb-2">
+          <label class="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm text-slate-200">
+            <span>
+              Browser Notifications
+              <span class="mt-0.5 block text-xs font-normal text-slate-500">Get nudged even when this tab isn't open</span>
+            </span>
+            <button
+              v-if="pushStatus === 'subscribed' || pushStatus === 'unsubscribed'"
+              type="button" role="switch" :aria-checked="pushStatus === 'subscribed'" :disabled="pushBusy"
+              class="relative h-5 w-9 shrink-0 rounded-full transition disabled:opacity-50"
+              :class="pushStatus === 'subscribed' ? 'bg-gold-500' : 'bg-navy-700'"
+              @click="togglePush"
+            >
+              <span
+                class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform"
+                :class="pushStatus === 'subscribed' ? 'left-4' : 'left-0.5'"
+              />
+            </button>
+            <span v-else-if="pushStatus === 'denied'" class="shrink-0 text-xs text-red-400">Blocked in browser settings</span>
+            <span v-else-if="pushStatus === 'unsupported'" class="shrink-0 text-xs text-slate-500">Not supported here</span>
+          </label>
+        </div>
+
         <p class="px-2 pb-2 text-xs text-slate-500">Choose which of these you want to hear about.</p>
         <label
           v-for="event in manageableEvents"
