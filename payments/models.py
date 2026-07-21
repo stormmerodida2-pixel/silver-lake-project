@@ -205,9 +205,10 @@ class RefundStatus(models.TextChoices):
 
 
 class Refund(models.Model):
-    """Tracks money owed back to a customer after a cancelled booking. There's no automated
-    M-Pesa refund API wired up, so this just gives admin a durable record of what's owed and
-    a place to confirm once they've sent it back by hand."""
+    """Tracks money owed back to a customer after a cancelled booking. Disbursement can either be
+    manual (mark_issued, sent by hand) or automated via Safaricom's B2C API (see
+    payments.services.initiate_refund_disbursement) - manual remains the default, always-available
+    fallback either way."""
 
     booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name='refund')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -216,6 +217,12 @@ class Refund(models.Model):
     notes = models.TextField(blank=True)
     issued_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Mirrors DriverPayout.b2c_conversation_id/b2c_failed_at exactly - see that model's own
+    # docstring for what each tracks. Blank means no automated disbursement has ever been
+    # attempted on this refund.
+    b2c_conversation_id = models.CharField(max_length=100, blank=True)
+    b2c_failed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-created_at']
@@ -228,7 +235,8 @@ class Refund(models.Model):
         self.issued_at = timezone.now()
         if reference:
             self.reference = reference
-        self.save(update_fields=['status', 'issued_at', 'reference'])
+        self.b2c_failed_at = None
+        self.save(update_fields=['status', 'issued_at', 'reference', 'b2c_failed_at'])
 
         from .emails import send_refund_issued_email
 

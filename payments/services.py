@@ -11,7 +11,7 @@ from django.utils import timezone
 from bookings.models import Booking, BookingStatus
 
 from . import mpesa
-from .models import CashDeposit, Payment, PaymentMethod, PaymentStatus
+from .models import CashDeposit, Payment, PaymentMethod, PaymentStatus, RefundStatus
 
 logger = logging.getLogger(__name__)
 
@@ -569,3 +569,40 @@ def initiate_payout_disbursement(payout):
     payout.b2c_failed_at = None
     payout.save(update_fields=['b2c_conversation_id', 'b2c_failed_at'])
     return payout
+
+
+def initiate_refund_disbursement(refund):
+    """Sends a cancelled booking's refund straight to the customer's own M-Pesa number via
+    Safaricom's B2C API - the same mechanism and shape as initiate_payout_disbursement (credential
+    gating, phone validation, initiate-then-callback via payments.views.mpesa_b2c_result). Leaves
+    the refund Pending until the callback confirms it landed; Mark Issued remains the always-
+    available manual fallback either way."""
+    if refund.status == RefundStatus.ISSUED:
+        raise PaymentValidationError('This refund has already been issued.')
+
+    phone = _normalize_mpesa_phone(refund.booking.customer_phone)
+    if not _MPESA_PHONE_PATTERN.match(phone):
+        raise PaymentValidationError(
+            'This customer has no valid M-Pesa number on file to disburse this refund to.'
+        )
+
+    try:
+        result = mpesa.initiate_b2c_payment(
+            phone_number=phone, amount=refund.amount,
+            remarks=f'SilverLake refund for booking #{refund.booking_id}',
+            occasion=f'Refund {refund.id}',
+        )
+    except UndefinedValueError as exc:
+        raise PaymentValidationError(
+            'M-Pesa B2C payouts are not configured yet - use Mark Issued to send this refund manually instead.'
+        ) from exc
+    except Exception as exc:
+        logger.exception('M-Pesa B2C disbursement failed for refund %s', refund.pk)
+        raise PaymentValidationError(
+            'Could not reach M-Pesa right now. Please try again shortly, or use Mark Issued to send this refund manually.'
+        ) from exc
+
+    refund.b2c_conversation_id = result.get('ConversationID', '')
+    refund.b2c_failed_at = None
+    refund.save(update_fields=['b2c_conversation_id', 'b2c_failed_at'])
+    return refund

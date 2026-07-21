@@ -388,10 +388,15 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
   with a Drivers / Fleet Partners filter (list view and CSV export) to isolate one or the other —
   renamed from "Driver Payouts" once fleet partners became a real, growing share of that ledger,
   not just an edge case.
-- **Refunds are tracked, not automated.** There's no live M-Pesa refund API wired up — instead,
-  cancelling a paid booking creates a `Refund` record automatically, which shows up on the admin
-  Refunds page as "Pending" until a superadmin sends the money back by hand and marks it
-  "Issued" (with a reference number).
+- **Refunds are tracked, and can be disbursed automatically via M-Pesa or by hand.** Cancelling a
+  paid booking creates a `Refund` record automatically, showing up on the admin Refunds page as
+  "Pending." From there, a superadmin can either send the money back manually and click
+  **Mark Issued** (with a reference number), or click **Disburse via M-Pesa** to send it straight
+  to the customer's own phone via Safaricom's B2C API — the exact same mechanism and
+  initiate-then-callback shape as the driver/FleetPartner payout disbursement above, sharing the
+  same result callback (a refund and a payout are both just money leaving SilverLake's Paybill).
+  Currently dormant in production pending the same B2C "Go Live" registration payouts need; Mark
+  Issued remains the always-available manual fallback either way.
 - **Cancelling voids any unpaid payout.** If a booking's driver payout hadn't been disbursed yet
   when the booking got cancelled, that payout is automatically voided — a cancelled trip can't
   still owe a driver their cut. This also covers a payment that was already in flight before the
@@ -615,7 +620,7 @@ published; unpublishing takes it back down without deleting it.
 
 ## 15. What's Tested
 
-898 automated backend tests currently cover booking validation, payment guards, payout timing and
+907 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -748,13 +753,15 @@ transitions and their customer notifications, reopening without losing the prior
 note, permission tiers); loyalty tier derivation (trip-count thresholds, discount stacking with a
 discount code, the boundary cases at each tier); the CSV export endpoints (org-scoping and active
 filters carried through to the export, malformed date-range rejection); the M-Pesa B2C
-disbursement flow (credential-gating with a friendly not-configured message, phone normalization,
-every guard mark_paid/verify already enforce, the result-callback success/failure/security paths,
-permission tiers); the Payouts recipient filter; 2FA (the full enable → password-gated login →
-emailed code → verify loop, expiry, the 5-attempt lockout, code reuse rejection, staff-only
-gating); and Kenyan phone-number format validation at every collection point (registration,
-profile edit, driver applications, admin-created drivers/customers/fleet partners, walk-in and
-government-contract bookings). Run the whole suite with:
+disbursement flow for both driver/FleetPartner payouts and customer refunds (credential-gating
+with a friendly not-configured message, phone normalization, every guard mark_paid/mark_issued/
+verify already enforce, the shared result-callback correctly routing to whichever of the two it
+belongs to, success/failure/security paths, permission tiers); the Payouts recipient filter; 2FA
+(the full enable → password-gated login → emailed code → verify loop, expiry, the 5-attempt
+lockout, code reuse rejection, staff-only gating); and Kenyan phone-number format validation at
+every collection point (registration, profile edit, driver applications, admin-created
+drivers/customers/fleet partners, walk-in and government-contract bookings). Run the whole suite
+with:
 ```
 python manage.py test
 ```
@@ -773,8 +780,9 @@ S3, not local disk. None of that is still open — what's left is genuinely narr
 - **`www.silverlakecarentals.com` isn't pointed at the server yet** — still resolves to the
   registrar's default parking page; the apex domain (no `www`) already works correctly. A DNS fix
   on the registrar's side, not a code or server issue.
-- **M-Pesa B2C automated payouts are built but dormant** (see §7) — needs its own separate
-  Safaricom "Go Live" application. Manual Mark Paid works today regardless.
+- **M-Pesa B2C automated payouts and refund disbursement are both built but dormant** (see §7) —
+  needs its own separate Safaricom "Go Live" application (distinct from the customer-facing STK
+  Push one). Manual Mark Paid / Mark Issued both work today regardless.
 - **Sentry error tracking is built but not active in production** — no `SENTRY_DSN` set yet, so a
   production bug is currently only discovered if a user reports it.
 - **No dependency-vulnerability scanning until 2026-07-21** — now fixed: `pip-audit`/`npm audit`
@@ -784,8 +792,6 @@ S3, not local disk. None of that is still open — what's left is genuinely narr
 - **File uploads are validated by extension and size only**, not actual file content/magic bytes.
 - **No documented backup/disaster-recovery plan** for the production RDS instance.
 - **Single EC2 instance** — no redundancy or failover.
-- **Refund disbursement is manual** — there's no automated M-Pesa refund API integration, only a
-  tracked record of what's owed.
 - **Multi-tenancy is built for the core admin surface, not exhaustively everywhere.** An Org
   Admin/Org Staff account (see §2) is correctly scoped for fleet, bookings, payments, payouts,
   refunds, reviews, drivers, their own staff, and the Activity Log (an org's own actions only,

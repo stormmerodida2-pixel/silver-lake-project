@@ -16,12 +16,13 @@ from core.models import StaffOrganization
 from drivers.models import Driver
 from fleet.models import FleetPartner
 
-from .models import CashDeposit, DriverPayout, Payment, PaymentMethod, PaymentStatus
+from .models import CashDeposit, DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 from .services import (
     PaymentValidationError,
     confirm_offline_payment,
     declare_offline_payment,
     initiate_payout_disbursement,
+    initiate_refund_disbursement,
     initiate_stk_push_payment,
 )
 
@@ -1578,3 +1579,135 @@ class MpesaB2cResultCallbackTests(APITestCase):
             self._result_body('AG_never_heard_of_it', result_code=0), format='json',
         )
         self.assertEqual(response.status_code, 200)
+
+
+def _make_pending_refund(customer_phone='254700000000'):
+    """A Refund auto-created by cancelling a paid booking (see Booking.mark_cancelled) - the
+    baseline fixture refund-disbursement tests build on."""
+    vehicle = make_vehicle(price_per_day=Decimal('1000'))
+    customer = User.objects.create_user(username=f'refund-b2c-{uuid.uuid4().hex[:8]}@example.com', password='pass12345!')
+    booking = make_booking(customer, vehicle, status=BookingStatus.PENDING, customer_phone=customer_phone)
+    Payment.objects.create(
+        booking=booking, method=PaymentMethod.MPESA, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+    )
+    booking.mark_cancelled()
+    return Refund.objects.get(booking=booking)
+
+
+class RefundDisbursementServiceTests(APITestCase):
+    """payments.services.initiate_refund_disbursement - the B2C counterpart to
+    initiate_payout_disbursement, used to send a cancelled booking's refund straight to the
+    customer's own M-Pesa number instead of a staff member wiring it by hand."""
+
+    def test_b2c_not_configured_gives_a_friendly_error(self):
+        refund = _make_pending_refund()
+        with self.assertRaises(PaymentValidationError) as ctx:
+            initiate_refund_disbursement(refund)
+        self.assertIn('not configured', str(ctx.exception))
+
+    @patch('payments.services.mpesa.initiate_b2c_payment')
+    def test_successful_disbursement_stores_the_conversation_id(self, mock_b2c):
+        mock_b2c.return_value = {'ConversationID': 'AG_refund_1'}
+        refund = _make_pending_refund()
+        initiate_refund_disbursement(refund)
+        refund.refresh_from_db()
+        self.assertEqual(refund.b2c_conversation_id, 'AG_refund_1')
+        self.assertNotEqual(refund.status, 'issued')  # still pending until the result callback confirms it
+        self.assertIsNone(refund.b2c_failed_at)
+        mock_b2c.assert_called_once()
+        self.assertEqual(mock_b2c.call_args.kwargs['phone_number'], '254700000000')
+
+    @patch('payments.services.mpesa.initiate_b2c_payment')
+    def test_customer_phone_number_is_used_as_is_when_already_normalized(self, mock_b2c):
+        mock_b2c.return_value = {'ConversationID': 'AG_1'}
+        refund = _make_pending_refund(customer_phone='254712345678')
+        initiate_refund_disbursement(refund)
+        self.assertEqual(mock_b2c.call_args.kwargs['phone_number'], '254712345678')
+
+    @patch('payments.services.mpesa.initiate_b2c_payment')
+    def test_already_issued_refund_is_rejected(self, mock_b2c):
+        refund = _make_pending_refund()
+        refund.mark_issued()
+        with self.assertRaises(PaymentValidationError):
+            initiate_refund_disbursement(refund)
+        mock_b2c.assert_not_called()
+
+
+class RefundDisbursementAdminActionTests(APITestCase):
+    """/api/admin/refunds/<id>/disburse/ - the button-facing side of
+    initiate_refund_disbursement, gated the same superadmin-only tier as mark-issued."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='refund-disburse-super@example.com', password='pass12345!')
+        self.staff = User.objects.create_user(username='refund-disburse-staff@example.com', password='pass12345!', is_staff=True)
+        self.refund = _make_pending_refund()
+
+    @patch('payments.services.mpesa.initiate_b2c_payment')
+    def test_superadmin_can_disburse(self, mock_b2c):
+        mock_b2c.return_value = {'ConversationID': 'AG_1'}
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(f'/api/admin/refunds/{self.refund.id}/disburse/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['b2c_conversation_id'], 'AG_1')
+
+    def test_support_staff_cannot_disburse(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/admin/refunds/{self.refund.id}/disburse/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_not_configured_returns_a_400_not_a_500(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(f'/api/admin/refunds/{self.refund.id}/disburse/')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('not configured', response.json()['detail'])
+
+
+class MpesaB2cResultRefundTests(APITestCase):
+    """The shared mpesa_b2c_result callback (see MpesaB2cResultCallbackTests above for the
+    driver-payout side) also resolves a Refund by its own b2c_conversation_id."""
+
+    def setUp(self):
+        self.refund = _make_pending_refund()
+        self.refund.b2c_conversation_id = 'AG_real_refund_conversation'
+        self.refund.save(update_fields=['b2c_conversation_id'])
+
+    def _result_body(self, conversation_id, result_code=0, receipt='NLJ7RT61SV'):
+        body = {
+            'Result': {
+                'ResultCode': result_code,
+                'ResultDesc': 'The service request is processed successfully.' if result_code == 0 else 'Insufficient funds.',
+                'ConversationID': conversation_id,
+            }
+        }
+        if result_code == 0:
+            body['Result']['ResultParameters'] = {
+                'ResultParameter': [{'Key': 'TransactionReceipt', 'Value': receipt}]
+            }
+        return body
+
+    @patch('payments.views.config')
+    def test_successful_result_marks_the_refund_issued(self, mock_config):
+        mail.outbox = []
+        mock_config.side_effect = lambda key, default='': REAL_SECRET if key == 'MPESA_CALLBACK_SECRET' else default
+        response = self.client.post(
+            f'/api/payments/mpesa/b2c-result/{REAL_SECRET}/',
+            self._result_body('AG_real_refund_conversation', result_code=0, receipt='QGH7XXXXXX'), format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.refund.refresh_from_db()
+        self.assertEqual(self.refund.status, 'issued')
+        self.assertEqual(self.refund.reference, 'QGH7XXXXXX')
+        self.assertIsNotNone(self.refund.issued_at)
+
+    @patch('payments.views.config')
+    def test_failed_result_marks_the_refund_as_failed_not_issued(self, mock_config):
+        mock_config.side_effect = lambda key, default='': REAL_SECRET if key == 'MPESA_CALLBACK_SECRET' else default
+        response = self.client.post(
+            f'/api/payments/mpesa/b2c-result/{REAL_SECRET}/',
+            self._result_body('AG_real_refund_conversation', result_code=1), format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.refund.refresh_from_db()
+        self.assertNotEqual(self.refund.status, 'issued')
+        self.assertIsNotNone(self.refund.b2c_failed_at)
+        self.assertIn('Insufficient funds', self.refund.notes)

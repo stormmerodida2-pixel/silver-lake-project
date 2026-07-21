@@ -4,7 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
-import { promptDialog } from '../../utils/dialogs'
+import { confirmDialog, promptDialog } from '../../utils/dialogs'
 
 const auth = useAuthStore()
 const { items: refunds, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/refunds/')
@@ -25,6 +25,27 @@ async function markIssued(refund) {
     Object.assign(refund, data)
   } catch (err) {
     error.value = 'Could not mark this refund as issued.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+// A refund is "pending B2C" the moment Safaricom accepts the disbursement request, until its own
+// result callback confirms either way (see payments.services.initiate_refund_disbursement /
+// payments.views.mpesa_b2c_result) - status stays 'pending' the whole time, so this is the only
+// way to tell "waiting on Safaricom" apart from "never attempted."
+function isB2cPending(refund) {
+  return !!refund.b2c_conversation_id && refund.status !== 'issued' && !refund.b2c_failed_at
+}
+
+async function disburseRefund(refund) {
+  if (!(await confirmDialog(`Send KES ${Number(refund.amount).toLocaleString()} to ${refund.recipient_phone_number} via M-Pesa now?`))) return
+  busyId.value = refund.id
+  try {
+    const { data } = await apiClient.post(`/admin/refunds/${refund.id}/disburse/`)
+    Object.assign(refund, data)
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Could not start this M-Pesa disbursement.'
   } finally {
     busyId.value = null
   }
@@ -83,20 +104,45 @@ onMounted(load)
               <td class="px-4 py-3 text-slate-300">{{ refund.customer_name }}</td>
               <td class="px-4 py-3 text-slate-300">KES {{ Number(refund.amount).toLocaleString() }}</td>
               <td class="px-4 py-3">
-                <span :class="refund.status === 'issued' ? 'text-gold-400' : 'text-red-400'">
-                  {{ refund.status === 'issued' ? 'Issued' : 'Pending' }}
-                </span>
+                <div class="flex flex-col gap-1">
+                  <span :class="refund.status === 'issued' ? 'text-gold-400' : 'text-red-400'">
+                    {{ refund.status === 'issued' ? 'Issued' : 'Pending' }}
+                  </span>
+                  <span
+                    v-if="isB2cPending(refund)"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-xs font-semibold text-brand-blue-400"
+                    title="Sent to M-Pesa - waiting for Safaricom to confirm it landed"
+                  >
+                    M-Pesa Disbursement Pending
+                  </span>
+                  <span
+                    v-else-if="refund.b2c_failed_at"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-400"
+                    :title="refund.notes"
+                  >
+                    ⚠ M-Pesa Disbursement Failed
+                  </span>
+                </div>
               </td>
               <td class="px-4 py-3 text-slate-400">{{ refund.reference || '-' }}</td>
               <td class="px-4 py-3">
-                <button
-                  v-if="refund.status !== 'issued' && auth.user?.is_superuser"
-                  :disabled="busyId === refund.id"
-                  class="rounded-md bg-gold-500 px-2 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
-                  @click="markIssued(refund)"
-                >
-                  Mark Issued
-                </button>
+                <div v-if="refund.status !== 'issued' && auth.user?.is_superuser" class="flex flex-col items-start gap-1.5">
+                  <button
+                    :disabled="busyId === refund.id"
+                    class="rounded-md bg-gold-500 px-2 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                    @click="markIssued(refund)"
+                  >
+                    Mark Issued
+                  </button>
+                  <button
+                    v-if="refund.recipient_phone_number && !isB2cPending(refund)"
+                    :disabled="busyId === refund.id"
+                    class="rounded-md border border-brand-blue-500 px-2 py-1 text-xs font-semibold text-brand-blue-400 hover:bg-brand-blue-500 hover:text-white disabled:opacity-50"
+                    @click="disburseRefund(refund)"
+                  >
+                    {{ refund.b2c_failed_at ? 'Retry via M-Pesa' : 'Disburse via M-Pesa' }}
+                  </button>
+                </div>
                 <span v-else-if="refund.status !== 'issued'" class="text-xs text-slate-500">Superadmin only</span>
               </td>
             </tr>

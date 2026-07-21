@@ -1146,6 +1146,22 @@ class AdminRefundViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
         log_admin_action(request, 'refund.mark_issued', refund, detail=request.data.get('reference', ''))
         return Response(AdminRefundSerializer(refund).data)
 
+    @action(detail=True, methods=['post'])
+    def disburse(self, request, pk=None):
+        """Sends this refund straight to the customer's M-Pesa number via Safaricom's B2C API,
+        instead of a staff member wiring it by hand and clicking Mark Issued - see
+        payments.services.initiate_refund_disbursement. Same superadmin-only tier as
+        mark_issued, since this moves real money the instant Safaricom accepts the request."""
+        from payments.services import PaymentValidationError, initiate_refund_disbursement
+
+        refund = self.get_object()
+        try:
+            initiate_refund_disbursement(refund)
+        except PaymentValidationError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        log_admin_action(request, 'refund.disburse', refund)
+        return Response(AdminRefundSerializer(refund).data)
+
 
 class AdminFleetPartnerViewSet(viewsets.ModelViewSet):
     """Superadmin-only management of registered fleet-owning companies (see FleetPartner) -

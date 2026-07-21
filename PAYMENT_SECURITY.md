@@ -99,7 +99,7 @@ any balance still owed, as a second line of visibility regardless.
 
 ## How this is tested
 
-898 automated backend tests cover the whole app, including the booking/payment/payout logic
+907 automated backend tests cover the whole app, including the booking/payment/payout logic
 (`bookings/tests.py`, `payments/tests.py`, `core/tests.py`) at the center of every scenario described
 above — wrong/missing callback secret, zero/negative amounts, payments against closed bookings,
 and a payout not appearing until the booking is fully paid are all explicitly tested to behave

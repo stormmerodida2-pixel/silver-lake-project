@@ -191,14 +191,21 @@ class AdminAuditLogSerializer(serializers.ModelSerializer):
 class AdminRefundSerializer(serializers.ModelSerializer):
     booking_id = serializers.IntegerField(source='booking.id', read_only=True)
     customer_name = serializers.CharField(source='booking.customer_name', read_only=True)
+    # The number a "Disburse via M-Pesa" action would send to - see
+    # payments.services.initiate_refund_disbursement, which re-validates this itself regardless;
+    # this is purely for UI, not a security boundary.
+    recipient_phone_number = serializers.CharField(source='booking.customer_phone', read_only=True)
 
     class Meta:
         model = Refund
         fields = [
             'id', 'booking_id', 'customer_name', 'amount', 'status',
             'reference', 'notes', 'issued_at', 'created_at',
+            'recipient_phone_number', 'b2c_conversation_id', 'b2c_failed_at',
         ]
-        read_only_fields = ['amount', 'status', 'issued_at', 'created_at']
+        read_only_fields = [
+            'amount', 'status', 'issued_at', 'created_at', 'b2c_conversation_id', 'b2c_failed_at',
+        ]
 
 
 class AdminFleetPartnerSerializer(serializers.ModelSerializer):
