@@ -38,6 +38,28 @@ def send_support_ticket_created_staff_notification_email(ticket):
         pass
 
 
+def send_support_ticket_in_progress_email(ticket):
+    """Sent when staff start looking into a customer's ticket - previously the customer had no
+    signal at all between filing it and it eventually being resolved. Swallowed silently on
+    failure so a misconfigured SMTP server never blocks the status change from being recorded."""
+    if not ticket.user.email:
+        return
+    try:
+        send_branded_email(
+            subject=f'We’re looking into your support ticket — {ticket.subject}',
+            template_name='emails/support_ticket_in_progress.html',
+            context={
+                'first_name': (ticket.user.first_name or ticket.user.email).split()[0],
+                'ticket_id': ticket.pk,
+                'subject': ticket.subject,
+                'support_url': f'{settings.FRONTEND_URL}/account/support',
+            },
+            recipient_list=[ticket.user.email],
+        )
+    except Exception:
+        pass
+
+
 def send_support_ticket_resolved_email(ticket):
     """Sent when staff resolve a customer's ticket - their only signal otherwise would be
     checking back on the app themselves. Swallowed silently on failure so a misconfigured SMTP

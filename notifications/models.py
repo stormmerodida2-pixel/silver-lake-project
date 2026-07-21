@@ -36,6 +36,7 @@ class NotificationEvent(models.TextChoices):
     PAYMENT_RECORDED = 'payment_recorded', 'Payment Recorded'
     REFUND_ISSUED = 'refund_issued', 'Refund Issued'
     REFERRAL_CREDIT_EARNED = 'referral_credit_earned', 'Referral Credit Earned'
+    SUPPORT_TICKET_IN_PROGRESS = 'support_ticket_in_progress', 'Support Ticket In Progress'
     SUPPORT_TICKET_RESOLVED = 'support_ticket_resolved', 'Support Ticket Resolved'
 
 

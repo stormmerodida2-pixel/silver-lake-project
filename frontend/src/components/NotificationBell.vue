@@ -85,6 +85,7 @@ const EVENT_LABELS = {
   payment_recorded: 'Payment Recorded',
   refund_issued: 'Refund Issued',
   referral_credit_earned: 'Referral Credit Earned',
+  support_ticket_in_progress: 'Support Ticket In Progress',
   support_ticket_resolved: 'Support Ticket Resolved',
 }
 
@@ -104,7 +105,8 @@ const MANAGEABLE_EVENTS_BY_BASE_PATH = {
   ],
   '/notifications': [
     'booking_confirmed', 'booking_dates_changed', 'booking_cancelled', 'payment_recorded',
-    'trip_completed', 'refund_issued', 'referral_credit_earned', 'support_ticket_resolved',
+    'trip_completed', 'refund_issued', 'referral_credit_earned', 'support_ticket_in_progress',
+    'support_ticket_resolved',
   ],
 }
 const manageableEvents = MANAGEABLE_EVENTS_BY_BASE_PATH[props.basePath] || []

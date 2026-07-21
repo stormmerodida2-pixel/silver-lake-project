@@ -1,0 +1,9 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  Good news - our team is now looking into your support ticket
+  <strong>#{{ ticket_id }} — {{ subject }}</strong>. We'll let you know as soon as it's resolved.
+</p>
+{% include "emails/_button.html" with url=support_url label="View Ticket" %}
+{% endblock %}

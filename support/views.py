@@ -68,9 +68,11 @@ class AdminSupportTicketViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin
 
     @action(detail=True, methods=['post'])
     def respond(self, request, pk=None):
-        """Moves a ticket to in_progress (just to signal it's being looked at) or resolved (with
-        a required resolution_note) - one action for both, mirroring
-        AdminBookingViewSet.set_status's own single-action-for-multiple-transitions shape."""
+        """Moves a ticket to in_progress or resolved (the latter requiring a resolution_note) -
+        one action for both, mirroring AdminBookingViewSet.set_status's own
+        single-action-for-multiple-transitions shape. Either transition notifies the customer
+        (in-app + email) - previously only resolving one did, leaving the customer with no
+        signal at all that their ticket was even being looked at in the meantime."""
         ticket = self.get_object()
         new_status = request.data.get('status')
         if new_status not in (TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED):
@@ -99,6 +101,20 @@ class AdminSupportTicketViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin
         from core.audit import log_admin_action
 
         log_admin_action(request, 'supportticket.respond', ticket, detail=new_status)
+
+        if new_status == TicketStatus.IN_PROGRESS:
+            from notifications.models import NotificationEvent
+            from notifications.services import notify
+
+            notify(
+                NotificationEvent.SUPPORT_TICKET_IN_PROGRESS,
+                f'Your support ticket "{ticket.subject}" is being looked into',
+                user=ticket.user, link_path='/account/support',
+            )
+
+            from .emails import send_support_ticket_in_progress_email
+
+            send_support_ticket_in_progress_email(ticket)
 
         if new_status == TicketStatus.RESOLVED:
             from notifications.models import NotificationEvent

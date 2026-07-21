@@ -129,6 +129,20 @@ class AdminSupportTicketTests(APITestCase):
         self.ticket.refresh_from_db()
         self.assertEqual(self.ticket.status, TicketStatus.IN_PROGRESS)
 
+    def test_marking_in_progress_notifies_the_customer(self):
+        mail.outbox = []
+        self.client.post(f'/api/admin/support/{self.ticket.id}/respond/', {'status': 'in_progress'})
+
+        from notifications.models import Notification, NotificationEvent
+
+        self.assertTrue(
+            Notification.objects.filter(
+                event=NotificationEvent.SUPPORT_TICKET_IN_PROGRESS, user=self.customer,
+            ).exists()
+        )
+        self.assertTrue(any('looking into' in m.subject for m in mail.outbox))
+        self.assertIn('support-ticket-client@example.com', mail.outbox[-1].to)
+
     def test_resolving_a_ticket_requires_a_resolution_note(self):
         response = self.client.post(f'/api/admin/support/{self.ticket.id}/respond/', {'status': 'resolved'})
         self.assertEqual(response.status_code, 400)
