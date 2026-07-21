@@ -62,6 +62,28 @@ function remindDepositDisabledReason(payment) {
   return elapsedMs < 60 * 60 * 1000 ? 'Reminded recently - please wait before sending another.' : null
 }
 
+const exportingCsv = ref(false)
+async function exportCsv() {
+  exportingCsv.value = true
+  try {
+    const params = new URLSearchParams()
+    if (filters.search) params.set('search', filters.search)
+    if (filters.method) params.set('method', filters.method)
+    if (filters.status) params.set('status', filters.status)
+    const response = await apiClient.get(`/payments/export/?${params}`, { responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `SilverLake-Payments-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    error.value = 'Could not export payments to CSV.'
+  } finally {
+    exportingCsv.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -97,6 +119,13 @@ onMounted(load)
         <option value="pending">Pending</option>
         <option value="failed">Failed</option>
       </select>
+      <button
+        :disabled="exportingCsv"
+        class="rounded-md border border-navy-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+        @click="exportCsv"
+      >
+        {{ exportingCsv ? 'Exporting...' : 'Export CSV' }}
+      </button>
     </div>
 
     <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>

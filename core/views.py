@@ -42,7 +42,7 @@ from .serializers import (
     AdminVehicleSerializer,
     AdminVehicleSubmissionSerializer,
 )
-from .utils import capture_replaced_files, delete_files, parse_amount, search_filter
+from .utils import capture_replaced_files, csv_response, delete_files, parse_amount, parse_date_range, search_filter
 
 User = get_user_model()
 
@@ -931,6 +931,43 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
             status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        """A CSV download of exactly what this admin can currently see - reuses get_queryset(),
+        so it's already org-scoped and respects whatever search/status/service_type filter is
+        active (see get_queryset() above), for accounting/tax/reconciliation work the
+        view-only Analytics dashboard doesn't cover. Optional start_date/end_date (by
+        created_at) narrow it to a specific period."""
+        try:
+            start_date, end_date = parse_date_range(request.query_params)
+        except ValueError:
+            return Response({'detail': 'start_date/end_date must be in YYYY-MM-DD format.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = self.get_queryset().select_related('vehicle', 'discount_code')
+        if start_date:
+            queryset = queryset.filter(created_at__date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(created_at__date__lte=end_date)
+
+        rows = (
+            [
+                booking.id, booking.created_at.strftime('%Y-%m-%d %H:%M'), booking.customer_name,
+                booking.customer_phone, booking.customer_email, booking.vehicle.name,
+                booking.get_service_type_display(), booking.get_source_display(), booking.start_date,
+                booking.end_date, booking.get_status_display(), booking.total_amount,
+                booking.discount_amount, booking.loyalty_discount_amount, booking.amount_paid,
+                booking.balance_due, 'Yes' if booking.is_government_contract else 'No',
+                booking.government_contract_reference,
+            ]
+            for booking in queryset
+        )
+        return csv_response('bookings.csv', [
+            'ID', 'Created At', 'Customer Name', 'Customer Phone', 'Customer Email', 'Vehicle',
+            'Service Type', 'Source', 'Start Date', 'End Date', 'Status', 'Total Amount (KES)',
+            'Discount Amount (KES)', 'Loyalty Discount (KES)', 'Amount Paid (KES)',
+            'Balance Due (KES)', 'Government Contract', 'Contract Reference',
+        ], rows)
+
 
 class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """Staff-only view of what's owed to drivers. Everyone can see the ledger; only
@@ -993,6 +1030,38 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
         payout.verify(note)
         log_admin_action(request, 'payout.verify', payout, detail=note)
         return Response(AdminDriverPayoutSerializer(payout).data)
+
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        """A CSV download of exactly what this admin can currently see - reuses get_queryset(),
+        so it's already org-scoped (see get_queryset() above). Optional start_date/end_date (by
+        created_at) narrow it to a specific period, for accounting/reconciliation work."""
+        try:
+            start_date, end_date = parse_date_range(request.query_params)
+        except ValueError:
+            return Response({'detail': 'start_date/end_date must be in YYYY-MM-DD format.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = self.get_queryset()
+        if start_date:
+            queryset = queryset.filter(created_at__date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(created_at__date__lte=end_date)
+
+        rows = (
+            [
+                payout.id, payout.created_at.strftime('%Y-%m-%d %H:%M'), payout.booking_id,
+                payout.driver.full_name if payout.driver_id else payout.organization.name,
+                payout.amount, 'Yes' if payout.is_paid else 'No',
+                payout.paid_at.strftime('%Y-%m-%d %H:%M') if payout.paid_at else '',
+                payout.payout_reference, 'Yes' if payout.needs_verification else 'No',
+                'Yes' if payout.is_verified else 'No',
+            ]
+            for payout in queryset
+        )
+        return csv_response('payouts.csv', [
+            'ID', 'Created At', 'Booking ID', 'Driver/Partner', 'Amount (KES)', 'Paid',
+            'Paid At', 'Payout Reference', 'Needs Verification', 'Verified',
+        ], rows)
 
 
 class AdminAuditLogViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):

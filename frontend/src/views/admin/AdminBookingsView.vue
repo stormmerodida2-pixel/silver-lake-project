@@ -170,6 +170,30 @@ async function downloadReceipt(booking) {
   }
 }
 
+const exportingCsv = ref(false)
+async function exportCsv() {
+  exportingCsv.value = true
+  try {
+    // Reuses whatever search/status/service_type filter is currently active, same as the list
+    // itself - the export is always "exactly what's on screen right now."
+    const params = new URLSearchParams()
+    if (filters.search) params.set('search', filters.search)
+    if (filters.status) params.set('status', filters.status)
+    if (filters.service_type) params.set('service_type', filters.service_type)
+    const response = await apiClient.get(`/admin/bookings/export/?${params}`, { responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `SilverLake-Bookings-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    error.value = 'Could not export bookings to CSV.'
+  } finally {
+    exportingCsv.value = false
+  }
+}
+
 onMounted(() => {
   load()
   loadDriverOptions()
@@ -209,6 +233,13 @@ onMounted(() => {
         @click="openGovModal"
       >
         + Contract Booking
+      </button>
+      <button
+        :disabled="exportingCsv"
+        class="rounded-md border border-navy-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+        @click="exportCsv"
+      >
+        {{ exportingCsv ? 'Exporting...' : 'Export CSV' }}
       </button>
     </div>
 

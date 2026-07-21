@@ -1311,3 +1311,64 @@ class RedeemReferralCreditTests(APITestCase):
         self.assertEqual(self.booking.balance_due, Decimal('0'))
         self.assertEqual(self.booking.driver_payout.amount, self.booking.driver_payout_amount)
         self.assertEqual(len(mail.outbox), 0)
+
+
+class PaymentExportTests(APITestCase):
+    """CSV download of the payment log for accounting/reconciliation work outside the app -
+    reuses PaymentViewSet.get_queryset(), so it inherits the same org-scoping and search/method/
+    status filters the list view already has."""
+
+    def setUp(self):
+        import csv
+        self.csv = csv
+
+        self.staff = User.objects.create_user(username='export-staff@example.com', password='pass12345!', is_staff=True)
+        self.customer = User.objects.create_user(username='export-customer@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.booking = make_booking(self.customer, self.vehicle, status=BookingStatus.PENDING)
+        self.payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA, amount=Decimal('500'),
+            status=PaymentStatus.SUCCESSFUL, mpesa_receipt_number='ABC123',
+        )
+
+    def _rows(self, response):
+        content = response.content.decode('utf-8')
+        return list(self.csv.reader(content.splitlines()))
+
+    def test_staff_can_export_payments_as_csv(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/payments/export/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        rows = self._rows(response)
+        self.assertEqual(rows[0][0], 'ID')
+        self.assertEqual(len(rows), 2)  # header + one payment
+        self.assertIn('ABC123', rows[1])
+
+    def test_plain_customer_cannot_export_payments(self):
+        self.client.force_authenticate(user=self.customer)
+        response = self.client.get('/api/payments/export/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_date_range_narrows_the_export(self):
+        self.client.force_authenticate(user=self.staff)
+        far_future = (timezone.now() + timedelta(days=3650)).date().isoformat()
+        response = self.client.get(f'/api/payments/export/?start_date={far_future}')
+        rows = self._rows(response)
+        self.assertEqual(len(rows), 1)  # header only - no payment created that far out
+
+    def test_malformed_date_is_rejected(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/payments/export/?start_date=not-a-date')
+        self.assertEqual(response.status_code, 400)
+
+    def test_org_admin_only_exports_their_own_organizations_payments(self):
+        org = FleetPartner.objects.create(name='Export Org', platform_fee_percent=Decimal('10'))
+        org_admin = User.objects.create_user(
+            username='export-org-admin@example.com', password='pass12345!', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=org_admin, organization=org)
+        self.client.force_authenticate(user=org_admin)
+        response = self.client.get('/api/payments/export/')
+        rows = self._rows(response)
+        self.assertEqual(len(rows), 1)  # header only - this payment belongs to a different org

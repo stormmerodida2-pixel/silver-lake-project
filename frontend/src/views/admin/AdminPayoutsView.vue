@@ -52,6 +52,24 @@ async function verifyPayout(payout) {
   }
 }
 
+const exportingCsv = ref(false)
+async function exportCsv() {
+  exportingCsv.value = true
+  try {
+    const response = await apiClient.get('/admin/payouts/export/', { responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `SilverLake-Payouts-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    error.value = 'Could not export payouts to CSV.'
+  } finally {
+    exportingCsv.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -59,9 +77,18 @@ onMounted(load)
   <div>
     <div class="flex items-center justify-between">
       <h1 class="font-[Georgia] text-2xl font-bold text-white">Driver Payouts</h1>
-      <RouterLink to="/admin" class="text-sm font-semibold text-gold-400 hover:text-gold-300">
-        See totals on Dashboard &rarr;
-      </RouterLink>
+      <div class="flex items-center gap-4">
+        <button
+          :disabled="exportingCsv"
+          class="rounded-md border border-navy-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+          @click="exportCsv"
+        >
+          {{ exportingCsv ? 'Exporting...' : 'Export CSV' }}
+        </button>
+        <RouterLink to="/admin" class="text-sm font-semibold text-gold-400 hover:text-gold-300">
+          See totals on Dashboard &rarr;
+        </RouterLink>
+      </div>
     </div>
 
     <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>

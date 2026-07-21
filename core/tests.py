@@ -2184,3 +2184,108 @@ class OptimizeImageTests(TestCase):
         bogus = SimpleUploadedFile('bogus.jpg', b'not a real image', content_type='image/jpeg')
         vehicle = make_vehicle(image=bogus)
         self.assertEqual(vehicle.image.read(), b'not a real image')
+
+
+class AdminBookingExportTests(APITestCase):
+    """CSV download of the booking list for accounting/tax/reconciliation work outside the app -
+    reuses AdminBookingViewSet.get_queryset(), so it inherits the same org-scoping and search/
+    status/service_type filters the list view already has."""
+
+    def setUp(self):
+        import csv
+        self.csv = csv
+
+        self.staff = User.objects.create_user(username='bexport-staff@example.com', password='pass12345!', is_staff=True)
+        self.customer = User.objects.create_user(username='bexport-customer@example.com', password='pass12345!', email='bexport-customer@example.com')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.booking = make_booking(self.customer, self.vehicle, status=BookingStatus.PENDING)
+
+    def _rows(self, response):
+        return list(self.csv.reader(response.content.decode('utf-8').splitlines()))
+
+    def test_support_staff_can_export_bookings_as_csv(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/admin/bookings/export/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        rows = self._rows(response)
+        self.assertEqual(rows[0][0], 'ID')
+        self.assertEqual(len(rows), 2)  # header + one booking
+        self.assertIn('Jane Doe', rows[1])
+
+    def test_plain_customer_cannot_export_bookings(self):
+        self.client.force_authenticate(user=self.customer)
+        response = self.client.get('/api/admin/bookings/export/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_status_filter_narrows_the_export(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/admin/bookings/export/?status=cancelled')
+        rows = self._rows(response)
+        self.assertEqual(len(rows), 1)  # header only - this booking is pending, not cancelled
+
+    def test_malformed_date_is_rejected(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/admin/bookings/export/?start_date=bogus')
+        self.assertEqual(response.status_code, 400)
+
+    def test_org_admin_only_exports_their_own_organizations_bookings(self):
+        org = FleetPartner.objects.create(name='Bexport Org', platform_fee_percent=Decimal('10'))
+        org_admin = User.objects.create_user(
+            username='bexport-org-admin@example.com', password='pass12345!', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=org_admin, organization=org)
+        self.client.force_authenticate(user=org_admin)
+        response = self.client.get('/api/admin/bookings/export/')
+        rows = self._rows(response)
+        self.assertEqual(len(rows), 1)  # header only - this booking belongs to a different org
+
+
+class AdminPayoutExportTests(APITestCase):
+    """CSV download of the driver payout ledger - reuses AdminDriverPayoutViewSet.get_queryset(),
+    so it's already org-scoped the same way the list view is."""
+
+    def setUp(self):
+        import csv
+        self.csv = csv
+
+        self.staff = User.objects.create_user(username='pexport-staff@example.com', password='pass12345!', is_staff=True)
+        self.customer = User.objects.create_user(username='pexport-customer@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(full_name='Export Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.PENDING)
+        Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.CASH, amount=self.booking.total_amount,
+            status=PaymentStatus.SUCCESSFUL, recorded_by_driver=self.driver,
+        )
+        self.booking.confirm_if_deposit_met()
+        self.payout = DriverPayout.objects.get(booking=self.booking)
+
+    def _rows(self, response):
+        return list(self.csv.reader(response.content.decode('utf-8').splitlines()))
+
+    def test_support_staff_can_export_payouts_as_csv(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get('/api/admin/payouts/export/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        rows = self._rows(response)
+        self.assertEqual(rows[0][0], 'ID')
+        self.assertEqual(len(rows), 2)  # header + one payout
+        self.assertIn('Export Driver', rows[1])
+
+    def test_plain_customer_cannot_export_payouts(self):
+        self.client.force_authenticate(user=self.customer)
+        response = self.client.get('/api/admin/payouts/export/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_org_admin_only_exports_their_own_organizations_payouts(self):
+        org = FleetPartner.objects.create(name='Pexport Org', platform_fee_percent=Decimal('10'))
+        org_admin = User.objects.create_user(
+            username='pexport-org-admin@example.com', password='pass12345!', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=org_admin, organization=org)
+        self.client.force_authenticate(user=org_admin)
+        response = self.client.get('/api/admin/payouts/export/')
+        rows = self._rows(response)
+        self.assertEqual(len(rows), 1)  # header only - this payout belongs to a different org

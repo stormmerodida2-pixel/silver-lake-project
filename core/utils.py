@@ -1,6 +1,9 @@
+import csv
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.db.models import Q
+from django.http import HttpResponse
 
 
 def parse_amount(raw):
@@ -50,3 +53,27 @@ def capture_replaced_files(serializer, field_names):
 def delete_files(files):
     for file in files:
         file.delete(save=False)
+
+
+def csv_response(filename, header, rows):
+    """Builds a downloadable CSV HttpResponse - shared by every admin export action (bookings,
+    payments, payouts). `rows` is an iterable of iterables, already in the exact column order
+    `header` describes; this only handles the CSV encoding/headers, never any filtering/scoping,
+    which stays the caller's responsibility (usually just get_queryset(), so an export always
+    matches whatever the requester can already see or has filtered for)."""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    writer = csv.writer(response)
+    writer.writerow(header)
+    writer.writerows(rows)
+    return response
+
+
+def parse_date_range(params):
+    """Optional start_date/end_date query params (YYYY-MM-DD) for a CSV export's date range -
+    returns (start, end) as date objects or None each. Raises ValueError on a malformed value so
+    the caller can turn it into a clean 400."""
+    def _parse(key):
+        raw = params.get(key, '').strip()
+        return date.fromisoformat(raw) if raw else None
+    return _parse('start_date'), _parse('end_date')

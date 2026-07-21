@@ -13,7 +13,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from bookings.models import Booking
 from core.audit import log_admin_action
 from core.permissions import IsSupportStaff, get_user_organization
-from core.utils import parse_amount, search_filter
+from core.utils import csv_response, parse_amount, parse_date_range, search_filter
 
 from .emails import send_cash_deposit_reminder_email, send_payment_reminder_email
 from .models import Payment, PaymentMethod, PaymentStatus
@@ -167,6 +167,37 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
             organization=payment.booking.vehicle.owner, link_path='/admin/payments',
         )
         return Response(self.get_serializer(payment).data)
+
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        """A CSV download of exactly what this admin can currently see - reuses get_queryset(),
+        so it's already org-scoped and respects whatever search/method/status filter is active
+        (see get_queryset() above), for accounting/tax/reconciliation work outside the app.
+        Optional start_date/end_date (by created_at) narrow it to a specific period."""
+        try:
+            start_date, end_date = parse_date_range(request.query_params)
+        except ValueError:
+            return Response({'detail': 'start_date/end_date must be in YYYY-MM-DD format.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = self.get_queryset().select_related('booking')
+        if start_date:
+            queryset = queryset.filter(created_at__date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(created_at__date__lte=end_date)
+
+        rows = (
+            [
+                payment.id, payment.created_at.strftime('%Y-%m-%d %H:%M'), payment.booking_id,
+                payment.booking.customer_name, payment.get_method_display(), payment.amount,
+                payment.get_status_display(), payment.mpesa_receipt_number, payment.card_transaction_ref,
+                payment.note,
+            ]
+            for payment in queryset
+        )
+        return csv_response('payments.csv', [
+            'ID', 'Created At', 'Booking ID', 'Customer Name', 'Method', 'Amount (KES)', 'Status',
+            'M-Pesa Receipt', 'Card Reference', 'Note',
+        ], rows)
 
 
 @api_view(['POST'])
