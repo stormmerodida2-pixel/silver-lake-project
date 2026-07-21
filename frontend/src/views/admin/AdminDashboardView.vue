@@ -100,14 +100,14 @@ onMounted(async () => {
             to="/admin/payouts"
             class="rounded-xl border border-navy-800 bg-navy-900 p-5 transition hover:border-gold-400"
           >
-            <p class="text-sm text-slate-400">Driver Payouts Owed</p>
+            <p class="text-sm text-slate-400">Payouts Owed</p>
             <p class="mt-1 text-2xl font-bold text-red-400">{{ fmt(stats.revenue.driver_payouts_owed) }}</p>
-            <p class="mt-1 text-xs text-slate-500">Not yet disbursed to drivers</p>
+            <p class="mt-1 text-xs text-slate-500">Not yet disbursed to drivers or fleet partners</p>
           </RouterLink>
           <div class="rounded-xl border border-navy-800 bg-navy-900 p-5">
-            <p class="text-sm text-slate-400">Driver Payouts Paid</p>
+            <p class="text-sm text-slate-400">Payouts Paid</p>
             <p class="mt-1 text-2xl font-bold text-white">{{ fmt(stats.revenue.driver_payouts_paid) }}</p>
-            <p class="mt-1 text-xs text-slate-500">Already disbursed to drivers</p>
+            <p class="mt-1 text-xs text-slate-500">Already disbursed to drivers or fleet partners</p>
           </div>
         </div>
       </section>

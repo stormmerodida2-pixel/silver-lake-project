@@ -1065,7 +1065,9 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
     def export(self, request):
         """A CSV download of exactly what this admin can currently see - reuses get_queryset(),
         so it's already org-scoped (see get_queryset() above). Optional start_date/end_date (by
-        created_at) narrow it to a specific period, for accounting/reconciliation work."""
+        created_at) narrow it to a specific period; optional recipient=driver|fleet narrows to
+        just individual driver-partners or just FleetPartner organizations, for accounting/
+        reconciliation work that only needs to monitor one or the other."""
         try:
             start_date, end_date = parse_date_range(request.query_params)
         except ValueError:
@@ -1076,6 +1078,11 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
             queryset = queryset.filter(created_at__date__gte=start_date)
         if end_date:
             queryset = queryset.filter(created_at__date__lte=end_date)
+        recipient = request.query_params.get('recipient', '').strip()
+        if recipient == 'driver':
+            queryset = queryset.filter(driver__isnull=False)
+        elif recipient == 'fleet':
+            queryset = queryset.filter(organization__isnull=False)
 
         rows = (
             [

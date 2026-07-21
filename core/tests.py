@@ -2279,6 +2279,26 @@ class AdminPayoutExportTests(APITestCase):
         response = self.client.get('/api/admin/payouts/export/')
         self.assertEqual(response.status_code, 403)
 
+    def test_recipient_filter_isolates_fleet_partner_payouts(self):
+        org = FleetPartner.objects.create(name='Filter Org', platform_fee_percent=Decimal('10'))
+        org_vehicle = make_vehicle(name='Filter Org Car', owner=org, is_company_owned=False, price_per_day=Decimal('1000'))
+        org_customer = User.objects.create_user(username='pexport-org-customer@example.com', password='pass12345!')
+        org_booking = make_booking(org_customer, org_vehicle, status=BookingStatus.PENDING)
+        Payment.objects.create(
+            booking=org_booking, method=PaymentMethod.MPESA, amount=org_booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        org_booking.confirm_if_deposit_met()
+
+        self.client.force_authenticate(user=self.staff)
+
+        fleet_rows = self._rows(self.client.get('/api/admin/payouts/export/?recipient=fleet'))
+        self.assertEqual(len(fleet_rows), 2)  # header + the org payout only
+        self.assertIn('Filter Org', fleet_rows[1])
+
+        driver_rows = self._rows(self.client.get('/api/admin/payouts/export/?recipient=driver'))
+        self.assertEqual(len(driver_rows), 2)  # header + the driver payout only
+        self.assertIn('Export Driver', driver_rows[1])
+
     def test_org_admin_only_exports_their_own_organizations_payouts(self):
         org = FleetPartner.objects.create(name='Pexport Org', platform_fee_percent=Decimal('10'))
         org_admin = User.objects.create_user(

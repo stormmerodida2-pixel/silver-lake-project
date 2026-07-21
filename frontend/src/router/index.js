@@ -246,7 +246,7 @@ const routes = [
         path: 'payouts',
         name: 'admin-payouts',
         component: () => import('../views/admin/AdminPayoutsView.vue'),
-        meta: { title: 'Driver Payouts | SilverLake Car Rentals', pageTitle: 'Payouts' },
+        meta: { title: 'Payouts | SilverLake Car Rentals', pageTitle: 'Payouts' },
       },
       {
         path: 'refunds',

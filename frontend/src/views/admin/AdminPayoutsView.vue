@@ -10,10 +10,20 @@ const auth = useAuthStore()
 const { items: payouts, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/payouts/')
 const busyId = ref(null)
 const filter = ref('pending') // 'pending' | 'paid' | 'all'
+// A payout's recipient is either an individual driver-partner or a FleetPartner organization
+// (see DriverPayout.driver/.organization - exactly one is ever set) - this filter lets staff
+// isolate one or the other, since the same ledger already tracks both together.
+const recipientFilter = ref('all') // 'all' | 'drivers' | 'fleet'
 
 const filteredPayouts = computed(() => {
-  if (filter.value === 'all') return payouts.value
-  return payouts.value.filter((p) => (filter.value === 'paid' ? p.is_paid : !p.is_paid))
+  let result = payouts.value
+  if (filter.value !== 'all') {
+    result = result.filter((p) => (filter.value === 'paid' ? p.is_paid : !p.is_paid))
+  }
+  if (recipientFilter.value !== 'all') {
+    result = result.filter((p) => (recipientFilter.value === 'fleet' ? !!p.organization_name : !!p.driver_name))
+  }
+  return result
 })
 
 async function markPaid(payout) {
@@ -77,7 +87,9 @@ const exportingCsv = ref(false)
 async function exportCsv() {
   exportingCsv.value = true
   try {
-    const response = await apiClient.get('/admin/payouts/export/', { responseType: 'blob' })
+    const params = new URLSearchParams()
+    if (recipientFilter.value !== 'all') params.set('recipient', recipientFilter.value === 'fleet' ? 'fleet' : 'driver')
+    const response = await apiClient.get(`/admin/payouts/export/?${params}`, { responseType: 'blob' })
     const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }))
     const link = document.createElement('a')
     link.href = url
@@ -97,7 +109,7 @@ onMounted(load)
 <template>
   <div>
     <div class="flex items-center justify-between">
-      <h1 class="font-[Georgia] text-2xl font-bold text-white">Driver Payouts</h1>
+      <h1 class="font-[Georgia] text-2xl font-bold text-white">Payouts</h1>
       <div class="flex items-center gap-4">
         <button
           :disabled="exportingCsv"
@@ -116,20 +128,38 @@ onMounted(load)
     <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
 
     <template v-if="!loading">
-      <div class="mt-4 flex gap-2">
-        <button
-          v-for="option in ['pending', 'paid', 'all']"
-          :key="option"
-          class="rounded-md border px-3 py-1.5 text-sm font-medium transition"
-          :class="
-            filter === option
-              ? 'border-gold-500 bg-gold-500 text-navy-950'
-              : 'border-navy-700 text-slate-300 hover:border-gold-400 hover:text-gold-400'
-          "
-          @click="filter = option"
-        >
-          {{ option.charAt(0).toUpperCase() + option.slice(1) }}
-        </button>
+      <div class="mt-4 flex flex-wrap items-center gap-4">
+        <div class="flex gap-2">
+          <button
+            v-for="option in ['pending', 'paid', 'all']"
+            :key="option"
+            class="rounded-md border px-3 py-1.5 text-sm font-medium transition"
+            :class="
+              filter === option
+                ? 'border-gold-500 bg-gold-500 text-navy-950'
+                : 'border-navy-700 text-slate-300 hover:border-gold-400 hover:text-gold-400'
+            "
+            @click="filter = option"
+          >
+            {{ option.charAt(0).toUpperCase() + option.slice(1) }}
+          </button>
+        </div>
+        <div class="flex items-center gap-2 border-l border-navy-800 pl-4">
+          <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Recipient</span>
+          <button
+            v-for="option in [{ value: 'all', label: 'All' }, { value: 'drivers', label: 'Drivers' }, { value: 'fleet', label: 'Fleet Partners' }]"
+            :key="option.value"
+            class="rounded-md border px-3 py-1.5 text-sm font-medium transition"
+            :class="
+              recipientFilter === option.value
+                ? 'border-brand-blue-500 bg-brand-blue-500 text-white'
+                : 'border-navy-700 text-slate-300 hover:border-brand-blue-400 hover:text-brand-blue-400'
+            "
+            @click="recipientFilter = option.value"
+          >
+            {{ option.label }}
+          </button>
+        </div>
       </div>
 
       <div class="mt-4 overflow-x-auto rounded-xl border border-navy-800">
