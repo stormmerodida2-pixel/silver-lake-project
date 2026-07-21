@@ -11,6 +11,7 @@ from .views import (
     AdminFleetPartnerViewSet,
     AdminFleetViewSet,
     AdminHealthView,
+    AdminLoyaltyTierViewSet,
     AdminRefundViewSet,
     AdminReferralSettingsView,
     AdminReviewViewSet,
@@ -33,6 +34,7 @@ router.register('admin/fleet-types', AdminVehicleCategoryViewSet, basename='admi
 router.register('admin/reviews', AdminReviewViewSet, basename='admin-review')
 router.register('admin/vehicle-submissions', AdminVehicleSubmissionViewSet, basename='admin-vehicle-submission')
 router.register('admin/audit-log', AdminAuditLogViewSet, basename='admin-audit-log')
+router.register('admin/loyalty-tiers', AdminLoyaltyTierViewSet, basename='admin-loyalty-tier')
 
 urlpatterns = [
     path('admin/stats/', AdminStatsView.as_view(), name='admin-stats'),
@@ -40,4 +42,3 @@ urlpatterns = [
     path('admin/health/', AdminHealthView.as_view(), name='admin-health'),
     path('admin/referral-settings/', AdminReferralSettingsView.as_view(), name='admin-referral-settings'),
 ] + router.urls
-

@@ -2061,6 +2061,76 @@ class AdminReferralSettingsTests(APITestCase):
         self.assertEqual(response.status_code, 401)
 
 
+class AdminLoyaltyTierTests(APITestCase):
+    """Platform-superadmin-only, same tier as AdminReferralSettingsView - a FleetPartner's own
+    org-admin has no business configuring a platform-wide rewards program."""
+
+    def setUp(self):
+        from accounts.models import LoyaltyTier
+
+        self.platform_super = User.objects.create_superuser(username='loyalty-super@example.com', password='x')
+        self.support_staff = User.objects.create_user(username='loyalty-staff@example.com', password='x', is_staff=True)
+        org = FleetPartner.objects.create(name='Loyalty Org', platform_fee_percent=Decimal('10'))
+        self.org_admin = User.objects.create_user(
+            username='loyalty-org-admin@example.com', password='x', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=self.org_admin, organization=org)
+        LoyaltyTier.objects.all().delete()
+
+    def test_platform_superadmin_can_create_a_tier(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post('/api/admin/loyalty-tiers/', {
+            'name': 'Silver', 'min_completed_trips': 3, 'discount_percent': '5',
+        })
+        self.assertEqual(response.status_code, 201)
+
+        from accounts.models import LoyaltyTier
+        self.assertTrue(LoyaltyTier.objects.filter(name='Silver').exists())
+
+    def test_platform_superadmin_can_list_and_update_and_delete(self):
+        from accounts.models import LoyaltyTier
+
+        tier = LoyaltyTier.objects.create(name='Bronze', min_completed_trips=0, discount_percent=Decimal('0'))
+        self.client.force_authenticate(user=self.platform_super)
+
+        response = self.client.get('/api/admin/loyalty-tiers/')
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.patch(f'/api/admin/loyalty-tiers/{tier.id}/', {'discount_percent': '2'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        tier.refresh_from_db()
+        self.assertEqual(tier.discount_percent, Decimal('2.00'))
+
+        response = self.client.delete(f'/api/admin/loyalty-tiers/{tier.id}/')
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(LoyaltyTier.objects.filter(pk=tier.id).exists())
+
+    def test_discount_percent_must_be_between_0_and_100(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post('/api/admin/loyalty-tiers/', {
+            'name': 'Overboard', 'min_completed_trips': 1, 'discount_percent': '150',
+        })
+        self.assertEqual(response.status_code, 400)
+
+    def test_org_admin_cannot_manage_tiers(self):
+        self.client.force_authenticate(user=self.org_admin)
+        response = self.client.post('/api/admin/loyalty-tiers/', {
+            'name': 'Silver', 'min_completed_trips': 3, 'discount_percent': '5',
+        })
+        self.assertEqual(response.status_code, 403)
+
+    def test_support_staff_cannot_manage_tiers(self):
+        self.client.force_authenticate(user=self.support_staff)
+        response = self.client.post('/api/admin/loyalty-tiers/', {
+            'name': 'Silver', 'min_completed_trips': 3, 'discount_percent': '5',
+        })
+        self.assertEqual(response.status_code, 403)
+
+    def test_anonymous_cannot_view(self):
+        response = self.client.get('/api/admin/loyalty-tiers/')
+        self.assertEqual(response.status_code, 401)
+
+
 def _make_test_image(size, mode='RGB', fmt='JPEG'):
     """A genuinely valid, decodable image (unlike the placeholder-bytes fixtures used
     elsewhere in this file, which only need to satisfy "a file was uploaded", not

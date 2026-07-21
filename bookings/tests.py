@@ -792,6 +792,84 @@ class DiscountCodeBookingTests(APITestCase):
         self.assertEqual(code.redeemed_booking_id, booking.id)
 
 
+class LoyaltyDiscountBookingTests(APITestCase):
+    """A customer's own loyalty tier (see accounts.LoyaltyTier) reduces total_amount
+    automatically at booking creation - no code needed, unlike discounts.DiscountCode, and
+    stacks with one if the customer also has a discount code."""
+
+    def setUp(self):
+        from accounts.models import LoyaltyTier
+
+        self.user = User.objects.create_user(username='jane-loyalty@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))  # 7 days -> 7000
+        self.client.force_authenticate(user=self.user)
+        LoyaltyTier.objects.all().delete()  # ignore the migration-seeded defaults
+        self.silver = LoyaltyTier.objects.create(name='Silver', min_completed_trips=1, discount_percent=Decimal('10'))
+
+    def _payload(self, **overrides):
+        payload = {
+            'vehicle': self.vehicle.id, 'service_type': 'with_driver',
+            'customer_name': 'Jane Doe', 'customer_phone': '254700000000',
+            'pickup_location': 'Kisumu', 'start_date': str(TOMORROW), 'end_date': str(NEXT_WEEK),
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_no_discount_below_the_lowest_tier_threshold(self):
+        response = self.client.post('/api/bookings/', self._payload(), format='json')
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.total_amount, Decimal('7000.00'))
+        self.assertEqual(booking.loyalty_discount_amount, Decimal('0'))
+
+    def test_discount_applies_once_the_tier_is_reached(self):
+        make_booking(self.user, self.vehicle, status=BookingStatus.COMPLETED)
+        response = self.client.post('/api/bookings/', self._payload(), format='json')
+        self.assertEqual(response.status_code, 201)
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.total_amount, Decimal('6300.00'))  # 7000 - 10%
+        self.assertEqual(booking.loyalty_discount_amount, Decimal('700.00'))
+
+    def test_the_deposit_is_calculated_off_the_loyalty_discounted_total(self):
+        make_booking(self.user, self.vehicle, status=BookingStatus.COMPLETED)
+        response = self.client.post('/api/bookings/', self._payload(), format='json')
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.deposit_amount, Decimal('1890.00'))  # 30% of 6300
+
+    def test_stacks_with_a_discount_code_applied_sequentially(self):
+        from discounts.models import DiscountCode
+
+        DiscountCode.objects.create(code='SAVE1000', discount_type='fixed', value=Decimal('1000'))
+        make_booking(self.user, self.vehicle, status=BookingStatus.COMPLETED)
+        response = self.client.post('/api/bookings/', self._payload(discount_code='SAVE1000'), format='json')
+        booking = Booking.objects.get(pk=response.json()['id'])
+        # 7000 - 1000 (code) = 6000, then -10% loyalty = 5400
+        self.assertEqual(booking.discount_amount, Decimal('1000.00'))
+        self.assertEqual(booking.loyalty_discount_amount, Decimal('600.00'))
+        self.assertEqual(booking.total_amount, Decimal('5400.00'))
+
+    def test_someone_elses_completed_trips_dont_count(self):
+        other_user = User.objects.create_user(username='not-jane@example.com', password='pass12345!')
+        make_booking(other_user, self.vehicle, status=BookingStatus.COMPLETED)
+        response = self.client.post('/api/bookings/', self._payload(), format='json')
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.loyalty_discount_amount, Decimal('0'))
+
+    def test_changing_dates_reapplies_the_loyalty_discount_to_the_new_total(self):
+        make_booking(self.user, self.vehicle, status=BookingStatus.COMPLETED)
+        response = self.client.post('/api/bookings/', self._payload(), format='json')
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.total_amount, Decimal('6300.00'))  # 7000 - 10%
+
+        new_start, new_end = TOMORROW, TOMORROW + timedelta(days=1)  # 2 days -> 2000
+        self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(new_start), 'end_date': str(new_end)},
+        )
+        booking.refresh_from_db()
+        self.assertEqual(booking.total_amount, Decimal('1800.00'))  # 2000 - 10%
+        self.assertEqual(booking.loyalty_discount_amount, Decimal('200.00'))
+
+
 class DiscountCodeRaceConditionTests(TransactionTestCase):
     """Proves two concurrent bookings can't both redeem the same single-use code - mirrors
     BookingRaceConditionTests below, using the same slow-down-the-window-and-race-two-real-

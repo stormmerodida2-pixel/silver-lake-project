@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from accounts.models import CustomerProfile, ReferralSettings
+from accounts.models import CustomerProfile, LoyaltyTier, ReferralSettings
 from drivers.models import Driver
 from drivers.serializers import VehicleSubmissionPhotoSerializer
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleSubmission
@@ -263,4 +263,16 @@ class AdminReferralSettingsSerializer(serializers.ModelSerializer):
     def validate_credit_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError('Must be greater than zero.')
+        return value
+
+
+class AdminLoyaltyTierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LoyaltyTier
+        fields = ['id', 'name', 'min_completed_trips', 'discount_percent', 'created_at']
+        read_only_fields = ['created_at']
+
+    def validate_discount_percent(self, value):
+        if value < 0 or value > 100:
+            raise serializers.ValidationError('Must be between 0 and 100.')
         return value

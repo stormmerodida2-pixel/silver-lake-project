@@ -69,6 +69,13 @@ async function removeAvatar() {
   }
 }
 
+// ── Loyalty ───────────────────────────────────────────────────────────────────
+const loyaltyTierName = ref(null)
+const loyaltyDiscountPercent = ref(0)
+const completedTripCount = ref(0)
+const nextLoyaltyTierName = ref(null)
+const tripsToNextLoyaltyTier = ref(null)
+
 // ── Referrals ────────────────────────────────────────────────────────────────
 const referralCode = ref('')
 const referralCreditBalance = ref(0)
@@ -94,6 +101,11 @@ async function loadProfile() {
     referralCode.value = data.referral_code
     referralCreditBalance.value = data.referral_credit_balance
     referralCreditAmount.value = data.referral_credit_amount
+    loyaltyTierName.value = data.loyalty_tier_name
+    loyaltyDiscountPercent.value = data.loyalty_discount_percent
+    completedTripCount.value = data.completed_trip_count
+    nextLoyaltyTierName.value = data.next_loyalty_tier_name
+    tripsToNextLoyaltyTier.value = data.trips_to_next_loyalty_tier
   } catch (err) {
     error.value = 'Could not load your profile.'
   } finally {
@@ -168,6 +180,35 @@ onMounted(loadProfile)
               >
                 Remove
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loyalty -->
+        <div v-if="loyaltyTierName || nextLoyaltyTierName" class="mt-6 rounded-2xl border border-navy-800 bg-navy-900 p-8 sm:p-10">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="font-[Georgia] text-lg font-bold text-white">
+                {{ loyaltyTierName ? `${loyaltyTierName} Member` : 'Loyalty Program' }}
+              </p>
+              <p class="mt-1 max-w-md text-sm text-slate-300">
+                <template v-if="loyaltyTierName && Number(loyaltyDiscountPercent) > 0">
+                  You get {{ Number(loyaltyDiscountPercent) }}% off every booking, automatically - no code needed.
+                </template>
+                <template v-else>
+                  Complete more trips to unlock an automatic discount on every future booking.
+                </template>
+              </p>
+              <p v-if="nextLoyaltyTierName" class="mt-2 text-xs font-semibold uppercase tracking-wide text-gold-400">
+                {{ tripsToNextLoyaltyTier }} more trip{{ tripsToNextLoyaltyTier === 1 ? '' : 's' }} to {{ nextLoyaltyTierName }}
+              </p>
+              <p v-else class="mt-2 text-xs font-semibold uppercase tracking-wide text-gold-400">
+                You've reached the top tier
+              </p>
+            </div>
+            <div class="rounded-lg border border-gold-500/40 bg-gold-500/10 px-4 py-2 text-center">
+              <p class="font-[Georgia] text-2xl font-bold text-gold-400">{{ completedTripCount }}</p>
+              <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Completed Trips</p>
             </div>
           </div>
         </div>

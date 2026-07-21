@@ -47,7 +47,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'pickup_location', 'dropoff_location', 'start_date', 'end_date',
             'customer_license_number', 'customer_license_document', 'customer_id_document',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid',
-            'discount_code', 'discount_code_display', 'discount_amount',
+            'discount_code', 'discount_code_display', 'discount_amount', 'loyalty_discount_amount',
             'status', 'notes', 'review', 'created_at', 'driver_acknowledged_at',
             'trip_started_at', 'trip_ended_at', 'needs_attention', 'acknowledgment_deadline',
             'is_acknowledgment_overdue', 'pending_payments',
@@ -55,7 +55,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'is_government_contract', 'government_contract_reference',
         ]
         read_only_fields = [
-            'status', 'source', 'total_amount', 'discount_amount', 'created_at',
+            'status', 'source', 'total_amount', 'discount_amount', 'loyalty_discount_amount', 'created_at',
             'driver_acknowledged_at', 'trip_started_at', 'trip_ended_at',
             'last_balance_reminder_at', 'is_government_contract', 'government_contract_reference',
         ]

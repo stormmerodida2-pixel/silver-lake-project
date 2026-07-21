@@ -129,6 +129,13 @@ class Booking(models.Model):
     # discount_code.value, since a percentage code's real KES value depends on the total at the
     # time, and the code itself might later be deactivated or deleted.
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, editable=False, default=0)
+    # The customer's own loyalty-tier discount (see accounts.LoyaltyTier), applied automatically
+    # on top of discount_code's own reduction - no code needed, computed from whichever tier
+    # their lifetime completed-trip count qualified for at the moment this booking was made.
+    # Stored explicitly for the same reason discount_amount is: a KES value locked in at the
+    # time, not re-derived later if the customer's tier (or the tier's own discount_percent)
+    # later changes.
+    loyalty_discount_amount = models.DecimalField(max_digits=10, decimal_places=2, editable=False, default=0)
 
     status = models.CharField(max_length=20, choices=BookingStatus.choices, default=BookingStatus.PENDING)
     notes = models.TextField(blank=True)
@@ -253,8 +260,22 @@ class Booking(models.Model):
             if self.discount_code_id:
                 self.discount_amount = self.discount_code.compute_discount(total)
                 total -= self.discount_amount
+            total, self.loyalty_discount_amount = self._apply_loyalty_discount(total)
             self.total_amount = total
         super().save(*args, **kwargs)
+
+    def _apply_loyalty_discount(self, total):
+        """The customer's own loyalty-tier discount (see accounts.LoyaltyTier), applied on top
+        of whatever discount_code already took off - no code needed, just whichever tier their
+        lifetime completed-trip count currently qualifies for. Returns (new_total, discount) so
+        callers (save(), change_dates()) stay in charge of actually assigning both fields."""
+        from accounts.services import get_loyalty_tier
+
+        tier = get_loyalty_tier(self.user) if self.user_id else None
+        if not tier or tier.discount_percent <= 0:
+            return total, Decimal('0')
+        discount = min((total * tier.discount_percent / Decimal('100')).quantize(Decimal('0.01')), total)
+        return total - discount, discount
 
     @property
     def amount_paid(self):
@@ -627,8 +648,11 @@ class Booking(models.Model):
         if self.discount_code_id:
             self.discount_amount = self.discount_code.compute_discount(total)
             total -= self.discount_amount
+        total, self.loyalty_discount_amount = self._apply_loyalty_discount(total)
         self.total_amount = total
-        self.save(update_fields=['start_date', 'end_date', 'total_amount', 'discount_amount'])
+        self.save(update_fields=[
+            'start_date', 'end_date', 'total_amount', 'discount_amount', 'loyalty_discount_amount',
+        ])
 
         from payments.models import Refund, RefundStatus
 

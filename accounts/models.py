@@ -99,3 +99,29 @@ class ReferralSettings(models.Model):
         row.credit_amount = amount
         row.save(update_fields=['credit_amount'])
         return row
+
+
+class LoyaltyTier(models.Model):
+    """An admin-configurable rung on the loyalty ladder - a customer's tier is derived live from
+    their own lifetime completed-trip count (see accounts.services.get_loyalty_tier), never
+    stored on the user themselves, so raising/lowering a threshold here immediately reflects
+    everyone's real tier rather than needing a backfill. A customer's tier is the highest one
+    whose min_completed_trips they've met; its discount_percent is applied automatically to
+    every new booking they make from then on (see bookings.models.Booking.save) - no code
+    needed, unlike discounts.DiscountCode, and stacks with one if the customer also has one."""
+
+    name = models.CharField(max_length=50, unique=True)
+    min_completed_trips = models.PositiveIntegerField(
+        unique=True, help_text='Lifetime completed trips required to reach this tier.',
+    )
+    discount_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('0'),
+        help_text='Automatic discount applied to every booking once a customer reaches this tier.',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['min_completed_trips']
+
+    def __str__(self):
+        return f'{self.name} ({self.min_completed_trips}+ trips, {self.discount_percent}% off)'

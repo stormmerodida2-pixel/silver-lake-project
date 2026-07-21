@@ -1,4 +1,5 @@
 import base64
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -10,8 +11,11 @@ from rest_framework.test import APITestCase
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import CustomerProfile
-from .services import blacklist_all_tokens_for_user
+from bookings.models import BookingStatus
+from bookings.tests import make_booking, make_vehicle
+
+from .models import CustomerProfile, LoyaltyTier
+from .services import blacklist_all_tokens_for_user, get_completed_trip_count, get_loyalty_tier, get_next_loyalty_tier
 
 User = get_user_model()
 
@@ -327,3 +331,74 @@ class AvatarUploadTests(APITestCase):
         self.client.force_authenticate(user=None)
         response = self.client.post('/api/auth/login/', {'username': 'avatar@example.com', 'password': 'pass12345!'})
         self.assertIsNotNone(response.json()['user']['avatar'])
+
+
+class LoyaltyTierServiceTests(APITestCase):
+    """get_completed_trip_count/get_loyalty_tier/get_next_loyalty_tier - see LoyaltyTier's own
+    docstring for why this counts only BookingStatus.COMPLETED, narrower than the
+    CONFIRMED-or-later definition used elsewhere (referral credit, the analytics dashboard)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='loyalty-client@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        LoyaltyTier.objects.all().delete()  # ignore the migration-seeded defaults for these tests
+        self.silver = LoyaltyTier.objects.create(name='Silver', min_completed_trips=3, discount_percent=Decimal('5'))
+        self.gold = LoyaltyTier.objects.create(name='Gold', min_completed_trips=6, discount_percent=Decimal('10'))
+
+    def _complete_trips(self, count):
+        for _ in range(count):
+            make_booking(self.user, self.vehicle, status=BookingStatus.COMPLETED)
+
+    def test_trip_count_only_counts_completed_bookings(self):
+        make_booking(self.user, self.vehicle, status=BookingStatus.COMPLETED)
+        make_booking(self.user, self.vehicle, status=BookingStatus.CONFIRMED)
+        make_booking(self.user, self.vehicle, status=BookingStatus.CANCELLED)
+        self.assertEqual(get_completed_trip_count(self.user), 1)
+
+    def test_no_tier_below_the_lowest_threshold(self):
+        self._complete_trips(2)
+        self.assertIsNone(get_loyalty_tier(self.user))
+
+    def test_reaches_the_first_tier_at_its_threshold(self):
+        self._complete_trips(3)
+        self.assertEqual(get_loyalty_tier(self.user), self.silver)
+
+    def test_reaches_the_highest_tier_whose_threshold_is_met(self):
+        self._complete_trips(6)
+        self.assertEqual(get_loyalty_tier(self.user), self.gold)
+
+    def test_next_tier_before_reaching_any(self):
+        self.assertEqual(get_next_loyalty_tier(self.user), self.silver)
+
+    def test_next_tier_between_two_tiers(self):
+        self._complete_trips(3)
+        self.assertEqual(get_next_loyalty_tier(self.user), self.gold)
+
+    def test_no_next_tier_once_at_the_top(self):
+        self._complete_trips(6)
+        self.assertIsNone(get_next_loyalty_tier(self.user))
+
+
+class LoyaltyFieldsOnUserSerializerTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='loyalty-fields@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        LoyaltyTier.objects.all().delete()
+        LoyaltyTier.objects.create(name='Silver', min_completed_trips=1, discount_percent=Decimal('5'))
+        self.client.force_authenticate(user=self.user)
+
+    def test_loyalty_fields_reflect_the_current_tier(self):
+        make_booking(self.user, self.vehicle, status=BookingStatus.COMPLETED)
+        response = self.client.get('/api/auth/me/')
+        data = response.json()
+        self.assertEqual(data['loyalty_tier_name'], 'Silver')
+        self.assertEqual(Decimal(str(data['loyalty_discount_percent'])), Decimal('5'))
+        self.assertEqual(data['completed_trip_count'], 1)
+        self.assertIsNone(data['next_loyalty_tier_name'])
+
+    def test_loyalty_fields_before_reaching_any_tier(self):
+        response = self.client.get('/api/auth/me/')
+        data = response.json()
+        self.assertIsNone(data['loyalty_tier_name'])
+        self.assertEqual(data['next_loyalty_tier_name'], 'Silver')
+        self.assertEqual(data['trips_to_next_loyalty_tier'], 1)

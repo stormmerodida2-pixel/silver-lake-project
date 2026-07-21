@@ -7,7 +7,7 @@ from django.db.models import Sum
 from django.utils import timezone
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
-from .models import CustomerProfile, ReferralCredit, ReferralSettings
+from .models import CustomerProfile, LoyaltyTier, ReferralCredit, ReferralSettings
 
 User = get_user_model()
 
@@ -117,6 +117,34 @@ def get_redeemable_amount(user, max_amount):
             break
         total += credit.amount
     return total
+
+
+def get_completed_trip_count(user):
+    """Lifetime completed trips - the loyalty program's own qualifying metric (see LoyaltyTier),
+    deliberately narrower than the "genuine booking" definition used elsewhere (e.g.
+    Booking._award_referral_credit_if_first_booking, AdminAnalyticsView's new-vs-repeat split,
+    both of which count CONFIRMED-or-later): a trip that's merely confirmed or in progress hasn't
+    actually happened for the customer yet, so it shouldn't count toward "how many trips you've
+    taken with us"."""
+    from bookings.models import Booking, BookingStatus
+
+    return Booking.objects.filter(user=user, status=BookingStatus.COMPLETED).count()
+
+
+def get_loyalty_tier(user):
+    """The highest LoyaltyTier this user's own completed-trip count currently qualifies for, or
+    None if even the lowest configured tier's threshold hasn't been met yet (e.g. no tiers
+    exist, or the lowest one requires more trips than this customer has taken)."""
+    trip_count = get_completed_trip_count(user)
+    return LoyaltyTier.objects.filter(min_completed_trips__lte=trip_count).order_by('-min_completed_trips').first()
+
+
+def get_next_loyalty_tier(user):
+    """The next tier up from wherever this customer is now - for a "3 more trips to Gold"
+    progress display. None means they've already reached the top configured tier (or none
+    exist)."""
+    trip_count = get_completed_trip_count(user)
+    return LoyaltyTier.objects.filter(min_completed_trips__gt=trip_count).order_by('min_completed_trips').first()
 
 
 def consume_referral_credit(user, amount, booking):

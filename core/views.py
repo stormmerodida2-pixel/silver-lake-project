@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from accounts.models import LoyaltyTier
 from accounts.serializers import UserSerializer
 from accounts.services import get_or_create_customer_account
 from bookings.models import Booking, BookingSource, BookingStatus
@@ -33,6 +34,7 @@ from .serializers import (
     AdminDriverPayoutSerializer,
     AdminDriverSerializer,
     AdminFleetPartnerSerializer,
+    AdminLoyaltyTierSerializer,
     AdminRefundSerializer,
     AdminReferralSettingsSerializer,
     AdminReviewSerializer,
@@ -399,6 +401,30 @@ class AdminReferralSettingsView(APIView):
         serializer.save()
         log_admin_action(request, 'referral_settings.update', settings_row, detail=f'credit_amount={settings_row.credit_amount}')
         return self.get(request)
+
+
+class AdminLoyaltyTierViewSet(viewsets.ModelViewSet):
+    """Lets a SilverLake superadmin manage the loyalty ladder's tiers - platform-wide, not
+    org-scoped, same tier as AdminReferralSettingsView (a FleetPartner's own org-admin has no
+    business configuring a platform-wide rewards program). A customer's own current tier is
+    always derived live from their lifetime completed-trip count (see
+    accounts.services.get_loyalty_tier) - nothing here is ever assigned directly to a user."""
+
+    serializer_class = AdminLoyaltyTierSerializer
+    permission_classes = [IsPlatformSuperAdmin]
+    queryset = LoyaltyTier.objects.all()
+
+    def perform_create(self, serializer):
+        tier = serializer.save()
+        log_admin_action(self.request, 'loyaltytier.create', tier, detail=tier.name)
+
+    def perform_update(self, serializer):
+        tier = serializer.save()
+        log_admin_action(self.request, 'loyaltytier.update', tier, detail=tier.name)
+
+    def perform_destroy(self, instance):
+        log_admin_action(self.request, 'loyaltytier.delete', instance, detail=instance.name)
+        instance.delete()
 
 
 class AdminUserViewSet(

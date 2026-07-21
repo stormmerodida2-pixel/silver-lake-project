@@ -659,6 +659,10 @@ function retryPayment() {
                 <span>Discount ({{ booking.discount_code_display }})</span>
                 <span class="font-medium">- KES {{ Number(booking.discount_amount).toLocaleString() }}</span>
               </div>
+              <div v-if="Number(booking.loyalty_discount_amount) > 0" class="flex items-center justify-between py-1.5 text-emerald-600">
+                <span>Loyalty Discount</span>
+                <span class="font-medium">- KES {{ Number(booking.loyalty_discount_amount).toLocaleString() }}</span>
+              </div>
               <div class="flex items-center justify-between border-t border-dashed border-slate-200 py-1.5 pt-2.5">
                 <span class="font-semibold text-navy-900">Trip Total</span>
                 <span class="font-[Georgia] text-lg font-bold text-navy-900">

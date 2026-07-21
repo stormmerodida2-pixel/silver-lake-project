@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
@@ -59,6 +61,11 @@ class UserSerializer(serializers.ModelSerializer):
     referral_credit_balance = serializers.SerializerMethodField()
     referral_credit_amount = serializers.SerializerMethodField()
     is_read_only_session = serializers.SerializerMethodField()
+    loyalty_tier_name = serializers.SerializerMethodField()
+    loyalty_discount_percent = serializers.SerializerMethodField()
+    completed_trip_count = serializers.SerializerMethodField()
+    next_loyalty_tier_name = serializers.SerializerMethodField()
+    trips_to_next_loyalty_tier = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -66,7 +73,8 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'first_name', 'last_name', 'email', 'phone_number', 'avatar',
             'is_staff', 'is_superuser', 'is_driver', 'driver_status', 'organization_name',
             'referral_code', 'referral_credit_balance', 'referral_credit_amount',
-            'is_read_only_session',
+            'is_read_only_session', 'loyalty_tier_name', 'loyalty_discount_percent',
+            'completed_trip_count', 'next_loyalty_tier_name', 'trips_to_next_loyalty_tier',
         ]
 
     def get_phone_number(self, user):
@@ -88,6 +96,33 @@ class UserSerializer(serializers.ModelSerializer):
         # hardcoded figure that would go stale the moment an admin changes it.
         from .models import ReferralSettings
         return ReferralSettings.get_amount()
+
+    def get_loyalty_tier_name(self, user):
+        from .services import get_loyalty_tier
+        tier = get_loyalty_tier(user)
+        return tier.name if tier else None
+
+    def get_loyalty_discount_percent(self, user):
+        from .services import get_loyalty_tier
+        tier = get_loyalty_tier(user)
+        return tier.discount_percent if tier else Decimal('0')
+
+    def get_completed_trip_count(self, user):
+        from .services import get_completed_trip_count
+        return get_completed_trip_count(user)
+
+    def get_next_loyalty_tier_name(self, user):
+        from .services import get_next_loyalty_tier
+        tier = get_next_loyalty_tier(user)
+        return tier.name if tier else None
+
+    def get_trips_to_next_loyalty_tier(self, user):
+        # For a "3 more trips to Gold" progress display - None once there's no higher tier left.
+        from .services import get_completed_trip_count, get_next_loyalty_tier
+        next_tier = get_next_loyalty_tier(user)
+        if not next_tier:
+            return None
+        return next_tier.min_completed_trips - get_completed_trip_count(user)
 
     def get_is_read_only_session(self, user):
         # True only for a superadmin's read-only driver-impersonation session (see

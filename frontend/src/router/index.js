@@ -297,6 +297,12 @@ const routes = [
         meta: { title: 'Discount Codes | SilverLake Car Rentals', pageTitle: 'Discount Codes' },
       },
       {
+        path: 'loyalty-tiers',
+        name: 'admin-loyalty-tiers',
+        component: () => import('../views/admin/AdminLoyaltyTiersView.vue'),
+        meta: { title: 'Loyalty Tiers | SilverLake Car Rentals', pageTitle: 'Loyalty Tiers' },
+      },
+      {
         path: 'analytics',
         name: 'admin-analytics',
         component: () => import('../views/admin/AdminAnalyticsView.vue'),

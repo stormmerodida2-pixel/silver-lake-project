@@ -169,6 +169,9 @@
     {% if booking.discount_amount > 0 %}
     <tr><td>Discount ({{ booking.discount_code.code }})</td><td class="text-right">- KES {{ booking.discount_amount|floatformat:2|intcomma }}</td></tr>
     {% endif %}
+    {% if booking.loyalty_discount_amount > 0 %}
+    <tr><td>Loyalty Discount</td><td class="text-right">- KES {{ booking.loyalty_discount_amount|floatformat:2|intcomma }}</td></tr>
+    {% endif %}
     <tr><td>Trip Total</td><td class="text-right">KES {{ booking.total_amount|floatformat:2|intcomma }}</td></tr>
     <tr><td>Total Paid</td><td class="text-right">KES {{ booking.amount_paid|floatformat:2|intcomma }}</td></tr>
     <tr class="summary-total">
