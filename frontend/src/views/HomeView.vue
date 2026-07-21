@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
+import KenyaMap from '../components/KenyaMap.vue'
 import VehicleCard from '../components/VehicleCard.vue'
 import ReviewCard from '../components/ReviewCard.vue'
 
@@ -27,11 +28,15 @@ const averageRating = computed(() => {
 })
 // The most-traveled photographed vehicle - a genuine "this is our most popular ride" rather
 // than an arbitrary first-in-list pick.
-const featuredVehicle = computed(() => {
-  const withPhotos = catalog.vehicles.filter((vehicle) => vehicle.image)
-  if (!withPhotos.length) return null
-  return [...withPhotos].sort((a, b) => (b.trips_completed || 0) - (a.trips_completed || 0))[0]
-})
+const photographedVehiclesByPopularity = computed(() =>
+  [...catalog.vehicles.filter((vehicle) => vehicle.image)].sort(
+    (a, b) => (b.trips_completed || 0) - (a.trips_completed || 0)
+  )
+)
+const featuredVehicle = computed(() => photographedVehiclesByPopularity.value[0] || null)
+// A second real fleet photo peeking from behind the featured one, for a bit of the flyer's
+// multi-vehicle energy - simply hidden if there's only one photographed vehicle so far.
+const secondaryVehicle = computed(() => photographedVehiclesByPopularity.value[1] || null)
 
 const trustBadges = [
   { title: 'Safety', text: 'Your safety is our promise', icon: 'shield' },
@@ -102,6 +107,17 @@ const howItWorks = [
         </div>
 
         <div v-if="featuredVehicle" v-reveal class="relative mx-auto hidden w-full max-w-md lg:block">
+          <!-- Stands in for the flyer's Lake Victoria sunset backdrop - a warm gradient glow,
+               not a fabricated photo, behind the real fleet photography below. -->
+          <div class="absolute -inset-8 rounded-[2.5rem] bg-linear-to-br from-gold-500/25 via-brand-blue-500/10 to-transparent blur-2xl"></div>
+
+          <div
+            v-if="secondaryVehicle"
+            class="absolute -right-8 -top-8 hidden w-36 rotate-6 overflow-hidden rounded-xl border border-navy-700 shadow-xl shadow-black/40 sm:block"
+          >
+            <img :src="secondaryVehicle.image" :alt="secondaryVehicle.name" class="h-24 w-full object-cover" />
+          </div>
+
           <div class="absolute inset-4 rounded-2xl border-2 border-gold-400/30"></div>
           <div class="relative overflow-hidden rounded-2xl border border-navy-700 shadow-2xl shadow-black/40">
             <img
@@ -131,13 +147,18 @@ const howItWorks = [
     <!-- Rooted in Kisumu banner -->
     <section v-reveal class="border-b border-navy-800 bg-navy-900">
       <div class="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-2">
-        <div>
-          <h2 class="font-[Georgia] text-2xl font-bold text-white">
-            Rooted in Kisumu. <span class="text-gold-400">Driven across Kenya.</span>
-          </h2>
-          <p class="mt-2 text-sm text-slate-300">
-            We are more than a car hire company. We are your travel partners. Anywhere. Anytime.
-          </p>
+        <div class="flex items-start gap-5">
+          <div class="hidden h-20 w-20 shrink-0 sm:block">
+            <KenyaMap mode="origin" />
+          </div>
+          <div>
+            <h2 class="font-[Georgia] text-2xl font-bold text-white">
+              Rooted in Kisumu. <span class="text-gold-400">Driven across Kenya.</span>
+            </h2>
+            <p class="mt-2 text-sm text-slate-300">
+              We are more than a car hire company. We are your travel partners. Anywhere. Anytime.
+            </p>
+          </div>
         </div>
         <ul class="flex flex-col justify-center gap-4 text-sm text-slate-200">
           <li class="flex items-center gap-3">
@@ -230,8 +251,13 @@ const howItWorks = [
     </section>
 
     <!-- Experience / trust badges -->
-    <section class="border-y border-navy-800 bg-navy-900">
-      <div class="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+    <section class="relative overflow-hidden border-y border-navy-800 bg-navy-900">
+      <!-- Stands in for the flyer's fisherman-at-sunset photo - a warm horizon-glow gradient,
+           not a fabricated photo of a real person or place. -->
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-linear-to-t from-gold-500/10 via-brand-blue-500/5 to-transparent"></div>
+      <div class="pointer-events-none absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-gold-500/10 blur-3xl"></div>
+
+      <div class="relative mx-auto max-w-6xl px-4 py-14 sm:px-6">
         <h2 v-reveal class="text-center font-[Georgia] text-2xl font-bold text-white">
           It's not just a journey, <span class="text-gold-400">it's an experience.</span>
         </h2>
@@ -264,6 +290,16 @@ const howItWorks = [
             <p class="mt-3 font-semibold text-gold-400">{{ badge.title }}</p>
             <p class="mt-1 text-sm text-slate-300">{{ badge.text }}</p>
           </div>
+        </div>
+
+        <div v-reveal class="mx-auto mt-14 flex max-w-lg flex-col items-center gap-2 rounded-2xl border border-gold-400/30 bg-navy-950/60 px-8 py-6 text-center">
+          <svg class="h-7 w-7 text-gold-400" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M4 18h16v2H4v-2ZM4 8l3.5 2.5L12 5l4.5 5.5L20 8v8H4V8Z" />
+          </svg>
+          <p class="font-[Georgia] text-lg font-bold text-white">
+            Your Comfort. <span class="text-gold-400">Our Commitment.</span>
+          </p>
+          <p class="font-[Georgia] text-base italic text-slate-300">Karibu sana!</p>
         </div>
       </div>
     </section>
