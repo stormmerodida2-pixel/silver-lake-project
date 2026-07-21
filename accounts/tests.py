@@ -86,6 +86,47 @@ class RegistrationTests(APITestCase):
         user = User.objects.get(username='jane@example.com')
         self.assertIsNone(user.customer_profile.referred_by_id)
 
+    def test_register_requires_a_phone_number(self):
+        response = self.client.post('/api/auth/register/', {
+            'first_name': 'Jane', 'last_name': 'Doe', 'email': 'jane@example.com',
+            'password': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('phone_number', response.json())
+        self.assertFalse(User.objects.filter(username='jane@example.com').exists())
+
+    def test_register_rejects_a_number_that_is_too_short(self):
+        response = self.client.post('/api/auth/register/', {
+            'first_name': 'Jane', 'last_name': 'Doe', 'email': 'jane@example.com',
+            'phone_number': '25470000', 'password': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('phone_number', response.json())
+
+    def test_register_rejects_a_number_with_a_leading_zero_instead_of_254(self):
+        response = self.client.post('/api/auth/register/', {
+            'first_name': 'Jane', 'last_name': 'Doe', 'email': 'jane@example.com',
+            'phone_number': '0712345678', 'password': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('phone_number', response.json())
+
+    def test_register_rejects_a_non_mobile_network_prefix(self):
+        # Only 254-7... and 254-1... are real Kenyan mobile ranges.
+        response = self.client.post('/api/auth/register/', {
+            'first_name': 'Jane', 'last_name': 'Doe', 'email': 'jane@example.com',
+            'phone_number': '254212345678', 'password': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('phone_number', response.json())
+
+    def test_register_accepts_the_254_one_mobile_range(self):
+        response = self.client.post('/api/auth/register/', {
+            'first_name': 'Jane', 'last_name': 'Doe', 'email': 'jane-one-range@example.com',
+            'phone_number': '254112345678', 'password': 'StrongPass123!',
+        })
+        self.assertEqual(response.status_code, 201)
+
 
 class CustomerProfileReferralCodeTests(APITestCase):
     def test_every_new_profile_gets_a_unique_code(self):
@@ -218,6 +259,13 @@ class ProfileUpdateTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, 'profile@example.com')
+
+    def test_rejects_a_malformed_phone_number(self):
+        response = self.client.patch('/api/auth/me/', {'phone_number': '12345'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('phone_number', response.json())
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.customer_profile.phone_number, '254700000000')  # unchanged
 
     def test_cannot_grant_yourself_staff_via_profile(self):
         response = self.client.patch('/api/auth/me/', {'is_staff': True}, format='json')

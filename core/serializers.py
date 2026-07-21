@@ -3,6 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from accounts.models import CustomerProfile, LoyaltyTier, ReferralSettings
+from core.validators import validate_kenyan_phone_number
 from drivers.models import Driver
 from drivers.serializers import VehicleSubmissionPhotoSerializer
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleSubmission
@@ -42,6 +43,12 @@ class AdminUserSerializer(serializers.ModelSerializer):
         if request and self.instance and self.instance == request.user:
             if attrs.get('is_superuser') is False or attrs.get('is_staff') is False:
                 raise serializers.ValidationError("You can't remove your own admin access.")
+        # phone_number isn't a real field on this serializer (it actually lives on
+        # CustomerProfile, not User - see get_phone_number/update below), so it never goes
+        # through DRF's own field validation pipeline the way a declared field would.
+        phone_number = self.initial_data.get('phone_number')
+        if phone_number:
+            validate_kenyan_phone_number(phone_number)
         return attrs
 
     def update(self, instance, validated_data):
@@ -59,7 +66,7 @@ class AdminCreateUserSerializer(serializers.Serializer):
 
     full_name = serializers.CharField(max_length=150)
     email = serializers.EmailField()
-    phone_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    phone_number = serializers.CharField(max_length=20, required=False, allow_blank=True, validators=[validate_kenyan_phone_number])
     password = serializers.CharField(write_only=True, validators=[validate_password])
 
     def validate_email(self, value):

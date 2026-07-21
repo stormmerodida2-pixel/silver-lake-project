@@ -291,6 +291,13 @@ class DriverApplicationCreateTests(APITestCase):
         self.assertIn('New Applicant', notification.message)
         self.assertIsNone(notification.organization_id)
 
+    def test_rejects_a_malformed_phone_number(self):
+        payload = self._payload()
+        payload['phone_number'] = '0712345678'  # leading 0, not the required 254 form
+        response = self.client.post('/api/drivers/apply/', payload, format='multipart')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('phone_number', response.json())
+
 
 class DriverApplicationThrottleTests(APITestCase):
     """Public, unauthenticated, and accepts a file upload - previously had no rate limit at

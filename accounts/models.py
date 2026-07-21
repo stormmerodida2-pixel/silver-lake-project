@@ -5,6 +5,7 @@ from django.db import models
 from django.utils import timezone
 
 from core.images import optimize_image
+from core.validators import validate_kenyan_phone_number
 from fleet.validators import validate_file_size
 
 
@@ -12,7 +13,7 @@ class CustomerProfile(models.Model):
     """Optional profile for a registered customer account, linked to Django's built-in User."""
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='customer_profile')
-    phone_number = models.CharField(max_length=20, blank=True)
+    phone_number = models.CharField(max_length=20, blank=True, validators=[validate_kenyan_phone_number])
     id_number = models.CharField(max_length=30, blank=True, help_text='National ID or passport number')
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True, validators=[validate_file_size])
     # Auto-generated on first save (see save() below) - every account gets one, whether or not

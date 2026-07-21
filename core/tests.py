@@ -4,6 +4,7 @@ from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import timezone
@@ -11,6 +12,7 @@ from PIL import Image as PILImage
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from accounts.models import CustomerProfile
 from bookings.models import Booking, BookingStatus
 from bookings.tests import NEXT_WEEK, TOMORROW, make_booking, make_vehicle
 from drivers.models import Driver, DriverApplication
@@ -19,8 +21,45 @@ from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus,
 
 from .models import AuditLog, StaffOrganization
 from .utils import parse_amount
+from .validators import validate_kenyan_phone_number
 
 User = get_user_model()
+
+
+class KenyanPhoneValidatorTests(TestCase):
+    def test_accepts_a_valid_safaricom_style_number(self):
+        validate_kenyan_phone_number('254712345678')  # does not raise
+
+    def test_accepts_a_valid_254_one_range_number(self):
+        validate_kenyan_phone_number('254112345678')  # does not raise
+
+    def test_rejects_a_leading_zero_instead_of_254(self):
+        with self.assertRaises(ValidationError):
+            validate_kenyan_phone_number('0712345678')
+
+    def test_rejects_a_leading_plus(self):
+        with self.assertRaises(ValidationError):
+            validate_kenyan_phone_number('+254712345678')
+
+    def test_rejects_too_few_digits(self):
+        with self.assertRaises(ValidationError):
+            validate_kenyan_phone_number('25471234567')
+
+    def test_rejects_too_many_digits(self):
+        with self.assertRaises(ValidationError):
+            validate_kenyan_phone_number('2547123456789')
+
+    def test_rejects_a_non_mobile_network_prefix(self):
+        with self.assertRaises(ValidationError):
+            validate_kenyan_phone_number('254212345678')
+
+    def test_rejects_an_empty_value(self):
+        with self.assertRaises(ValidationError):
+            validate_kenyan_phone_number('')
+
+    def test_rejects_none(self):
+        with self.assertRaises(ValidationError):
+            validate_kenyan_phone_number(None)
 
 
 class AdminPayoutVerificationTests(APITestCase):
@@ -755,6 +794,13 @@ class GovernmentContractBookingTests(APITestCase):
         del payload['government_contract_reference']
         response = self.client.post('/api/admin/bookings/create-government/', payload)
         self.assertEqual(response.status_code, 400)
+
+    def test_malformed_customer_phone_is_rejected(self):
+        response = self.client.post(
+            '/api/admin/bookings/create-government/', self._create_payload(customer_phone='0712345678'),
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('customer_phone', response.json())
 
     def test_conflicting_dates_are_rejected(self):
         make_booking(
@@ -2309,3 +2355,61 @@ class AdminPayoutExportTests(APITestCase):
         response = self.client.get('/api/admin/payouts/export/')
         rows = self._rows(response)
         self.assertEqual(len(rows), 1)  # header only - this payout belongs to a different org
+
+
+class AdminPhoneNumberValidationTests(APITestCase):
+    """Every admin-facing entry point that accepts a phone number enforces the same Kenyan
+    mobile format (254 + 7 or 1 + 8 digits) as customer-facing registration - see
+    core.validators.validate_kenyan_phone_number."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='phone-super@example.com', password='pass12345!')
+        self.client.force_authenticate(user=self.superadmin)
+
+    def test_admin_creating_a_driver_rejects_a_malformed_phone_number(self):
+        response = self.client.post('/api/admin/drivers/', {
+            'full_name': 'New Driver', 'phone_number': '0712345678',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('phone_number', response.json())
+
+    def test_admin_creating_a_driver_accepts_a_valid_phone_number(self):
+        response = self.client.post('/api/admin/drivers/', {
+            'full_name': 'New Driver', 'phone_number': '254712345678',
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+
+    def test_admin_creating_a_driver_with_no_phone_number_still_works(self):
+        # Driver.phone_number stays optional at the model level - only its format is enforced.
+        response = self.client.post('/api/admin/drivers/', {'full_name': 'New Driver'}, format='json')
+        self.assertEqual(response.status_code, 201)
+
+    def test_admin_editing_a_customers_phone_number_rejects_a_malformed_value(self):
+        customer = User.objects.create_user(username='phone-customer@example.com', password='pass12345!')
+        CustomerProfile.objects.create(user=customer, phone_number='254700000000')
+        response = self.client.patch(f'/api/admin/users/{customer.id}/', {'phone_number': '999'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        customer.customer_profile.refresh_from_db()
+        self.assertEqual(customer.customer_profile.phone_number, '254700000000')  # unchanged
+
+    def test_admin_creating_a_customer_account_rejects_a_malformed_phone_number(self):
+        response = self.client.post('/api/admin/users/', {
+            'full_name': 'New Customer', 'email': 'new-customer@example.com',
+            'phone_number': '0712345678', 'password': 'pass12345!',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('phone_number', response.json())
+
+    def test_admin_creating_a_fleet_partner_rejects_a_malformed_contact_phone(self):
+        response = self.client.post('/api/admin/fleet-partners/', {
+            'name': 'New Partner', 'contact_phone': '12345', 'platform_fee_percent': '10',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('contact_phone', response.json())
+
+    def test_admin_creating_a_fleet_partner_rejects_a_malformed_payout_phone_number(self):
+        response = self.client.post('/api/admin/fleet-partners/', {
+            'name': 'New Partner', 'payout_phone_number': '254999999999', 'platform_fee_percent': '10',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('payout_phone_number', response.json())

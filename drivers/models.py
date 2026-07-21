@@ -6,6 +6,7 @@ from django.db import models
 from django.utils import timezone
 
 from core.images import optimize_image
+from core.validators import validate_kenyan_phone_number
 from fleet.models import VehicleCategory
 
 from .validators import validate_file_size
@@ -21,7 +22,7 @@ class Driver(models.Model):
     full_name = models.CharField(max_length=100)
     photo = models.ImageField(upload_to='drivers/', blank=True, null=True)
     email = models.EmailField(blank=True, help_text='Used to notify the driver when they get booked')
-    phone_number = models.CharField(max_length=20, blank=True)
+    phone_number = models.CharField(max_length=20, blank=True, validators=[validate_kenyan_phone_number])
     years_of_experience = models.PositiveSmallIntegerField(default=0)
     bio = models.TextField(blank=True)
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=5.0)
@@ -82,7 +83,7 @@ class DriverApplication(models.Model):
     # Applicant
     full_name = models.CharField(max_length=100)
     email = models.EmailField()
-    phone_number = models.CharField(max_length=20)
+    phone_number = models.CharField(max_length=20, validators=[validate_kenyan_phone_number])
     years_of_experience = models.PositiveSmallIntegerField(default=0)
     bio = models.TextField(blank=True)
     license_number = models.CharField(max_length=50)

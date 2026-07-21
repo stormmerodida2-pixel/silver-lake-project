@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework import serializers
 
+from core.validators import validate_kenyan_phone_number
 from discounts.models import DiscountCode
 from discounts.services import DiscountCodeError, find_active_code, reserve_code
 from drivers.models import Driver
@@ -161,7 +162,7 @@ class DriverOnsiteBookingSerializer(serializers.Serializer):
 
     vehicle = serializers.PrimaryKeyRelatedField(queryset=Vehicle.objects.all())
     customer_name = serializers.CharField(max_length=100)
-    customer_phone = serializers.CharField(max_length=20)
+    customer_phone = serializers.CharField(max_length=20, validators=[validate_kenyan_phone_number])
     customer_email = serializers.EmailField(required=False, allow_blank=True, default='')
     pickup_location = serializers.CharField(max_length=200)
     dropoff_location = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
@@ -198,7 +199,7 @@ class AdminGovernmentBookingSerializer(serializers.Serializer):
     driver = serializers.PrimaryKeyRelatedField(queryset=Driver.objects.all(), required=False, allow_null=True)
     service_type = serializers.ChoiceField(choices=ServiceType.choices, default=ServiceType.WITH_DRIVER)
     customer_name = serializers.CharField(max_length=100)
-    customer_phone = serializers.CharField(max_length=20)
+    customer_phone = serializers.CharField(max_length=20, validators=[validate_kenyan_phone_number])
     customer_email = serializers.EmailField(required=False, allow_blank=True, default='')
     pickup_location = serializers.CharField(max_length=200)
     dropoff_location = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')

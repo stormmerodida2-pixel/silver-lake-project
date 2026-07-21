@@ -9,6 +9,7 @@ from django.db import models
 from django.utils import timezone
 
 from core.images import optimize_image
+from core.validators import validate_kenyan_phone_number
 from discounts.models import DiscountCode
 from drivers.models import Driver
 from fleet.models import Vehicle
@@ -92,7 +93,7 @@ class Booking(models.Model):
     )
 
     customer_name = models.CharField(max_length=100)
-    customer_phone = models.CharField(max_length=20)
+    customer_phone = models.CharField(max_length=20, validators=[validate_kenyan_phone_number])
     customer_email = models.EmailField(blank=True)
 
     pickup_location = models.CharField(max_length=200)

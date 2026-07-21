@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from core.images import optimize_image
+from core.validators import validate_kenyan_phone_number
 
 from .validators import validate_file_size
 
@@ -55,9 +56,9 @@ class FleetPartner(models.Model):
 
     name = models.CharField(max_length=150)
     contact_email = models.EmailField(blank=True)
-    contact_phone = models.CharField(max_length=20, blank=True)
+    contact_phone = models.CharField(max_length=20, blank=True, validators=[validate_kenyan_phone_number])
     payout_phone_number = models.CharField(
-        max_length=20, blank=True,
+        max_length=20, blank=True, validators=[validate_kenyan_phone_number],
         help_text="M-Pesa number this partner's own share of a payout is sent to - kept "
                    "separate from contact_phone so a general contact number is never mistaken "
                    "for a real money destination.",

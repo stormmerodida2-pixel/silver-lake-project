@@ -47,6 +47,10 @@ const localDigits = computed({
       inputmode="numeric"
       placeholder="712345678"
       :required="required"
+      pattern="[17][0-9]{8}"
+      minlength="9"
+      maxlength="9"
+      title="A real Kenyan mobile number: 9 digits, starting with 7 or 1 (e.g. 712345678)"
       class="w-full min-w-0 border-0 bg-transparent px-3 py-2.5 focus:outline-none focus:ring-0"
       :class="dark ? 'text-white placeholder-slate-500' : 'text-navy-900 placeholder-slate-400'"
     />

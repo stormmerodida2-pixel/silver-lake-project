@@ -4,6 +4,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
+from core.validators import validate_kenyan_phone_number
+
 from .models import CustomerProfile
 
 User = get_user_model()
@@ -13,7 +15,7 @@ class RegisterSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
     email = serializers.EmailField()
-    phone_number = serializers.CharField(max_length=20)
+    phone_number = serializers.CharField(max_length=20, validators=[validate_kenyan_phone_number])
     password = serializers.CharField(write_only=True, validators=[validate_password])
     # Optional - whoever shared their code with this new signup. A typo'd/unknown code raises a
     # clear error rather than silently failing, so a customer trying to credit a friend actually
@@ -174,7 +176,7 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
     it doubles as the login username with no re-verification flow for changing it, so that stays
     out of scope for a simple self-service profile edit."""
 
-    phone_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    phone_number = serializers.CharField(max_length=20, required=False, allow_blank=True, validators=[validate_kenyan_phone_number])
 
     class Meta:
         model = User

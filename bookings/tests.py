@@ -1295,6 +1295,13 @@ class DriverOnsiteBookingCreateTests(APITestCase):
         start_response = self.client.post(f'/api/driver/bookings/{booking_id}/start-trip/')
         self.assertEqual(start_response.status_code, 200)
 
+    def test_malformed_customer_phone_is_rejected(self):
+        response = self.client.post(
+            '/api/driver/bookings/create/', self._payload(customer_phone='0711111111'), format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('customer_phone', response.json())
+
     def test_driver_cannot_book_a_vehicle_that_isnt_theirs(self):
         response = self.client.post(
             '/api/driver/bookings/create/', self._payload(vehicle=self.other_vehicle.id), format='json',
