@@ -135,6 +135,12 @@ const routes = [
     meta: { title: 'My Favorites | SilverLake Car Rentals', requiresAuth: true },
   },
   {
+    path: '/account/support',
+    name: 'my-support',
+    component: () => import('../views/MySupportView.vue'),
+    meta: { title: 'Support | SilverLake Car Rentals', requiresAuth: true },
+  },
+  {
     path: '/become-a-driver',
     name: 'become-a-driver',
     component: () => import('../views/BecomeDriverView.vue'),
@@ -295,6 +301,12 @@ const routes = [
         name: 'admin-analytics',
         component: () => import('../views/admin/AdminAnalyticsView.vue'),
         meta: { title: 'Analytics | SilverLake Car Rentals', pageTitle: 'Analytics' },
+      },
+      {
+        path: 'support',
+        name: 'admin-support',
+        component: () => import('../views/admin/AdminSupportView.vue'),
+        meta: { title: 'Support Tickets | SilverLake Car Rentals', pageTitle: 'Support Tickets' },
       },
     ],
   },

@@ -248,6 +248,12 @@ onMounted(() => {
             >
               {{ downloadingId === booking.id ? 'Downloading...' : 'Download Receipt' }}
             </button>
+            <RouterLink
+              :to="{ path: '/account/support', query: { booking: booking.id } }"
+              class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:border-slate-400"
+            >
+              Report an Issue
+            </RouterLink>
           </div>
 
           <TrackVehicleMap v-if="trackingId === booking.id" :booking-id="booking.id" class="mt-3" />

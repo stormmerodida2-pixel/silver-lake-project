@@ -38,6 +38,7 @@ const EVENT_LABELS = {
   driver_away: 'Driver Away',
   vehicle_submission: 'Vehicle Submission',
   driver_application: 'Driver Application',
+  support_ticket_created: 'New Support Ticket',
   admin_message: 'Message from SilverLake',
   // Driver portal
   driver_booked: 'New Booking',
@@ -53,6 +54,7 @@ const EVENT_LABELS = {
   payment_recorded: 'Payment Recorded',
   refund_issued: 'Refund Issued',
   referral_credit_earned: 'Referral Credit Earned',
+  support_ticket_resolved: 'Support Ticket Resolved',
 }
 
 // Which events show up in the "manage notifications" panel depends on which bell this is - a
@@ -63,7 +65,7 @@ const MANAGEABLE_EVENTS_BY_BASE_PATH = {
   '/admin/notifications': [
     'driver_acknowledged', 'booking_created', 'booking_cancelled', 'booking_dates_changed', 'cash_payment_recorded',
     'cash_deposit_logged', 'payment_escalated', 'acknowledgment_overdue', 'payment_disputed',
-    'dispute_resolved', 'driver_away', 'vehicle_submission', 'driver_application',
+    'dispute_resolved', 'driver_away', 'vehicle_submission', 'driver_application', 'support_ticket_created',
   ],
   '/driver/notifications': [
     'driver_booked', 'booking_cancelled', 'payment_reminder', 'cash_deposit_reminder',
@@ -71,7 +73,7 @@ const MANAGEABLE_EVENTS_BY_BASE_PATH = {
   ],
   '/notifications': [
     'booking_confirmed', 'booking_dates_changed', 'booking_cancelled', 'payment_recorded',
-    'trip_completed', 'refund_issued', 'referral_credit_earned',
+    'trip_completed', 'refund_issued', 'referral_credit_earned', 'support_ticket_resolved',
   ],
 }
 const manageableEvents = MANAGEABLE_EVENTS_BY_BASE_PATH[props.basePath] || []

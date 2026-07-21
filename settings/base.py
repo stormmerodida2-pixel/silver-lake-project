@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'announcements',
     'blog',
     'discounts',
+    'support',
     'notifications',
     'core',
 ]

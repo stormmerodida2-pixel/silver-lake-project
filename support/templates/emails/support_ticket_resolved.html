@@ -1,0 +1,14 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  Your support ticket <strong>#{{ ticket_id }} — {{ subject }}</strong> has been resolved.
+</p>
+<p style="margin:0 0 16px; padding:12px 16px; background:#f1f5f9; border-radius:8px; color:#334155;">
+  {{ resolution_note }}
+</p>
+<p style="margin:0 0 16px; font-size:13px; color:#64748b;">
+  Not satisfied? You can reopen this ticket from your account.
+</p>
+{% include "emails/_button.html" with url=support_url label="View Ticket" %}
+{% endblock %}
