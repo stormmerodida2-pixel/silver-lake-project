@@ -1,10 +1,11 @@
 name: CI
 
 # Runs the Django test suite, the frontend build, and the Playwright e2e suite on every
-# push/PR - deploy only fires once all three pass. There used to be a second, near-identical
-# set of jobs for a duplicate nested silverlake/ project tree - that tree has been removed
-# (it was pure redundancy, not a real second environment) so this only tests the one real
-# project now.
+# push/PR - deploy only fires once all three pass (see each job's own `needs`/gating below).
+# The `security` job (pip-audit/npm audit) runs alongside these but deliberately doesn't gate
+# deploy - see its own comment. There used to be a second, near-identical set of jobs for a
+# duplicate nested silverlake/ project tree - that tree has been removed (it was pure
+# redundancy, not a real second environment) so this only tests the one real project now.
 on:
   push:
     branches: [main]
@@ -40,6 +41,31 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+
+  # Reports known CVEs in the exact currently-pinned versions (pip-audit checks requirements.txt
+  # against the PyPA advisory database; npm audit checks package-lock.json) - the reactive
+  # counterpart to Dependabot (.github/dependabot.yml), which proactively opens update PRs on a
+  # schedule instead. Deliberately not in deploy's own `needs` list below - a newly-disclosed CVE
+  # in some transitive dependency shouldn't be able to block shipping unrelated work, it should
+  # just be visible as its own failing check.
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pip-audit
+      - run: pip-audit -r requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npm audit --audit-level=high
 
   # Drives a real browser against the real app - backend and frontend both have to run in this
   # same job (not split like the two jobs above) since they need to reach each other over

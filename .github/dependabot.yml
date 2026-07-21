@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Backend (Django) dependencies - requirements.txt at the repo root.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # Frontend (Vue/Vite) dependencies.
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # The workflow itself pins action versions (actions/checkout@v4, etc.) - keep those current too.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
