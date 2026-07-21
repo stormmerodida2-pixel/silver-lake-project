@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
@@ -26,17 +26,33 @@ const averageRating = computed(() => {
   const total = catalog.reviews.reduce((sum, review) => sum + review.rating, 0)
   return (total / catalog.reviews.length).toFixed(1)
 })
-// The most-traveled photographed vehicle - a genuine "this is our most popular ride" rather
-// than an arbitrary first-in-list pick.
+// The most-traveled photographed vehicles first - a genuine "this is our most popular ride"
+// rather than an arbitrary first-in-list pick.
 const photographedVehiclesByPopularity = computed(() =>
   [...catalog.vehicles.filter((vehicle) => vehicle.image)].sort(
     (a, b) => (b.trips_completed || 0) - (a.trips_completed || 0)
   )
 )
-const featuredVehicle = computed(() => photographedVehiclesByPopularity.value[0] || null)
-// A second real fleet photo peeking from behind the featured one, for a bit of the flyer's
-// multi-vehicle energy - simply hidden if there's only one photographed vehicle so far.
-const secondaryVehicle = computed(() => photographedVehiclesByPopularity.value[1] || null)
+
+// Hero slowly cycles through real fleet photos rather than pinning one - restarts from the
+// top and (re)starts the rotation timer whenever the list itself changes (e.g. once fetched).
+const heroIndex = ref(0)
+let heroTimer = null
+watch(
+  photographedVehiclesByPopularity,
+  (vehicles) => {
+    clearInterval(heroTimer)
+    heroIndex.value = 0
+    if (vehicles.length > 1) {
+      heroTimer = setInterval(() => {
+        heroIndex.value = (heroIndex.value + 1) % vehicles.length
+      }, 4500)
+    }
+  },
+  { immediate: true }
+)
+onUnmounted(() => clearInterval(heroTimer))
+const heroVehicle = computed(() => photographedVehiclesByPopularity.value[heroIndex.value] || null)
 
 const trustBadges = [
   { title: 'Safety', text: 'Your safety is our promise', icon: 'shield' },
@@ -106,36 +122,35 @@ const howItWorks = [
           </dl>
         </div>
 
-        <div v-if="featuredVehicle" v-reveal class="relative mx-auto hidden w-full max-w-md lg:block">
+        <div v-if="heroVehicle" v-reveal class="relative mx-auto hidden h-[26rem] w-full max-w-lg overflow-hidden lg:block">
           <!-- Stands in for the flyer's Lake Victoria sunset backdrop - a warm gradient glow,
-               not a fabricated photo, behind the real fleet photography below. -->
-          <div class="absolute -inset-8 rounded-[2.5rem] bg-linear-to-br from-gold-500/25 via-brand-blue-500/10 to-transparent blur-2xl"></div>
+               not a fabricated photo, sitting behind the real fleet photography. -->
+          <div class="absolute inset-0 rounded-full bg-radial from-gold-500/25 via-brand-blue-500/10 to-transparent blur-3xl"></div>
 
-          <div
-            v-if="secondaryVehicle"
-            class="absolute -right-8 -top-8 hidden w-36 rotate-6 overflow-hidden rounded-xl border border-navy-700 shadow-xl shadow-black/40 sm:block"
-          >
-            <img :src="secondaryVehicle.image" :alt="secondaryVehicle.name" class="h-24 w-full object-cover" />
-          </div>
-
-          <div class="absolute inset-4 rounded-2xl border-2 border-gold-400/30"></div>
-          <div class="relative overflow-hidden rounded-2xl border border-navy-700 shadow-2xl shadow-black/40">
+          <!-- No card/frame around the photo itself - it bleeds edge to edge and fades into the
+               glow at the bottom instead of hard-stopping at a visible border. -->
+          <Transition name="hero-fade" mode="out-in">
             <img
-              :src="featuredVehicle.image"
-              :alt="featuredVehicle.name"
-              class="h-80 w-full object-cover"
+              :key="heroVehicle.id"
+              :src="heroVehicle.image"
+              :alt="heroVehicle.name"
+              class="absolute inset-0 h-full w-full object-cover [mask-image:linear-gradient(to_bottom,black_72%,transparent)]"
             />
-            <div class="absolute inset-x-0 bottom-0 bg-linear-to-t from-navy-950/95 to-transparent p-5 pt-10">
-              <p class="font-[Georgia] text-lg font-bold text-white">{{ featuredVehicle.name }}</p>
-              <p class="text-sm text-gold-400">{{ featuredVehicle.category_name || featuredVehicle.category }}</p>
-            </div>
-            <span
-              v-if="featuredVehicle.trips_completed > 0"
-              class="absolute right-3 top-3 rounded-full bg-navy-950/80 px-2.5 py-1 text-xs font-semibold text-gold-400 backdrop-blur"
-            >
-              Most popular ride
-            </span>
-          </div>
+          </Transition>
+
+          <span
+            v-if="heroVehicle.trips_completed > 0"
+            class="absolute right-4 top-4 rounded-full bg-navy-950/80 px-3 py-1.5 text-xs font-semibold text-gold-400 shadow-lg backdrop-blur"
+          >
+            &#9733; Most popular ride
+          </span>
+
+          <Transition name="hero-fade" mode="out-in">
+            <p :key="heroVehicle.id" class="absolute inset-x-0 bottom-5 text-center">
+              <span class="font-[Georgia] text-lg font-bold text-white drop-shadow-lg">{{ heroVehicle.name }}</span>
+              <span class="ml-2 text-sm font-semibold text-gold-400 drop-shadow-lg">{{ heroVehicle.category_name || heroVehicle.category }}</span>
+            </p>
+          </Transition>
         </div>
       </div>
 
@@ -353,3 +368,14 @@ const howItWorks = [
     </section>
   </div>
 </template>
+
+<style scoped>
+.hero-fade-enter-active,
+.hero-fade-leave-active {
+  transition: opacity 0.7s ease;
+}
+.hero-fade-enter-from,
+.hero-fade-leave-to {
+  opacity: 0;
+}
+</style>
