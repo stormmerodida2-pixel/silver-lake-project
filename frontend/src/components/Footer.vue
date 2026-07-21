@@ -1,9 +1,7 @@
 <script setup>
-import { useAuthStore } from '../stores/auth'
 import KenyaMap from './KenyaMap.vue'
 import SilverLakeLogo from './SilverLakeLogo.vue'
 
-const auth = useAuthStore()
 const year = new Date().getFullYear()
 
 const destinations = ['Nairobi', 'Mombasa', 'Nakuru', 'Eldoret', 'Malindi', 'And beyond...']
@@ -100,15 +98,12 @@ const featureStrip = [
         </div>
 
         <div class="flex flex-wrap gap-x-6 gap-y-2 text-slate-300">
-          <a href="tel:+254790111000" class="hover:text-gold-400">0790 111 000</a>
           <a href="mailto:info@silverlakecarrentals.co.ke" class="hover:text-gold-400">info@silverlakecarrentals.co.ke</a>
           <RouterLink to="/contact" class="hover:text-gold-400">Contact Us</RouterLink>
         </div>
 
         <div class="flex flex-wrap gap-x-6 gap-y-2 text-slate-300">
           <RouterLink to="/drivers" class="hover:text-gold-400">Meet Our Drivers</RouterLink>
-          <RouterLink to="/reviews" class="hover:text-gold-400">Leave a Review</RouterLink>
-          <RouterLink v-if="!auth.user?.driver_status" to="/become-a-driver" class="hover:text-gold-400">Become a Driver</RouterLink>
         </div>
 
         <div class="flex flex-wrap gap-x-6 gap-y-2 text-slate-300">
