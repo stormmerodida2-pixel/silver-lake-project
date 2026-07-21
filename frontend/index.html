@@ -21,9 +21,22 @@
       property="og:description"
       content="SilverLake Car Rentals - premium car hire in Kisumu with drivers or self-drive. Prado, Voxy, Axio and vans available. Book instantly via WhatsApp or M-Pesa."
     />
-    <meta property="og:image" content="/og-image.png" />
+    <!-- Absolute URLs, not relative - most link-preview crawlers (WhatsApp, Facebook, Slack,
+         LinkedIn) resolve og:image/og:url against whatever they think the page's own URL is,
+         which isn't reliable across a redirect chain (http->https, apex<->www) - a relative path
+         here has silently failed to show an image on some of them. -->
+    <meta property="og:url" content="https://silverlakecarentals.com/" />
+    <meta property="og:image" content="https://silverlakecarentals.com/og-image.png" />
+    <meta property="og:image:width" content="1695" />
+    <meta property="og:image:height" content="928" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SilverLake Car Rentals | Car Hire in Kisumu &amp; Across Kenya" />
+    <meta
+      name="twitter:description"
+      content="SilverLake Car Rentals - premium car hire in Kisumu with drivers or self-drive. Prado, Voxy, Axio and vans available. Book instantly via WhatsApp or M-Pesa."
+    />
+    <meta name="twitter:image" content="https://silverlakecarentals.com/og-image.png" />
   </head>
   <body>
     <div id="app"></div>
