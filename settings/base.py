@@ -12,7 +12,7 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 
-from decouple import config, Csv
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 # This file lives at <project root>/settings/base.py, so two `.parent`s gets back to

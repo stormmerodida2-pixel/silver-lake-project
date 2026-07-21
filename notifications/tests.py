@@ -9,7 +9,7 @@ from core.models import StaffOrganization
 from drivers.models import Driver
 from fleet.models import FleetPartner
 
-from .models import Notification, NotificationEvent, NotificationPreference, PushSubscription
+from .models import NotificationEvent, NotificationPreference, PushSubscription
 from .push import _recipients_for
 from .services import notify
 

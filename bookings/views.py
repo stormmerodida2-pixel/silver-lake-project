@@ -215,7 +215,6 @@ from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 
 from django.conf import settings
-from django.utils import timezone
 
 from accounts.services import get_or_create_customer_account
 from drivers.permissions import IsDriverUser

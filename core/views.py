@@ -20,7 +20,7 @@ from bookings.serializers import AdminGovernmentBookingSerializer, BookingSerial
 from bookings.services import create_condition_report
 from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
-from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
+from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleSubmission
 from fleet.serializers import VehicleCategorySerializer, VehicleImageSerializer, VehicleServiceRecordSerializer
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund, RefundStatus
 from reviews.models import Review
