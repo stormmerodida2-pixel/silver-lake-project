@@ -14,8 +14,10 @@ onMounted(() => {
   catalog.fetchCategories()
 })
 
+const firstName = ref('')
+const lastName = ref('')
+
 const form = reactive({
-  full_name: '',
   email: '',
   phone_number: '',
   years_of_experience: '',
@@ -40,6 +42,10 @@ async function submit() {
   error.value = ''
   try {
     const payload = new FormData()
+    // Backend/Driver record still stores one combined full_name field - only the form itself
+    // collects first/last separately, for a clearer, less ambiguous "what goes where" than one
+    // free-text name field.
+    payload.append('full_name', `${firstName.value.trim()} ${lastName.value.trim()}`.trim())
     Object.entries(form).forEach(([key, value]) => payload.append(key, value))
     payload.append('license_document', licenseDocument.value)
     if (vehiclePhoto.value) payload.append('vehicle_photo', vehiclePhoto.value)
@@ -100,9 +106,18 @@ async function submit() {
           <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-blue-600">About You</h3>
           <div class="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Full name</label>
+              <label class="mb-1 block text-sm text-slate-600">First name</label>
               <input
-                v-model="form.full_name"
+                v-model="firstName"
+                type="text"
+                required
+                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm text-slate-600">Last name</label>
+              <input
+                v-model="lastName"
                 type="text"
                 required
                 class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
