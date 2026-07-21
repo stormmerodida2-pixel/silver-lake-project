@@ -29,7 +29,7 @@ for a real payout with zero money actually collected.
   independent check, since they didn't initiate it themselves. If they never actually paid,
   this is what tips them off to dispute it.
 
-*Code:* `payments/services.py` (`record_cash_payment`), `DriverPayout.needs_verification`
+*Code:* `payments/services.py` (`declare_offline_payment`), `DriverPayout.needs_verification`
 / `is_verified` in `payments/models.py`, verify action in `core/views.py`.
 
 ### 2. The M-Pesa callback could be forged
@@ -59,7 +59,7 @@ customer could still trigger an M-Pesa prompt) against a booking that was alread
 **The fix:** Both payment paths now reject any amount that isn't strictly greater than zero, and
 refuse to accept a payment against a booking that's already cancelled or completed.
 
-*Code:* `payments/services.py` (`initiate_stk_push_payment`, `record_cash_payment`),
+*Code:* `payments/services.py` (`initiate_stk_push_payment`, `declare_offline_payment`),
 `payments/serializers.py` (`min_value` on the amount fields).
 
 ### 4. A driver's payout was queued for the full trip value on a 30% deposit
@@ -83,8 +83,8 @@ any balance still owed, as a second line of visibility regardless.
 
 ## What's still open (not fixed, flagging for a decision)
 
-- Broader pre-launch items (real M-Pesa production credentials, `DEBUG=True`, local-disk file
-  storage) are tracked separately in `PLATFORM_OVERVIEW.md` §13 and unaffected by this work.
+- Broader pre-launch items (real M-Pesa production credentials chief among them) are tracked
+  separately in `PLATFORM_OVERVIEW.md` §16 and unaffected by this work.
 
 **Since fixed, no longer open:**
 - ~~Payment/booking links never expire~~ — `driver_token` (the driver trip-completion link) was
@@ -99,8 +99,8 @@ any balance still owed, as a second line of visibility regardless.
 
 ## How this is tested
 
-67 automated backend tests cover the booking/payment/payout logic (`bookings/tests.py`,
-`payments/tests.py`, `core/tests.py`), including every scenario described
+898 automated backend tests cover the whole app, including the booking/payment/payout logic
+(`bookings/tests.py`, `payments/tests.py`, `core/tests.py`) at the center of every scenario described
 above — wrong/missing callback secret, zero/negative amounts, payments against closed bookings,
 and a payout not appearing until the booking is fully paid are all explicitly tested to behave
 the way this document says they should.

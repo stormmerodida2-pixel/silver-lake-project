@@ -1,6 +1,6 @@
 # SilverLake Car Rentals — Platform Overview
 
-*As of 2026-07-05.* This document is a complete walkthrough of what's actually built, end to end —
+*As of 2026-07-21.* This document is a complete walkthrough of what's actually built, end to end —
 from a customer creating an account through to a driver getting paid. It's written for anyone
 running the business, not just developers. Where something is still incomplete or needs a
 decision before launch, it's called out explicitly rather than glossed over.
@@ -39,6 +39,19 @@ decision before launch, it's called out explicitly rather than glossed over.
   the moment you navigate back to the main site from the driver portal — so if your driver
   application gets approved while you're still logged in, you don't need to log out and back in
   to see the change take effect.
+- **Two-factor authentication (staff/admin accounts only, opt-in).** From Profile → Security, a
+  staff or superadmin account can turn on email-based 2FA: once enabled, logging in requires a
+  6-digit code emailed after the password check, valid for 10 minutes and capped at 5 wrong
+  guesses before it's dead. Deliberately staff-only (that's where the real risk sits — money
+  movement, user management), not every customer account, and reuses the same Gmail SMTP already
+  configured for the app rather than needing a new external service or an authenticator app.
+  Disabling it back off requires re-entering your current password.
+- **Phone numbers are validated, not just collected.** Every phone field in the app (customer
+  registration/profile, driver applications, admin-created drivers/customers/fleet partners,
+  walk-in and government-contract bookings) enforces the real Kenyan mobile shape — `254`
+  followed by `7` or `1`, then 8 digits — both client-side (the shared phone input component) and
+  server-side. Registration's phone number has always been mandatory; it now also has to
+  actually look like a real number, not just be non-blank.
 
 ## 2. Roles
 
@@ -101,6 +114,13 @@ submissions, the Activity Log - that stay SilverLake-only regardless of tier).
   actually available right now.
 - Availability for a given date range is computed live from existing bookings — a vehicle already
   booked for part of a date range simply won't show as available for it.
+- **Vehicle condition reports** — at pickup and/or return, whoever's handling the handover
+  (the assigned driver from their portal, or admin staff directly for a self-drive/company-owned
+  booking with nobody else present) can log the vehicle's mileage, fuel level, notes, and photos.
+  Both entry points share the same underlying create logic, so a pickup and return report on the
+  same booking are always recorded the same way regardless of who logged them. Purely a paper
+  trail for later disputes ("it already had that scratch") — logging one never blocks or delays
+  a status change.
 
 ## 4. Becoming a Driver-Partner
 
@@ -162,6 +182,18 @@ business-model pitch for the economics).
   themselves or want a driver. Self-drive requires uploading a driving license and ID/passport
   document at booking time. There's no separate "pick a driver" step — booking "with driver" on
   a vehicle that has one automatically assigns that vehicle's own driver.
+- **Loyalty tiers give repeat customers an automatic discount — no code needed.** A customer's
+  tier (Bronze/Silver/Gold/Platinum, admin-configurable) is derived live from their own lifetime
+  **completed** trip count, never stored on the account itself, so raising or lowering a tier's
+  threshold immediately reflects everyone's real standing rather than needing a backfill. Applied
+  automatically to every booking once a customer reaches a tier with a nonzero discount, stacking
+  *on top of* a discount code if they also used one (code applied first, loyalty discount computed
+  off the already-discounted total) — never instead of one.
+- **A government/institutional contract booking** (Admin → Bookings → "+ Contract Booking") is
+  confirmed immediately with no upfront deposit, since payment is settled later via invoice rather
+  than at booking time — functionally unchanged from when this was labeled "Government Booking";
+  only the customer-facing wording changed, since it also covers any B2B/institutional client
+  with negotiated invoice terms, not just literal government departments.
 - **Self-drive costs 3% more than the same vehicle's with-driver rate** — the customer is
   driving SilverLake's own vehicle themselves, carrying more risk/liability than a trip with a
   driver at the wheel. Applied to the whole booked total (not per day), rounded to the nearest
@@ -259,7 +291,7 @@ business-model pitch for the economics).
   nudge behavior.
 - **These reminders now also fire automatically**, so a stuck booking doesn't just sit there until
   a staff member happens to notice it. The same background sweep that expires stale M-Pesa
-  payments (see §13) also checks every booking that's past its scheduled end date and still open
+  payments (see §15) also checks every booking that's past its scheduled end date and still open
   (`needs_attention`) with a driver assigned: whichever of the three reminders above actually
   applies (unconfirmed declared payment, undeposited cash, or a plain outstanding balance) gets
   auto-sent, reusing the exact same emails and one-hour cooldowns the manual buttons use - a
@@ -272,7 +304,6 @@ business-model pitch for the economics).
 - The M-Pesa callback (Safaricom telling us a payment succeeded) is protected by a private secret
   baked into the callback URL — without it, the request is rejected outright. This closes off a
   theoretical way someone could have faked a "payment successful" notification.
-mnm 
 - **Rate limiting** caps how many times the sensitive public endpoints can be hit in a given
   window: login (10/min), registration (5/hour), password reset requests (5/hour), both M-Pesa
   STK push triggers (5/min) — the last one specifically because each request can fire a real
@@ -345,6 +376,18 @@ self-reporting a cash payment isn't independently verified the way M-Pesa is.
   less than what was actually collected. This is a process control, not a technical guarantee
   that the driver's declared amount matches the real world; the customer dispute link and the
   superadmin verification note are what catch it if it doesn't.
+- **A verified payout can be disbursed automatically via M-Pesa, not just marked paid by hand.**
+  "Disburse via M-Pesa" (Admin → Payouts) sends the payout straight to the recipient's M-Pesa
+  number via Safaricom's B2C API, staying pending until Safaricom's own result callback confirms
+  it actually landed — the same initiate-then-callback shape the customer-facing STK Push already
+  uses. Entirely optional and currently dormant in production (needs its own separate Safaricom
+  "Go Live" registration, distinct from the customer-facing one) — **Mark Paid** remains the
+  default, always-available manual fallback either way, and nothing about the existing
+  verify-then-pay flow changed.
+- **The Payouts page covers both individual drivers and FleetPartner organizations together**,
+  with a Drivers / Fleet Partners filter (list view and CSV export) to isolate one or the other —
+  renamed from "Driver Payouts" once fleet partners became a real, growing share of that ledger,
+  not just an edge case.
 - **Refunds are tracked, not automated.** There's no live M-Pesa refund API wired up — instead,
   cancelling a paid booking creates a `Refund` record automatically, which shows up on the admin
   Refunds page as "Pending" until a superadmin sends the money back by hand and marks it
@@ -412,6 +455,9 @@ client blocks remote images.
 - **Driver application rejected (applicant)** — approval already emailed the portal invite; rejection previously left the applicant never hearing back at all
 - New vehicle submitted by a driver (admin)
 - **Vehicle submission approved / rejected (driver)** — previously the driver only found out by checking their own portal
+- **Support ticket marked in progress (customer)** — a heads-up that staff have actually started
+  looking into it, not just silence until it's fully resolved (see §11)
+- Support ticket resolved (customer), with the resolution note
 
 Every email send is wrapped so a failure (bad SMTP config, etc.) never blocks the underlying
 action — a booking still confirms even if the confirmation email fails to send.
@@ -475,8 +521,18 @@ box plus a couple of exact-match filter dropdowns, layered on top of org-scoping
 - **Dashboard** — revenue collected, platform fees earned, payouts owed/paid, bookings by status,
   user/driver counts (including pending applications and drivers currently away), fleet counts,
   pending reviews, and **pending refunds**.
+- **Analytics** — a 12-month revenue trend, top vehicles by revenue, and a new-vs-repeat customer
+  split, each with a "View as Table" fallback alongside the chart. Beyond the raw totals already on
+  the main Dashboard, this is where a superadmin actually looks for a trend rather than a snapshot.
+- **CSV export** — Bookings, Payments, and Payouts each have an "Export CSV" button that downloads
+  exactly what's currently on screen: it reuses the same query the list view itself uses, so it's
+  already org-scoped and respects whatever search/status/date filter is active, for accounting/tax/
+  reconciliation work outside the app.
 - **Users** — list, edit details, grant/revoke staff & superadmin roles, suspend/activate,
-  create accounts directly.
+  create accounts directly. A genuine platform superadmin can also **impersonate** a customer or
+  driver account directly from here — a driver impersonation session is read-only (can look, can't
+  act), useful for reproducing a support issue exactly as that person sees it without being able to
+  accidentally change anything on their behalf.
 - **Drivers** — manage live drivers plus the driver-application and vehicle-submission review
   queues, all in one page.
 - **Bookings** — full oversight, manual status changes, and (superadmin only) editing the
@@ -506,19 +562,60 @@ box plus a couple of exact-match filter dropdowns, layered on top of org-scoping
 - **Announcements** — superadmins broadcast to staff, drivers, or clients directly; support staff
   can propose a client-facing announcement that stays pending until a superadmin approves or
   rejects it (see §9).
+- **Support Tickets** — the admin side of the customer support/dispute system (see §11).
+- **Loyalty Tiers** — superadmin-only; add/edit/remove tiers and their completed-trip threshold
+  and discount percent (see §12).
+- **Blog** — superadmin-only authoring for marketing/SEO content (see §13).
 
 Every page is mobile-responsive: the sidebar collapses to a horizontal scrolling nav, stat grids
 drop to a single column, and every table scrolls horizontally instead of breaking the layout.
 
-## 11. Legal & Compliance
+## 11. Customer Support & Disputes
+
+A logged-in customer can file a support ticket (My Bookings → "Report an Issue," or the account
+support page) — category, subject, description, and optional photos, with a booking attached if
+it's about a specific trip. Deliberately a single-resolution-note model, not full back-and-forth
+threading: staff mark a ticket **In Progress** (emails/notifies the customer that it's being looked
+at) then **Resolved** with a required resolution note explaining what was done. A customer can
+**reopen** a resolved ticket — this puts it back to Open, but leaves the previous resolution note
+in place (only overwritten by the *next* resolution), so a repeatedly-reopened ticket only ever
+shows its most recent outcome.
+
+Platform-only (Admin → Support Tickets), not scoped to any one FleetPartner — a general question
+with no booking attached has no owning organization to scope it to anyway, and customer support is
+a SilverLake-wide function regardless.
+
+## 12. Loyalty Program
+
+A customer's tier — Bronze, Silver, Gold, or Platinum by default, admin-configurable — is based on
+their lifetime **completed** trip count (deliberately narrower than the "genuine booking" definition
+used for referral credit or the analytics new-vs-repeat split: only a trip that actually finished
+counts). Reaching a tier with a nonzero discount percent applies that discount automatically to
+every booking from then on, stacking on top of a discount code if one's also used (code first,
+loyalty discount computed off the already-discounted total). A customer's own Profile page shows
+their current tier, discount, completed-trip count, and how many more trips until the next tier.
+Admin → Loyalty Tiers (superadmin-only) is where the tiers themselves — name, trip threshold,
+discount percent — are configured.
+
+## 13. Blog
+
+A superadmin-only content channel for marketing/SEO — travel tips, destination guides, fleet or
+driver spotlights — separate from Announcements (which are one-way in-app broadcasts, not public
+content). Authored with a rich-text editor (bold/italic/headings/lists/links/inline images), the
+body sanitized server-side before it's ever stored (strips anything like a stray `<script>` tag or
+an `onclick` attribute, not just at render time) since it's rendered directly on the public site. A
+post stays invisible on the public `/blog` listing and its own permalink page until explicitly
+published; unpublishing takes it back down without deleting it.
+
+## 14. Legal & Compliance
 
 - Public **Terms**, **Privacy**, and **Refund Policy** pages.
 - Self-drive bookings require a license and ID/passport on file before the booking is valid.
 - Vehicles with lapsed insurance or inspection are hidden automatically (§3).
 
-## 12. What's Tested
+## 15. What's Tested
 
-528 automated backend tests currently cover booking validation, payment guards, payout timing and
+898 automated backend tests currently cover booking validation, payment guards, payout timing and
 verification, refund creation/voiding (including late payments arriving after cancellation), the
 audit log (now covering every sensitive admin action, not just the earliest ones), the
 delete-protection rules (including fleet-type deletion blocked while still in use), rate limiting,
@@ -641,30 +738,58 @@ for anyone who isn't a genuine platform superadmin - including that same organiz
 admin), and (using real threads
 against a live test transaction, not a
 single-connection simulation) that two concurrent booking requests for the same vehicle can't
-both succeed — run with:
+both succeed.
+
+Everything shipped since 2026-07-05 has its own equivalent coverage: vehicle condition report
+creation from both the driver and admin entry points; the full admin analytics endpoints (revenue
+trend, top vehicles, new-vs-repeat split); Sentry-adjacent health-check reporting; the support
+ticket lifecycle (creation, category/booking-ownership validation, in-progress/resolved
+transitions and their customer notifications, reopening without losing the prior resolution
+note, permission tiers); loyalty tier derivation (trip-count thresholds, discount stacking with a
+discount code, the boundary cases at each tier); the CSV export endpoints (org-scoping and active
+filters carried through to the export, malformed date-range rejection); the M-Pesa B2C
+disbursement flow (credential-gating with a friendly not-configured message, phone normalization,
+every guard mark_paid/verify already enforce, the result-callback success/failure/security paths,
+permission tiers); the Payouts recipient filter; 2FA (the full enable → password-gated login →
+emailed code → verify loop, expiry, the 5-attempt lockout, code reuse rejection, staff-only
+gating); and Kenyan phone-number format validation at every collection point (registration,
+profile edit, driver applications, admin-created drivers/customers/fleet partners, walk-in and
+government-contract bookings). Run the whole suite with:
 ```
 python manage.py test
 ```
 
-## 13. What's Still Open Before Launch
+## 16. What's Still Open Before Launch
 
-Not broken, but worth a conscious decision before going fully live:
+**The app is already live** — EC2 (`13.127.111.71`), fronted by nginx + Let's Encrypt TLS, on both
+`silverlakecarentals.com` and the original `13-127-111-71.sslip.io` address, with GitHub Actions
+building to ECR and deploying on every push to `main`. `ALLOWED_HOSTS`/`CORS_ALLOWED_ORIGINS`/
+`FRONTEND_URL` all point at the real domains, not `localhost`. File storage is real MySQL (RDS) +
+S3, not local disk. None of that is still open — what's left is genuinely narrower:
 
-- **Real M-Pesa production credentials** — still pointed at Safaricom's sandbox.
-- **`MPESA_CALLBACK_URL` is still a placeholder domain** — Safaricom's servers need to reach this
-  over the public internet with a valid HTTPS cert before any STK push (sandbox or production)
-  can ever confirm. Same goes for `ALLOWED_HOSTS`/`CORS_ALLOWED_ORIGINS`/`FRONTEND_URL`, still
-  all `localhost`.
-- **File storage is local disk** — uploaded documents/photos won't survive a server redeploy as
-  currently configured.
-- **No CI-driven deploy** — `.github/workflows/ci.yml` runs the test suite and frontend build on
-  every push/PR, but nothing auto-deploys yet (no hosting target decided).
+- **Real M-Pesa production credentials** — still pointed at Safaricom's sandbox. This is the one
+  hard blocker to taking real customer payments: needs the business's own Paybill and a Daraja
+  "Go Live" application.
+- **`www.silverlakecarentals.com` isn't pointed at the server yet** — still resolves to the
+  registrar's default parking page; the apex domain (no `www`) already works correctly. A DNS fix
+  on the registrar's side, not a code or server issue.
+- **M-Pesa B2C automated payouts are built but dormant** (see §7) — needs its own separate
+  Safaricom "Go Live" application. Manual Mark Paid works today regardless.
+- **Sentry error tracking is built but not active in production** — no `SENTRY_DSN` set yet, so a
+  production bug is currently only discovered if a user reports it.
+- **No dependency-vulnerability scanning until 2026-07-21** — now fixed: `pip-audit`/`npm audit`
+  run in CI on every push, plus a Dependabot config for scheduled update PRs.
+- **No Content-Security-Policy header** — stored user content (blog posts) is sanitized
+  server-side, but there's no CSP as a second XSS defense layer.
+- **File uploads are validated by extension and size only**, not actual file content/magic bytes.
+- **No documented backup/disaster-recovery plan** for the production RDS instance.
+- **Single EC2 instance** — no redundancy or failover.
 - **Refund disbursement is manual** — there's no automated M-Pesa refund API integration, only a
   tracked record of what's owed.
 - **Multi-tenancy is built for the core admin surface, not exhaustively everywhere.** An Org
   Admin/Org Staff account (see §2) is correctly scoped for fleet, bookings, payments, payouts,
   refunds, reviews, drivers, their own staff, and the Activity Log (an org's own actions only,
-  inferred per entry from whatever got logged - see §10/§12; a handful of action types have no
+  inferred per entry from whatever got logged - see §10/§15; a handful of action types have no
   derivable owning organization at all - driver suspensions, announcements, fleet-type/taxonomy
   changes, driver applications - and stay SilverLake-only, the same visibility they always had).
   Not scoped: the public-facing site (deliberately — customers browse one shared fleet across
