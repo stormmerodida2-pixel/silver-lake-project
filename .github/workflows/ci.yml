@@ -184,7 +184,7 @@ jobs:
         env:
           VITE_API_BASE_URL: ${{ vars.PRODUCTION_URL }}/api
           VITE_GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}
-      - uses: appleboy/scp-action@v0.1.7
+      - uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
