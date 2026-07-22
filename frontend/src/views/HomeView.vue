@@ -127,16 +127,15 @@ const howItWorks = [
                not a fabricated photo, sitting behind the real fleet photography. -->
           <div class="absolute inset-0 rounded-full bg-radial from-gold-500/25 via-brand-blue-500/10 to-transparent blur-3xl"></div>
 
-          <!-- No card/frame around the photo itself. Real fleet photos are studio shots on a
-               plain light backdrop, so object-cover alone would still read as a hard-edged
-               rectangle against the dark hero - a radial fade on every side dissolves that
-               backdrop into the glow instead, so only the vehicle itself reads as solid. -->
+          <!-- No border/card and no blend/mask trick - object-cover crops in tight enough that
+               the studio backdrop's white margin mostly falls outside the frame, so the vehicle
+               itself stays at full, undistorted color while nothing reads as a drawn shape. -->
           <Transition name="hero-fade" mode="out-in">
             <img
               :key="heroVehicle.id"
               :src="heroVehicle.image"
               :alt="heroVehicle.name"
-              class="absolute inset-0 h-full w-full object-cover [mask-image:radial-gradient(ellipse_62%_60%_at_center,black_45%,transparent_88%)]"
+              class="absolute inset-0 h-full w-full object-cover"
             />
           </Transition>
 
@@ -147,8 +146,12 @@ const howItWorks = [
             &#9733; Most popular ride
           </span>
 
+          <!-- A small legibility scrim behind the caption text only, not a frame around the
+               whole photo. -->
+          <div class="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-navy-950/90 to-transparent"></div>
+
           <Transition name="hero-fade" mode="out-in">
-            <p :key="heroVehicle.id" class="absolute inset-x-0 bottom-5 text-center">
+            <p :key="heroVehicle.id" class="absolute inset-x-0 bottom-4 text-center">
               <span class="font-[Georgia] text-lg font-bold text-white drop-shadow-lg">{{ heroVehicle.name }}</span>
               <span class="ml-2 text-sm font-semibold text-gold-400 drop-shadow-lg">{{ heroVehicle.category_name || heroVehicle.category }}</span>
             </p>
