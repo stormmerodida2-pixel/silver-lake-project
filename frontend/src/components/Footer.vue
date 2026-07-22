@@ -1,5 +1,4 @@
 <script setup>
-import KenyaMap from './KenyaMap.vue'
 import SilverLakeLogo from './SilverLakeLogo.vue'
 
 const year = new Date().getFullYear()
@@ -40,20 +39,13 @@ const featureStrip = [
 
         <div>
           <h4 class="text-sm font-semibold uppercase tracking-wide text-gold-400">We Take You Across Kenya</h4>
-          <div class="mt-3 flex items-center gap-6">
-            <div class="h-32 w-28 shrink-0">
-              <KenyaMap mode="routes" />
-            </div>
-            <div>
-              <ul class="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-300">
-                <li v-for="place in destinations" :key="place" class="flex items-center gap-1.5">
-                  <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-blue-400"></span>
-                  {{ place }}
-                </li>
-              </ul>
-              <p class="mt-2 text-xs text-slate-500">One call, countless destinations.</p>
-            </div>
-          </div>
+          <ul class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-300">
+            <li v-for="place in destinations" :key="place" class="flex items-center gap-1.5">
+              <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-blue-400"></span>
+              {{ place }}
+            </li>
+          </ul>
+          <p class="mt-2 text-xs text-slate-500">One call, countless destinations.</p>
         </div>
       </div>
 

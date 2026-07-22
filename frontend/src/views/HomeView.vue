@@ -3,7 +3,6 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
-import KenyaMap from '../components/KenyaMap.vue'
 import VehicleCard from '../components/VehicleCard.vue'
 import ReviewCard from '../components/ReviewCard.vue'
 
@@ -167,18 +166,13 @@ const howItWorks = [
     <!-- Rooted in Kisumu banner -->
     <section v-reveal class="border-b border-navy-800 bg-navy-900">
       <div class="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-2">
-        <div class="flex items-start gap-5">
-          <div class="hidden h-20 w-20 shrink-0 sm:block">
-            <KenyaMap mode="origin" />
-          </div>
-          <div>
-            <h2 class="font-[Georgia] text-2xl font-bold text-white">
-              Rooted in Kisumu. <span class="text-gold-400">Driven across Kenya.</span>
-            </h2>
-            <p class="mt-2 text-sm text-slate-300">
-              We are more than a car hire company. We are your travel partners. Anywhere. Anytime.
-            </p>
-          </div>
+        <div>
+          <h2 class="font-[Georgia] text-2xl font-bold text-white">
+            Rooted in Kisumu. <span class="text-gold-400">Driven across Kenya.</span>
+          </h2>
+          <p class="mt-2 text-sm text-slate-300">
+            We are more than a car hire company. We are your travel partners. Anywhere. Anytime.
+          </p>
         </div>
         <ul class="flex flex-col justify-center gap-4 text-sm text-slate-200">
           <li class="flex items-center gap-3">
