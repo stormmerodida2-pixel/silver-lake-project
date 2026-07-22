@@ -19,21 +19,13 @@ const featureStrip = [
       <div class="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-2">
         <div>
           <h4 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Payment Options</h4>
-          <div class="mt-3 grid gap-4 sm:grid-cols-2">
-            <div class="rounded-lg border border-navy-700 bg-navy-900 px-4 py-3">
-              <p class="text-xs font-semibold uppercase tracking-wide text-emerald-400">Lipa na M-Pesa</p>
-              <p class="mt-1 text-xs text-slate-400">Paybill</p>
-              <p class="font-[Georgia] text-lg font-bold text-white">400400</p>
-              <p class="text-xs text-slate-400">Account: SILVERLAKE</p>
-            </div>
-            <div class="rounded-lg border border-navy-700 bg-navy-900 px-4 py-3">
-              <p class="text-xs font-semibold uppercase tracking-wide text-brand-blue-400">Bank Transfer</p>
-              <p class="mt-1 text-xs text-slate-400">Co-operative Bank of Kenya</p>
-              <p class="text-xs text-slate-400">Paybill <span class="font-semibold text-white">400200</span></p>
-              <p class="text-xs text-slate-400">
-                A/C No: <span class="font-semibold text-white">01101465587001</span>
-              </p>
-            </div>
+          <div class="mt-3 max-w-xs rounded-lg border border-navy-700 bg-navy-900 px-4 py-3">
+            <p class="text-xs font-semibold uppercase tracking-wide text-brand-blue-400">Bank Transfer</p>
+            <p class="mt-1 text-xs text-slate-400">Co-operative Bank of Kenya</p>
+            <p class="text-xs text-slate-400">Paybill <span class="font-semibold text-white">400200</span></p>
+            <p class="text-xs text-slate-400">
+              A/C No: <span class="font-semibold text-white">01101465587001</span>
+            </p>
           </div>
         </div>
 
