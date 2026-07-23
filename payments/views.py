@@ -18,13 +18,21 @@ from core.utils import csv_response, parse_amount, parse_date_range, search_filt
 from .emails import send_cash_deposit_reminder_email, send_payment_reminder_email
 from .models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 from .serializers import (
+    MIN_BANK_TRANSFER_REFERENCE_LENGTH,
+    DeclareBankTransferRequestSerializer,
     PublicBookingPaymentSerializer,
     PaymentSerializer,
     RedeemCreditRequestSerializer,
     StkPushRequestSerializer,
     TokenStkPushRequestSerializer,
 )
-from .services import PaymentValidationError, declare_offline_payment, initiate_stk_push_payment, redeem_referral_credit
+from .services import (
+    PaymentValidationError,
+    confirm_offline_payment,
+    declare_offline_payment,
+    initiate_stk_push_payment,
+    redeem_referral_credit,
+)
 
 # How often staff can re-nudge the same driver about the same pending payment - long enough that
 # a reminder isn't just spam, short enough that a driver who genuinely forgot can be re-poked
@@ -168,6 +176,25 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         )
         return Response(self.get_serializer(payment).data)
 
+    @action(detail=True, methods=['post'], url_path='confirm-bank-transfer', permission_classes=[IsSupportStaff])
+    def confirm_bank_transfer(self, request, pk=None):
+        """Staff confirming a customer-declared bank transfer (see
+        payments.views.token_declare_bank_transfer_payment) actually landed - checked against the
+        real bank statement by hand, the same trust-but-verify shape as a driver confirming cash,
+        except here it's staff doing the confirming since there's no driver in a bank transfer at
+        all to confirm it instead."""
+        payment = self.get_object()
+        if payment.method != PaymentMethod.BANK_TRANSFER:
+            return Response({'detail': 'This action is only for bank transfer payments.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            confirm_offline_payment(payment)
+        except PaymentValidationError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        log_admin_action(request, 'payment.confirm_bank_transfer', payment, detail=f'KES {payment.amount}')
+        return Response(self.get_serializer(payment).data)
+
     @action(detail=False, methods=['get'])
     def export(self, request):
         """A CSV download of exactly what this admin can currently see - reuses get_queryset(),
@@ -231,6 +258,40 @@ def stk_push(request):
 
 
 stk_push.cls.throttle_scope = 'mpesa-stk'
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+@throttle_classes([ScopedRateThrottle])
+def declare_bank_transfer(request):
+    """The logged-in-customer equivalent of stk_push above, but for declaring a bank transfer
+    instead - same ownership check (own booking, or staff within their own organization), same
+    booking-from-request-body shape. Used by the main booking flow's payment step
+    (frontend/src/views/BookingView.vue), as opposed to token_declare_bank_transfer_payment
+    which is the no-login pay-by-link page's equivalent for a walk-up client."""
+    serializer = DeclareBankTransferRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    booking = data['booking']
+    if booking.user_id != request.user.id:
+        if not request.user.is_staff:
+            return Response({'detail': 'Not your booking.'}, status=status.HTTP_403_FORBIDDEN)
+        organization = get_user_organization(request.user)
+        if organization is not None and booking.vehicle.owner_id != organization.id:
+            return Response({'detail': 'Not your booking.'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        payment = declare_offline_payment(
+            booking, PaymentMethod.BANK_TRANSFER, data['amount'], driver=booking.driver, note=data['reference'],
+        )
+    except PaymentValidationError as exc:
+        return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({'payment_id': payment.id}, status=status.HTTP_201_CREATED)
+
+
+declare_bank_transfer.cls.throttle_scope = 'declare-bank-transfer'
 
 
 @api_view(['POST'])
@@ -320,6 +381,43 @@ def token_declare_cash_payment(request, token):
 
 
 token_declare_cash_payment.cls.throttle_scope = 'token-payment-view'
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([ScopedRateThrottle])
+def token_declare_bank_transfer_payment(request, token):
+    """Lets the client themselves declare they've sent a bank transfer, from the same no-login
+    page used for M-Pesa/cash. Unlike cash, this isn't gated on a driver being assigned - a bank
+    transfer goes straight to SilverLake's own account, nobody has to be physically present to
+    hand it to. Only records what the client says they've sent; staff still have to separately
+    confirm it was actually received (see PaymentViewSet.confirm_bank_transfer) once they see it
+    on the bank statement, before it counts toward the balance. A reference (at minimum, the
+    last 4 digits of the M-Pesa/bank transaction code) is required - amount and booking number
+    alone give staff nothing to actually search for on the real statement."""
+    booking = _get_booking_by_token(token)
+
+    try:
+        amount = parse_amount(request.data.get('amount'))
+    except ValueError:
+        return Response({'detail': 'A valid amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    reference = str(request.data.get('reference', '')).strip()
+    if len(reference) < MIN_BANK_TRANSFER_REFERENCE_LENGTH:
+        return Response(
+            {'detail': f'Enter the transaction reference (at least the last {MIN_BANK_TRANSFER_REFERENCE_LENGTH} digits/characters).'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        declare_offline_payment(booking, PaymentMethod.BANK_TRANSFER, amount, driver=booking.driver, note=reference)
+    except PaymentValidationError as exc:
+        return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(PublicBookingPaymentSerializer(booking).data, status=status.HTTP_201_CREATED)
+
+
+token_declare_bank_transfer_payment.cls.throttle_scope = 'token-payment-view'
 
 
 @api_view(['GET'])

@@ -12,6 +12,14 @@ const methodBadge = {
   mpesa: 'bg-emerald-500/10 text-emerald-400',
   cash: 'bg-gold-500/10 text-gold-400',
   card: 'bg-brand-blue-500/10 text-brand-blue-400',
+  bank_transfer: 'bg-brand-blue-500/10 text-brand-blue-400',
+}
+
+const methodLabel = {
+  mpesa: 'M-Pesa',
+  cash: 'Cash',
+  card: 'Card',
+  bank_transfer: 'Bank Transfer',
 }
 
 const statusBadge = {
@@ -41,6 +49,18 @@ function remindDisabledReason(payment) {
 
 function needsDeposit(payment) {
   return payment.method === 'cash' && payment.status === 'successful' && !payment.cash_deposit
+}
+
+async function confirmBankTransfer(payment) {
+  busyId.value = payment.id
+  try {
+    const { data } = await apiClient.post(`/payments/${payment.id}/confirm-bank-transfer/`)
+    Object.assign(payment, data)
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Could not confirm this bank transfer.'
+  } finally {
+    busyId.value = null
+  }
 }
 
 async function remindDeposit(payment) {
@@ -91,7 +111,8 @@ onMounted(load)
   <div>
     <h1 class="font-[Georgia] text-2xl font-bold text-white">Payments</h1>
     <p class="mt-1 text-sm text-slate-400">
-      Every payment recorded against a booking - M-Pesa, card, or cash a driver reported on-site.
+      Every payment recorded against a booking - M-Pesa, card, cash a driver reported on-site, or a
+      customer-declared bank transfer awaiting confirmation.
     </p>
 
     <div class="mt-4 flex flex-wrap gap-3">
@@ -109,6 +130,7 @@ onMounted(load)
         <option value="mpesa">M-Pesa</option>
         <option value="cash">Cash</option>
         <option value="card">Card</option>
+        <option value="bank_transfer">Bank Transfer</option>
       </select>
       <select
         v-model="filters.status"
@@ -151,7 +173,7 @@ onMounted(load)
             <td class="px-4 py-3 text-white">#{{ payment.booking }}</td>
             <td class="px-4 py-3">
               <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="methodBadge[payment.method]">
-                {{ payment.method === 'mpesa' ? 'M-Pesa' : payment.method.charAt(0).toUpperCase() + payment.method.slice(1) }}
+                {{ methodLabel[payment.method] || payment.method }}
               </span>
             </td>
             <td class="px-4 py-3 text-slate-300">KES {{ Number(payment.amount).toLocaleString() }}</td>
@@ -170,11 +192,19 @@ onMounted(load)
               </div>
             </td>
             <td class="px-4 py-3 text-xs text-slate-400">
-              {{ payment.mpesa_receipt_number || payment.card_transaction_ref || '—' }}
+              {{ payment.mpesa_receipt_number || payment.card_transaction_ref
+                || (payment.method === 'bank_transfer' ? payment.note : '') || '—' }}
+              <span
+                v-if="payment.reference_reused"
+                class="ml-1 cursor-help text-gold-400"
+                title="This reference has been used on another payment too - could be a coincidental match (short references can recur) or a real duplicate. Double-check the bank statement before confirming."
+              >
+                ⚠
+              </span>
             </td>
             <td class="px-4 py-3 text-xs text-slate-400">
               {{ payment.recorded_by_driver_name || '—' }}
-              <div v-if="payment.note" class="italic text-slate-500">{{ payment.note }}</div>
+              <div v-if="payment.note && payment.method !== 'bank_transfer'" class="italic text-slate-500">{{ payment.note }}</div>
             </td>
             <td class="px-4 py-3 text-xs">
               <template v-if="payment.method === 'cash'">
@@ -206,6 +236,14 @@ onMounted(load)
                 @click="remindDeposit(payment)"
               >
                 {{ busyId === payment.id ? 'Sending...' : (payment.last_reminded_at ? 'Remind Again' : 'Remind Deposit') }}
+              </button>
+              <button
+                v-else-if="payment.method === 'bank_transfer' && payment.status === 'pending'"
+                :disabled="busyId === payment.id"
+                class="rounded-md border border-emerald-700 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:border-emerald-400 disabled:opacity-50"
+                @click="confirmBankTransfer(payment)"
+              >
+                {{ busyId === payment.id ? 'Confirming...' : 'Confirm Received' }}
               </button>
             </td>
           </tr>

@@ -3,7 +3,7 @@
 <p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
 <p style="margin:0 0 16px;">
   We've recorded a <strong>{{ method_label|lower }} payment of KES {{ amount }}</strong> on your
-  booking #{{ booking_id }}, reported by {{ driver_name }}.
+  booking #{{ booking_id }}{% if driver_name %}, reported by {{ driver_name }}{% endif %}.
 </p>
 {% if dispute_url %}
 <p style="margin:0 0 16px; padding:12px 16px; background:#fef3c7; border-radius:8px; color:#92400e;">

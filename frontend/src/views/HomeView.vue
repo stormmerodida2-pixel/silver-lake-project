@@ -63,7 +63,7 @@ const trustBadges = [
 
 const howItWorks = [
   { title: 'Browse & Choose', text: 'Explore the fleet and pick the vehicle that fits your trip.', icon: 'search' },
-  { title: 'Book Your Dates', text: 'Reserve with a 30% deposit via M-Pesa - confirmed instantly.', icon: 'calendar' },
+  { title: 'Book Your Dates', text: 'Reserve with a 30% deposit via M-Pesa or bank transfer - confirmed once received.', icon: 'calendar' },
   { title: 'Ride With Confidence', text: 'Meet your chauffeur or grab the keys - we handle the rest.', icon: 'wheel' },
 ]
 </script>

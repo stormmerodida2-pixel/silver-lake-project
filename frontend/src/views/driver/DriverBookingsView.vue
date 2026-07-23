@@ -337,7 +337,7 @@ function openOnsiteModal() {
       <div class="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-navy-800 bg-navy-900 p-4">
         <p class="max-w-md text-xs text-slate-400">
           For a client with you right now who doesn't want to register - creates their booking,
-          then lets you collect cash, card, or M-Pesa for the exact amount they tell you.
+          then lets you collect cash, card, or bank transfer for the exact amount they tell you.
         </p>
         <button
           v-if="driverPortal.profile.vehicles.length"

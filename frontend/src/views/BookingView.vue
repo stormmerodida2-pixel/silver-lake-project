@@ -59,12 +59,31 @@ const paymentPhone = ref(ownPhone)
 const licenseDocument = ref(null)
 const idDocument = ref(null)
 
-const paymentMethod = ref('mpesa')
+// Temporary, easily-reversible: flip back to true once real M-Pesa production credentials are
+// in place. Nothing about the M-Pesa flow itself (STK push, callback, polling) is removed -
+// it's just not offered as a customer-facing option while this is false, in favor of Bank
+// Transfer. Card was already a UI-only stub (see submitCardPayment) regardless of this flag.
+const MPESA_ENABLED = false
+const primaryMethod = computed(() => (MPESA_ENABLED ? 'mpesa' : 'bank_transfer'))
+
+const paymentMethod = ref(primaryMethod.value) // 'mpesa' | 'bank_transfer' | 'card'
 const payOption = ref('deposit') // 'deposit' | 'full'
 const step = ref('form') // form -> confirmed -> paying
 const booking = ref(null)
 const submitting = ref(false)
 const error = ref('')
+
+const bankTransferAcknowledged = ref(false)
+const bankTransferReference = ref('')
+const declaringBankTransfer = ref(false)
+const bankTransferError = ref('')
+// A bank transfer the customer already declared on this booking, awaiting staff confirmation -
+// shown instead of the payment options once present, same shape as the no-login pay page's own
+// pendingOfflinePayment (see PayBookingView.vue).
+const pendingBankTransferPayment = computed(() => {
+  if (!booking.value) return null
+  return (booking.value.pending_payments || []).find((p) => p.method === 'bank_transfer') || null
+})
 const today = new Date().toISOString().split('T')[0]
 
 // ── Referral credit ──────────────────────────────────────────────────────────
@@ -412,6 +431,27 @@ function retryPayment() {
   paymentOutcome.value = null
   step.value = 'confirmed'
 }
+
+async function declareBankTransfer() {
+  declaringBankTransfer.value = true
+  bankTransferError.value = ''
+  try {
+    await apiClient.post('/payments/bank-transfer/declare/', {
+      booking: booking.value.id,
+      amount: amountToPay.value,
+      reference: bankTransferReference.value,
+    })
+    const { data } = await apiClient.get(`/bookings/${booking.value.id}/`)
+    booking.value = data
+    bankTransferAcknowledged.value = false
+    bankTransferReference.value = ''
+  } catch (err) {
+    const data = err.response?.data
+    bankTransferError.value = data?.detail || data?.reference?.[0] || 'Could not record your bank transfer. Please try again.'
+  } finally {
+    declaringBankTransfer.value = false
+  }
+}
 </script>
 
 <template>
@@ -671,7 +711,21 @@ function retryPayment() {
               </div>
             </div>
 
-            <div class="p-6 sm:p-8">
+            <div v-if="pendingBankTransferPayment" class="p-6 text-center sm:p-8">
+              <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold-500/10 text-gold-500">
+                <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+              </div>
+              <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Awaiting Confirmation</h2>
+              <p class="mt-2 text-sm text-slate-600">
+                You've declared a bank transfer of KES {{ Number(pendingBankTransferPayment.amount).toLocaleString() }}
+                <span v-if="pendingBankTransferPayment.note">(ref. {{ pendingBankTransferPayment.note }})</span>.
+                Once our team confirms it's been received, your balance will be updated.
+              </p>
+            </div>
+
+            <div v-else class="p-6 sm:p-8">
               <label class="mb-2 block text-sm font-semibold text-navy-900">How much would you like to pay now?</label>
               <div class="grid grid-cols-2 gap-3">
                 <button
@@ -736,10 +790,10 @@ function retryPayment() {
               <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
                 <button
                   class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
-                  :class="paymentMethod === 'mpesa' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-navy-900'"
-                  @click="paymentMethod = 'mpesa'"
+                  :class="paymentMethod === primaryMethod ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-navy-900'"
+                  @click="paymentMethod = primaryMethod"
                 >
-                  M-Pesa
+                  {{ MPESA_ENABLED ? 'M-Pesa' : 'Bank Transfer' }}
                 </button>
                 <button
                   class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
@@ -767,6 +821,48 @@ function retryPayment() {
                   @click="payWithMpesa"
                 >
                   {{ submitting ? 'Sending prompt...' : `Pay KES ${amountToPay.toLocaleString()} via M-Pesa` }}
+                </button>
+              </div>
+
+              <div v-else-if="paymentMethod === 'bank_transfer'" class="mt-5 space-y-3">
+                <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                  <p class="font-semibold text-navy-900">Pay via Bank Transfer</p>
+                  <p class="mt-2">Co-operative Bank of Kenya</p>
+                  <p>Paybill <span class="font-semibold text-navy-900">400200</span></p>
+                  <p>Account No: <span class="font-semibold text-navy-900">01101465587001</span></p>
+                  <p class="mt-2 text-xs text-slate-500">
+                    Use your name and booking #{{ booking?.id }} as the transfer reference, so we can match your payment.
+                  </p>
+                </div>
+
+                <div>
+                  <label class="mb-1 block text-sm text-slate-600">Transaction reference</label>
+                  <input
+                    v-model="bankTransferReference"
+                    type="text"
+                    placeholder="e.g. last 4 digits of the M-Pesa/bank code"
+                    class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                  />
+                  <p class="mt-1 text-xs text-slate-500">
+                    Check the confirmation SMS from your bank/M-Pesa - at least the last 4 digits/characters are enough.
+                  </p>
+                </div>
+
+                <div class="rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">
+                  <label class="flex items-start gap-2">
+                    <input v-model="bankTransferAcknowledged" type="checkbox" class="mt-0.5" />
+                    <span>I confirm I have sent KES {{ amountToPay.toLocaleString() }} via bank transfer to the account above.</span>
+                  </label>
+                </div>
+
+                <p v-if="bankTransferError" class="text-sm text-red-600">{{ bankTransferError }}</p>
+
+                <button
+                  :disabled="declaringBankTransfer || !bankTransferAcknowledged || bankTransferReference.trim().length < 4"
+                  class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+                  @click="declareBankTransfer"
+                >
+                  {{ declaringBankTransfer ? 'Recording...' : `I've Sent KES ${amountToPay.toLocaleString()} via Bank Transfer` }}
                 </button>
               </div>
 

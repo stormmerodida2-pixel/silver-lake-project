@@ -9,6 +9,12 @@ class PaymentMethod(models.TextChoices):
     MPESA = 'mpesa', 'M-Pesa'
     CARD = 'card', 'Card'
     CASH = 'cash', 'Cash'
+    # A customer sending money directly to SilverLake's own bank account, self-declared via the
+    # no-login pay page (see payments.views.token_declare_bank_transfer_payment) and confirmed by
+    # staff once it's seen on the bank statement (see payments.services.confirm_offline_payment) -
+    # unlike CASH/CARD this is never driver-mediated, so it works even on a self-drive booking
+    # with no driver assigned at all.
+    BANK_TRANSFER = 'bank_transfer', 'Bank Transfer'
     # A customer's own referral credit applied as a discount (see payments.services.
     # redeem_referral_credit) - always created SUCCESSFUL immediately, since there's no
     # gateway or driver confirmation involved, unlike every other method here.
@@ -27,7 +33,7 @@ class PaymentStatus(models.TextChoices):
 
 class Payment(models.Model):
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='payments')
-    method = models.CharField(max_length=10, choices=PaymentMethod.choices)
+    method = models.CharField(max_length=20, choices=PaymentMethod.choices)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=15, choices=PaymentStatus.choices, default=PaymentStatus.PENDING)
 

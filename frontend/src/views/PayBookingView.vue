@@ -7,13 +7,20 @@ import PhoneInput from '../components/PhoneInput.vue'
 
 const route = useRoute()
 
+// Temporary, easily-reversible: flip back to true once real M-Pesa production credentials are
+// in place. Nothing about the M-Pesa flow itself (STK push, callback, polling) is removed -
+// it's just not offered as a customer-facing option while this is false, in favor of Bank
+// Transfer.
+const MPESA_ENABLED = false
+const primaryMethod = computed(() => (MPESA_ENABLED ? 'mpesa' : 'bank_transfer'))
+
 const booking = ref(null)
 const loading = ref(true)
 const loadError = ref('')
 
 const phoneNumber = ref('')
 const payOption = ref('deposit') // 'deposit' | 'full'
-const paymentMethod = ref('mpesa') // 'mpesa' | 'cash'
+const paymentMethod = ref(primaryMethod.value) // 'mpesa' | 'cash' | 'bank_transfer'
 const submitting = ref(false)
 const error = ref('')
 const requested = ref(false)
@@ -23,10 +30,23 @@ const cashAcknowledged = ref(false)
 const declaringCash = ref(false)
 const cashError = ref('')
 
+const bankTransferAcknowledged = ref(false)
+const bankTransferReference = ref('')
+const declaringBankTransfer = ref(false)
+const bankTransferError = ref('')
+
 const pendingCashPayment = computed(() => {
   if (!booking.value) return null
   return (booking.value.pending_payments || []).find((p) => p.method === 'cash') || null
 })
+const pendingBankTransferPayment = computed(() => {
+  if (!booking.value) return null
+  return (booking.value.pending_payments || []).find((p) => p.method === 'bank_transfer') || null
+})
+// Whichever's actually pending, for the shared "awaiting confirmation" panel below - a booking
+// only ever has one at a time in practice (declaring either one is blocked once the balance is
+// already reserved by the other).
+const pendingOfflinePayment = computed(() => pendingCashPayment.value || pendingBankTransferPayment.value)
 
 // A walk-in booking (created on the spot by a driver) starts Confirmed with nothing paid and
 // no deposit requirement at all - full payment is typically only collected once the trip is
@@ -40,6 +60,7 @@ async function loadBooking() {
     const { data } = await apiClient.get(`/pay/${route.params.token}/`)
     booking.value = data
     if (data.source === 'driver_onsite') payOption.value = 'full'
+    paymentMethod.value = primaryMethod.value
   } catch (err) {
     loadError.value = 'This payment link is invalid or has expired.'
   } finally {
@@ -130,6 +151,24 @@ async function declareCash() {
   }
 }
 
+async function declareBankTransfer() {
+  declaringBankTransfer.value = true
+  bankTransferError.value = ''
+  try {
+    await apiClient.post(`/pay/${route.params.token}/declare-bank-transfer/`, {
+      amount: amountToPay.value,
+      reference: bankTransferReference.value,
+    })
+    await loadBooking()
+    bankTransferAcknowledged.value = false
+    bankTransferReference.value = ''
+  } catch (err) {
+    bankTransferError.value = err.response?.data?.detail || 'Could not record your bank transfer. Please try again.'
+  } finally {
+    declaringBankTransfer.value = false
+  }
+}
+
 onMounted(loadBooking)
 </script>
 
@@ -178,16 +217,21 @@ onMounted(loadBooking)
           This booking is fully paid. Thank you!
         </div>
 
-        <div v-else-if="pendingCashPayment" class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+        <div v-else-if="pendingOfflinePayment" class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
           <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold-500/10 text-gold-500">
             <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
             </svg>
           </div>
-          <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Awaiting Driver Confirmation</h2>
-          <p class="mt-2 text-sm text-slate-600">
-            You've recorded a cash payment of KES {{ Number(pendingCashPayment.amount).toLocaleString() }} to
+          <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Awaiting Confirmation</h2>
+          <p v-if="pendingOfflinePayment.method === 'cash'" class="mt-2 text-sm text-slate-600">
+            You've recorded a cash payment of KES {{ Number(pendingOfflinePayment.amount).toLocaleString() }} to
             {{ booking.driver_name }}. Once your driver confirms receiving it, your balance will be updated.
+          </p>
+          <p v-else class="mt-2 text-sm text-slate-600">
+            You've declared a bank transfer of KES {{ Number(pendingOfflinePayment.amount).toLocaleString() }}
+            <span v-if="pendingOfflinePayment.note">(ref. {{ pendingOfflinePayment.note }})</span>.
+            Once our team confirms it's been received, your balance will be updated.
           </p>
         </div>
 
@@ -291,10 +335,10 @@ onMounted(loadBooking)
               <button
                 type="button"
                 class="rounded-md border px-3 py-2 text-sm font-semibold"
-                :class="paymentMethod === 'mpesa' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
-                @click="paymentMethod = 'mpesa'"
+                :class="paymentMethod === primaryMethod ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
+                @click="paymentMethod = primaryMethod"
               >
-                M-Pesa
+                {{ MPESA_ENABLED ? 'M-Pesa' : 'Bank Transfer' }}
               </button>
               <button
                 v-if="booking.driver_cash_enabled"
@@ -327,6 +371,50 @@ onMounted(loadBooking)
               @click="declareCash"
             >
               {{ declaringCash ? 'Recording...' : `Record KES ${amountToPay.toLocaleString()} Cash Payment` }}
+            </button>
+          </template>
+
+          <template v-else-if="paymentMethod === 'bank_transfer'">
+            <div class="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600">
+              <p class="font-semibold text-navy-900">Pay via Bank Transfer</p>
+              <p class="mt-2">Co-operative Bank of Kenya</p>
+              <p>Paybill <span class="font-semibold text-navy-900">400200</span></p>
+              <p>Account No: <span class="font-semibold text-navy-900">01101465587001</span></p>
+              <p class="mt-2 text-xs text-slate-500">
+                Use your name and booking #{{ booking.id }} as the transfer reference, so we can match your payment.
+              </p>
+            </div>
+
+            <div>
+              <label class="mb-1 block text-sm text-slate-600">Transaction reference</label>
+              <input
+                v-model="bankTransferReference"
+                type="text"
+                placeholder="e.g. last 4 digits of the M-Pesa/bank code"
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+              />
+              <p class="mt-1 text-xs text-slate-500">
+                Check the confirmation SMS from your bank/M-Pesa - at least the last 4 digits/characters are enough.
+              </p>
+            </div>
+
+            <div class="rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">
+              <label class="flex items-start gap-2">
+                <input v-model="bankTransferAcknowledged" type="checkbox" class="mt-0.5" />
+                <span>
+                  I confirm I have sent KES {{ amountToPay.toLocaleString() }} via bank transfer to the account above.
+                </span>
+              </label>
+            </div>
+
+            <p v-if="bankTransferError" class="text-sm text-red-600">{{ bankTransferError }}</p>
+
+            <button
+              :disabled="declaringBankTransfer || !bankTransferAcknowledged || bankTransferReference.trim().length < 4"
+              class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+              @click="declareBankTransfer"
+            >
+              {{ declaringBankTransfer ? 'Recording...' : `I've Sent KES ${amountToPay.toLocaleString()} via Bank Transfer` }}
             </button>
           </template>
 

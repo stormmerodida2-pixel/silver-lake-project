@@ -774,6 +774,76 @@ class StkPushOrgScopingTests(APITestCase):
         mock_stk.assert_not_called()
 
 
+class DeclareBankTransferOrgScopingTests(APITestCase):
+    """The authenticated equivalent of StkPushOrgScopingTests above, for the main booking flow's
+    own bank transfer declaration (frontend/src/views/BookingView.vue) rather than the no-login
+    pay-by-link page's token_declare_bank_transfer_payment. Same org-scoping concern: this also
+    resolves its booking straight from the request body, so it needs the same explicit check."""
+
+    def setUp(self):
+        self.platform_staff = User.objects.create_user(username='bt-platform-staff@example.com', password='pass12345!', is_staff=True)
+
+        self.org_a = FleetPartner.objects.create(name='BT Org A', platform_fee_percent=Decimal('10'))
+        self.org_a_staff = User.objects.create_user(username='bt-org-a-staff@example.com', password='pass12345!', is_staff=True)
+        StaffOrganization.objects.create(user=self.org_a_staff, organization=self.org_a)
+        self.org_a_vehicle = make_vehicle(name='BT Org A Car', owner=self.org_a, is_company_owned=True, price_per_day=Decimal('1000'))
+
+        self.org_b = FleetPartner.objects.create(name='BT Org B', platform_fee_percent=Decimal('10'))
+        self.org_b_vehicle = make_vehicle(name='BT Org B Car', owner=self.org_b, is_company_owned=True, price_per_day=Decimal('1000'))
+
+        self.customer = User.objects.create_user(username='bt-org-customer@example.com', password='pass12345!')
+        self.other_customer = User.objects.create_user(username='bt-other-customer@example.com', password='pass12345!')
+        self.org_a_booking = make_booking(self.customer, self.org_a_vehicle, status=BookingStatus.PENDING)
+        self.org_b_booking = make_booking(self.other_customer, self.org_b_vehicle, status=BookingStatus.PENDING)
+
+    def _post(self, booking):
+        return self.client.post('/api/payments/bank-transfer/declare/', {
+            'booking': booking.id, 'amount': str(booking.deposit_amount), 'reference': 'QGH7XXXXXX',
+        }, format='json')
+
+    def test_org_admin_can_declare_a_bank_transfer_on_their_own_orgs_booking(self):
+        self.client.force_authenticate(user=self.org_a_staff)
+        response = self._post(self.org_a_booking)
+        self.assertEqual(response.status_code, 201)
+
+    def test_org_admin_cannot_declare_a_bank_transfer_on_another_orgs_booking(self):
+        self.client.force_authenticate(user=self.org_a_staff)
+        response = self._post(self.org_b_booking)
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Payment.objects.filter(booking=self.org_b_booking).exists())
+
+    def test_platform_staff_can_declare_a_bank_transfer_on_any_booking(self):
+        self.client.force_authenticate(user=self.platform_staff)
+        response = self._post(self.org_a_booking)
+        self.assertEqual(response.status_code, 201)
+
+    def test_customer_can_declare_a_bank_transfer_on_their_own_booking(self):
+        self.client.force_authenticate(user=self.customer)
+        response = self._post(self.org_a_booking)
+        self.assertEqual(response.status_code, 201)
+        payment = Payment.objects.get(booking=self.org_a_booking)
+        self.assertEqual(payment.method, PaymentMethod.BANK_TRANSFER)
+        self.assertEqual(payment.status, PaymentStatus.PENDING)
+
+    def test_customer_cannot_declare_a_bank_transfer_on_someone_elses_booking(self):
+        self.client.force_authenticate(user=self.customer)
+        response = self._post(self.org_b_booking)
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Payment.objects.filter(booking=self.org_b_booking).exists())
+
+    def test_unauthenticated_user_cannot_declare_a_bank_transfer(self):
+        response = self._post(self.org_a_booking)
+        self.assertEqual(response.status_code, 401)
+
+    def test_declared_bank_transfer_appears_in_the_bookings_own_pending_payments(self):
+        self.client.force_authenticate(user=self.customer)
+        self._post(self.org_a_booking)
+        response = self.client.get(f'/api/bookings/{self.org_a_booking.id}/')
+        pending = response.json()['pending_payments']
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]['method'], 'bank_transfer')
+
+
 class OverpaymentGuardTests(APITestCase):
     """Each payment path checks its amount against the balance due at the moment it's created or
     declared, but that alone isn't enough: two payments that each individually fit the remaining
@@ -1711,3 +1781,234 @@ class MpesaB2cResultRefundTests(APITestCase):
         self.assertNotEqual(self.refund.status, 'issued')
         self.assertIsNotNone(self.refund.b2c_failed_at)
         self.assertIn('Insufficient funds', self.refund.notes)
+
+
+class ClientDeclareBankTransferPaymentTests(APITestCase):
+    """The client self-declaring a direct bank transfer to SilverLake's own account, from the
+    same no-login pay page used for M-Pesa/cash - unlike cash, this needs no driver at all, since
+    the money never passes through one. Only records what the client says they've sent; staff
+    still have to separately confirm it actually landed (see AdminConfirmBankTransferTests)
+    before it counts toward the balance."""
+
+    def setUp(self):
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='bank-client@example.com', password='pass12345!')
+        self.booking = make_booking(customer, vehicle, status=BookingStatus.PENDING)
+
+    def _url(self, booking=None):
+        return f'/api/pay/{(booking or self.booking).customer_token}/declare-bank-transfer/'
+
+    def test_client_can_declare_a_bank_transfer_with_no_driver_assigned(self):
+        self.assertIsNone(self.booking.driver_id)
+        response = self.client.post(
+            self._url(), {'amount': str(self.booking.deposit_amount), 'reference': 'QGH7XXXXXX'}, format='json',
+        )
+        self.assertEqual(response.status_code, 201)
+
+        payment = Payment.objects.get(booking=self.booking)
+        self.assertEqual(payment.method, PaymentMethod.BANK_TRANSFER)
+        self.assertEqual(payment.status, PaymentStatus.PENDING)
+        self.assertIsNone(payment.recorded_by_driver_id)
+        self.assertEqual(Decimal(str(payment.amount)), self.booking.deposit_amount)
+        self.assertEqual(payment.note, 'QGH7XXXXXX')
+
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.PENDING)  # not confirmed until staff confirm
+
+    def test_client_can_declare_a_bank_transfer_with_a_driver_assigned_too(self):
+        driver = Driver.objects.create(full_name='Bank Transfer Driver', is_active=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='bank-client-2@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
+
+        response = self.client.post(
+            self._url(booking), {'amount': str(booking.deposit_amount), 'reference': 'QGH7XXXXXX'}, format='json',
+        )
+        self.assertEqual(response.status_code, 201)
+        payment = Payment.objects.get(booking=booking)
+        self.assertEqual(payment.method, PaymentMethod.BANK_TRANSFER)
+
+    def test_declared_bank_transfer_appears_as_pending_on_the_pay_page(self):
+        self.client.post(
+            self._url(), {'amount': str(self.booking.deposit_amount), 'reference': 'QGH7XXXXXX'}, format='json',
+        )
+        response = self.client.get(f'/api/pay/{self.booking.customer_token}/')
+        pending = response.json()['pending_payments']
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]['method'], 'bank_transfer')
+        self.assertEqual(pending[0]['note'], 'QGH7XXXXXX')
+
+    def test_cannot_declare_an_amount_exceeding_the_balance_due(self):
+        response = self.client.post(
+            self._url(), {'amount': str(self.booking.total_amount + 1), 'reference': 'QGH7XXXXXX'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_cannot_declare_a_zero_or_negative_amount(self):
+        for bad_amount in ('0', '-500'):
+            response = self.client.post(
+                self._url(), {'amount': bad_amount, 'reference': 'QGH7XXXXXX'}, format='json',
+            )
+            self.assertEqual(response.status_code, 400, f'amount={bad_amount} should have been rejected')
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_cannot_declare_without_a_reference(self):
+        response = self.client.post(self._url(), {'amount': str(self.booking.deposit_amount)}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_cannot_declare_with_a_reference_shorter_than_4_characters(self):
+        response = self.client.post(
+            self._url(), {'amount': str(self.booking.deposit_amount), 'reference': 'abc'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_last_4_digits_are_accepted_as_a_reference(self):
+        response = self.client.post(
+            self._url(), {'amount': str(self.booking.deposit_amount), 'reference': '7XXX'}, format='json',
+        )
+        self.assertEqual(response.status_code, 201)
+        payment = Payment.objects.get(booking=self.booking)
+        self.assertEqual(payment.note, '7XXX')
+
+    def test_wrong_token_is_a_404(self):
+        response = self.client.post(
+            f'/api/pay/{uuid.uuid4()}/declare-bank-transfer/', {'amount': '100', 'reference': 'QGH7XXXXXX'}, format='json',
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+class AdminConfirmBankTransferTests(APITestCase):
+    """Staff confirming a customer-declared bank transfer actually landed - checked against the
+    real bank statement by hand, unlike cash (which the driver confirms, since they're the one
+    who physically received it) there's no driver in a bank transfer at all to confirm it
+    instead."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='banktransfer-staff@example.com', password='pass12345!', is_staff=True)
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(
+            username='bank-confirm-client@example.com', email='bank-confirm-client@example.com', password='pass12345!',
+        )
+        self.booking = make_booking(self.customer, vehicle, status=BookingStatus.PENDING)
+        self.client.post(
+            f'/api/pay/{self.booking.customer_token}/declare-bank-transfer/',
+            {'amount': str(self.booking.deposit_amount), 'reference': 'QGH7XXXXXX'}, format='json',
+        )
+        self.payment = Payment.objects.get(booking=self.booking)
+
+    def test_staff_can_confirm_a_pending_bank_transfer(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/payments/{self.payment.id}/confirm-bank-transfer/')
+        self.assertEqual(response.status_code, 200)
+
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentStatus.SUCCESSFUL)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.CONFIRMED)
+
+    def test_confirming_a_bank_transfer_emails_the_customer(self):
+        mail.outbox = []
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(f'/api/payments/{self.payment.id}/confirm-bank-transfer/')
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('bank-confirm-client@example.com', mail.outbox[0].to)
+        self.assertNotIn('your driver', mail.outbox[0].body)
+
+    def test_cannot_confirm_bank_transfer_action_on_a_cash_payment(self):
+        driver = Driver.objects.create(full_name='Wrong Method Driver', is_active=True, cash_payments_enabled=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='wrong-method-client@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
+        cash_payment = declare_offline_payment(booking, PaymentMethod.CASH, booking.deposit_amount, driver=driver)
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/payments/{cash_payment.id}/confirm-bank-transfer/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_unauthenticated_user_cannot_confirm_a_bank_transfer(self):
+        response = self.client.post(f'/api/payments/{self.payment.id}/confirm-bank-transfer/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_already_confirmed_bank_transfer_cannot_be_confirmed_again(self):
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(f'/api/payments/{self.payment.id}/confirm-bank-transfer/')
+        response = self.client.post(f'/api/payments/{self.payment.id}/confirm-bank-transfer/')
+        self.assertEqual(response.status_code, 400)
+
+
+class BankTransferReferenceReuseFlagTests(APITestCase):
+    """A soft, staff-facing warning (never a hard rejection at declare time - see
+    payments.serializers.PaymentSerializer.get_reference_reused) when the same reference string
+    shows up on more than one bank transfer - a short reference (as little as the last 4
+    characters) can genuinely recur by coincidence across unrelated real transactions, so this
+    only ever informs, never blocks."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='ref-reuse-staff@example.com', password='pass12345!', is_staff=True)
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='ref-reuse-client@example.com', password='pass12345!')
+        self.booking = make_booking(customer, vehicle, status=BookingStatus.PENDING)
+
+    def test_reference_used_only_once_is_not_flagged(self):
+        payment = declare_offline_payment(
+            self.booking, PaymentMethod.BANK_TRANSFER, self.booking.deposit_amount, driver=None, note='UNIQ001A',
+        )
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(f'/api/payments/{payment.id}/')
+        self.assertFalse(response.json()['reference_reused'])
+
+    def test_reference_used_on_two_payments_is_flagged_on_both(self):
+        other_customer = User.objects.create_user(username='ref-reuse-other@example.com', password='pass12345!')
+        other_vehicle = make_vehicle(name='Ref Reuse Car', price_per_day=Decimal('1000'))
+        other_booking = make_booking(other_customer, other_vehicle, status=BookingStatus.PENDING)
+
+        payment_a = declare_offline_payment(
+            self.booking, PaymentMethod.BANK_TRANSFER, self.booking.deposit_amount, driver=None, note='DUPE001A',
+        )
+        payment_b = declare_offline_payment(
+            other_booking, PaymentMethod.BANK_TRANSFER, other_booking.deposit_amount, driver=None, note='DUPE001A',
+        )
+
+        self.client.force_authenticate(user=self.staff)
+        response_a = self.client.get(f'/api/payments/{payment_a.id}/')
+        response_b = self.client.get(f'/api/payments/{payment_b.id}/')
+        self.assertTrue(response_a.json()['reference_reused'])
+        self.assertTrue(response_b.json()['reference_reused'])
+
+    def test_a_reused_reference_can_still_be_declared_and_confirmed(self):
+        # The whole point - this must never be a hard block.
+        other_customer = User.objects.create_user(username='ref-reuse-other-2@example.com', password='pass12345!')
+        other_vehicle = make_vehicle(name='Ref Reuse Car 2', price_per_day=Decimal('1000'))
+        other_booking = make_booking(other_customer, other_vehicle, status=BookingStatus.PENDING)
+        declare_offline_payment(
+            self.booking, PaymentMethod.BANK_TRANSFER, self.booking.deposit_amount, driver=None, note='SAME4',
+        )
+
+        response = self.client.post(
+            f'/api/pay/{other_booking.customer_token}/declare-bank-transfer/',
+            {'amount': str(other_booking.deposit_amount), 'reference': 'SAME4'}, format='json',
+        )
+        self.assertEqual(response.status_code, 201)
+
+        payment = Payment.objects.get(booking=other_booking)
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/payments/{payment.id}/confirm-bank-transfer/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_reference_matching_a_cash_payments_note_is_not_flagged(self):
+        # Only bank transfers are compared against each other - a cash payment's `note` is a
+        # free-text driver comment, not a transaction reference, so it's a meaningless collision.
+        cash_driver = Driver.objects.create(full_name='Ref Reuse Driver', is_active=True, cash_payments_enabled=True)
+        vehicle = make_vehicle(name='Ref Reuse Cash Car', driver=cash_driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='ref-reuse-cash-client@example.com', password='pass12345!')
+        cash_booking = make_booking(customer, vehicle, driver=cash_driver, status=BookingStatus.PENDING)
+        declare_offline_payment(cash_booking, PaymentMethod.CASH, Decimal('10'), driver=cash_driver, note='SAME4')
+        bank_payment = declare_offline_payment(
+            self.booking, PaymentMethod.BANK_TRANSFER, self.booking.deposit_amount, driver=None, note='SAME4',
+        )
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(f'/api/payments/{bank_payment.id}/')
+        self.assertFalse(response.json()['reference_reused'])

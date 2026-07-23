@@ -348,26 +348,32 @@ def redeem_referral_credit(booking, user):
     return payment
 
 
-# Cash and card both go through the same declare-then-confirm flow, since neither has a live
-# gateway confirming them the way M-Pesa's STK Push callback does - mpesa payments never use
-# these, they go through initiate_stk_push_payment instead.
-OFFLINE_PAYMENT_METHODS = {PaymentMethod.CASH, PaymentMethod.CARD}
+# Cash, card, and bank transfer all go through the same declare-then-confirm flow, since none
+# of them has a live gateway confirming them the way M-Pesa's STK Push callback does - mpesa
+# payments never use these, they go through initiate_stk_push_payment instead. Unlike cash/card,
+# a bank transfer is never driver-mediated (see declare_offline_payment/confirm_offline_payment
+# below for how `driver` being None is handled for it).
+OFFLINE_PAYMENT_METHODS = {PaymentMethod.CASH, PaymentMethod.CARD, PaymentMethod.BANK_TRANSFER}
 
 
 def declare_offline_payment(booking, method, amount, driver, note=''):
-    """A driver, with the client physically present, recording exactly how much the client says
-    they're paying right now and by which offline method (cash or card). Created as PENDING, not
-    SUCCESSFUL - there's no gateway to confirm a cash handoff or an in-person card tap against,
-    so the amount only becomes real once the driver separately confirms it was actually received
-    (see confirm_offline_payment). The amount is locked at declaration time and never re-entered
-    at confirmation, so a driver can't quietly confirm less than what the client agreed to pay.
+    """Records exactly how much someone says is being paid right now and by which offline method
+    (cash, card, or bank transfer). Created as PENDING, not SUCCESSFUL - there's no gateway to
+    confirm a cash handoff, an in-person card tap, or a bank transfer against, so the amount only
+    becomes real once someone separately confirms it was actually received (see
+    confirm_offline_payment). The amount is locked at declaration time and never re-entered at
+    confirmation, so confirming can't quietly settle for less than what was agreed.
 
-    The single entry point for declaring cash, whether it's the driver themselves (see
-    bookings.views.DriverDeclarePaymentView) or the client self-declaring via the no-login
-    customer_token page (see payments.views.token_declare_cash_payment) - both pass the
-    booking's own driver in, so Driver.cash_payments_enabled only has to be enforced here once."""
+    For cash/card, `driver` is the driver physically present with the client - the single entry
+    point whether it's the driver themselves (see bookings.views.DriverDeclarePaymentView) or the
+    client self-declaring via the no-login customer_token page (see
+    payments.views.token_declare_cash_payment), both passing the booking's own driver in so
+    Driver.cash_payments_enabled only has to be enforced here once. For bank transfer, `driver` is
+    just whatever's on the booking (often None, since a self-drive booking has no driver at all)
+    - a bank transfer goes straight to SilverLake's own account, no driver involved in the
+    transaction itself (see payments.views.token_declare_bank_transfer_payment)."""
     if method not in OFFLINE_PAYMENT_METHODS:
-        raise PaymentValidationError('Only cash or card payments are declared this way - use the M-Pesa flow instead.')
+        raise PaymentValidationError('Only cash, card, or bank transfer payments are declared this way - use the M-Pesa flow instead.')
     if booking.status in _CLOSED_BOOKING_STATUSES:
         raise PaymentValidationError(f'This booking is already {booking.get_status_display().lower()}.')
     if amount <= 0:
@@ -392,16 +398,22 @@ def declare_offline_payment(booking, method, amount, driver, note=''):
 
 
 def confirm_offline_payment(payment):
-    """The driver confirming a previously-declared cash/card payment (see
+    """Confirming a previously-declared cash/card/bank-transfer payment (see
     declare_offline_payment) was actually received - takes no amount, since it was already
-    locked in when declared. The customer is emailed immediately as an independent check, since
-    they didn't initiate this confirmation themselves; the driver also gets one of their own.
-    Cash specifically also notifies staff/superadmins directly - unlike M-Pesa or card, there's
-    no transaction record anywhere else (no receipt number, no card statement) until someone at
-    SilverLake actually collects the cash from the driver, so staff need their own heads-up to
-    keep track of it rather than finding out only when reconciling payouts later."""
+    locked in when declared. For cash/card this is the driver, who physically received it (see
+    bookings.views.DriverConfirmPaymentView); for bank transfer it's staff, checking the money
+    actually landed in SilverLake's own account (see core.views payments confirm-bank-transfer
+    action) - there's no driver in that transaction at all to confirm it instead. The customer is
+    emailed immediately as an independent check, since they didn't initiate this confirmation
+    themselves; the driver also gets one of their own, if there is one (send_offline_payment_
+    driver_confirmation_email no-ops when recorded_by_driver is None). Cash specifically also
+    notifies staff/superadmins directly - unlike M-Pesa, card, or bank transfer (which all leave
+    their own external record: a receipt number, a card statement, a bank statement reference),
+    cash has no record anywhere else until someone at SilverLake actually collects it from the
+    driver, so staff need their own heads-up to keep track of it rather than finding out only
+    when reconciling payouts later."""
     if payment.method not in OFFLINE_PAYMENT_METHODS:
-        raise PaymentValidationError('Only cash or card payments are confirmed this way.')
+        raise PaymentValidationError('Only cash, card, or bank transfer payments are confirmed this way.')
 
     try:
         with transaction.atomic():

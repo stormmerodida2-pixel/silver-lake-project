@@ -26,6 +26,7 @@ from drivers.serializers import DriverApplicationSerializer
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleSubmission
 from fleet.serializers import VehicleCategorySerializer, VehicleImageSerializer, VehicleServiceRecordSerializer
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund, RefundStatus
+from payments.serializers import MIN_BANK_TRANSFER_REFERENCE_LENGTH
 from reviews.models import Review
 
 from .audit import log_admin_action
@@ -1209,8 +1210,14 @@ class AdminRefundViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
     @action(detail=True, methods=['post'], url_path='mark-issued')
     def mark_issued(self, request, pk=None):
         refund = self.get_object()
-        refund.mark_issued(reference=request.data.get('reference', ''))
-        log_admin_action(request, 'refund.mark_issued', refund, detail=request.data.get('reference', ''))
+        reference = str(request.data.get('reference', '')).strip()
+        if len(reference) < MIN_BANK_TRANSFER_REFERENCE_LENGTH:
+            return Response(
+                {'detail': f'Enter the transaction reference used to send this refund (at least {MIN_BANK_TRANSFER_REFERENCE_LENGTH} digits/characters).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        refund.mark_issued(reference=reference)
+        log_admin_action(request, 'refund.mark_issued', refund, detail=reference)
         return Response(AdminRefundSerializer(refund).data)
 
     @action(detail=True, methods=['post'])

@@ -272,6 +272,20 @@ class AdminRefundActionTests(APITestCase):
         self.assertEqual(self.refund.reference, 'MPESA-REFUND-1')
         self.assertIsNotNone(self.refund.issued_at)
 
+    def test_cannot_mark_a_refund_issued_without_a_reference(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(f'/api/admin/refunds/{self.refund.id}/mark-issued/')
+        self.assertEqual(response.status_code, 400)
+        self.refund.refresh_from_db()
+        self.assertNotEqual(self.refund.status, 'issued')
+
+    def test_cannot_mark_a_refund_issued_with_a_reference_shorter_than_4_characters(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(f'/api/admin/refunds/{self.refund.id}/mark-issued/', {'reference': 'abc'})
+        self.assertEqual(response.status_code, 400)
+        self.refund.refresh_from_db()
+        self.assertNotEqual(self.refund.status, 'issued')
+
     def test_marking_a_refund_issued_emails_the_customer(self):
         self.client.force_authenticate(user=self.superadmin)
         mail.outbox = []

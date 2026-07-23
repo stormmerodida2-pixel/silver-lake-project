@@ -458,7 +458,7 @@ onMounted(() => {
                     <span
                       v-if="!driver.cash_payments_enabled"
                       class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-red-400"
-                      title="This driver can only be paid via M-Pesa/card - cash is disabled."
+                      title="This driver can only be paid via card or bank transfer (M-Pesa's own STK push is temporarily disabled platform-wide) - cash is disabled."
                     >
                       Cash Disabled
                     </span>
