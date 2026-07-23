@@ -4,7 +4,7 @@
       <div class="mx-auto max-w-3xl px-4 text-center sm:px-6">
         <p class="text-sm font-semibold uppercase tracking-widest text-gold-400">Legal</p>
         <h1 class="mt-3 font-[Georgia] text-4xl font-bold text-white">Terms of Service</h1>
-        <p class="mt-3 text-sm text-slate-400">Last updated: 4 July 2026</p>
+        <p class="mt-3 text-sm text-slate-400">Last updated: 23 July 2026</p>
       </div>
     </section>
 
@@ -31,7 +31,9 @@
           <p class="mt-3 leading-relaxed">
             A booking is only confirmed once a deposit of at least 30% of the total rental cost has been
             received. The remaining balance is due before or at pickup. Payments are currently accepted via
-            M-Pesa Paybill (Paybill 400400, Account: SILVERLAKE); card payments will be enabled in future.
+            bank transfer - Co-operative Bank of Kenya, Paybill 400200, Account: 01101465587001 - payable via
+            M-Pesa or directly from your own bank; a driver may also accept cash or a card payment in person
+            for an assigned trip. Self-serve online card payments will be enabled in future.
             Prices are quoted in Kenyan Shillings (KES) and may change without notice for future bookings,
             but not for a booking you have already confirmed with a deposit.
           </p>
