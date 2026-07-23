@@ -1072,8 +1072,14 @@ class AdminDriverPayoutViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
                 {'detail': 'This payout was confirmed via a self-reported cash payment and must be verified before it can be marked paid.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        payout.mark_paid(reference=request.data.get('payout_reference', ''))
-        log_admin_action(request, 'payout.mark_paid', payout, detail=request.data.get('payout_reference', ''))
+        reference = str(request.data.get('payout_reference', '')).strip()
+        if len(reference) < MIN_BANK_TRANSFER_REFERENCE_LENGTH:
+            return Response(
+                {'detail': f'Enter the transaction reference used to send this payout (at least {MIN_BANK_TRANSFER_REFERENCE_LENGTH} digits/characters).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        payout.mark_paid(reference=reference)
+        log_admin_action(request, 'payout.mark_paid', payout, detail=reference)
         return Response(AdminDriverPayoutSerializer(payout).data)
 
     @action(detail=True, methods=['post'])
