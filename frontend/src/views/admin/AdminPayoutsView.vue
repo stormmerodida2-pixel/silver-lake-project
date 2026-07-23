@@ -27,8 +27,14 @@ const filteredPayouts = computed(() => {
 })
 
 async function markPaid(payout) {
-  const reference = await promptDialog('M-Pesa/bank reference for this payout (optional):')
+  const reference = await promptDialog(
+    'M-Pesa/bank reference for this payout (required - at least the last 4 digits/characters):',
+  )
   if (reference === null) return
+  if (reference.trim().length < 4) {
+    error.value = 'Enter the transaction reference used to send this payout (at least 4 digits/characters).'
+    return
+  }
   busyId.value = payout.id
   try {
     const { data } = await apiClient.post(`/admin/payouts/${payout.id}/mark-paid/`, {

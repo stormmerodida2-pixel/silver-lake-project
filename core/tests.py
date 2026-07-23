@@ -130,6 +130,30 @@ class AdminPayoutVerificationTests(APITestCase):
         notification = Notification.objects.get(event=NotificationEvent.PAYOUT_PAID)
         self.assertEqual(notification.driver_id, self.driver.id)
 
+    def test_cannot_mark_paid_without_a_reference(self):
+        self._log_deposit()
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.post(
+            f'/api/admin/payouts/{self.payout.id}/verify/', {'note': 'Confirmed with customer.'}, format='json',
+        )
+        response = self.client.post(f'/api/admin/payouts/{self.payout.id}/mark-paid/')
+        self.assertEqual(response.status_code, 400)
+        self.payout.refresh_from_db()
+        self.assertFalse(self.payout.is_paid)
+
+    def test_cannot_mark_paid_with_a_reference_shorter_than_4_characters(self):
+        self._log_deposit()
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.post(
+            f'/api/admin/payouts/{self.payout.id}/verify/', {'note': 'Confirmed with customer.'}, format='json',
+        )
+        response = self.client.post(
+            f'/api/admin/payouts/{self.payout.id}/mark-paid/', {'payout_reference': 'abc'},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.payout.refresh_from_db()
+        self.assertFalse(self.payout.is_paid)
+
     def test_verifying_without_a_note_is_rejected(self):
         self._log_deposit()
         self.client.force_authenticate(user=self.superadmin)
@@ -202,7 +226,7 @@ class AdminPayoutVerificationTests(APITestCase):
         self.assertFalse(other_payout.needs_verification)
 
         self.client.force_authenticate(user=self.superadmin)
-        response = self.client.post(f'/api/admin/payouts/{other_payout.id}/mark-paid/')
+        response = self.client.post(f'/api/admin/payouts/{other_payout.id}/mark-paid/', {'payout_reference': 'MPESA789'})
         self.assertEqual(response.status_code, 200)
 
     def test_card_sourced_payout_also_needs_verification(self):
