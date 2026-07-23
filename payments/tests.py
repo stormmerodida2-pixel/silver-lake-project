@@ -798,7 +798,7 @@ class DeclareBankTransferOrgScopingTests(APITestCase):
 
     def _post(self, booking):
         return self.client.post('/api/payments/bank-transfer/declare/', {
-            'booking': booking.id, 'amount': str(booking.deposit_amount),
+            'booking': booking.id, 'amount': str(booking.deposit_amount), 'reference': 'QGH7XXXXXX',
         }, format='json')
 
     def test_org_admin_can_declare_a_bank_transfer_on_their_own_orgs_booking(self):
@@ -1800,7 +1800,9 @@ class ClientDeclareBankTransferPaymentTests(APITestCase):
 
     def test_client_can_declare_a_bank_transfer_with_no_driver_assigned(self):
         self.assertIsNone(self.booking.driver_id)
-        response = self.client.post(self._url(), {'amount': str(self.booking.deposit_amount)}, format='json')
+        response = self.client.post(
+            self._url(), {'amount': str(self.booking.deposit_amount), 'reference': 'QGH7XXXXXX'}, format='json',
+        )
         self.assertEqual(response.status_code, 201)
 
         payment = Payment.objects.get(booking=self.booking)
@@ -1808,6 +1810,7 @@ class ClientDeclareBankTransferPaymentTests(APITestCase):
         self.assertEqual(payment.status, PaymentStatus.PENDING)
         self.assertIsNone(payment.recorded_by_driver_id)
         self.assertEqual(Decimal(str(payment.amount)), self.booking.deposit_amount)
+        self.assertEqual(payment.note, 'QGH7XXXXXX')
 
         self.booking.refresh_from_db()
         self.assertEqual(self.booking.status, BookingStatus.PENDING)  # not confirmed until staff confirm
@@ -1818,34 +1821,61 @@ class ClientDeclareBankTransferPaymentTests(APITestCase):
         customer = User.objects.create_user(username='bank-client-2@example.com', password='pass12345!')
         booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
 
-        response = self.client.post(self._url(booking), {'amount': str(booking.deposit_amount)}, format='json')
+        response = self.client.post(
+            self._url(booking), {'amount': str(booking.deposit_amount), 'reference': 'QGH7XXXXXX'}, format='json',
+        )
         self.assertEqual(response.status_code, 201)
         payment = Payment.objects.get(booking=booking)
         self.assertEqual(payment.method, PaymentMethod.BANK_TRANSFER)
 
     def test_declared_bank_transfer_appears_as_pending_on_the_pay_page(self):
-        self.client.post(self._url(), {'amount': str(self.booking.deposit_amount)}, format='json')
+        self.client.post(
+            self._url(), {'amount': str(self.booking.deposit_amount), 'reference': 'QGH7XXXXXX'}, format='json',
+        )
         response = self.client.get(f'/api/pay/{self.booking.customer_token}/')
         pending = response.json()['pending_payments']
         self.assertEqual(len(pending), 1)
         self.assertEqual(pending[0]['method'], 'bank_transfer')
+        self.assertEqual(pending[0]['note'], 'QGH7XXXXXX')
 
     def test_cannot_declare_an_amount_exceeding_the_balance_due(self):
         response = self.client.post(
-            self._url(), {'amount': str(self.booking.total_amount + 1)}, format='json',
+            self._url(), {'amount': str(self.booking.total_amount + 1), 'reference': 'QGH7XXXXXX'}, format='json',
         )
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
 
     def test_cannot_declare_a_zero_or_negative_amount(self):
         for bad_amount in ('0', '-500'):
-            response = self.client.post(self._url(), {'amount': bad_amount}, format='json')
+            response = self.client.post(
+                self._url(), {'amount': bad_amount, 'reference': 'QGH7XXXXXX'}, format='json',
+            )
             self.assertEqual(response.status_code, 400, f'amount={bad_amount} should have been rejected')
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
 
+    def test_cannot_declare_without_a_reference(self):
+        response = self.client.post(self._url(), {'amount': str(self.booking.deposit_amount)}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_cannot_declare_with_a_reference_shorter_than_4_characters(self):
+        response = self.client.post(
+            self._url(), {'amount': str(self.booking.deposit_amount), 'reference': 'abc'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_last_4_digits_are_accepted_as_a_reference(self):
+        response = self.client.post(
+            self._url(), {'amount': str(self.booking.deposit_amount), 'reference': '7XXX'}, format='json',
+        )
+        self.assertEqual(response.status_code, 201)
+        payment = Payment.objects.get(booking=self.booking)
+        self.assertEqual(payment.note, '7XXX')
+
     def test_wrong_token_is_a_404(self):
         response = self.client.post(
-            f'/api/pay/{uuid.uuid4()}/declare-bank-transfer/', {'amount': '100'}, format='json',
+            f'/api/pay/{uuid.uuid4()}/declare-bank-transfer/', {'amount': '100', 'reference': 'QGH7XXXXXX'}, format='json',
         )
         self.assertEqual(response.status_code, 404)
 
@@ -1865,7 +1895,7 @@ class AdminConfirmBankTransferTests(APITestCase):
         self.booking = make_booking(self.customer, vehicle, status=BookingStatus.PENDING)
         self.client.post(
             f'/api/pay/{self.booking.customer_token}/declare-bank-transfer/',
-            {'amount': str(self.booking.deposit_amount)}, format='json',
+            {'amount': str(self.booking.deposit_amount), 'reference': 'QGH7XXXXXX'}, format='json',
         )
         self.payment = Payment.objects.get(booking=self.booking)
 

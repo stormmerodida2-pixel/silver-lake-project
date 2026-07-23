@@ -6,6 +6,15 @@ from bookings.models import Booking
 
 from .models import CashDeposit, Payment, PaymentMethod, PaymentStatus
 
+# A declared bank transfer must come with at least this many characters of transaction
+# reference - not validated against the strict 10-character M-Pesa format a cash deposit's
+# reference is (see payments.services.MPESA_REFERENCE_PATTERN), since this could be a genuine
+# inter-bank transfer with its own reference format, not necessarily M-Pesa-generated. Just
+# enough that staff have something to actually search the real statement for. Shared with
+# payments.views.token_declare_bank_transfer_payment (a plain function view, not this
+# serializer), so it's defined once here rather than duplicated.
+MIN_BANK_TRANSFER_REFERENCE_LENGTH = 4
+
 
 class CashDepositSerializer(serializers.ModelSerializer):
     logged_by_name = serializers.CharField(source='logged_by.full_name', read_only=True, default=None)
@@ -50,6 +59,10 @@ class RedeemCreditRequestSerializer(serializers.Serializer):
 class DeclareBankTransferRequestSerializer(serializers.Serializer):
     booking = serializers.PrimaryKeyRelatedField(queryset=Booking.objects.all())
     amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
+    reference = serializers.CharField(
+        min_length=MIN_BANK_TRANSFER_REFERENCE_LENGTH, max_length=100, trim_whitespace=True,
+        help_text='Transaction reference - at minimum the last 4 digits/characters.',
+    )
 
 
 class TokenStkPushRequestSerializer(serializers.Serializer):
@@ -95,6 +108,6 @@ class PublicBookingPaymentSerializer(serializers.ModelSerializer):
             status=PaymentStatus.PENDING,
         )
         return [
-            {'id': p.id, 'method': p.method, 'amount': p.amount, 'created_at': p.created_at}
+            {'id': p.id, 'method': p.method, 'amount': p.amount, 'note': p.note, 'created_at': p.created_at}
             for p in payments
         ]

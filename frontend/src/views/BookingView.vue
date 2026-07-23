@@ -74,6 +74,7 @@ const submitting = ref(false)
 const error = ref('')
 
 const bankTransferAcknowledged = ref(false)
+const bankTransferReference = ref('')
 const declaringBankTransfer = ref(false)
 const bankTransferError = ref('')
 // A bank transfer the customer already declared on this booking, awaiting staff confirmation -
@@ -438,12 +439,15 @@ async function declareBankTransfer() {
     await apiClient.post('/payments/bank-transfer/declare/', {
       booking: booking.value.id,
       amount: amountToPay.value,
+      reference: bankTransferReference.value,
     })
     const { data } = await apiClient.get(`/bookings/${booking.value.id}/`)
     booking.value = data
     bankTransferAcknowledged.value = false
+    bankTransferReference.value = ''
   } catch (err) {
-    bankTransferError.value = err.response?.data?.detail || 'Could not record your bank transfer. Please try again.'
+    const data = err.response?.data
+    bankTransferError.value = data?.detail || data?.reference?.[0] || 'Could not record your bank transfer. Please try again.'
   } finally {
     declaringBankTransfer.value = false
   }
@@ -715,7 +719,8 @@ async function declareBankTransfer() {
               </div>
               <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Awaiting Confirmation</h2>
               <p class="mt-2 text-sm text-slate-600">
-                You've declared a bank transfer of KES {{ Number(pendingBankTransferPayment.amount).toLocaleString() }}.
+                You've declared a bank transfer of KES {{ Number(pendingBankTransferPayment.amount).toLocaleString() }}
+                <span v-if="pendingBankTransferPayment.note">(ref. {{ pendingBankTransferPayment.note }})</span>.
                 Once our team confirms it's been received, your balance will be updated.
               </p>
             </div>
@@ -830,6 +835,19 @@ async function declareBankTransfer() {
                   </p>
                 </div>
 
+                <div>
+                  <label class="mb-1 block text-sm text-slate-600">Transaction reference</label>
+                  <input
+                    v-model="bankTransferReference"
+                    type="text"
+                    placeholder="e.g. last 4 digits of the M-Pesa/bank code"
+                    class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                  />
+                  <p class="mt-1 text-xs text-slate-500">
+                    Check the confirmation SMS from your bank/M-Pesa - at least the last 4 digits/characters are enough.
+                  </p>
+                </div>
+
                 <div class="rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">
                   <label class="flex items-start gap-2">
                     <input v-model="bankTransferAcknowledged" type="checkbox" class="mt-0.5" />
@@ -840,7 +858,7 @@ async function declareBankTransfer() {
                 <p v-if="bankTransferError" class="text-sm text-red-600">{{ bankTransferError }}</p>
 
                 <button
-                  :disabled="declaringBankTransfer || !bankTransferAcknowledged"
+                  :disabled="declaringBankTransfer || !bankTransferAcknowledged || bankTransferReference.trim().length < 4"
                   class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
                   @click="declareBankTransfer"
                 >

@@ -31,6 +31,7 @@ const declaringCash = ref(false)
 const cashError = ref('')
 
 const bankTransferAcknowledged = ref(false)
+const bankTransferReference = ref('')
 const declaringBankTransfer = ref(false)
 const bankTransferError = ref('')
 
@@ -156,9 +157,11 @@ async function declareBankTransfer() {
   try {
     await apiClient.post(`/pay/${route.params.token}/declare-bank-transfer/`, {
       amount: amountToPay.value,
+      reference: bankTransferReference.value,
     })
     await loadBooking()
     bankTransferAcknowledged.value = false
+    bankTransferReference.value = ''
   } catch (err) {
     bankTransferError.value = err.response?.data?.detail || 'Could not record your bank transfer. Please try again.'
   } finally {
@@ -226,7 +229,8 @@ onMounted(loadBooking)
             {{ booking.driver_name }}. Once your driver confirms receiving it, your balance will be updated.
           </p>
           <p v-else class="mt-2 text-sm text-slate-600">
-            You've declared a bank transfer of KES {{ Number(pendingOfflinePayment.amount).toLocaleString() }}.
+            You've declared a bank transfer of KES {{ Number(pendingOfflinePayment.amount).toLocaleString() }}
+            <span v-if="pendingOfflinePayment.note">(ref. {{ pendingOfflinePayment.note }})</span>.
             Once our team confirms it's been received, your balance will be updated.
           </p>
         </div>
@@ -381,6 +385,19 @@ onMounted(loadBooking)
               </p>
             </div>
 
+            <div>
+              <label class="mb-1 block text-sm text-slate-600">Transaction reference</label>
+              <input
+                v-model="bankTransferReference"
+                type="text"
+                placeholder="e.g. last 4 digits of the M-Pesa/bank code"
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+              />
+              <p class="mt-1 text-xs text-slate-500">
+                Check the confirmation SMS from your bank/M-Pesa - at least the last 4 digits/characters are enough.
+              </p>
+            </div>
+
             <div class="rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">
               <label class="flex items-start gap-2">
                 <input v-model="bankTransferAcknowledged" type="checkbox" class="mt-0.5" />
@@ -393,7 +410,7 @@ onMounted(loadBooking)
             <p v-if="bankTransferError" class="text-sm text-red-600">{{ bankTransferError }}</p>
 
             <button
-              :disabled="declaringBankTransfer || !bankTransferAcknowledged"
+              :disabled="declaringBankTransfer || !bankTransferAcknowledged || bankTransferReference.trim().length < 4"
               class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
               @click="declareBankTransfer"
             >

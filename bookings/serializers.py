@@ -85,7 +85,7 @@ class BookingSerializer(serializers.ModelSerializer):
             status=PaymentStatus.PENDING,
         )
         return [
-            {'id': p.id, 'method': p.method, 'amount': p.amount, 'created_at': p.created_at}
+            {'id': p.id, 'method': p.method, 'amount': p.amount, 'note': p.note, 'created_at': p.created_at}
             for p in payments
         ]
 

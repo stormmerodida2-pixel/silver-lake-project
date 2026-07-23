@@ -192,11 +192,12 @@ onMounted(load)
               </div>
             </td>
             <td class="px-4 py-3 text-xs text-slate-400">
-              {{ payment.mpesa_receipt_number || payment.card_transaction_ref || '—' }}
+              {{ payment.mpesa_receipt_number || payment.card_transaction_ref
+                || (payment.method === 'bank_transfer' ? payment.note : '') || '—' }}
             </td>
             <td class="px-4 py-3 text-xs text-slate-400">
               {{ payment.recorded_by_driver_name || '—' }}
-              <div v-if="payment.note" class="italic text-slate-500">{{ payment.note }}</div>
+              <div v-if="payment.note && payment.method !== 'bank_transfer'" class="italic text-slate-500">{{ payment.note }}</div>
             </td>
             <td class="px-4 py-3 text-xs">
               <template v-if="payment.method === 'cash'">

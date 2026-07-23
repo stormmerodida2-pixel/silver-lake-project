@@ -18,6 +18,7 @@ from core.utils import csv_response, parse_amount, parse_date_range, search_filt
 from .emails import send_cash_deposit_reminder_email, send_payment_reminder_email
 from .models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 from .serializers import (
+    MIN_BANK_TRANSFER_REFERENCE_LENGTH,
     DeclareBankTransferRequestSerializer,
     PublicBookingPaymentSerializer,
     PaymentSerializer,
@@ -281,7 +282,9 @@ def declare_bank_transfer(request):
             return Response({'detail': 'Not your booking.'}, status=status.HTTP_403_FORBIDDEN)
 
     try:
-        payment = declare_offline_payment(booking, PaymentMethod.BANK_TRANSFER, data['amount'], driver=booking.driver)
+        payment = declare_offline_payment(
+            booking, PaymentMethod.BANK_TRANSFER, data['amount'], driver=booking.driver, note=data['reference'],
+        )
     except PaymentValidationError as exc:
         return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -389,7 +392,9 @@ def token_declare_bank_transfer_payment(request, token):
     transfer goes straight to SilverLake's own account, nobody has to be physically present to
     hand it to. Only records what the client says they've sent; staff still have to separately
     confirm it was actually received (see PaymentViewSet.confirm_bank_transfer) once they see it
-    on the bank statement, before it counts toward the balance."""
+    on the bank statement, before it counts toward the balance. A reference (at minimum, the
+    last 4 digits of the M-Pesa/bank transaction code) is required - amount and booking number
+    alone give staff nothing to actually search for on the real statement."""
     booking = _get_booking_by_token(token)
 
     try:
@@ -397,8 +402,15 @@ def token_declare_bank_transfer_payment(request, token):
     except ValueError:
         return Response({'detail': 'A valid amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    reference = str(request.data.get('reference', '')).strip()
+    if len(reference) < MIN_BANK_TRANSFER_REFERENCE_LENGTH:
+        return Response(
+            {'detail': f'Enter the transaction reference (at least the last {MIN_BANK_TRANSFER_REFERENCE_LENGTH} digits/characters).'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     try:
-        declare_offline_payment(booking, PaymentMethod.BANK_TRANSFER, amount, driver=booking.driver)
+        declare_offline_payment(booking, PaymentMethod.BANK_TRANSFER, amount, driver=booking.driver, note=reference)
     except PaymentValidationError as exc:
         return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
