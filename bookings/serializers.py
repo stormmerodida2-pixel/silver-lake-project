@@ -75,11 +75,14 @@ class BookingSerializer(serializers.ModelSerializer):
         return ReviewSerializer(review).data if review else None
 
     def get_pending_payments(self, obj):
-        # Cash/card payments the client has declared but the driver hasn't yet confirmed
-        # actually receiving (see payments.services.declare_offline_payment) - surfaced so the
-        # Driver Portal can prompt for confirmation, with the amount already locked in.
+        # Cash/card payments the client has declared but the driver hasn't yet confirmed actually
+        # receiving, or a bank transfer awaiting staff confirmation (see
+        # payments.services.declare_offline_payment) - surfaced so the Driver Portal can prompt
+        # for confirmation (cash/card) and so the booking's own payment step can show "already
+        # declared, awaiting confirmation" instead of letting the same payment be declared twice.
         payments = obj.payments.filter(
-            method__in=(PaymentMethod.CASH, PaymentMethod.CARD), status=PaymentStatus.PENDING,
+            method__in=(PaymentMethod.CASH, PaymentMethod.CARD, PaymentMethod.BANK_TRANSFER),
+            status=PaymentStatus.PENDING,
         )
         return [
             {'id': p.id, 'method': p.method, 'amount': p.amount, 'created_at': p.created_at}

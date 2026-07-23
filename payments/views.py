@@ -18,6 +18,7 @@ from core.utils import csv_response, parse_amount, parse_date_range, search_filt
 from .emails import send_cash_deposit_reminder_email, send_payment_reminder_email
 from .models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 from .serializers import (
+    DeclareBankTransferRequestSerializer,
     PublicBookingPaymentSerializer,
     PaymentSerializer,
     RedeemCreditRequestSerializer,
@@ -256,6 +257,38 @@ def stk_push(request):
 
 
 stk_push.cls.throttle_scope = 'mpesa-stk'
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+@throttle_classes([ScopedRateThrottle])
+def declare_bank_transfer(request):
+    """The logged-in-customer equivalent of stk_push above, but for declaring a bank transfer
+    instead - same ownership check (own booking, or staff within their own organization), same
+    booking-from-request-body shape. Used by the main booking flow's payment step
+    (frontend/src/views/BookingView.vue), as opposed to token_declare_bank_transfer_payment
+    which is the no-login pay-by-link page's equivalent for a walk-up client."""
+    serializer = DeclareBankTransferRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    booking = data['booking']
+    if booking.user_id != request.user.id:
+        if not request.user.is_staff:
+            return Response({'detail': 'Not your booking.'}, status=status.HTTP_403_FORBIDDEN)
+        organization = get_user_organization(request.user)
+        if organization is not None and booking.vehicle.owner_id != organization.id:
+            return Response({'detail': 'Not your booking.'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        payment = declare_offline_payment(booking, PaymentMethod.BANK_TRANSFER, data['amount'], driver=booking.driver)
+    except PaymentValidationError as exc:
+        return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({'payment_id': payment.id}, status=status.HTTP_201_CREATED)
+
+
+declare_bank_transfer.cls.throttle_scope = 'declare-bank-transfer'
 
 
 @api_view(['POST'])

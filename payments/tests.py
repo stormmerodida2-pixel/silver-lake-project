@@ -774,6 +774,76 @@ class StkPushOrgScopingTests(APITestCase):
         mock_stk.assert_not_called()
 
 
+class DeclareBankTransferOrgScopingTests(APITestCase):
+    """The authenticated equivalent of StkPushOrgScopingTests above, for the main booking flow's
+    own bank transfer declaration (frontend/src/views/BookingView.vue) rather than the no-login
+    pay-by-link page's token_declare_bank_transfer_payment. Same org-scoping concern: this also
+    resolves its booking straight from the request body, so it needs the same explicit check."""
+
+    def setUp(self):
+        self.platform_staff = User.objects.create_user(username='bt-platform-staff@example.com', password='pass12345!', is_staff=True)
+
+        self.org_a = FleetPartner.objects.create(name='BT Org A', platform_fee_percent=Decimal('10'))
+        self.org_a_staff = User.objects.create_user(username='bt-org-a-staff@example.com', password='pass12345!', is_staff=True)
+        StaffOrganization.objects.create(user=self.org_a_staff, organization=self.org_a)
+        self.org_a_vehicle = make_vehicle(name='BT Org A Car', owner=self.org_a, is_company_owned=True, price_per_day=Decimal('1000'))
+
+        self.org_b = FleetPartner.objects.create(name='BT Org B', platform_fee_percent=Decimal('10'))
+        self.org_b_vehicle = make_vehicle(name='BT Org B Car', owner=self.org_b, is_company_owned=True, price_per_day=Decimal('1000'))
+
+        self.customer = User.objects.create_user(username='bt-org-customer@example.com', password='pass12345!')
+        self.other_customer = User.objects.create_user(username='bt-other-customer@example.com', password='pass12345!')
+        self.org_a_booking = make_booking(self.customer, self.org_a_vehicle, status=BookingStatus.PENDING)
+        self.org_b_booking = make_booking(self.other_customer, self.org_b_vehicle, status=BookingStatus.PENDING)
+
+    def _post(self, booking):
+        return self.client.post('/api/payments/bank-transfer/declare/', {
+            'booking': booking.id, 'amount': str(booking.deposit_amount),
+        }, format='json')
+
+    def test_org_admin_can_declare_a_bank_transfer_on_their_own_orgs_booking(self):
+        self.client.force_authenticate(user=self.org_a_staff)
+        response = self._post(self.org_a_booking)
+        self.assertEqual(response.status_code, 201)
+
+    def test_org_admin_cannot_declare_a_bank_transfer_on_another_orgs_booking(self):
+        self.client.force_authenticate(user=self.org_a_staff)
+        response = self._post(self.org_b_booking)
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Payment.objects.filter(booking=self.org_b_booking).exists())
+
+    def test_platform_staff_can_declare_a_bank_transfer_on_any_booking(self):
+        self.client.force_authenticate(user=self.platform_staff)
+        response = self._post(self.org_a_booking)
+        self.assertEqual(response.status_code, 201)
+
+    def test_customer_can_declare_a_bank_transfer_on_their_own_booking(self):
+        self.client.force_authenticate(user=self.customer)
+        response = self._post(self.org_a_booking)
+        self.assertEqual(response.status_code, 201)
+        payment = Payment.objects.get(booking=self.org_a_booking)
+        self.assertEqual(payment.method, PaymentMethod.BANK_TRANSFER)
+        self.assertEqual(payment.status, PaymentStatus.PENDING)
+
+    def test_customer_cannot_declare_a_bank_transfer_on_someone_elses_booking(self):
+        self.client.force_authenticate(user=self.customer)
+        response = self._post(self.org_b_booking)
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Payment.objects.filter(booking=self.org_b_booking).exists())
+
+    def test_unauthenticated_user_cannot_declare_a_bank_transfer(self):
+        response = self._post(self.org_a_booking)
+        self.assertEqual(response.status_code, 401)
+
+    def test_declared_bank_transfer_appears_in_the_bookings_own_pending_payments(self):
+        self.client.force_authenticate(user=self.customer)
+        self._post(self.org_a_booking)
+        response = self.client.get(f'/api/bookings/{self.org_a_booking.id}/')
+        pending = response.json()['pending_payments']
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]['method'], 'bank_transfer')
+
+
 class OverpaymentGuardTests(APITestCase):
     """Each payment path checks its amount against the balance due at the moment it's created or
     declared, but that alone isn't enough: two payments that each individually fit the remaining
