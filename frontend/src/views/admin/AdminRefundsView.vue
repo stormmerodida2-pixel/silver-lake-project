@@ -17,14 +17,20 @@ const filteredRefunds = computed(() => {
 })
 
 async function markIssued(refund) {
-  const reference = await promptDialog('M-Pesa/bank reference used to send this refund (optional):')
+  const reference = await promptDialog(
+    'M-Pesa/bank reference used to send this refund (required - at least the last 4 digits/characters):',
+  )
   if (reference === null) return
+  if (reference.trim().length < 4) {
+    error.value = 'Enter the transaction reference used to send this refund (at least 4 digits/characters).'
+    return
+  }
   busyId.value = refund.id
   try {
     const { data } = await apiClient.post(`/admin/refunds/${refund.id}/mark-issued/`, { reference })
     Object.assign(refund, data)
   } catch (err) {
-    error.value = 'Could not mark this refund as issued.'
+    error.value = err.response?.data?.detail || 'Could not mark this refund as issued.'
   } finally {
     busyId.value = null
   }
