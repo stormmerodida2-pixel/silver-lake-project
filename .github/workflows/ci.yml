@@ -26,6 +26,7 @@ jobs:
           python manage.py test
           accounts.tests fleet.tests drivers.tests bookings.tests payments.tests
           reviews.tests announcements.tests blog.tests notifications.tests core.tests
+          discounts.tests support.tests
           --settings=settings.local
 
   frontend:
