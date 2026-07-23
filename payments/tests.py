@@ -1937,3 +1937,78 @@ class AdminConfirmBankTransferTests(APITestCase):
         self.client.post(f'/api/payments/{self.payment.id}/confirm-bank-transfer/')
         response = self.client.post(f'/api/payments/{self.payment.id}/confirm-bank-transfer/')
         self.assertEqual(response.status_code, 400)
+
+
+class BankTransferReferenceReuseFlagTests(APITestCase):
+    """A soft, staff-facing warning (never a hard rejection at declare time - see
+    payments.serializers.PaymentSerializer.get_reference_reused) when the same reference string
+    shows up on more than one bank transfer - a short reference (as little as the last 4
+    characters) can genuinely recur by coincidence across unrelated real transactions, so this
+    only ever informs, never blocks."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='ref-reuse-staff@example.com', password='pass12345!', is_staff=True)
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='ref-reuse-client@example.com', password='pass12345!')
+        self.booking = make_booking(customer, vehicle, status=BookingStatus.PENDING)
+
+    def test_reference_used_only_once_is_not_flagged(self):
+        payment = declare_offline_payment(
+            self.booking, PaymentMethod.BANK_TRANSFER, self.booking.deposit_amount, driver=None, note='UNIQ001A',
+        )
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(f'/api/payments/{payment.id}/')
+        self.assertFalse(response.json()['reference_reused'])
+
+    def test_reference_used_on_two_payments_is_flagged_on_both(self):
+        other_customer = User.objects.create_user(username='ref-reuse-other@example.com', password='pass12345!')
+        other_vehicle = make_vehicle(name='Ref Reuse Car', price_per_day=Decimal('1000'))
+        other_booking = make_booking(other_customer, other_vehicle, status=BookingStatus.PENDING)
+
+        payment_a = declare_offline_payment(
+            self.booking, PaymentMethod.BANK_TRANSFER, self.booking.deposit_amount, driver=None, note='DUPE001A',
+        )
+        payment_b = declare_offline_payment(
+            other_booking, PaymentMethod.BANK_TRANSFER, other_booking.deposit_amount, driver=None, note='DUPE001A',
+        )
+
+        self.client.force_authenticate(user=self.staff)
+        response_a = self.client.get(f'/api/payments/{payment_a.id}/')
+        response_b = self.client.get(f'/api/payments/{payment_b.id}/')
+        self.assertTrue(response_a.json()['reference_reused'])
+        self.assertTrue(response_b.json()['reference_reused'])
+
+    def test_a_reused_reference_can_still_be_declared_and_confirmed(self):
+        # The whole point - this must never be a hard block.
+        other_customer = User.objects.create_user(username='ref-reuse-other-2@example.com', password='pass12345!')
+        other_vehicle = make_vehicle(name='Ref Reuse Car 2', price_per_day=Decimal('1000'))
+        other_booking = make_booking(other_customer, other_vehicle, status=BookingStatus.PENDING)
+        declare_offline_payment(
+            self.booking, PaymentMethod.BANK_TRANSFER, self.booking.deposit_amount, driver=None, note='SAME4',
+        )
+
+        response = self.client.post(
+            f'/api/pay/{other_booking.customer_token}/declare-bank-transfer/',
+            {'amount': str(other_booking.deposit_amount), 'reference': 'SAME4'}, format='json',
+        )
+        self.assertEqual(response.status_code, 201)
+
+        payment = Payment.objects.get(booking=other_booking)
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/payments/{payment.id}/confirm-bank-transfer/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_reference_matching_a_cash_payments_note_is_not_flagged(self):
+        # Only bank transfers are compared against each other - a cash payment's `note` is a
+        # free-text driver comment, not a transaction reference, so it's a meaningless collision.
+        cash_driver = Driver.objects.create(full_name='Ref Reuse Driver', is_active=True, cash_payments_enabled=True)
+        vehicle = make_vehicle(name='Ref Reuse Cash Car', driver=cash_driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='ref-reuse-cash-client@example.com', password='pass12345!')
+        cash_booking = make_booking(customer, vehicle, driver=cash_driver, status=BookingStatus.PENDING)
+        declare_offline_payment(cash_booking, PaymentMethod.CASH, Decimal('10'), driver=cash_driver, note='SAME4')
+        bank_payment = declare_offline_payment(
+            self.booking, PaymentMethod.BANK_TRANSFER, self.booking.deposit_amount, driver=None, note='SAME4',
+        )
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(f'/api/payments/{bank_payment.id}/')
+        self.assertFalse(response.json()['reference_reused'])

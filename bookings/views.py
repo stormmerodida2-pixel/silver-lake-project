@@ -219,6 +219,7 @@ from django.conf import settings
 from accounts.services import get_or_create_customer_account
 from drivers.permissions import IsDriverUser
 from payments.models import Payment, PaymentMethod
+from payments.serializers import MIN_BANK_TRANSFER_REFERENCE_LENGTH
 from payments.services import (
     PaymentValidationError,
     confirm_offline_payment,
@@ -290,11 +291,17 @@ class DriverOnsiteBookingCreateView(APIView):
 
 class DriverDeclarePaymentView(APIView):
     """Lets a driver, with a client physically present, record exactly how much the client says
-    they're paying right now and by which method - cash, card, or M-Pesa. For M-Pesa this is
-    just the existing STK Push flow triggered against the client's own phone; for cash/card
-    (see payments.services.declare_offline_payment) it creates a pending payment that the driver
-    separately confirms once actually received (see DriverConfirmPaymentView) - the amount is
-    locked in here, not re-entered at confirmation time."""
+    they're paying right now and by which method - cash, card, bank transfer, or M-Pesa. For
+    M-Pesa this is just the existing STK Push flow triggered against the client's own phone -
+    kept fully working here even while the driver portal's own frontend doesn't currently offer
+    it as a button (see BookingPaymentCollector.vue's MPESA_ENABLED flag), so it's a one-line
+    frontend change to bring back, not a backend one. For cash/card/bank transfer (see
+    payments.services.declare_offline_payment) it creates a pending payment that gets separately
+    confirmed once actually received - by the driver for cash/card (see
+    DriverConfirmPaymentView), by staff for bank transfer (see
+    core.views payments confirm-bank-transfer action) since there's no driver in that
+    transaction to confirm it instead. The amount is locked in here, not re-entered at
+    confirmation time."""
 
     permission_classes = [IsDriverUser]
 
@@ -308,13 +315,22 @@ class DriverDeclarePaymentView(APIView):
         except ValueError:
             return Response({'detail': 'A valid amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        note = ''
+        if method == PaymentMethod.BANK_TRANSFER:
+            note = str(request.data.get('reference', '')).strip()
+            if len(note) < MIN_BANK_TRANSFER_REFERENCE_LENGTH:
+                return Response(
+                    {'detail': f'Enter the transaction reference (at least the last {MIN_BANK_TRANSFER_REFERENCE_LENGTH} digits/characters).'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         try:
             if method == PaymentMethod.MPESA:
                 if not booking.customer_phone:
                     return Response({'detail': 'This booking has no phone number on file for M-Pesa.'}, status=status.HTTP_400_BAD_REQUEST)
                 initiate_stk_push_payment(booking, booking.customer_phone, amount)
             else:
-                declare_offline_payment(booking, method, amount, driver=driver)
+                declare_offline_payment(booking, method, amount, driver=driver, note=note)
         except PaymentValidationError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -324,13 +340,25 @@ class DriverDeclarePaymentView(APIView):
 class DriverConfirmPaymentView(APIView):
     """Lets a driver confirm a previously-declared cash/card payment was actually received (see
     DriverDeclarePaymentView / payments.services.confirm_offline_payment) - no amount here, it
-    was already locked in when declared."""
+    was already locked in when declared. Explicitly not for a bank transfer: a with-driver
+    booking's customer can still declare one directly (see
+    payments.views.token_declare_bank_transfer_payment / payments.views.declare_bank_transfer),
+    which then also shows up in this same driver's booking.pending_payments - but the driver
+    never actually sees that money, only staff checking the real bank statement can confirm it
+    (see core.views payments confirm-bank-transfer action), so this rejects it explicitly rather
+    than letting a driver vouch for funds they have no way to verify."""
 
     permission_classes = [IsDriverUser]
 
     def post(self, request, payment_id):
         driver = request.user.driver_profile
         payment = get_object_or_404(Payment, pk=payment_id, booking__driver=driver)
+
+        if payment.method == PaymentMethod.BANK_TRANSFER:
+            return Response(
+                {'detail': 'A bank transfer can only be confirmed by staff, not the driver.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             confirm_offline_payment(payment)

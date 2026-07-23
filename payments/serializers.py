@@ -27,13 +27,14 @@ class CashDepositSerializer(serializers.ModelSerializer):
 class PaymentSerializer(serializers.ModelSerializer):
     recorded_by_driver_name = serializers.SerializerMethodField()
     cash_deposit = CashDepositSerializer(read_only=True)
+    reference_reused = serializers.SerializerMethodField()
 
     class Meta:
         model = Payment
         fields = [
             'id', 'booking', 'method', 'amount', 'status',
             'mpesa_receipt_number', 'phone_number', 'card_transaction_ref',
-            'recorded_by_driver_name', 'note', 'is_disputed', 'disputed_at', 'dispute_note',
+            'recorded_by_driver_name', 'note', 'reference_reused', 'is_disputed', 'disputed_at', 'dispute_note',
             'dispute_resolution_note', 'dispute_resolved_at',
             'cash_deposit', 'last_reminded_at', 'created_at',
         ]
@@ -44,6 +45,18 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     def get_recorded_by_driver_name(self, obj):
         return obj.recorded_by_driver.full_name if obj.recorded_by_driver_id else None
+
+    def get_reference_reused(self, obj):
+        # A soft, staff-facing flag only - never a hard rejection at declare time. A short
+        # reference (as little as the last 4 digits/characters, see
+        # MIN_BANK_TRANSFER_REFERENCE_LENGTH) genuinely can recur by coincidence across two real,
+        # unrelated transactions months apart, so blocking a declaration on a match would
+        # eventually reject a legitimate payment. Surfacing it to staff instead lets a human weigh
+        # it against the context an automated check can't see (does the amount/date/customer on
+        # the real bank statement actually line up, or is this just a coincidental collision).
+        if obj.method != PaymentMethod.BANK_TRANSFER or not obj.note:
+            return False
+        return Payment.objects.filter(method=PaymentMethod.BANK_TRANSFER, note=obj.note).exclude(pk=obj.pk).exists()
 
 
 class StkPushRequestSerializer(serializers.Serializer):

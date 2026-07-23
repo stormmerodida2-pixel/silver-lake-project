@@ -194,6 +194,13 @@ onMounted(load)
             <td class="px-4 py-3 text-xs text-slate-400">
               {{ payment.mpesa_receipt_number || payment.card_transaction_ref
                 || (payment.method === 'bank_transfer' ? payment.note : '') || '—' }}
+              <span
+                v-if="payment.reference_reused"
+                class="ml-1 cursor-help text-gold-400"
+                title="This reference has been used on another payment too - could be a coincidental match (short references can recur) or a real duplicate. Double-check the bank statement before confirming."
+              >
+                ⚠
+              </span>
             </td>
             <td class="px-4 py-3 text-xs text-slate-400">
               {{ payment.recorded_by_driver_name || '—' }}

@@ -4,24 +4,39 @@ import { computed, ref } from 'vue'
 import apiClient from '../../api/client'
 import { useDriverPortalStore } from '../../stores/driverPortal'
 
-// Collect payment for one booking: the client picks cash/card/M-Pesa + the exact amount they're
-// paying; cash/card then need the driver to separately confirm they actually received it (amount
-// locked, not re-entered) - M-Pesa fires an STK Push immediately instead. Also handles logging a
-// cash deposit to the Paybill once cash has been confirmed. Shared between the My Bookings list
-// and the Walk-Up Client booking result screen - both just pass in a `booking` to act on.
+// Collect payment for one booking: the client picks cash/card/bank-transfer (or M-Pesa, once
+// MPESA_ENABLED below flips back on) + the exact amount they're paying; cash/card/bank transfer
+// then need a separate confirmation that it was actually received (amount locked, not
+// re-entered) - M-Pesa fires an STK Push immediately instead, no separate confirmation needed.
+// Also handles logging a cash deposit to the Paybill once cash has been confirmed. Shared
+// between the My Bookings list and the Walk-Up Client booking result screen - both just pass in
+// a `booking` to act on.
 const props = defineProps({
   booking: { type: Object, required: true },
 })
 
+// Temporary, easily-reversible: flip back to true once real M-Pesa production credentials are
+// in place. Nothing about the M-Pesa flow itself (STK push against the client's own phone) is
+// removed on the backend (see bookings.views.DriverDeclarePaymentView) - it's just not offered
+// as a driver-facing option while this is false, in favor of bank transfer (which is itself
+// still M-Pesa under the hood - Co-op Bank's own Paybill is paid via Lipa na M-Pesa - just
+// routed to SilverLake's bank account instead of straight to its own Paybill).
+const MPESA_ENABLED = false
+
 const driverPortal = useDriverPortalStore()
 // Superadmin-controlled (see Driver.cash_payments_enabled) - a driver with a history of cash
-// disputes/undeposited cash can be forced onto M-Pesa/card only. Defaults to enabled (true) if
-// the profile hasn't loaded yet, so the option doesn't flash away before it's known either way.
+// disputes/undeposited cash can be forced onto non-cash methods only. Defaults to enabled (true)
+// if the profile hasn't loaded yet, so the option doesn't flash away before it's known either way.
 const cashEnabled = computed(() => driverPortal.profile?.cash_payments_enabled !== false)
-const paymentMethodOptions = computed(() => cashEnabled.value ? ['cash', 'card', 'mpesa'] : ['card', 'mpesa'])
+const paymentMethodOptions = computed(() => {
+  const options = cashEnabled.value ? ['cash', 'card'] : ['card']
+  options.push(MPESA_ENABLED ? 'mpesa' : 'bank_transfer')
+  return options
+})
 
 const paymentMethodDraft = ref('cash')
 const paymentAmountDraft = ref('')
+const bankTransferReferenceDraft = ref('')
 const showForm = ref(false)
 const declaring = ref(false)
 const declareError = ref('')
@@ -32,17 +47,20 @@ function openPaymentForm() {
   showForm.value = true
   paymentMethodDraft.value = cashEnabled.value ? 'cash' : 'card'
   paymentAmountDraft.value = props.booking.balance_due
+  bankTransferReferenceDraft.value = ''
   declareError.value = ''
 }
 
 async function declarePayment() {
   if (!paymentAmountDraft.value) return
+  if (paymentMethodDraft.value === 'bank_transfer' && bankTransferReferenceDraft.value.trim().length < 4) return
   declareError.value = ''
   declaring.value = true
   try {
     const { data } = await apiClient.post(`/driver/bookings/${props.booking.id}/declare-payment/`, {
       method: paymentMethodDraft.value,
       amount: paymentAmountDraft.value,
+      reference: bankTransferReferenceDraft.value,
     })
     Object.assign(props.booking, data)
     showForm.value = false
@@ -125,10 +143,18 @@ async function logCashDeposit(payment) {
         >
           <p class="text-xs font-semibold text-gold-400">
             KES {{ Number(payment.amount).toLocaleString() }} declared via
-            {{ payment.method === 'mpesa' ? 'M-Pesa' : payment.method === 'card' ? 'card' : 'cash' }} -
-            confirm once actually received.
+            {{
+              payment.method === 'mpesa' ? 'M-Pesa'
+              : payment.method === 'card' ? 'card'
+              : payment.method === 'bank_transfer' ? 'bank transfer'
+              : 'cash'
+            }}<span v-if="payment.note"> (ref. {{ payment.note }})</span> -
+            {{ payment.method === 'bank_transfer' ? 'awaiting confirmation from our team.' : 'confirm once actually received.' }}
           </p>
+          <!-- Bank transfer is staff-only to confirm - the driver never actually sees that
+               money, only staff checking the real bank statement can vouch for it. -->
           <button
+            v-if="payment.method !== 'bank_transfer'"
             :disabled="confirmingPaymentId === payment.id"
             class="shrink-0 rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
             @click="confirmPayment(payment)"
@@ -163,11 +189,11 @@ async function logCashDeposit(payment) {
                 :class="paymentMethodDraft === opt ? 'border-gold-500 bg-gold-500 text-navy-950' : 'border-navy-700 text-slate-300'"
                 @click="paymentMethodDraft = opt"
               >
-                {{ opt === 'mpesa' ? 'M-Pesa' : opt }}
+                {{ opt === 'mpesa' ? 'M-Pesa' : opt === 'bank_transfer' ? 'Bank Transfer' : opt }}
               </button>
             </div>
             <p v-if="!cashEnabled" class="text-[11px] text-slate-500">
-              Cash payments are disabled for your account - use M-Pesa or card instead.
+              Cash payments are disabled for your account - use card or {{ MPESA_ENABLED ? 'M-Pesa' : 'bank transfer' }} instead.
             </p>
             <input
               v-model="paymentAmountDraft" type="number" min="0" step="0.01"
@@ -175,9 +201,16 @@ async function logCashDeposit(payment) {
               required
               class="w-full rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
             />
+            <input
+              v-if="paymentMethodDraft === 'bank_transfer'"
+              v-model="bankTransferReferenceDraft" type="text"
+              placeholder="Transaction reference (at least last 4 digits/characters)"
+              required
+              class="w-full rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+            />
             <button
               type="submit"
-              :disabled="declaring"
+              :disabled="declaring || (paymentMethodDraft === 'bank_transfer' && bankTransferReferenceDraft.trim().length < 4)"
               class="w-full rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
             >
               {{ declaring ? 'Saving...' : paymentMethodDraft === 'mpesa' ? 'Send M-Pesa Prompt' : 'Declare Payment' }}

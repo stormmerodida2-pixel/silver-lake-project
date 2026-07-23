@@ -1451,6 +1451,34 @@ class DriverDeclarePaymentTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
 
+    def test_driver_can_declare_a_bank_transfer_with_a_reference(self):
+        response = self.client.post(
+            self._url(),
+            {'method': 'bank_transfer', 'amount': str(self.booking.deposit_amount), 'reference': 'QGH7XXXXXX'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        payment = Payment.objects.get(booking=self.booking)
+        self.assertEqual(payment.method, PaymentMethod.BANK_TRANSFER)
+        self.assertEqual(payment.status, PaymentStatus.PENDING)
+        self.assertEqual(payment.note, 'QGH7XXXXXX')
+
+    def test_cannot_declare_a_bank_transfer_without_a_reference(self):
+        response = self.client.post(
+            self._url(), {'method': 'bank_transfer', 'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_cannot_declare_a_bank_transfer_with_a_reference_shorter_than_4_characters(self):
+        response = self.client.post(
+            self._url(),
+            {'method': 'bank_transfer', 'amount': str(self.booking.deposit_amount), 'reference': 'abc'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
     def test_amount_is_stored_as_an_exact_decimal_not_a_float(self):
         # Parsed via core.utils.parse_amount rather than float() - this specific value has a
         # well-known binary floating-point representation error (0.1 can't be represented
@@ -1527,6 +1555,17 @@ class DriverConfirmPaymentTests(APITestCase):
         )
         response = self.client.post(self._url(mpesa_payment))
         self.assertEqual(response.status_code, 400)
+
+    def test_cannot_confirm_a_bank_transfer_payment_this_way(self):
+        bank_transfer_payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.BANK_TRANSFER, amount=Decimal('100'),
+            status=PaymentStatus.PENDING, note='QGH7XXXXXX',
+        )
+        response = self.client.post(self._url(bank_transfer_payment))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('staff', response.json()['detail'].lower())
+        bank_transfer_payment.refresh_from_db()
+        self.assertEqual(bank_transfer_payment.status, PaymentStatus.PENDING)
 
     def test_confirming_flags_its_payout_as_needing_verification(self):
         self.client.post(self._url())
