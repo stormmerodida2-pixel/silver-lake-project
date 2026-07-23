@@ -141,13 +141,14 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
     # to even show that button (see payments.services.initiate_payout_disbursement, which
     # re-validates this itself regardless; this is purely for UI, not a security boundary).
     recipient_phone_number = serializers.SerializerMethodField()
+    reference_reused = serializers.SerializerMethodField()
 
     class Meta:
         model = DriverPayout
         fields = [
             'id', 'driver', 'driver_name', 'organization', 'organization_name', 'booking_id', 'customer_name',
             'booking_total_amount', 'booking_amount_paid', 'booking_balance_due',
-            'amount', 'is_paid', 'paid_at', 'payout_reference', 'notes',
+            'amount', 'is_paid', 'paid_at', 'payout_reference', 'reference_reused', 'notes',
             'needs_verification', 'is_verified', 'verification_note', 'verified_at',
             'has_disputed_payment', 'has_undeposited_cash', 'recipient_phone_number',
             'b2c_conversation_id', 'b2c_failed_at', 'created_at',
@@ -171,6 +172,18 @@ class AdminDriverPayoutSerializer(serializers.ModelSerializer):
 
     def get_has_undeposited_cash(self, obj):
         return obj.booking.has_undeposited_cash
+
+    def get_reference_reused(self, obj):
+        # A soft, staff-facing flag only - never a hard rejection at mark-paid time (see
+        # payments.serializers.PaymentSerializer.get_reference_reused for the equivalent on
+        # incoming bank transfers). Staff type this reference themselves after actually sending
+        # the payout, so unlike a short customer-typed reference, a duplicate here is more likely
+        # a real mistake (e.g. accidentally reusing a stale clipboard value for a second payout)
+        # than a coincidental collision - still surfaced as a warning rather than blocked, since
+        # an automated check can't rule out a genuinely repeated reference some other way.
+        if not obj.payout_reference:
+            return False
+        return DriverPayout.objects.filter(payout_reference=obj.payout_reference).exclude(pk=obj.pk).exists()
 
 
 class AdminAuditLogSerializer(serializers.ModelSerializer):
@@ -206,17 +219,26 @@ class AdminRefundSerializer(serializers.ModelSerializer):
     # payments.services.initiate_refund_disbursement, which re-validates this itself regardless;
     # this is purely for UI, not a security boundary.
     recipient_phone_number = serializers.CharField(source='booking.customer_phone', read_only=True)
+    reference_reused = serializers.SerializerMethodField()
 
     class Meta:
         model = Refund
         fields = [
             'id', 'booking_id', 'customer_name', 'amount', 'status',
-            'reference', 'notes', 'issued_at', 'created_at',
+            'reference', 'reference_reused', 'notes', 'issued_at', 'created_at',
             'recipient_phone_number', 'b2c_conversation_id', 'b2c_failed_at',
         ]
         read_only_fields = [
             'amount', 'status', 'issued_at', 'created_at', 'b2c_conversation_id', 'b2c_failed_at',
         ]
+
+    def get_reference_reused(self, obj):
+        # Same soft, staff-facing flag as DriverPayout's own (see
+        # AdminDriverPayoutSerializer.get_reference_reused) - never a hard rejection at
+        # mark-issued time.
+        if not obj.reference:
+            return False
+        return Refund.objects.filter(reference=obj.reference).exclude(pk=obj.pk).exists()
 
 
 class AdminFleetPartnerSerializer(serializers.ModelSerializer):

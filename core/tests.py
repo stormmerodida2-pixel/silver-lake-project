@@ -2569,3 +2569,124 @@ class AdminClientErrorReportViewSetTests(APITestCase):
         response = self.client.get('/api/admin/client-errors/')
         entry = next(r for r in response.data['results'] if r['message'] == 'Booking crash')
         self.assertEqual(entry['user_email'], 'reporter@example.com')
+
+
+class PayoutReferenceReuseFlagTests(APITestCase):
+    """A soft, staff-facing warning (never a hard rejection at mark-paid time - see
+    core.serializers.AdminDriverPayoutSerializer.get_reference_reused) when the same reference
+    string shows up on more than one payout - staff type this themselves after actually sending
+    the money, so unlike a short customer-typed bank-transfer reference, a duplicate here is more
+    likely a genuine mistake, but it's still only ever surfaced, never blocked."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='payout-ref-super@example.com', password='pass12345!')
+
+    def _make_paid_payout(self, driver_name, reference):
+        driver = Driver.objects.create(full_name=driver_name, is_active=True)
+        vehicle = make_vehicle(name=f'{driver_name} Car', driver=driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username=f'{driver_name.lower().replace(" ", "-")}@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
+        Payment.objects.create(booking=booking, method=PaymentMethod.MPESA, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL)
+        booking.confirm_if_deposit_met()
+        payout = DriverPayout.objects.get(booking=booking)
+        payout.mark_paid(reference=reference)
+        return payout
+
+    def test_reference_used_only_once_is_not_flagged(self):
+        payout = self._make_paid_payout('Payout Ref Driver A', 'UNIQ001A')
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.get(f'/api/admin/payouts/{payout.id}/')
+        self.assertFalse(response.json()['reference_reused'])
+
+    def test_reference_used_on_two_payouts_is_flagged_on_both(self):
+        payout_a = self._make_paid_payout('Payout Ref Driver B', 'DUPE001A')
+        payout_b = self._make_paid_payout('Payout Ref Driver C', 'DUPE001A')
+
+        self.client.force_authenticate(user=self.superadmin)
+        response_a = self.client.get(f'/api/admin/payouts/{payout_a.id}/')
+        response_b = self.client.get(f'/api/admin/payouts/{payout_b.id}/')
+        self.assertTrue(response_a.json()['reference_reused'])
+        self.assertTrue(response_b.json()['reference_reused'])
+
+    def test_a_reused_payout_reference_is_not_blocked(self):
+        # The whole point - this must never be a hard block.
+        self._make_paid_payout('Payout Ref Driver D', 'SAME4')
+        payout_e = self._make_paid_payout('Payout Ref Driver E', 'DIFFERENT-REF')
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(
+            f'/api/admin/payouts/{payout_e.id}/mark-paid/', {'payout_reference': 'SAME4'},
+        )
+        # Already paid from _make_paid_payout, so this specific call is rejected on its own
+        # terms (can't mark an already-paid payout paid again) - proving the point differently:
+        # confirm the reused reference itself was never what blocked anything, by checking a
+        # fresh, not-yet-paid payout can still be marked paid with a reference already in use.
+        self.assertNotEqual(response.status_code, 500)
+
+        driver = Driver.objects.create(full_name='Payout Ref Driver F', is_active=True)
+        vehicle = make_vehicle(name='Payout Ref Driver F Car', driver=driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='payout-ref-driver-f@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
+        Payment.objects.create(booking=booking, method=PaymentMethod.MPESA, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL)
+        booking.confirm_if_deposit_met()
+        fresh_payout = DriverPayout.objects.get(booking=booking)
+
+        response = self.client.post(
+            f'/api/admin/payouts/{fresh_payout.id}/mark-paid/', {'payout_reference': 'SAME4'},
+        )
+        self.assertEqual(response.status_code, 200)
+        fresh_payout.refresh_from_db()
+        self.assertTrue(fresh_payout.is_paid)
+
+
+class RefundReferenceReuseFlagTests(APITestCase):
+    """Same soft, staff-facing warning as PayoutReferenceReuseFlagTests above, for refunds (see
+    core.serializers.AdminRefundSerializer.get_reference_reused)."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='refund-ref-super@example.com', password='pass12345!')
+
+    def _make_issued_refund(self, customer_username, reference):
+        vehicle = make_vehicle(name=f'{customer_username} Car', price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username=customer_username, password='pass12345!')
+        booking = make_booking(customer, vehicle, status=BookingStatus.PENDING)
+        Payment.objects.create(booking=booking, method=PaymentMethod.MPESA, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+        booking.mark_cancelled()
+        refund = Refund.objects.get(booking=booking)
+        refund.mark_issued(reference=reference)
+        return refund
+
+    def test_reference_used_only_once_is_not_flagged(self):
+        refund = self._make_issued_refund('refund-ref-client-a@example.com', 'UNIQ002A')
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.get(f'/api/admin/refunds/{refund.id}/')
+        self.assertFalse(response.json()['reference_reused'])
+
+    def test_reference_used_on_two_refunds_is_flagged_on_both(self):
+        refund_a = self._make_issued_refund('refund-ref-client-b@example.com', 'DUPE002A')
+        refund_b = self._make_issued_refund('refund-ref-client-c@example.com', 'DUPE002A')
+
+        self.client.force_authenticate(user=self.superadmin)
+        response_a = self.client.get(f'/api/admin/refunds/{refund_a.id}/')
+        response_b = self.client.get(f'/api/admin/refunds/{refund_b.id}/')
+        self.assertTrue(response_a.json()['reference_reused'])
+        self.assertTrue(response_b.json()['reference_reused'])
+
+    def test_a_reused_refund_reference_is_not_blocked(self):
+        # The whole point - this must never be a hard block.
+        self._make_issued_refund('refund-ref-client-d@example.com', 'SAME4')
+
+        vehicle = make_vehicle(name='Refund Ref Client E Car', price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='refund-ref-client-e@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, status=BookingStatus.PENDING)
+        Payment.objects.create(booking=booking, method=PaymentMethod.MPESA, amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL)
+        booking.mark_cancelled()
+        fresh_refund = Refund.objects.get(booking=booking)
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post(
+            f'/api/admin/refunds/{fresh_refund.id}/mark-issued/', {'reference': 'SAME4'},
+        )
+        self.assertEqual(response.status_code, 200)
+        fresh_refund.refresh_from_db()
+        self.assertEqual(fresh_refund.status, 'issued')
