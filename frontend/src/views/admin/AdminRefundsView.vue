@@ -130,7 +130,16 @@ onMounted(load)
                   </span>
                 </div>
               </td>
-              <td class="px-4 py-3 text-slate-400">{{ refund.reference || '-' }}</td>
+              <td class="px-4 py-3 text-slate-400">
+                {{ refund.reference || '-' }}
+                <span
+                  v-if="refund.reference_reused"
+                  class="ml-1 cursor-help text-gold-400"
+                  title="This reference has been used on another refund too - could be a coincidental match or a real duplicate (e.g. an accidentally reused reference). Double-check before relying on it."
+                >
+                  ⚠
+                </span>
+              </td>
               <td class="px-4 py-3">
                 <div v-if="refund.status !== 'issued' && auth.user?.is_superuser" class="flex flex-col items-start gap-1.5">
                   <button

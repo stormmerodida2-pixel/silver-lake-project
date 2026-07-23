@@ -245,7 +245,16 @@ onMounted(load)
                   </span>
                 </div>
               </td>
-              <td class="px-4 py-3 text-slate-400">{{ payout.payout_reference || '-' }}</td>
+              <td class="px-4 py-3 text-slate-400">
+                {{ payout.payout_reference || '-' }}
+                <span
+                  v-if="payout.reference_reused"
+                  class="ml-1 cursor-help text-gold-400"
+                  title="This reference has been used on another payout too - could be a coincidental match or a real duplicate (e.g. an accidentally reused reference). Double-check before relying on it."
+                >
+                  ⚠
+                </span>
+              </td>
               <td class="px-4 py-3">
                 <template v-if="!payout.is_paid">
                   <button
