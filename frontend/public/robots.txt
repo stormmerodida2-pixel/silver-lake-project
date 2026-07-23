@@ -12,5 +12,4 @@ Disallow: /book
 Disallow: /pay
 Disallow: /dispute-payment
 
-# Update this to the real production domain once one is chosen (see README "Before going live").
-Sitemap: https://your-domain.example/sitemap.xml
+Sitemap: https://silverlakecarentals.com/sitemap.xml
