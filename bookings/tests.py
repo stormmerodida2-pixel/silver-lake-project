@@ -2935,7 +2935,7 @@ class EscalateUnacknowledgedBookingsTests(APITestCase):
         booking = self._make_overdue_booking()
         self._run()
         notification = Notification.objects.get(event=NotificationEvent.ACKNOWLEDGMENT_OVERDUE)
-        self.assertIn(f'/admin/bookings?search=', notification.link_path)
+        self.assertIn('/admin/bookings?search=', notification.link_path)
         self.assertIn(booking.customer_name.replace(' ', '%20'), notification.link_path)
 
     def test_not_yet_overdue_booking_is_left_alone(self):
@@ -2957,7 +2957,7 @@ class EscalateUnacknowledgedBookingsTests(APITestCase):
         self.assertEqual(len(mail.outbox), 0)
 
     def test_escalation_only_ever_fires_once(self):
-        booking = self._make_overdue_booking()
+        self._make_overdue_booking()
         self._run()
         mail.outbox = []
         self._run()
@@ -3000,7 +3000,7 @@ class ExpireStalePendingBookingsTests(APITestCase):
         self.assertEqual(booking.status, BookingStatus.CANCELLED)
 
     def test_customer_is_notified_by_email(self):
-        booking = self._make_stale_booking(customer_email='stale-pending-client@example.com')
+        self._make_stale_booking(customer_email='stale-pending-client@example.com')
         mail.outbox = []
         self._run()
         self.assertTrue(len(mail.outbox) >= 1)

@@ -22,7 +22,7 @@ export function useAdminList(endpoint, filters = null) {
       const { data } = await apiClient.get(endpoint, filters ? { params: filters } : undefined)
       items.value = data.results ?? data
       nextUrl.value = data.next ?? null
-    } catch (err) {
+    } catch {
       error.value = 'Could not load data.'
     } finally {
       loading.value = false
@@ -36,7 +36,7 @@ export function useAdminList(endpoint, filters = null) {
       const { data } = await apiClient.get(nextUrl.value)
       items.value = items.value.concat(data.results ?? [])
       nextUrl.value = data.next ?? null
-    } catch (err) {
+    } catch {
       error.value = 'Could not load more.'
     } finally {
       loadingMore.value = false

@@ -19,7 +19,7 @@ async function load() {
     const { data } = await apiClient.get('/admin/referral-settings/')
     creditAmount.value = data.credit_amount
     stats.value = data
-  } catch (err) {
+  } catch {
     error.value = 'Could not load referral settings.'
   } finally {
     loading.value = false
@@ -34,7 +34,9 @@ async function save() {
     const { data } = await apiClient.patch('/admin/referral-settings/', { credit_amount: creditAmount.value })
     stats.value = data
     saved.value = true
-    setTimeout(() => { saved.value = false }, 2000)
+    setTimeout(() => {
+      saved.value = false
+    }, 2000)
   } catch (err) {
     saveError.value = err.response?.data?.credit_amount?.[0] || 'Could not save this change.'
   } finally {
@@ -49,8 +51,8 @@ onMounted(load)
   <div>
     <h1 class="font-[Georgia] text-2xl font-bold text-white">Referral Program</h1>
     <p class="mt-1 text-sm text-slate-400">
-      Set the KES amount a customer earns once a friend they referred completes their first
-      confirmed booking. Changing it only affects credits awarded from that point on.
+      Set the KES amount a customer earns once a friend they referred completes their first confirmed booking. Changing
+      it only affects credits awarded from that point on.
     </p>
 
     <p v-if="loading" class="mt-6 text-center text-slate-400">Loading...</p>
@@ -72,7 +74,7 @@ onMounted(load)
             class="shrink-0 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
             @click="save"
           >
-            {{ saving ? 'Saving...' : (saved ? 'Saved!' : 'Save') }}
+            {{ saving ? 'Saving...' : saved ? 'Saved!' : 'Save' }}
           </button>
         </div>
         <p v-if="saveError" class="mt-2 text-sm text-red-400">{{ saveError }}</p>
@@ -84,14 +86,18 @@ onMounted(load)
           <p class="mt-1 font-[Georgia] text-2xl font-bold text-white">
             KES {{ Number(stats.credits_awarded_total).toLocaleString() }}
           </p>
-          <p class="mt-1 text-xs text-slate-500">{{ stats.credits_awarded_count }} credit{{ stats.credits_awarded_count === 1 ? '' : 's' }}</p>
+          <p class="mt-1 text-xs text-slate-500">
+            {{ stats.credits_awarded_count }} credit{{ stats.credits_awarded_count === 1 ? '' : 's' }}
+          </p>
         </div>
         <div class="rounded-xl border border-navy-800 p-5">
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Redeemed</p>
           <p class="mt-1 font-[Georgia] text-2xl font-bold text-emerald-400">
             KES {{ Number(stats.credits_redeemed_total).toLocaleString() }}
           </p>
-          <p class="mt-1 text-xs text-slate-500">{{ stats.credits_redeemed_count }} credit{{ stats.credits_redeemed_count === 1 ? '' : 's' }}</p>
+          <p class="mt-1 text-xs text-slate-500">
+            {{ stats.credits_redeemed_count }} credit{{ stats.credits_redeemed_count === 1 ? '' : 's' }}
+          </p>
         </div>
         <div class="rounded-xl border border-navy-800 p-5">
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Outstanding</p>

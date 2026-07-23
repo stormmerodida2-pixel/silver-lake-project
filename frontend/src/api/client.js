@@ -32,7 +32,11 @@ apiClient.interceptors.response.use(
     const original = error.config
     const status = error.response?.status
     const url = original?.url || ''
-    const isAuthRequest = url.includes('auth/login') || url.includes('auth/register') || url.includes('auth/activate') || url.includes('token/refresh')
+    const isAuthRequest =
+      url.includes('auth/login') ||
+      url.includes('auth/register') ||
+      url.includes('auth/activate') ||
+      url.includes('token/refresh')
 
     // A 400 ("email already taken", wrong password) is normal, expected user-input feedback -
     // not a bug. But a 500 or a request that never got a response at all (network drop, CORS,
@@ -98,7 +102,7 @@ apiClient.interceptors.response.use(
     }
 
     return Promise.reject(error)
-  }
+  },
 )
 
 export default apiClient

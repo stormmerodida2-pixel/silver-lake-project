@@ -96,12 +96,24 @@ const tooltipStyle = computed(() => {
 <template>
   <div class="relative">
     <svg
-      ref="svgRef" :viewBox="`0 0 ${WIDTH} ${HEIGHT}`" class="w-full" style="height: 220px" preserveAspectRatio="none"
-      @mousemove="onMouseMove" @mouseleave="onMouseLeave"
+      ref="svgRef"
+      :viewBox="`0 0 ${WIDTH} ${HEIGHT}`"
+      class="w-full"
+      style="height: 220px"
+      preserveAspectRatio="none"
+      @mousemove="onMouseMove"
+      @mouseleave="onMouseLeave"
     >
       <g v-for="line in gridLines" :key="line.value">
         <line :x1="PAD_LEFT" :x2="WIDTH - PAD_RIGHT" :y1="line.y" :y2="line.y" stroke="#16305c" stroke-width="1" />
-        <text :x="PAD_LEFT - 8" :y="line.y + 4" text-anchor="end" font-size="11" fill="#64748b" style="font-variant-numeric: tabular-nums">
+        <text
+          :x="PAD_LEFT - 8"
+          :y="line.y + 4"
+          text-anchor="end"
+          font-size="11"
+          fill="#64748b"
+          style="font-variant-numeric: tabular-nums"
+        >
           {{ fmtKES(line.value) }}
         </text>
       </g>
@@ -109,13 +121,35 @@ const tooltipStyle = computed(() => {
       <path :d="areaPath" :fill="GOLD" fill-opacity="0.1" stroke="none" />
       <path :d="linePath" fill="none" :stroke="GOLD" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
 
-      <text v-for="(d, i) in data" :key="d.month" :x="xFor(i)" :y="HEIGHT - 8" text-anchor="middle" font-size="11" fill="#64748b">
+      <text
+        v-for="(d, i) in data"
+        :key="d.month"
+        :x="xFor(i)"
+        :y="HEIGHT - 8"
+        text-anchor="middle"
+        font-size="11"
+        fill="#64748b"
+      >
         {{ monthLabel(d.month) }}
       </text>
 
       <g v-if="hoverIndex !== null">
-        <line :x1="xFor(hoverIndex)" :x2="xFor(hoverIndex)" :y1="PAD_TOP" :y2="PAD_TOP + plotHeight" stroke="#3b4a6b" stroke-width="1" />
-        <circle :cx="xFor(hoverIndex)" :cy="yFor(data[hoverIndex].revenue)" r="5" :fill="GOLD" stroke="#0a1730" stroke-width="2" />
+        <line
+          :x1="xFor(hoverIndex)"
+          :x2="xFor(hoverIndex)"
+          :y1="PAD_TOP"
+          :y2="PAD_TOP + plotHeight"
+          stroke="#3b4a6b"
+          stroke-width="1"
+        />
+        <circle
+          :cx="xFor(hoverIndex)"
+          :cy="yFor(data[hoverIndex].revenue)"
+          r="5"
+          :fill="GOLD"
+          stroke="#0a1730"
+          stroke-width="2"
+        />
       </g>
     </svg>
 

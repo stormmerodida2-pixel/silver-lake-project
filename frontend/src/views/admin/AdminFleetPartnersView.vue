@@ -21,14 +21,17 @@ const form = reactive({
   platform_fee_percent: '10',
 })
 
-const modalTitle = () => editingId.value ? 'Edit Fleet Partner' : 'Register Fleet Partner'
-const submitLabel = () => saving.value
-  ? (editingId.value ? 'Saving…' : 'Registering…')
-  : (editingId.value ? 'Save Changes' : 'Register Partner')
+const modalTitle = () => (editingId.value ? 'Edit Fleet Partner' : 'Register Fleet Partner')
+const submitLabel = () =>
+  saving.value ? (editingId.value ? 'Saving…' : 'Registering…') : editingId.value ? 'Save Changes' : 'Register Partner'
 
 function resetForm() {
   Object.assign(form, {
-    name: '', contact_email: '', contact_phone: '', payout_phone_number: '', platform_fee_percent: '10',
+    name: '',
+    contact_email: '',
+    contact_phone: '',
+    payout_phone_number: '',
+    platform_fee_percent: '10',
   })
 }
 
@@ -42,8 +45,11 @@ function openAddModal() {
 function openEditModal(partner) {
   editingId.value = partner.id
   Object.assign(form, {
-    name: partner.name, contact_email: partner.contact_email, contact_phone: partner.contact_phone,
-    payout_phone_number: partner.payout_phone_number, platform_fee_percent: partner.platform_fee_percent,
+    name: partner.name,
+    contact_email: partner.contact_email,
+    contact_phone: partner.contact_phone,
+    payout_phone_number: partner.payout_phone_number,
+    platform_fee_percent: partner.platform_fee_percent,
   })
   formError.value = ''
   showModal.value = true
@@ -68,9 +74,10 @@ async function savePartner() {
     showModal.value = false
   } catch (err) {
     const detail = err?.response?.data
-    formError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not save this partner. Please try again.'
+    formError.value =
+      typeof detail === 'object'
+        ? Object.values(detail).flat().join(' ')
+        : 'Could not save this partner. Please try again.'
   } finally {
     saving.value = false
   }
@@ -125,13 +132,16 @@ async function sendNotify() {
   }
   notifySending.value = true
   try {
-    await apiClient.post(`/admin/fleet-partners/${notifyingPartner.value.id}/notify/`, { message: notifyMessage.value.trim() })
+    await apiClient.post(`/admin/fleet-partners/${notifyingPartner.value.id}/notify/`, {
+      message: notifyMessage.value.trim(),
+    })
     notifySent.value = true
   } catch (err) {
     const detail = err?.response?.data
-    notifyError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not send this notification. Please try again.'
+    notifyError.value =
+      typeof detail === 'object'
+        ? Object.values(detail).flat().join(' ')
+        : 'Could not send this notification. Please try again.'
   } finally {
     notifySending.value = false
   }
@@ -146,9 +156,8 @@ onMounted(load)
       <div>
         <h1 class="font-[Georgia] text-2xl font-bold text-white">Fleet Partners</h1>
         <p class="mt-1 text-sm text-slate-400">
-          Companies that have registered their own fleet with SilverLake - assign their vehicles
-          to them under Admin → Fleet. SilverLake only takes the platform fee below; the rest is
-          the partner's own money.
+          Companies that have registered their own fleet with SilverLake - assign their vehicles to them under Admin →
+          Fleet. SilverLake only takes the platform fee below; the rest is the partner's own money.
         </p>
       </div>
       <button
@@ -257,28 +266,41 @@ onMounted(load)
 
             <form class="space-y-4" @submit.prevent="savePartner">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Company Name *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Company Name *</label
+                >
                 <input
-                  v-model="form.name" type="text" placeholder="e.g. Coastline Rentals Ltd" required
+                  v-model="form.name"
+                  type="text"
+                  placeholder="e.g. Coastline Rentals Ltd"
+                  required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 />
               </div>
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Contact Email</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                    >Contact Email</label
+                  >
                   <input
-                    v-model="form.contact_email" type="email" placeholder="ops@partner.co.ke"
+                    v-model="form.contact_email"
+                    type="email"
+                    placeholder="ops@partner.co.ke"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Contact Phone</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                    >Contact Phone</label
+                  >
                   <PhoneInput v-model="form.contact_phone" dark />
                 </div>
               </div>
 
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Payout Phone Number</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Payout Phone Number</label
+                >
                 <PhoneInput v-model="form.payout_phone_number" dark />
                 <p class="mt-1 text-xs text-slate-500">
                   Where this partner's own share of a payout is sent - kept separate from their contact phone.
@@ -286,15 +308,21 @@ onMounted(load)
               </div>
 
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Platform Fee (%)</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Platform Fee (%)</label
+                >
                 <input
-                  v-model="form.platform_fee_percent" type="number" min="0" max="100" step="0.01"
+                  v-model="form.platform_fee_percent"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                 />
                 <p class="mt-1 text-xs text-slate-500">
-                  SilverLake's cut, kept as revenue. The rest is owed back to this partner via a
-                  normal payout (Admin → Payouts) once a booking on their vehicle is fully paid -
-                  every payment still goes through SilverLake's own Paybill, not the partner's.
+                  SilverLake's cut, kept as revenue. The rest is owed back to this partner via a normal payout (Admin →
+                  Payouts) once a booking on their vehicle is fully paid - every payment still goes through SilverLake's
+                  own Paybill, not the partner's.
                 </p>
               </div>
 
@@ -343,14 +371,19 @@ onMounted(load)
             </div>
             <form v-else class="space-y-4" @submit.prevent="sendNotify">
               <p class="text-sm text-slate-400">
-                Sends an in-app notification straight to {{ notifyingPartner?.name }}'s own admin(s) -
-                not an email, and not visible to any other organization.
+                Sends an in-app notification straight to {{ notifyingPartner?.name }}'s own admin(s) - not an email, and
+                not visible to any other organization.
               </p>
-              <p v-if="notifyError" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ notifyError }}</p>
+              <p v-if="notifyError" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                {{ notifyError }}
+              </p>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Message *</label>
                 <textarea
-                  v-model="notifyMessage" rows="4" required placeholder="e.g. Please update your fleet photos this week."
+                  v-model="notifyMessage"
+                  rows="4"
+                  required
+                  placeholder="e.g. Please update your fleet photos this week."
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 />
               </div>
@@ -380,7 +413,11 @@ onMounted(load)
 
 <style scoped>
 .modal-fade-enter-active,
-.modal-fade-leave-active { transition: opacity 0.2s ease; }
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
 .modal-fade-enter-from,
-.modal-fade-leave-to { opacity: 0; }
+.modal-fade-leave-to {
+  opacity: 0;
+}
 </style>

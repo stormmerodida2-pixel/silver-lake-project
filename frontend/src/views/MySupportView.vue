@@ -33,7 +33,7 @@ async function loadTickets() {
   try {
     const { data } = await apiClient.get('/support/tickets/')
     tickets.value = data.results ?? data
-  } catch (err) {
+  } catch {
     error.value = 'Could not load your support tickets.'
   } finally {
     loading.value = false
@@ -44,7 +44,7 @@ async function loadBookings() {
   try {
     const { data } = await apiClient.get('/bookings/')
     bookings.value = data.results ?? data
-  } catch (err) {
+  } catch {
     // Advisory only - the booking picker just stays empty if this fails.
   }
 }
@@ -100,9 +100,10 @@ async function submitTicket() {
     photoFiles.value = []
   } catch (err) {
     const detail = err?.response?.data
-    formError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not submit your ticket. Please try again.'
+    formError.value =
+      typeof detail === 'object'
+        ? Object.values(detail).flat().join(' ')
+        : 'Could not submit your ticket. Please try again.'
   } finally {
     saving.value = false
   }
@@ -116,7 +117,7 @@ async function reopenTicket(ticket) {
     const { data } = await apiClient.post(`/support/tickets/${ticket.id}/reopen/`)
     const index = tickets.value.findIndex((t) => t.id === ticket.id)
     tickets.value[index] = data
-  } catch (err) {
+  } catch {
     error.value = 'Could not reopen this ticket.'
   } finally {
     reopeningId.value = null
@@ -148,56 +149,86 @@ onMounted(() => {
 
       <!-- New ticket form -->
       <div v-if="showForm" class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-6">
-        <p v-if="formError" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ formError }}</p>
+        <p v-if="formError" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {{ formError }}
+        </p>
         <form class="space-y-4" @submit.prevent="submitTicket">
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
               <label class="mb-1 block text-sm text-slate-600">Category</label>
-              <select v-model="form.category" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none">
+              <select
+                v-model="form.category"
+                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+              >
                 <option v-for="(label, key) in categoryLabels" :key="key" :value="key">{{ label }}</option>
               </select>
             </div>
             <div>
               <label class="mb-1 block text-sm text-slate-600">Related booking (optional)</label>
-              <select v-model="form.booking" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none">
+              <select
+                v-model="form.booking"
+                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+              >
                 <option value="">None</option>
-                <option v-for="booking in bookings" :key="booking.id" :value="booking.id">{{ bookingLabel(booking) }}</option>
+                <option v-for="booking in bookings" :key="booking.id" :value="booking.id">
+                  {{ bookingLabel(booking) }}
+                </option>
               </select>
             </div>
           </div>
           <div>
             <label class="mb-1 block text-sm text-slate-600">Subject</label>
             <input
-              v-model="form.subject" type="text" required placeholder="Short summary of the issue"
+              v-model="form.subject"
+              type="text"
+              required
+              placeholder="Short summary of the issue"
               class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 placeholder-slate-400 focus:border-brand-blue-500 focus:outline-none"
             />
           </div>
           <div>
             <label class="mb-1 block text-sm text-slate-600">Description</label>
             <textarea
-              v-model="form.description" rows="4" required placeholder="Tell us what happened"
+              v-model="form.description"
+              rows="4"
+              required
+              placeholder="Tell us what happened"
               class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 placeholder-slate-400 focus:border-brand-blue-500 focus:outline-none"
             ></textarea>
           </div>
           <div>
             <label class="mb-1 block text-sm text-slate-600">Photos (optional)</label>
             <input
-              type="file" accept="image/*" multiple
+              type="file"
+              accept="image/*"
+              multiple
               class="w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
               @change="onPhotosSelected"
             />
             <div v-if="photoFiles.length" class="mt-2 flex flex-wrap gap-2">
-              <div v-for="(file, i) in photoFiles" :key="i" class="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs text-slate-600 shadow-sm">
+              <div
+                v-for="(file, i) in photoFiles"
+                :key="i"
+                class="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs text-slate-600 shadow-sm"
+              >
                 {{ file.name }}
                 <button type="button" class="font-bold text-red-500" @click="removePhoto(i)">&times;</button>
               </div>
             </div>
           </div>
           <div class="flex justify-end gap-3">
-            <button type="button" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-400" @click="showForm = false">
+            <button
+              type="button"
+              class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-400"
+              @click="showForm = false"
+            >
               Cancel
             </button>
-            <button type="submit" :disabled="saving" class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-60">
+            <button
+              type="submit"
+              :disabled="saving"
+              class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-60"
+            >
               {{ saving ? 'Submitting…' : 'Submit Ticket' }}
             </button>
           </div>
@@ -219,14 +250,21 @@ onMounted(() => {
                 &middot; {{ new Date(ticket.created_at).toLocaleDateString() }}
               </p>
             </div>
-            <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase" :class="statusStyles[ticket.status]">
+            <span
+              class="rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase"
+              :class="statusStyles[ticket.status]"
+            >
               {{ statusLabels[ticket.status] }}
             </span>
           </div>
           <p class="mt-3 whitespace-pre-line text-sm text-slate-700">{{ ticket.description }}</p>
           <div v-if="ticket.photos.length" class="mt-3 flex flex-wrap gap-2">
             <a v-for="photo in ticket.photos" :key="photo.id" :href="photo.image" target="_blank" rel="noopener">
-              <img :src="photo.image" alt="Attached photo" class="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
+              <img
+                :src="photo.image"
+                alt="Attached photo"
+                class="h-16 w-16 rounded-lg border border-slate-200 object-cover"
+              />
             </a>
           </div>
 

@@ -1,21 +1,36 @@
 from datetime import date
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import OperationalError, transaction
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from accounts.services import get_or_create_customer_account
 from core.permissions import get_user_organization
 from core.utils import capture_replaced_files, delete_files, parse_amount
+from drivers.permissions import IsDriverUser
 from fleet.models import Vehicle
+from payments.models import Payment, PaymentMethod
+from payments.serializers import MIN_BANK_TRANSFER_REFERENCE_LENGTH
+from payments.services import (
+    PaymentValidationError,
+    confirm_offline_payment,
+    declare_offline_payment,
+    initiate_stk_push_payment,
+    log_cash_deposit,
+)
 from reviews.models import Review
 from reviews.serializers import BookingReviewCreateSerializer
 
-from .models import Booking, BookingStatus
-from .serializers import BookingSerializer
+from .models import Booking, BookingSource, BookingStatus
+from .serializers import BookingSerializer, DriverOnsiteBookingSerializer, VehicleConditionReportSerializer
+from .services import create_condition_report
 
 
 class BookingViewSet(
@@ -209,28 +224,6 @@ class BookingViewSet(
             'vehicle_name': vehicle.name,
             'driver_name': booking.driver.full_name if booking.driver else None,
         })
-
-
-from django.shortcuts import get_object_or_404
-from rest_framework.views import APIView
-
-from django.conf import settings
-
-from accounts.services import get_or_create_customer_account
-from drivers.permissions import IsDriverUser
-from payments.models import Payment, PaymentMethod
-from payments.serializers import MIN_BANK_TRANSFER_REFERENCE_LENGTH
-from payments.services import (
-    PaymentValidationError,
-    confirm_offline_payment,
-    declare_offline_payment,
-    initiate_stk_push_payment,
-    log_cash_deposit,
-)
-
-from .models import BookingSource
-from .serializers import DriverOnsiteBookingSerializer, VehicleConditionReportSerializer
-from .services import create_condition_report
 
 
 class DriverOnsiteBookingCreateView(APIView):

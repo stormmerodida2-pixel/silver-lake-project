@@ -14,7 +14,9 @@ export function initAnalytics() {
   document.head.appendChild(script)
 
   window.dataLayer = window.dataLayer || []
-  window.gtag = function gtag() { window.dataLayer.push(arguments) }
+  window.gtag = function gtag() {
+    window.dataLayer.push(arguments)
+  }
   window.gtag('js', new Date())
   // send_page_view disabled - gtag's automatic one only fires for the initial hard load, not
   // client-side route changes, so the router's afterEach hook sends page_view itself instead.

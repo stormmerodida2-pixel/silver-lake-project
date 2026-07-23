@@ -96,7 +96,7 @@ async function refreshReferralCreditBalance() {
   try {
     const { data } = await apiClient.get('/auth/me/')
     referralCreditBalance.value = data.referral_credit_balance
-  } catch (err) {
+  } catch {
     // Advisory only - the "Apply Credit" button just won't show if this fails.
   }
 }
@@ -148,9 +148,7 @@ onMounted(() => {
 
 // Only offer vehicles that actually support the chosen service type.
 const availableVehicles = computed(() =>
-  catalog.vehicles.filter((v) =>
-    form.service_type === 'with_driver' ? v.allow_with_driver : v.allow_self_drive
-  )
+  catalog.vehicles.filter((v) => (form.service_type === 'with_driver' ? v.allow_with_driver : v.allow_self_drive)),
 )
 
 // If the current service type no longer supports the selected vehicle, clear it.
@@ -160,7 +158,7 @@ watch(
     if (form.vehicle && !availableVehicles.value.some((v) => v.id === form.vehicle)) {
       form.vehicle = ''
     }
-  }
+  },
 )
 
 const selectedVehicle = computed(() => catalog.vehicles.find((v) => v.id === form.vehicle))
@@ -178,17 +176,17 @@ watch(
     try {
       const { data } = await apiClient.get(`/vehicles/${vehicleId}/availability/`)
       bookedRanges.value = data
-    } catch (err) {
+    } catch {
       // Advisory only - if this fails, the form still works, submit just won't warn early.
     }
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 const dateConflictWarning = computed(() => {
   if (!form.start_date || !form.end_date) return ''
   const conflict = bookedRanges.value.some(
-    (range) => form.start_date <= range.end_date && form.end_date >= range.start_date
+    (range) => form.start_date <= range.end_date && form.end_date >= range.start_date,
   )
   return conflict
     ? "Heads up - this vehicle already has a booking that overlaps these dates. You can still submit, but it likely won't be accepted."
@@ -230,7 +228,7 @@ async function leaveWaitlist() {
       data: { start_date: form.start_date, end_date: form.end_date },
     })
     onWaitlistFor.value = null
-  } catch (err) {
+  } catch {
     waitlistError.value = 'Could not leave the waitlist.'
   } finally {
     joiningWaitlist.value = false
@@ -338,7 +336,8 @@ async function submitBooking() {
     step.value = 'confirmed'
     refreshReferralCreditBalance()
     trackEvent('generate_lead', {
-      currency: 'KES', value: Number(data.total_amount),
+      currency: 'KES',
+      value: Number(data.total_amount),
       items: [{ item_id: String(data.vehicle), item_name: selectedVehicle.value?.name }],
       service_type: form.service_type,
     })
@@ -382,7 +381,9 @@ function startPolling(paymentId) {
         stopPolling()
         paymentOutcome.value = 'successful'
         trackEvent('purchase', {
-          transaction_id: String(booking.value.id), currency: 'KES', value: amountToPay.value,
+          transaction_id: String(booking.value.id),
+          currency: 'KES',
+          value: amountToPay.value,
           items: [{ item_id: String(booking.value.vehicle), item_name: selectedVehicle.value?.name }],
         })
       } else if (data.status === 'failed') {
@@ -392,7 +393,7 @@ function startPolling(paymentId) {
         stopPolling()
         paymentOutcome.value = 'timeout'
       }
-    } catch (err) {
+    } catch {
       // A transient network hiccup shouldn't end the poll - just try again next tick.
       if (pollAttempts >= MAX_POLL_ATTEMPTS) {
         stopPolling()
@@ -421,7 +422,9 @@ async function payWithMpesa() {
     step.value = 'paying'
     startPolling(data.payment_id)
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Could not start M-Pesa payment. You can also pay via Paybill 400400 (Acc: SILVERLAKE).'
+    error.value =
+      err.response?.data?.detail ||
+      'Could not start M-Pesa payment. You can also pay via Paybill 400400 (Acc: SILVERLAKE).'
   } finally {
     submitting.value = false
   }
@@ -447,7 +450,8 @@ async function declareBankTransfer() {
     bankTransferReference.value = ''
   } catch (err) {
     const data = err.response?.data
-    bankTransferError.value = data?.detail || data?.reference?.[0] || 'Could not record your bank transfer. Please try again.'
+    bankTransferError.value =
+      data?.detail || data?.reference?.[0] || 'Could not record your bank transfer. Please try again.'
   } finally {
     declaringBankTransfer.value = false
   }
@@ -465,14 +469,22 @@ async function declareBankTransfer() {
       <div class="mt-10 grid gap-8" :class="showSidebar ? 'lg:grid-cols-3' : 'mx-auto max-w-2xl'">
         <!-- Main column: form / confirmation / payment -->
         <div :class="showSidebar ? 'lg:col-span-2' : ''">
-          <form v-if="step === 'form'" class="space-y-5 rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:p-8" @submit.prevent="submitBooking">
+          <form
+            v-if="step === 'form'"
+            class="space-y-5 rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:p-8"
+            @submit.prevent="submitBooking"
+          >
             <div>
               <label class="mb-1 block text-sm text-slate-600">Service type</label>
               <div class="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   class="rounded-md border px-3 py-2 text-sm font-semibold transition"
-                  :class="form.service_type === 'with_driver' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
+                  :class="
+                    form.service_type === 'with_driver'
+                      ? 'border-brand-blue-600 bg-brand-blue-600 text-white'
+                      : 'border-slate-300 text-slate-600'
+                  "
                   @click="form.service_type = 'with_driver'"
                 >
                   Book with Driver
@@ -480,7 +492,11 @@ async function declareBankTransfer() {
                 <button
                   type="button"
                   class="rounded-md border px-3 py-2 text-sm font-semibold transition"
-                  :class="form.service_type === 'self_drive' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
+                  :class="
+                    form.service_type === 'self_drive'
+                      ? 'border-brand-blue-600 bg-brand-blue-600 text-white'
+                      : 'border-slate-300 text-slate-600'
+                  "
                   @click="form.service_type = 'self_drive'"
                 >
                   Self Drive
@@ -528,10 +544,23 @@ async function declareBankTransfer() {
               </div>
             </div>
 
-            <div v-if="dateConflictWarning" class="rounded-lg border border-gold-500/40 bg-gold-500/10 px-3 py-2.5 text-sm text-navy-900">
+            <div
+              v-if="dateConflictWarning"
+              class="rounded-lg border border-gold-500/40 bg-gold-500/10 px-3 py-2.5 text-sm text-navy-900"
+            >
               <p class="flex items-start gap-2">
-                <svg class="mt-0.5 h-4 w-4 shrink-0 text-gold-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M10.29 3.86L1.82 18a1.5 1.5 0 001.29 2.25h17.78a1.5 1.5 0 001.29-2.25L13.71 3.86a1.5 1.5 0 00-2.42 0z" />
+                <svg
+                  class="mt-0.5 h-4 w-4 shrink-0 text-gold-500"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M12 9v3.75m0 3.75h.008M10.29 3.86L1.82 18a1.5 1.5 0 001.29 2.25h17.78a1.5 1.5 0 001.29-2.25L13.71 3.86a1.5 1.5 0 00-2.42 0z"
+                  />
                 </svg>
                 <span>{{ dateConflictWarning }}</span>
               </p>
@@ -539,7 +568,12 @@ async function declareBankTransfer() {
               <div class="mt-2 pl-6">
                 <p v-if="onWaitlistFor" class="text-brand-blue-600">
                   You're on the waitlist for these dates - we'll email you if it opens up.
-                  <button type="button" :disabled="joiningWaitlist" class="ml-1 font-semibold underline disabled:opacity-60" @click="leaveWaitlist">
+                  <button
+                    type="button"
+                    :disabled="joiningWaitlist"
+                    class="ml-1 font-semibold underline disabled:opacity-60"
+                    @click="leaveWaitlist"
+                  >
                     Leave waitlist
                   </button>
                 </p>
@@ -581,7 +615,9 @@ async function declareBankTransfer() {
                 <button
                   type="button"
                   class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
-                  :class="bookingFor === 'myself' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-navy-900'"
+                  :class="
+                    bookingFor === 'myself' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-navy-900'
+                  "
                   @click="bookingFor = 'myself'"
                 >
                   Myself
@@ -589,7 +625,11 @@ async function declareBankTransfer() {
                 <button
                   type="button"
                   class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
-                  :class="bookingFor === 'someone_else' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-navy-900'"
+                  :class="
+                    bookingFor === 'someone_else'
+                      ? 'bg-white text-navy-900 shadow-sm'
+                      : 'text-slate-500 hover:text-navy-900'
+                  "
                   @click="bookingFor = 'someone_else'"
                 >
                   Someone else
@@ -602,7 +642,9 @@ async function declareBankTransfer() {
 
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="mb-1 block text-sm text-slate-600">{{ bookingFor === 'someone_else' ? "Rider's name" : 'Your name' }}</label>
+                <label class="mb-1 block text-sm text-slate-600">{{
+                  bookingFor === 'someone_else' ? "Rider's name" : 'Your name'
+                }}</label>
                 <input
                   v-model="form.customer_name"
                   type="text"
@@ -611,7 +653,9 @@ async function declareBankTransfer() {
                 />
               </div>
               <div>
-                <label class="mb-1 block text-sm text-slate-600">{{ bookingFor === 'someone_else' ? "Rider's phone" : 'Your phone' }}</label>
+                <label class="mb-1 block text-sm text-slate-600">{{
+                  bookingFor === 'someone_else' ? "Rider's phone" : 'Your phone'
+                }}</label>
                 <PhoneInput v-model="form.customer_phone" required />
               </div>
             </div>
@@ -627,7 +671,10 @@ async function declareBankTransfer() {
               />
             </div>
 
-            <div v-if="form.service_type === 'self_drive'" class="space-y-4 rounded-md border border-brand-blue-500/40 bg-brand-blue-500/5 p-4">
+            <div
+              v-if="form.service_type === 'self_drive'"
+              class="space-y-4 rounded-md border border-brand-blue-500/40 bg-brand-blue-500/5 p-4"
+            >
               <p class="text-sm font-semibold text-brand-blue-600">
                 Self-drive requires proof of a valid license and ID before we hand over the vehicle.
               </p>
@@ -676,7 +723,9 @@ async function declareBankTransfer() {
           <div v-else-if="step === 'confirmed'" class="rounded-2xl border border-slate-200 bg-white shadow-sm">
             <!-- Success header -->
             <div class="flex items-start gap-4 border-b border-slate-100 p-6 sm:p-8">
-              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <div
+                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"
+              >
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -695,11 +744,17 @@ async function declareBankTransfer() {
                 <span class="text-slate-500">Vehicle</span>
                 <span class="font-medium text-navy-900">{{ selectedVehicle?.name }}</span>
               </div>
-              <div v-if="Number(booking.discount_amount) > 0" class="flex items-center justify-between py-1.5 text-emerald-600">
+              <div
+                v-if="Number(booking.discount_amount) > 0"
+                class="flex items-center justify-between py-1.5 text-emerald-600"
+              >
                 <span>Discount ({{ booking.discount_code_display }})</span>
                 <span class="font-medium">- KES {{ Number(booking.discount_amount).toLocaleString() }}</span>
               </div>
-              <div v-if="Number(booking.loyalty_discount_amount) > 0" class="flex items-center justify-between py-1.5 text-emerald-600">
+              <div
+                v-if="Number(booking.loyalty_discount_amount) > 0"
+                class="flex items-center justify-between py-1.5 text-emerald-600"
+              >
                 <span>Loyalty Discount</span>
                 <span class="font-medium">- KES {{ Number(booking.loyalty_discount_amount).toLocaleString() }}</span>
               </div>
@@ -714,14 +769,18 @@ async function declareBankTransfer() {
             <div v-if="pendingBankTransferPayment" class="p-6 text-center sm:p-8">
               <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold-500/10 text-gold-500">
                 <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                  />
                 </svg>
               </div>
               <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Awaiting Confirmation</h2>
               <p class="mt-2 text-sm text-slate-600">
                 You've declared a bank transfer of KES {{ Number(pendingBankTransferPayment.amount).toLocaleString() }}
-                <span v-if="pendingBankTransferPayment.note">(ref. {{ pendingBankTransferPayment.note }})</span>.
-                Once our team confirms it's been received, your balance will be updated.
+                <span v-if="pendingBankTransferPayment.note">(ref. {{ pendingBankTransferPayment.note }})</span>. Once
+                our team confirms it's been received, your balance will be updated.
               </p>
             </div>
 
@@ -731,7 +790,11 @@ async function declareBankTransfer() {
                 <button
                   type="button"
                   class="rounded-xl border-2 p-3 text-left transition"
-                  :class="payOption === 'deposit' ? 'border-brand-blue-600 bg-brand-blue-50' : 'border-slate-200 hover:border-slate-300'"
+                  :class="
+                    payOption === 'deposit'
+                      ? 'border-brand-blue-600 bg-brand-blue-50'
+                      : 'border-slate-200 hover:border-slate-300'
+                  "
                   @click="payOption = 'deposit'"
                 >
                   <span class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -750,7 +813,11 @@ async function declareBankTransfer() {
                 <button
                   type="button"
                   class="rounded-xl border-2 p-3 text-left transition"
-                  :class="payOption === 'full' ? 'border-brand-blue-600 bg-brand-blue-50' : 'border-slate-200 hover:border-slate-300'"
+                  :class="
+                    payOption === 'full'
+                      ? 'border-brand-blue-600 bg-brand-blue-50'
+                      : 'border-slate-200 hover:border-slate-300'
+                  "
                   @click="payOption = 'full'"
                 >
                   <span class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -773,7 +840,8 @@ async function declareBankTransfer() {
                 class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold-500/40 bg-gold-500/10 p-4"
               >
                 <p class="text-sm text-navy-900">
-                  You have <span class="font-bold">KES {{ Number(referralCreditBalance).toLocaleString() }}</span> in referral credit available.
+                  You have <span class="font-bold">KES {{ Number(referralCreditBalance).toLocaleString() }}</span> in
+                  referral credit available.
                 </p>
                 <button
                   type="button"
@@ -790,14 +858,20 @@ async function declareBankTransfer() {
               <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
                 <button
                   class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
-                  :class="paymentMethod === primaryMethod ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-navy-900'"
+                  :class="
+                    paymentMethod === primaryMethod
+                      ? 'bg-white text-navy-900 shadow-sm'
+                      : 'text-slate-500 hover:text-navy-900'
+                  "
                   @click="paymentMethod = primaryMethod"
                 >
                   {{ MPESA_ENABLED ? 'M-Pesa' : 'Bank Transfer' }}
                 </button>
                 <button
                   class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
-                  :class="paymentMethod === 'card' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-navy-900'"
+                  :class="
+                    paymentMethod === 'card' ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-500 hover:text-navy-900'
+                  "
                   @click="paymentMethod = 'card'"
                 >
                   Card
@@ -807,11 +881,26 @@ async function declareBankTransfer() {
               <div v-if="paymentMethod === 'mpesa'" class="mt-5">
                 <label class="mb-1 block text-sm text-slate-600">M-Pesa number to charge</label>
                 <PhoneInput v-model="paymentPhone" required />
-                <p class="mt-1 text-xs text-slate-500">This is charged to you, the account holder - it doesn't need to match the rider's own phone above.</p>
+                <p class="mt-1 text-xs text-slate-500">
+                  This is charged to you, the account holder - it doesn't need to match the rider's own phone above.
+                </p>
 
-                <p v-if="error" class="mb-3 mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
-                  <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M10.29 3.86L1.82 18a1.5 1.5 0 001.29 2.25h17.78a1.5 1.5 0 001.29-2.25L13.71 3.86a1.5 1.5 0 00-2.42 0z" />
+                <p
+                  v-if="error"
+                  class="mb-3 mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700"
+                >
+                  <svg
+                    class="mt-0.5 h-4 w-4 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M12 9v3.75m0 3.75h.008M10.29 3.86L1.82 18a1.5 1.5 0 001.29 2.25h17.78a1.5 1.5 0 001.29-2.25L13.71 3.86a1.5 1.5 0 00-2.42 0z"
+                    />
                   </svg>
                   <span>{{ error }}</span>
                 </p>
@@ -831,7 +920,8 @@ async function declareBankTransfer() {
                   <p>Paybill <span class="font-semibold text-navy-900">400200</span></p>
                   <p>Account No: <span class="font-semibold text-navy-900">01101465587001</span></p>
                   <p class="mt-2 text-xs text-slate-500">
-                    Use your name and booking #{{ booking?.id }} as the transfer reference, so we can match your payment.
+                    Use your name and booking #{{ booking?.id }} as the transfer reference, so we can match your
+                    payment.
                   </p>
                 </div>
 
@@ -851,24 +941,35 @@ async function declareBankTransfer() {
                 <div class="rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">
                   <label class="flex items-start gap-2">
                     <input v-model="bankTransferAcknowledged" type="checkbox" class="mt-0.5" />
-                    <span>I confirm I have sent KES {{ amountToPay.toLocaleString() }} via bank transfer to the account above.</span>
+                    <span
+                      >I confirm I have sent KES {{ amountToPay.toLocaleString() }} via bank transfer to the account
+                      above.</span
+                    >
                   </label>
                 </div>
 
                 <p v-if="bankTransferError" class="text-sm text-red-600">{{ bankTransferError }}</p>
 
                 <button
-                  :disabled="declaringBankTransfer || !bankTransferAcknowledged || bankTransferReference.trim().length < 4"
+                  :disabled="
+                    declaringBankTransfer || !bankTransferAcknowledged || bankTransferReference.trim().length < 4
+                  "
                   class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
                   @click="declareBankTransfer"
                 >
-                  {{ declaringBankTransfer ? 'Recording...' : `I've Sent KES ${amountToPay.toLocaleString()} via Bank Transfer` }}
+                  {{
+                    declaringBankTransfer
+                      ? 'Recording...'
+                      : `I've Sent KES ${amountToPay.toLocaleString()} via Bank Transfer`
+                  }}
                 </button>
               </div>
 
               <form v-else class="mt-5 space-y-3" @submit.prevent="submitCardPayment">
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Card Number</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500"
+                    >Card Number</label
+                  >
                   <input
                     :value="card.number"
                     type="text"
@@ -881,7 +982,9 @@ async function declareBankTransfer() {
                   />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Cardholder Name</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500"
+                    >Cardholder Name</label
+                  >
                   <input
                     v-model="card.name"
                     type="text"
@@ -919,9 +1022,22 @@ async function declareBankTransfer() {
                   </div>
                 </div>
 
-                <p v-if="cardNotice" class="flex items-start gap-2 rounded-lg border border-gold-500/40 bg-gold-500/10 px-3 py-2.5 text-sm text-navy-900">
-                  <svg class="mt-0.5 h-4 w-4 shrink-0 text-gold-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <p
+                  v-if="cardNotice"
+                  class="flex items-start gap-2 rounded-lg border border-gold-500/40 bg-gold-500/10 px-3 py-2.5 text-sm text-navy-900"
+                >
+                  <svg
+                    class="mt-0.5 h-4 w-4 shrink-0 text-gold-500"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   <span>{{ cardNotice }}</span>
                 </p>
@@ -932,14 +1048,21 @@ async function declareBankTransfer() {
                 >
                   Pay KES {{ amountToPay.toLocaleString() }} by Card
                 </button>
-                <p class="text-center text-xs text-slate-400">Secured payment - your card details are never stored on our servers.</p>
+                <p class="text-center text-xs text-slate-400">
+                  Secured payment - your card details are never stored on our servers.
+                </p>
               </form>
             </div>
           </div>
 
-          <div v-else-if="step === 'paying'" class="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
+          <div
+            v-else-if="step === 'paying'"
+            class="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8"
+          >
             <template v-if="paymentOutcome === 'successful'">
-              <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <div
+                class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"
+              >
                 <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -978,13 +1101,19 @@ async function declareBankTransfer() {
             <template v-else-if="paymentOutcome === 'timeout'">
               <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold-500/10 text-gold-500">
                 <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                  />
                 </svg>
               </div>
               <h2 class="mt-4 font-[Georgia] text-xl font-bold text-navy-900">Still Waiting on M-Pesa</h2>
               <p class="mt-2 text-sm text-slate-600">
                 This is taking longer than usual. If you already entered your PIN, check
-                <RouterLink to="/account/bookings" class="font-semibold text-brand-blue-600 hover:underline">My Bookings</RouterLink>
+                <RouterLink to="/account/bookings" class="font-semibold text-brand-blue-600 hover:underline"
+                  >My Bookings</RouterLink
+                >
                 in a moment - it'll update once M-Pesa confirms. Otherwise, you can try again.
               </p>
               <button
@@ -996,7 +1125,9 @@ async function declareBankTransfer() {
             </template>
 
             <template v-else>
-              <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-blue-50 text-brand-blue-600">
+              <div
+                class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-blue-50 text-brand-blue-600"
+              >
                 <svg class="h-7 w-7 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" />
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
@@ -1004,8 +1135,9 @@ async function declareBankTransfer() {
               </div>
               <h2 class="mt-4 font-[Georgia] text-xl font-bold text-navy-900">Check Your Phone</h2>
               <p class="mt-2 text-sm text-slate-600">
-                We've sent an M-Pesa prompt to {{ paymentPhone }}. Enter your PIN to complete payment for
-                booking #{{ booking?.id }}.
+                We've sent an M-Pesa prompt to {{ paymentPhone }}. Enter your PIN to complete payment for booking #{{
+                  booking?.id
+                }}.
               </p>
             </template>
           </div>
@@ -1013,107 +1145,114 @@ async function declareBankTransfer() {
 
         <!-- Sidebar: live vehicle/cost summary (only once a vehicle is actually picked) -->
         <aside v-if="showSidebar" class="lg:col-span-1">
-          <div
-            class="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 lg:sticky lg:top-24"
-          >
-              <div
-                class="group relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl bg-slate-100"
-                @mouseenter="stopPhotoTimer"
-                @mouseleave="startPhotoTimer"
-              >
-                <Transition name="photo-fade">
-                  <img
-                    v-if="vehiclePhotos.length"
-                    :key="photoIndex"
-                    :src="vehiclePhotos[photoIndex].image"
-                    :alt="vehiclePhotos[photoIndex].caption || selectedVehicle.name"
-                    class="absolute inset-0 h-full w-full object-cover"
-                  />
-                </Transition>
-                <div v-if="!vehiclePhotos.length" class="flex h-full items-center justify-center text-sm text-slate-400">No photo yet</div>
-
-                <template v-if="vehiclePhotos.length > 1">
-                  <button
-                    type="button"
-                    aria-label="Previous photo"
-                    class="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-navy-950/50 text-white opacity-0 transition group-hover:opacity-100 hover:bg-navy-950/80"
-                    @click="prevPhoto"
-                  >
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Next photo"
-                    class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-navy-950/50 text-white opacity-0 transition group-hover:opacity-100 hover:bg-navy-950/80"
-                    @click="nextPhoto"
-                  >
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                  <div class="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
-                    <button
-                      v-for="(photo, i) in vehiclePhotos"
-                      :key="photo.id ?? i"
-                      type="button"
-                      :aria-label="`Show photo ${i + 1}`"
-                      class="h-1.5 w-1.5 rounded-full transition"
-                      :class="i === photoIndex ? 'bg-white' : 'bg-white/50'"
-                      @click="goToPhoto(i)"
-                    />
-                  </div>
-                </template>
+          <div class="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 lg:sticky lg:top-24">
+            <div
+              class="group relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl bg-slate-100"
+              @mouseenter="stopPhotoTimer"
+              @mouseleave="startPhotoTimer"
+            >
+              <Transition name="photo-fade">
+                <img
+                  v-if="vehiclePhotos.length"
+                  :key="photoIndex"
+                  :src="vehiclePhotos[photoIndex].image"
+                  :alt="vehiclePhotos[photoIndex].caption || selectedVehicle.name"
+                  class="absolute inset-0 h-full w-full object-cover"
+                />
+              </Transition>
+              <div v-if="!vehiclePhotos.length" class="flex h-full items-center justify-center text-sm text-slate-400">
+                No photo yet
               </div>
-              <div class="p-5">
-                <h3 class="font-[Georgia] text-lg font-bold uppercase tracking-wide text-navy-900">
-                  {{ selectedVehicle.name }}
-                </h3>
-                <p class="text-sm font-semibold text-brand-blue-600">
-                  {{ selectedVehicle.category_name || selectedVehicle.category }}
-                </p>
-                <p class="mt-1 text-sm text-slate-600">{{ selectedVehicle.passenger_capacity }} Passengers</p>
-                <p class="mt-1 text-sm text-slate-500">
-                  {{ form.service_type === 'with_driver' ? 'With Driver' : 'Self Drive' }}
-                </p>
 
-                <div class="mt-4 space-y-2 border-t border-slate-200 pt-4 text-sm">
-                  <div class="flex justify-between text-slate-600">
-                    <span>Rate</span>
-                    <span>KES {{ Number(selectedVehicle.price_per_day).toLocaleString() }}/day</span>
-                  </div>
-                  <div v-if="totalDays" class="flex justify-between text-slate-600">
-                    <span>{{ totalDays }} day{{ totalDays > 1 ? 's' : '' }}</span>
-                    <span>&times; KES {{ Number(selectedVehicle.price_per_day).toLocaleString() }}</span>
-                  </div>
-                  <div v-if="totalDays && form.service_type === 'self_drive'" class="flex justify-between text-slate-600">
-                    <span>Self-drive surcharge (3%)</span>
-                    <span>+ KES {{ (totalCost - baseCost).toLocaleString() }}</span>
-                  </div>
-                  <div v-if="totalDays" class="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-navy-900">
-                    <span>Total</span>
-                    <span class="text-gold-500">KES {{ totalCost.toLocaleString() }}</span>
-                  </div>
-                  <p v-if="!totalDays" class="text-xs text-slate-500">Pick your dates to see the total cost.</p>
-                </div>
-
-                <div v-if="totalDays" class="mt-3 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                  A 30% deposit (KES {{ Math.round(totalCost * 0.3).toLocaleString() }}) secures your booking - pay the
-                  rest anytime before pickup.
-                </div>
-
-                <div class="mt-4 border-t border-slate-200 pt-4">
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Discount Code (optional)
-                  </label>
-                  <input
-                    v-model="form.discount_code" type="text" placeholder="e.g. WELCOME500"
-                    class="w-full rounded-md border border-slate-200 px-3 py-2 text-sm uppercase text-slate-800 placeholder-slate-400 placeholder:normal-case focus:border-brand-blue-600 focus:outline-none"
+              <template v-if="vehiclePhotos.length > 1">
+                <button
+                  type="button"
+                  aria-label="Previous photo"
+                  class="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-navy-950/50 text-white opacity-0 transition group-hover:opacity-100 hover:bg-navy-950/80"
+                  @click="prevPhoto"
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next photo"
+                  class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-navy-950/50 text-white opacity-0 transition group-hover:opacity-100 hover:bg-navy-950/80"
+                  @click="nextPhoto"
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                <div class="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
+                  <button
+                    v-for="(photo, i) in vehiclePhotos"
+                    :key="photo.id ?? i"
+                    type="button"
+                    :aria-label="`Show photo ${i + 1}`"
+                    class="h-1.5 w-1.5 rounded-full transition"
+                    :class="i === photoIndex ? 'bg-white' : 'bg-white/50'"
+                    @click="goToPhoto(i)"
                   />
-                  <p class="mt-1 text-xs text-slate-400">Applied automatically when you book - it'll show on your total below.</p>
                 </div>
+              </template>
+            </div>
+            <div class="p-5">
+              <h3 class="font-[Georgia] text-lg font-bold uppercase tracking-wide text-navy-900">
+                {{ selectedVehicle.name }}
+              </h3>
+              <p class="text-sm font-semibold text-brand-blue-600">
+                {{ selectedVehicle.category_name || selectedVehicle.category }}
+              </p>
+              <p class="mt-1 text-sm text-slate-600">{{ selectedVehicle.passenger_capacity }} Passengers</p>
+              <p class="mt-1 text-sm text-slate-500">
+                {{ form.service_type === 'with_driver' ? 'With Driver' : 'Self Drive' }}
+              </p>
+
+              <div class="mt-4 space-y-2 border-t border-slate-200 pt-4 text-sm">
+                <div class="flex justify-between text-slate-600">
+                  <span>Rate</span>
+                  <span>KES {{ Number(selectedVehicle.price_per_day).toLocaleString() }}/day</span>
+                </div>
+                <div v-if="totalDays" class="flex justify-between text-slate-600">
+                  <span>{{ totalDays }} day{{ totalDays > 1 ? 's' : '' }}</span>
+                  <span>&times; KES {{ Number(selectedVehicle.price_per_day).toLocaleString() }}</span>
+                </div>
+                <div v-if="totalDays && form.service_type === 'self_drive'" class="flex justify-between text-slate-600">
+                  <span>Self-drive surcharge (3%)</span>
+                  <span>+ KES {{ (totalCost - baseCost).toLocaleString() }}</span>
+                </div>
+                <div
+                  v-if="totalDays"
+                  class="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-navy-900"
+                >
+                  <span>Total</span>
+                  <span class="text-gold-500">KES {{ totalCost.toLocaleString() }}</span>
+                </div>
+                <p v-if="!totalDays" class="text-xs text-slate-500">Pick your dates to see the total cost.</p>
               </div>
+
+              <div v-if="totalDays" class="mt-3 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                A 30% deposit (KES {{ Math.round(totalCost * 0.3).toLocaleString() }}) secures your booking - pay the
+                rest anytime before pickup.
+              </div>
+
+              <div class="mt-4 border-t border-slate-200 pt-4">
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Discount Code (optional)
+                </label>
+                <input
+                  v-model="form.discount_code"
+                  type="text"
+                  placeholder="e.g. WELCOME500"
+                  class="w-full rounded-md border border-slate-200 px-3 py-2 text-sm uppercase text-slate-800 placeholder-slate-400 placeholder:normal-case focus:border-brand-blue-600 focus:outline-none"
+                />
+                <p class="mt-1 text-xs text-slate-400">
+                  Applied automatically when you book - it'll show on your total below.
+                </p>
+              </div>
+            </div>
           </div>
 
           <AvailabilityCalendar :vehicle-id="selectedVehicle.id" class="mt-4" />

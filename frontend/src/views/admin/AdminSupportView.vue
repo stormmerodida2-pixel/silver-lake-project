@@ -25,7 +25,7 @@ async function markInProgress(ticket) {
   try {
     const { data } = await apiClient.post(`/admin/support/${ticket.id}/respond/`, { status: 'in_progress' })
     Object.assign(ticket, data)
-  } catch (err) {
+  } catch {
     error.value = 'Could not update this ticket.'
   } finally {
     busyId.value = null
@@ -48,7 +48,8 @@ async function submitResolution(ticket) {
   busyId.value = ticket.id
   try {
     const { data } = await apiClient.post(`/admin/support/${ticket.id}/respond/`, {
-      status: 'resolved', resolution_note: resolutionNote.value,
+      status: 'resolved',
+      resolution_note: resolutionNote.value,
     })
     Object.assign(ticket, data)
     resolvingId.value = null
@@ -80,10 +81,15 @@ onMounted(() => {
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <p class="font-semibold text-white">{{ ticket.subject }}</p>
-              <span class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-400">
+              <span
+                class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-400"
+              >
                 {{ categoryLabels[ticket.category] }}
               </span>
-              <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" :class="statusClasses[ticket.status]">
+              <span
+                class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                :class="statusClasses[ticket.status]"
+              >
                 {{ statusLabels[ticket.status] }}
               </span>
             </div>
@@ -95,10 +101,17 @@ onMounted(() => {
             <p class="mt-2 whitespace-pre-line text-sm text-slate-300">{{ ticket.description }}</p>
             <div v-if="ticket.photos.length" class="mt-2 flex flex-wrap gap-2">
               <a v-for="photo in ticket.photos" :key="photo.id" :href="photo.image" target="_blank" rel="noopener">
-                <img :src="photo.image" alt="Attached photo" class="h-16 w-16 rounded-lg border border-navy-700 object-cover" />
+                <img
+                  :src="photo.image"
+                  alt="Attached photo"
+                  class="h-16 w-16 rounded-lg border border-navy-700 object-cover"
+                />
               </a>
             </div>
-            <p v-if="ticket.status === 'resolved'" class="mt-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+            <p
+              v-if="ticket.status === 'resolved'"
+              class="mt-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300"
+            >
               <span class="font-semibold">Resolved by {{ ticket.resolved_by_name }}:</span> {{ ticket.resolution_note }}
             </p>
           </div>
@@ -123,12 +136,17 @@ onMounted(() => {
 
         <div v-if="resolvingId === ticket.id" class="mt-3 space-y-2 rounded-lg border border-navy-700 bg-navy-950 p-3">
           <textarea
-            v-model="resolutionNote" rows="2" placeholder="Describe how this was resolved..."
+            v-model="resolutionNote"
+            rows="2"
+            placeholder="Describe how this was resolved..."
             class="w-full rounded-md border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-400 focus:outline-none"
           ></textarea>
           <p v-if="resolveError" class="text-xs text-red-400">{{ resolveError }}</p>
           <div class="flex justify-end gap-2">
-            <button class="rounded-md border border-navy-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-500" @click="resolvingId = null">
+            <button
+              class="rounded-md border border-navy-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-500"
+              @click="resolvingId = null"
+            >
               Cancel
             </button>
             <button

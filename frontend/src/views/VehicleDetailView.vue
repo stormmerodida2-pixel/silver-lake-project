@@ -17,7 +17,8 @@ const error = ref('')
 
 function trackVehicleView(v) {
   trackEvent('view_item', {
-    currency: 'KES', value: Number(v.price_per_day),
+    currency: 'KES',
+    value: Number(v.price_per_day),
     items: [{ item_id: String(v.id), item_name: v.name, price: Number(v.price_per_day) }],
   })
 }
@@ -59,12 +60,7 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
     <template v-else-if="vehicle">
       <!-- Hero image -->
       <div class="relative h-72 w-full bg-slate-100 sm:h-96">
-        <img
-          v-if="vehicle.image"
-          :src="vehicle.image"
-          :alt="vehicle.name"
-          class="h-full w-full object-cover"
-        />
+        <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
         <div v-else class="flex h-full items-center justify-center text-slate-300 text-lg">No photo available</div>
         <!-- Back link -->
         <RouterLink
@@ -80,7 +76,6 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
 
       <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
         <div class="grid gap-10 lg:grid-cols-3">
-
           <!-- Left: details -->
           <div class="lg:col-span-2">
             <p class="text-sm font-semibold uppercase tracking-widest text-brand-blue-600">
@@ -98,9 +93,7 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
                 <p class="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">Passengers</p>
               </div>
               <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <p class="text-2xl font-bold text-gold-600">
-                  KES {{ Number(vehicle.price_per_day).toLocaleString() }}
-                </p>
+                <p class="text-2xl font-bold text-gold-600">KES {{ Number(vehicle.price_per_day).toLocaleString() }}</p>
                 <p class="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">Per Day</p>
               </div>
               <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center col-span-2 sm:col-span-1">
@@ -147,7 +140,12 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
                   v-if="vehicle.allow_with_driver"
                   :to="withDriverUrl"
                   class="flex w-full items-center justify-center rounded-xl bg-gold-500 py-3 font-semibold text-navy-950 transition hover:bg-gold-400"
-                  @click="trackEvent('select_item', { items: [{ item_id: String(vehicle.id), item_name: vehicle.name }], service_type: 'with_driver' })"
+                  @click="
+                    trackEvent('select_item', {
+                      items: [{ item_id: String(vehicle.id), item_name: vehicle.name }],
+                      service_type: 'with_driver',
+                    })
+                  "
                 >
                   Book with Driver
                 </RouterLink>
@@ -155,7 +153,12 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
                   v-if="vehicle.allow_self_drive"
                   :to="selfDriveUrl"
                   class="flex w-full items-center justify-center rounded-xl border border-navy-900 py-3 font-semibold text-navy-900 transition hover:bg-navy-900 hover:text-white"
-                  @click="trackEvent('select_item', { items: [{ item_id: String(vehicle.id), item_name: vehicle.name }], service_type: 'self_drive' })"
+                  @click="
+                    trackEvent('select_item', {
+                      items: [{ item_id: String(vehicle.id), item_name: vehicle.name }],
+                      service_type: 'self_drive',
+                    })
+                  "
                 >
                   Self Drive
                 </RouterLink>
@@ -171,7 +174,6 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
 
             <AvailabilityCalendar :vehicle-id="vehicle.id" class="mt-4" />
           </div>
-
         </div>
       </div>
     </template>

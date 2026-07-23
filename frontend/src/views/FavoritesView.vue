@@ -14,7 +14,7 @@ async function loadFavorites() {
   try {
     const { data } = await apiClient.get('/vehicles/favorites/')
     vehicles.value = data
-  } catch (err) {
+  } catch {
     error.value = 'Could not load your favorites.'
   } finally {
     loading.value = false
@@ -38,16 +38,13 @@ onMounted(loadFavorites)
       <p v-else-if="error" class="mt-10 text-center text-red-600">{{ error }}</p>
       <p v-else-if="!vehicles.length" class="mt-10 text-center text-slate-500">
         No favorites yet - tap the heart on any vehicle to save it here.
-        <RouterLink to="/fleet" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Browse the fleet</RouterLink>
+        <RouterLink to="/fleet" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
+          >Browse the fleet</RouterLink
+        >
       </p>
 
       <div v-else class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <VehicleCard
-          v-for="vehicle in vehicles"
-          :key="vehicle.id"
-          :vehicle="vehicle"
-          @unfavorited="removeFromList"
-        />
+        <VehicleCard v-for="vehicle in vehicles" :key="vehicle.id" :vehicle="vehicle" @unfavorited="removeFromList" />
       </div>
     </div>
   </div>

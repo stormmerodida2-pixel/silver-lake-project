@@ -37,7 +37,7 @@ export const useDriverPortalStore = defineStore('driverPortal', {
       try {
         const { data } = await apiClient.get('/driver/me/')
         this.profile = data
-      } catch (err) {
+      } catch {
         this.profileError = 'Could not load your driver profile.'
       } finally {
         this.profileLoading = false
@@ -49,7 +49,7 @@ export const useDriverPortalStore = defineStore('driverPortal', {
       try {
         const { data } = await apiClient.get('/driver/bookings/mine/')
         this.bookings = data.results ?? data
-      } catch (err) {
+      } catch {
         this.bookingsError = 'Could not load your bookings.'
       } finally {
         this.bookingsLoading = false

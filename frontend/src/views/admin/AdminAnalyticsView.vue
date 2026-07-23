@@ -21,7 +21,7 @@ onMounted(async () => {
   try {
     const { data: response } = await apiClient.get('/admin/analytics/')
     data.value = response
-  } catch (err) {
+  } catch {
     error.value = 'Could not load analytics.'
   } finally {
     loading.value = false
@@ -41,7 +41,10 @@ onMounted(async () => {
       <section class="rounded-2xl border border-navy-800 bg-navy-900 p-6">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Revenue Collected</h2>
-          <button class="text-xs font-semibold text-slate-400 hover:text-gold-400" @click="showRevenueTable = !showRevenueTable">
+          <button
+            class="text-xs font-semibold text-slate-400 hover:text-gold-400"
+            @click="showRevenueTable = !showRevenueTable"
+          >
             {{ showRevenueTable ? 'View Chart' : 'View as Table' }}
           </button>
         </div>
@@ -50,12 +53,17 @@ onMounted(async () => {
         <div v-else class="mt-4 overflow-x-auto">
           <table class="w-full text-left text-sm">
             <thead class="text-slate-400">
-              <tr><th class="py-1.5 pr-4 font-medium">Month</th><th class="py-1.5 font-medium">Revenue (KES)</th></tr>
+              <tr>
+                <th class="py-1.5 pr-4 font-medium">Month</th>
+                <th class="py-1.5 font-medium">Revenue (KES)</th>
+              </tr>
             </thead>
             <tbody class="divide-y divide-navy-800">
               <tr v-for="month in data.revenue_trend" :key="month.month">
                 <td class="py-1.5 pr-4 text-slate-300">{{ monthLabel(month.month) }}</td>
-                <td class="py-1.5 text-white" style="font-variant-numeric: tabular-nums">{{ Number(month.revenue).toLocaleString() }}</td>
+                <td class="py-1.5 text-white" style="font-variant-numeric: tabular-nums">
+                  {{ Number(month.revenue).toLocaleString() }}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -79,13 +87,21 @@ onMounted(async () => {
           <div v-else class="mt-4 overflow-x-auto">
             <table class="w-full text-left text-sm">
               <thead class="text-slate-400">
-                <tr><th class="py-1.5 pr-4 font-medium">Vehicle</th><th class="py-1.5 pr-4 font-medium">Bookings</th><th class="py-1.5 font-medium">Revenue (KES)</th></tr>
+                <tr>
+                  <th class="py-1.5 pr-4 font-medium">Vehicle</th>
+                  <th class="py-1.5 pr-4 font-medium">Bookings</th>
+                  <th class="py-1.5 font-medium">Revenue (KES)</th>
+                </tr>
               </thead>
               <tbody class="divide-y divide-navy-800">
                 <tr v-for="vehicle in data.top_vehicles" :key="vehicle.id">
                   <td class="py-1.5 pr-4 text-slate-300">{{ vehicle.name }}</td>
-                  <td class="py-1.5 pr-4 text-slate-300" style="font-variant-numeric: tabular-nums">{{ vehicle.bookings }}</td>
-                  <td class="py-1.5 text-white" style="font-variant-numeric: tabular-nums">{{ Number(vehicle.revenue).toLocaleString() }}</td>
+                  <td class="py-1.5 pr-4 text-slate-300" style="font-variant-numeric: tabular-nums">
+                    {{ vehicle.bookings }}
+                  </td>
+                  <td class="py-1.5 text-white" style="font-variant-numeric: tabular-nums">
+                    {{ Number(vehicle.revenue).toLocaleString() }}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -108,10 +124,14 @@ onMounted(async () => {
           <div v-if="data.customers.new + data.customers.repeat > 0" class="mt-6">
             <div class="mb-2 flex items-center gap-4 text-xs">
               <span class="flex items-center gap-1.5 text-slate-300">
-                <span class="h-2.5 w-2.5 rounded-full" style="background: #96751e"></span> Repeat ({{ data.customers.repeat }})
+                <span class="h-2.5 w-2.5 rounded-full" style="background: #96751e"></span> Repeat ({{
+                  data.customers.repeat
+                }})
               </span>
               <span class="flex items-center gap-1.5 text-slate-300">
-                <span class="h-2.5 w-2.5 rounded-full" style="background: #2f6fed"></span> New ({{ data.customers.new }})
+                <span class="h-2.5 w-2.5 rounded-full" style="background: #2f6fed"></span> New ({{
+                  data.customers.new
+                }})
               </span>
             </div>
             <div class="flex h-6 w-full gap-0.5 overflow-hidden rounded-full bg-navy-950">
@@ -125,7 +145,9 @@ onMounted(async () => {
                 class="flex items-center justify-center text-[10px] font-semibold text-white"
                 :style="{ width: `${100 - data.customers.repeat_rate}%`, background: '#2f6fed' }"
               >
-                <span v-if="100 - data.customers.repeat_rate >= 15">{{ (100 - data.customers.repeat_rate).toFixed(1) }}%</span>
+                <span v-if="100 - data.customers.repeat_rate >= 15"
+                  >{{ (100 - data.customers.repeat_rate).toFixed(1) }}%</span
+                >
               </div>
             </div>
           </div>

@@ -19,7 +19,7 @@ export async function registerServiceWorker() {
   if (!isPushSupported()) return null
   try {
     return await navigator.serviceWorker.register('/sw.js')
-  } catch (err) {
+  } catch {
     return null
   }
 }

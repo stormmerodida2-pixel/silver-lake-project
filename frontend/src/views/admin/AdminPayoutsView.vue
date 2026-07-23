@@ -77,7 +77,12 @@ function isB2cPending(payout) {
 }
 
 async function disbursePayout(payout) {
-  if (!(await confirmDialog(`Send KES ${Number(payout.amount).toLocaleString()} to ${payout.recipient_phone_number} via M-Pesa now?`))) return
+  if (
+    !(await confirmDialog(
+      `Send KES ${Number(payout.amount).toLocaleString()} to ${payout.recipient_phone_number} via M-Pesa now?`,
+    ))
+  )
+    return
   busyId.value = payout.id
   try {
     const { data } = await apiClient.post(`/admin/payouts/${payout.id}/disburse/`)
@@ -102,7 +107,7 @@ async function exportCsv() {
     link.download = `SilverLake-Payouts-${new Date().toISOString().slice(0, 10)}.csv`
     link.click()
     window.URL.revokeObjectURL(url)
-  } catch (err) {
+  } catch {
     error.value = 'Could not export payouts to CSV.'
   } finally {
     exportingCsv.value = false
@@ -153,7 +158,11 @@ onMounted(load)
         <div class="flex items-center gap-2 border-l border-navy-800 pl-4">
           <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Recipient</span>
           <button
-            v-for="option in [{ value: 'all', label: 'All' }, { value: 'drivers', label: 'Drivers' }, { value: 'fleet', label: 'Fleet Partners' }]"
+            v-for="option in [
+              { value: 'all', label: 'All' },
+              { value: 'drivers', label: 'Drivers' },
+              { value: 'fleet', label: 'Fleet Partners' },
+            ]"
             :key="option.value"
             class="rounded-md border px-3 py-1.5 text-sm font-medium transition"
             :class="
@@ -185,7 +194,10 @@ onMounted(load)
             <tr v-for="payout in filteredPayouts" :key="payout.id">
               <td class="px-4 py-3 text-white">
                 {{ payout.driver_name || payout.organization_name }}
-                <span v-if="payout.organization_name" class="ml-1 rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-blue-400">
+                <span
+                  v-if="payout.organization_name"
+                  class="ml-1 rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-blue-400"
+                >
                   Org
                 </span>
               </td>
@@ -196,7 +208,8 @@ onMounted(load)
               <td class="px-4 py-3 text-slate-300">KES {{ Number(payout.amount).toLocaleString() }}</td>
               <td class="px-4 py-3">
                 <span class="text-slate-300">
-                  KES {{ Number(payout.booking_amount_paid).toLocaleString() }} / {{ Number(payout.booking_total_amount).toLocaleString() }}
+                  KES {{ Number(payout.booking_amount_paid).toLocaleString() }} /
+                  {{ Number(payout.booking_total_amount).toLocaleString() }}
                 </span>
                 <div v-if="Number(payout.booking_balance_due) > 0" class="text-xs font-semibold text-red-400">
                   KES {{ Number(payout.booking_balance_due).toLocaleString() }} still owed
@@ -225,7 +238,11 @@ onMounted(load)
                     v-if="payout.needs_verification"
                     class="inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold"
                     :class="payout.is_verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gold-500/10 text-gold-400'"
-                    :title="payout.is_verified ? payout.verification_note : 'Confirmed via a self-reported cash/card payment - not yet verified'"
+                    :title="
+                      payout.is_verified
+                        ? payout.verification_note
+                        : 'Confirmed via a self-reported cash/card payment - not yet verified'
+                    "
                   >
                     {{ payout.is_verified ? 'Verified' : 'Needs Verification' }}
                   </span>
@@ -260,7 +277,9 @@ onMounted(load)
                   <button
                     v-if="payout.needs_verification && !payout.is_verified && auth.user?.is_superuser"
                     :disabled="busyId === payout.id || payout.has_undeposited_cash"
-                    :title="payout.has_undeposited_cash ? 'Waiting on the driver to log a matching Paybill deposit first' : ''"
+                    :title="
+                      payout.has_undeposited_cash ? 'Waiting on the driver to log a matching Paybill deposit first' : ''
+                    "
                     class="rounded-md border border-gold-500 px-2 py-1 text-xs font-semibold text-gold-400 hover:bg-gold-500 hover:text-navy-950 disabled:cursor-not-allowed disabled:opacity-50"
                     @click="verifyPayout(payout)"
                   >

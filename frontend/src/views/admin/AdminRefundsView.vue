@@ -45,7 +45,12 @@ function isB2cPending(refund) {
 }
 
 async function disburseRefund(refund) {
-  if (!(await confirmDialog(`Send KES ${Number(refund.amount).toLocaleString()} to ${refund.recipient_phone_number} via M-Pesa now?`))) return
+  if (
+    !(await confirmDialog(
+      `Send KES ${Number(refund.amount).toLocaleString()} to ${refund.recipient_phone_number} via M-Pesa now?`,
+    ))
+  )
+    return
   busyId.value = refund.id
   try {
     const { data } = await apiClient.post(`/admin/refunds/${refund.id}/disburse/`)
@@ -141,7 +146,10 @@ onMounted(load)
                 </span>
               </td>
               <td class="px-4 py-3">
-                <div v-if="refund.status !== 'issued' && auth.user?.is_superuser" class="flex flex-col items-start gap-1.5">
+                <div
+                  v-if="refund.status !== 'issued' && auth.user?.is_superuser"
+                  class="flex flex-col items-start gap-1.5"
+                >
                   <button
                     :disabled="busyId === refund.id"
                     class="rounded-md bg-gold-500 px-2 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"

@@ -14,7 +14,11 @@ const route = useRoute()
 // Prefills from a shared referral link (e.g. .../register?ref=ABC12345) - still editable, so
 // someone who was given a code verbally can type it in just as easily.
 const form = reactive({
-  firstName: '', lastName: '', email: '', phoneNumber: '', password: '',
+  firstName: '',
+  lastName: '',
+  email: '',
+  phoneNumber: '',
+  password: '',
   referralCode: typeof route.query.ref === 'string' ? route.query.ref.toUpperCase() : '',
 })
 const agreedToTerms = ref(false)
@@ -106,11 +110,20 @@ async function submit() {
             placeholder="e.g. AB12CD34"
             class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 uppercase text-navy-900 placeholder:normal-case focus:border-brand-blue-500 focus:outline-none"
           />
-          <p class="mt-1 text-xs text-slate-500">Got a code from a friend? Enter it here and they'll earn referral credit.</p>
+          <p class="mt-1 text-xs text-slate-500">
+            Got a code from a friend? Enter it here and they'll earn referral credit.
+          </p>
         </div>
-        <div v-if="error" class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div
+          v-if="error"
+          class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
           <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+            />
           </svg>
           <span>{{ error }}</span>
         </div>
@@ -123,9 +136,16 @@ async function submit() {
           />
           <span>
             I agree to the
-            <RouterLink to="/terms" target="_blank" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Terms of Service</RouterLink>
+            <RouterLink to="/terms" target="_blank" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
+              >Terms of Service</RouterLink
+            >
             and
-            <RouterLink to="/privacy" target="_blank" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Privacy Policy</RouterLink>.
+            <RouterLink
+              to="/privacy"
+              target="_blank"
+              class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
+              >Privacy Policy</RouterLink
+            >.
           </span>
         </label>
         <button
@@ -137,7 +157,9 @@ async function submit() {
         </button>
         <p class="text-center text-sm text-slate-500">
           Already have an account?
-          <RouterLink to="/login" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Log in</RouterLink>
+          <RouterLink to="/login" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
+            >Log in</RouterLink
+          >
         </p>
       </form>
     </div>

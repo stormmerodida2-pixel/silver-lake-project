@@ -80,8 +80,8 @@ async function load() {
       map = null
       marker = null
     }
-  } catch (err) {
-    error.value = 'Could not check the vehicle\'s location.'
+  } catch {
+    error.value = "Could not check the vehicle's location."
   } finally {
     loading.value = false
   }
@@ -113,8 +113,7 @@ onBeforeUnmount(() => {
       <div ref="mapEl" class="mt-3 h-56 w-full overflow-hidden rounded-md"></div>
     </template>
     <p v-else class="text-sm text-slate-500">
-      Live tracking isn't available yet - it turns on once your driver starts reporting their
-      position for this trip.
+      Live tracking isn't available yet - it turns on once your driver starts reporting their position for this trip.
     </p>
   </div>
 </template>

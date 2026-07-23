@@ -106,7 +106,7 @@ async function activateDriver(driver) {
   try {
     const { data } = await apiClient.post(`/admin/drivers/${driver.id}/activate/`)
     Object.assign(driver, data)
-  } catch (err) {
+  } catch {
     driversError.value = 'Could not update this driver.'
   } finally {
     busyId.value = null
@@ -120,7 +120,7 @@ async function toggleCashPayments(driver) {
       cash_payments_enabled: !driver.cash_payments_enabled,
     })
     Object.assign(driver, data)
-  } catch (err) {
+  } catch {
     driversError.value = 'Could not update this driver.'
   } finally {
     busyId.value = null
@@ -149,7 +149,7 @@ async function confirmSuspend() {
     })
     Object.assign(suspendingDriver.value, data)
     showSuspendModal.value = false
-  } catch (err) {
+  } catch {
     driversError.value = 'Could not suspend this driver.'
   } finally {
     suspending.value = false
@@ -170,12 +170,17 @@ async function inviteDriver(driver) {
 }
 
 async function impersonate(driver) {
-  if (!(await confirmDialog(`View the app as ${driver.full_name}'s driver portal? You'll act as this driver until you stop impersonating.`))) return
+  if (
+    !(await confirmDialog(
+      `View the app as ${driver.full_name}'s driver portal? You'll act as this driver until you stop impersonating.`,
+    ))
+  )
+    return
   busyId.value = driver.id
   try {
     await auth.startImpersonation(driver.user_id, route.fullPath)
     router.push('/driver')
-  } catch (err) {
+  } catch {
     driversError.value = 'Could not start impersonating this driver.'
   } finally {
     busyId.value = null
@@ -201,7 +206,7 @@ async function approveApplication(application) {
     const { data } = await apiClient.post(`/admin/driver-applications/${application.id}/approve/`)
     Object.assign(application, data)
     await loadDrivers()
-  } catch (err) {
+  } catch {
     applicationsError.value = 'Could not approve this application.'
   } finally {
     busyId.value = null
@@ -213,7 +218,7 @@ async function rejectApplication(application) {
   try {
     const { data } = await apiClient.post(`/admin/driver-applications/${application.id}/reject/`)
     Object.assign(application, data)
-  } catch (err) {
+  } catch {
     applicationsError.value = 'Could not reject this application.'
   } finally {
     busyId.value = null
@@ -225,7 +230,7 @@ async function approveSubmission(submission) {
   try {
     const { data } = await apiClient.post(`/admin/vehicle-submissions/${submission.id}/approve/`)
     Object.assign(submission, data)
-  } catch (err) {
+  } catch {
     submissionsError.value = 'Could not approve this vehicle.'
   } finally {
     busyId.value = null
@@ -237,7 +242,7 @@ async function rejectSubmission(submission) {
   try {
     const { data } = await apiClient.post(`/admin/vehicle-submissions/${submission.id}/reject/`)
     Object.assign(submission, data)
-  } catch (err) {
+  } catch {
     submissionsError.value = 'Could not reject this vehicle.'
   } finally {
     busyId.value = null
@@ -291,8 +296,10 @@ onMounted(() => {
                   {{ application.years_of_experience }} years experience - License #{{ application.license_number }}
                 </p>
                 <p class="mt-1 text-sm text-slate-300">
-                  Vehicle: {{ application.vehicle_name }} ({{ application.vehicle_category_name || application.vehicle_category }}),
-                  {{ application.passenger_capacity }} pax, KES {{ Number(application.price_per_day).toLocaleString() }}/day
+                  Vehicle: {{ application.vehicle_name }} ({{
+                    application.vehicle_category_name || application.vehicle_category
+                  }}), {{ application.passenger_capacity }} pax, KES
+                  {{ Number(application.price_per_day).toLocaleString() }}/day
                 </p>
                 <div class="mt-2 flex flex-wrap gap-3 text-sm">
                   <a :href="application.license_document" target="_blank" class="text-gold-400 hover:text-gold-300">
@@ -363,8 +370,8 @@ onMounted(() => {
                 <h3 class="font-[Georgia] text-lg font-bold text-white">{{ submission.name }}</h3>
                 <p class="text-sm text-slate-400">Submitted by {{ submission.driver_name }}</p>
                 <p class="mt-1 text-sm text-slate-300">
-                  {{ submission.category_name || submission.category }}, {{ submission.passenger_capacity }} pax,
-                  KES {{ Number(submission.price_per_day).toLocaleString() }}/day
+                  {{ submission.category_name || submission.category }}, {{ submission.passenger_capacity }} pax, KES
+                  {{ Number(submission.price_per_day).toLocaleString() }}/day
                 </p>
                 <div v-if="submission.photos?.length" class="mt-2 flex flex-wrap gap-2">
                   <a v-for="photo in submission.photos" :key="photo.id" :href="photo.image" target="_blank">
@@ -442,7 +449,10 @@ onMounted(() => {
                       class="inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
                       :class="driver.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'"
                     >
-                      <span class="h-1.5 w-1.5 rounded-full" :class="driver.is_active ? 'bg-emerald-400' : 'bg-red-400'" />
+                      <span
+                        class="h-1.5 w-1.5 rounded-full"
+                        :class="driver.is_active ? 'bg-emerald-400' : 'bg-red-400'"
+                      />
                       {{ driver.is_active ? 'Active' : 'Suspended' }}
                     </span>
                     <span
@@ -452,7 +462,10 @@ onMounted(() => {
                     >
                       Away
                     </span>
-                    <span v-if="!driver.is_active && driver.suspension_reason" class="max-w-[180px] text-xs text-slate-500">
+                    <span
+                      v-if="!driver.is_active && driver.suspension_reason"
+                      class="max-w-[180px] text-xs text-slate-500"
+                    >
                       {{ driver.suspension_reason }}
                     </span>
                     <span
@@ -577,10 +590,7 @@ onMounted(() => {
             <!-- Modal header -->
             <div class="mb-6 flex items-center justify-between">
               <h2 class="font-[Georgia] text-xl font-bold text-white">Add New Driver</h2>
-              <button
-                class="text-slate-400 transition-colors hover:text-white"
-                @click="showModal = false"
-              >
+              <button class="text-slate-400 transition-colors hover:text-white" @click="showModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -617,11 +627,15 @@ onMounted(() => {
                 <p class="mt-1 text-xs text-slate-500">Used to notify the driver when they're booked.</p>
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Phone Number</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Phone Number</label
+                >
                 <PhoneInput v-model="form.phone_number" dark />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Years of Experience</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Years of Experience</label
+                >
                 <input
                   id="new-driver-experience"
                   v-model="form.years_of_experience"
@@ -632,7 +646,9 @@ onMounted(() => {
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Bio / Description</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Bio / Description</label
+                >
                 <textarea
                   id="new-driver-bio"
                   v-model="form.bio"
@@ -643,7 +659,8 @@ onMounted(() => {
               </div>
 
               <p class="text-xs text-slate-500">
-                The driver will be set to <span class="text-gold-400">Active</span> immediately and appear in the live drivers list.
+                The driver will be set to <span class="text-gold-400">Active</span> immediately and appear in the live
+                drivers list.
               </p>
 
               <div class="flex gap-3 pt-2">

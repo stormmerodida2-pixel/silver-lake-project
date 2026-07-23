@@ -119,13 +119,19 @@ async function logCashDeposit(payment) {
 <template>
   <div>
     <p
-      v-if="booking.trip_ended_at && !['completed', 'cancelled'].includes(booking.status) && Number(booking.balance_due) > 0"
+      v-if="
+        booking.trip_ended_at && !['completed', 'cancelled'].includes(booking.status) && Number(booking.balance_due) > 0
+      "
       class="mt-2 text-xs font-semibold text-amber-400"
     >
       Vehicle returned - awaiting final payment (KES {{ Number(booking.balance_due).toLocaleString() }}) to complete.
     </p>
     <p
-      v-else-if="booking.trip_ended_at && !['completed', 'cancelled'].includes(booking.status) && booking.pending_cash_deposits?.length"
+      v-else-if="
+        booking.trip_ended_at &&
+        !['completed', 'cancelled'].includes(booking.status) &&
+        booking.pending_cash_deposits?.length
+      "
       class="mt-2 text-xs font-semibold text-amber-400"
     >
       Vehicle returned and fully paid - deposit the cash you collected below to complete this trip.
@@ -138,18 +144,26 @@ async function logCashDeposit(payment) {
     >
       <div v-if="booking.pending_payments?.length" class="space-y-2">
         <div
-          v-for="payment in booking.pending_payments" :key="payment.id"
+          v-for="payment in booking.pending_payments"
+          :key="payment.id"
           class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gold-500/10 p-3"
         >
           <p class="text-xs font-semibold text-gold-400">
             KES {{ Number(payment.amount).toLocaleString() }} declared via
             {{
-              payment.method === 'mpesa' ? 'M-Pesa'
-              : payment.method === 'card' ? 'card'
-              : payment.method === 'bank_transfer' ? 'bank transfer'
-              : 'cash'
+              payment.method === 'mpesa'
+                ? 'M-Pesa'
+                : payment.method === 'card'
+                  ? 'card'
+                  : payment.method === 'bank_transfer'
+                    ? 'bank transfer'
+                    : 'cash'
             }}<span v-if="payment.note"> (ref. {{ payment.note }})</span> -
-            {{ payment.method === 'bank_transfer' ? 'awaiting confirmation from our team.' : 'confirm once actually received.' }}
+            {{
+              payment.method === 'bank_transfer'
+                ? 'awaiting confirmation from our team.'
+                : 'confirm once actually received.'
+            }}
           </p>
           <!-- Bank transfer is staff-only to confirm - the driver never actually sees that
                money, only staff checking the real bank statement can vouch for it. -->
@@ -184,33 +198,46 @@ async function logCashDeposit(payment) {
             <p v-if="declareError" class="text-xs text-red-400">{{ declareError }}</p>
             <div class="grid grid-cols-3 gap-2">
               <button
-                v-for="opt in paymentMethodOptions" :key="opt" type="button"
+                v-for="opt in paymentMethodOptions"
+                :key="opt"
+                type="button"
                 class="rounded-md border px-2 py-1.5 text-xs font-semibold capitalize"
-                :class="paymentMethodDraft === opt ? 'border-gold-500 bg-gold-500 text-navy-950' : 'border-navy-700 text-slate-300'"
+                :class="
+                  paymentMethodDraft === opt
+                    ? 'border-gold-500 bg-gold-500 text-navy-950'
+                    : 'border-navy-700 text-slate-300'
+                "
                 @click="paymentMethodDraft = opt"
               >
                 {{ opt === 'mpesa' ? 'M-Pesa' : opt === 'bank_transfer' ? 'Bank Transfer' : opt }}
               </button>
             </div>
             <p v-if="!cashEnabled" class="text-[11px] text-slate-500">
-              Cash payments are disabled for your account - use card or {{ MPESA_ENABLED ? 'M-Pesa' : 'bank transfer' }} instead.
+              Cash payments are disabled for your account - use card or
+              {{ MPESA_ENABLED ? 'M-Pesa' : 'bank transfer' }} instead.
             </p>
             <input
-              v-model="paymentAmountDraft" type="number" min="0" step="0.01"
+              v-model="paymentAmountDraft"
+              type="number"
+              min="0"
+              step="0.01"
               :placeholder="`Amount (deposit: KES ${Number(booking.deposit_amount).toLocaleString()})`"
               required
               class="w-full rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
             />
             <input
               v-if="paymentMethodDraft === 'bank_transfer'"
-              v-model="bankTransferReferenceDraft" type="text"
+              v-model="bankTransferReferenceDraft"
+              type="text"
               placeholder="Transaction reference (at least last 4 digits/characters)"
               required
               class="w-full rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
             />
             <button
               type="submit"
-              :disabled="declaring || (paymentMethodDraft === 'bank_transfer' && bankTransferReferenceDraft.trim().length < 4)"
+              :disabled="
+                declaring || (paymentMethodDraft === 'bank_transfer' && bankTransferReferenceDraft.trim().length < 4)
+              "
               class="w-full rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
             >
               {{ declaring ? 'Saving...' : paymentMethodDraft === 'mpesa' ? 'Send M-Pesa Prompt' : 'Declare Payment' }}
@@ -225,8 +252,8 @@ async function logCashDeposit(payment) {
       <div v-for="payment in booking.pending_cash_deposits" :key="payment.id" class="rounded-lg bg-gold-500/10 p-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="text-xs font-semibold text-gold-400">
-            KES {{ Number(payment.amount).toLocaleString() }} collected in cash - deposit this to Paybill
-            400400 (Acc: SILVERLAKE) and log it below.
+            KES {{ Number(payment.amount).toLocaleString() }} collected in cash - deposit this to Paybill 400400 (Acc:
+            SILVERLAKE) and log it below.
           </p>
           <button
             v-if="depositFormPaymentId !== payment.id"
@@ -251,11 +278,19 @@ async function logCashDeposit(payment) {
           <p v-if="depositError" class="text-xs text-red-400">{{ depositError }}</p>
           <div class="flex flex-wrap gap-2">
             <input
-              v-model="depositAmountDraft" type="number" min="0" step="0.01" placeholder="Amount deposited" required
+              v-model="depositAmountDraft"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Amount deposited"
+              required
               class="w-36 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white focus:border-gold-500 focus:outline-none"
             />
             <input
-              v-model="depositReferenceDraft" type="text" placeholder="M-Pesa reference (e.g. QWE123RTY)" required
+              v-model="depositReferenceDraft"
+              type="text"
+              placeholder="M-Pesa reference (e.g. QWE123RTY)"
+              required
               class="flex-1 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
             />
           </div>

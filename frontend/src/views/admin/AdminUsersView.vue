@@ -85,9 +85,10 @@ async function inviteStaff() {
     showInviteModal.value = false
   } catch (err) {
     const detail = err?.response?.data
-    inviteError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not send this invite. Please try again.'
+    inviteError.value =
+      typeof detail === 'object'
+        ? Object.values(detail).flat().join(' ')
+        : 'Could not send this invite. Please try again.'
   } finally {
     inviting.value = false
   }
@@ -100,7 +101,7 @@ async function toggleActive(user) {
     const action = user.is_active ? 'suspend' : 'activate'
     const { data } = await apiClient.post(`/admin/users/${user.id}/${action}/`)
     Object.assign(user, data)
-  } catch (err) {
+  } catch {
     error.value = 'Could not update this user.'
   } finally {
     busyId.value = null
@@ -108,12 +109,15 @@ async function toggleActive(user) {
 }
 
 async function impersonate(user) {
-  if (!(await confirmDialog(`View the app as ${user.email}? You'll act as this customer until you stop impersonating.`))) return
+  if (
+    !(await confirmDialog(`View the app as ${user.email}? You'll act as this customer until you stop impersonating.`))
+  )
+    return
   busyId.value = user.id
   try {
     await auth.startImpersonation(user.id, route.fullPath)
     router.push('/')
-  } catch (err) {
+  } catch {
     error.value = 'Could not start impersonating this user.'
   } finally {
     busyId.value = null
@@ -199,7 +203,11 @@ onMounted(load)
           @click="openInviteModal"
         >
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0Zm-8 8a6 6 0 0 1 12 0M20 8v6M23 11h-6" />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0Zm-8 8a6 6 0 0 1 12 0M20 8v6M23 11h-6"
+            />
           </svg>
           Invite Staff
         </button>
@@ -258,7 +266,9 @@ onMounted(load)
             <td class="px-4 py-3 text-slate-300">{{ user.phone_number || '-' }}</td>
             <td class="px-4 py-3 text-slate-300">{{ user.bookings_count }}</td>
             <td class="px-4 py-3 text-slate-300">
-              <span v-if="user.is_superuser" class="text-gold-400">{{ user.organization_name ? 'Org Admin' : 'Super Admin' }}</span>
+              <span v-if="user.is_superuser" class="text-gold-400">{{
+                user.organization_name ? 'Org Admin' : 'Super Admin'
+              }}</span>
               <span v-else-if="user.is_staff">Support Staff</span>
               <span v-else>Customer</span>
               <div v-if="user.organization_name" class="text-xs text-slate-500">{{ user.organization_name }}</div>
@@ -334,10 +344,7 @@ onMounted(load)
             <!-- Modal header -->
             <div class="mb-6 flex items-center justify-between">
               <h2 class="font-[Georgia] text-xl font-bold text-white">Add New User</h2>
-              <button
-                class="text-slate-400 transition-colors hover:text-white"
-                @click="showModal = false"
-              >
+              <button class="text-slate-400 transition-colors hover:text-white" @click="showModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -363,7 +370,9 @@ onMounted(load)
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Email Address *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Email Address *</label
+                >
                 <input
                   id="new-user-email"
                   v-model="form.email"
@@ -374,7 +383,9 @@ onMounted(load)
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Phone Number</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Phone Number</label
+                >
                 <PhoneInput v-model="form.phone_number" dark />
               </div>
               <div>
@@ -387,7 +398,9 @@ onMounted(load)
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Confirm Password *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Confirm Password *</label
+                >
                 <PasswordInput
                   v-model="form.confirm_password"
                   required
@@ -448,7 +461,9 @@ onMounted(load)
             <form class="space-y-4" @submit.prevent="saveUser">
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">First Name</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                    >First Name</label
+                  >
                   <input
                     v-model="editForm.first_name"
                     type="text"
@@ -474,23 +489,37 @@ onMounted(load)
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Phone Number</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Phone Number</label
+                >
                 <PhoneInput v-model="editForm.phone_number" dark />
               </div>
 
               <label class="flex items-center gap-2 text-sm text-slate-300">
-                <input v-model="editForm.is_active" type="checkbox" class="h-4 w-4 rounded border-navy-700 bg-navy-800" />
+                <input
+                  v-model="editForm.is_active"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-navy-700 bg-navy-800"
+                />
                 Active
               </label>
 
               <div class="rounded-lg border border-navy-700 bg-navy-800/50 p-4">
                 <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gold-400">Admin Role</p>
                 <label class="flex items-center gap-2 text-sm text-slate-300">
-                  <input v-model="editForm.is_staff" type="checkbox" class="h-4 w-4 rounded border-navy-700 bg-navy-800" />
+                  <input
+                    v-model="editForm.is_staff"
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-navy-700 bg-navy-800"
+                  />
                   Support Staff (dashboard access)
                 </label>
                 <label class="mt-2 flex items-center gap-2 text-sm text-slate-300">
-                  <input v-model="editForm.is_superuser" type="checkbox" class="h-4 w-4 rounded border-navy-700 bg-navy-800" />
+                  <input
+                    v-model="editForm.is_superuser"
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-navy-700 bg-navy-800"
+                  />
                   Super Admin (full access, incl. destructive actions)
                 </label>
               </div>
@@ -535,21 +564,27 @@ onMounted(load)
               </button>
             </div>
 
-            <p v-if="inviteError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ inviteError }}</p>
+            <p v-if="inviteError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {{ inviteError }}
+            </p>
 
             <form class="space-y-4" @submit.prevent="inviteStaff">
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">First Name</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                    >First Name</label
+                  >
                   <input
-                    v-model="inviteForm.first_name" type="text"
+                    v-model="inviteForm.first_name"
+                    type="text"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                   />
                 </div>
                 <div>
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Last Name</label>
                   <input
-                    v-model="inviteForm.last_name" type="text"
+                    v-model="inviteForm.last_name"
+                    type="text"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                   />
                 </div>
@@ -557,18 +592,30 @@ onMounted(load)
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Email *</label>
                 <input
-                  v-model="inviteForm.email" type="email" placeholder="jane@example.com" required
+                  v-model="inviteForm.email"
+                  type="email"
+                  placeholder="jane@example.com"
+                  required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 />
               </div>
               <label class="flex items-center gap-2 text-sm text-slate-300">
-                <input v-model="inviteForm.is_superuser" type="checkbox" class="h-4 w-4 rounded border-navy-700 bg-navy-800" />
-                {{ auth.user?.organization_name ? `Give full admin access to ${auth.user.organization_name}` : 'Super Admin (full platform access)' }}
+                <input
+                  v-model="inviteForm.is_superuser"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-navy-700 bg-navy-800"
+                />
+                {{
+                  auth.user?.organization_name
+                    ? `Give full admin access to ${auth.user.organization_name}`
+                    : 'Super Admin (full platform access)'
+                }}
               </label>
               <p class="text-xs text-slate-500">
-                They'll get an email with a link to set their own password - nothing is emailed in
-                plain text.
-                <template v-if="auth.user?.organization_name">Scoped to {{ auth.user.organization_name }} only.</template>
+                They'll get an email with a link to set their own password - nothing is emailed in plain text.
+                <template v-if="auth.user?.organization_name"
+                  >Scoped to {{ auth.user.organization_name }} only.</template
+                >
               </p>
 
               <div class="flex gap-3 pt-2">

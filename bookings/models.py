@@ -692,6 +692,7 @@ class Booking(models.Model):
         silently on failure so a misconfigured SMTP server never blocks a successful booking."""
         try:
             from django.conf import settings
+
             from core.email_utils import send_branded_email
 
             service_label = 'Book with Driver' if self.service_type == ServiceType.WITH_DRIVER else 'Self Drive'

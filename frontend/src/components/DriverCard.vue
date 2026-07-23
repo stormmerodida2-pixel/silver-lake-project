@@ -8,14 +8,11 @@ defineProps({
 </script>
 
 <template>
-  <div class="flex flex-col items-center rounded-xl border border-slate-200 bg-white p-6 text-center shadow-lg shadow-slate-200/60">
+  <div
+    class="flex flex-col items-center rounded-xl border border-slate-200 bg-white p-6 text-center shadow-lg shadow-slate-200/60"
+  >
     <div class="h-24 w-24 overflow-hidden rounded-full bg-slate-100">
-      <img
-        v-if="driver.photo"
-        :src="driver.photo"
-        :alt="driver.full_name"
-        class="h-full w-full object-cover"
-      />
+      <img v-if="driver.photo" :src="driver.photo" :alt="driver.full_name" class="h-full w-full object-cover" />
       <div v-else class="flex h-full items-center justify-center text-2xl font-bold text-slate-400">
         {{ driver.full_name.charAt(0) }}
       </div>

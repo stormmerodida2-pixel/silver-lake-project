@@ -16,7 +16,7 @@ async function submit() {
   try {
     await auth.requestPasswordReset(email.value)
     submitted.value = true
-  } catch (err) {
+  } catch {
     error.value = 'Something went wrong. Please try again.'
   } finally {
     submitting.value = false

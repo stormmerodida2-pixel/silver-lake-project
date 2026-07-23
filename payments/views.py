@@ -20,8 +20,8 @@ from .models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 from .serializers import (
     MIN_BANK_TRANSFER_REFERENCE_LENGTH,
     DeclareBankTransferRequestSerializer,
-    PublicBookingPaymentSerializer,
     PaymentSerializer,
+    PublicBookingPaymentSerializer,
     RedeemCreditRequestSerializer,
     StkPushRequestSerializer,
     TokenStkPushRequestSerializer,

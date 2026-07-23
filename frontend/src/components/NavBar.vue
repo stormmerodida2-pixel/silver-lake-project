@@ -14,14 +14,19 @@ const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
-watch(() => route.path, () => {
-  isOpen.value = false
-})
+watch(
+  () => route.path,
+  () => {
+    isOpen.value = false
+  },
+)
 
 function handleOutsideClick(event) {
   if (
-    mobileMenuButton.value && !mobileMenuButton.value.contains(event.target) &&
-    mobileMenuPanel.value && !mobileMenuPanel.value.contains(event.target)
+    mobileMenuButton.value &&
+    !mobileMenuButton.value.contains(event.target) &&
+    mobileMenuPanel.value &&
+    !mobileMenuPanel.value.contains(event.target)
   ) {
     isOpen.value = false
   }
@@ -87,7 +92,10 @@ async function handleLogout() {
       <div class="ml-auto flex items-center gap-3">
         <div class="hidden items-center gap-6 md:flex">
           <template v-if="auth.isAuthenticated">
-            <RouterLink to="/account/profile" class="flex items-center gap-2 font-[Georgia] text-base tracking-wide text-slate-400 transition hover:text-gold-400">
+            <RouterLink
+              to="/account/profile"
+              class="flex items-center gap-2 font-[Georgia] text-base tracking-wide text-slate-400 transition hover:text-gold-400"
+            >
               <span class="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-navy-700 bg-navy-800">
                 <img v-if="auth.user?.avatar" :src="auth.user.avatar" alt="" class="h-full w-full object-cover" />
                 <span v-else class="flex h-full w-full items-center justify-center text-xs font-bold text-gold-400">
@@ -98,7 +106,10 @@ async function handleLogout() {
             </RouterLink>
           </template>
           <template v-else>
-            <RouterLink to="/login" class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400">
+            <RouterLink
+              to="/login"
+              class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400"
+            >
               Log In
             </RouterLink>
             <RouterLink
@@ -128,17 +139,36 @@ async function handleLogout() {
           @click.stop="isOpen = !isOpen"
         >
           <!-- .stop matters: without it, this click reaches handleOutsideClick with a detached event.target (the icon swaps via v-if/v-else the instant isOpen flips), which immediately re-closes the menu it just opened. -->
-          <svg v-if="!isOpen" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg
+            v-if="!isOpen"
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg
+            v-else
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
     </nav>
 
-    <div v-if="isOpen" ref="mobileMenuPanel" data-testid="mobile-nav-panel" class="flex flex-col gap-1 border-t border-navy-800 px-4 py-3 md:hidden">
+    <div
+      v-if="isOpen"
+      ref="mobileMenuPanel"
+      data-testid="mobile-nav-panel"
+      class="flex flex-col gap-1 border-t border-navy-800 px-4 py-3 md:hidden"
+    >
       <RouterLink
         v-for="link in links"
         :key="link.to"

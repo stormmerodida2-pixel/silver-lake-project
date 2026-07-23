@@ -49,7 +49,9 @@ export function useNotifications(basePath) {
   }
 
   async function markAllRead() {
-    items.value.forEach((n) => { n.is_read = true })
+    items.value.forEach((n) => {
+      n.is_read = true
+    })
     unreadCount.value = 0
     try {
       await apiClient.post(`${basePath}/mark-all-read/`)
@@ -69,9 +71,7 @@ export function useNotifications(basePath) {
 
   async function toggleMute(event) {
     const isMuted = mutedEvents.value.includes(event)
-    mutedEvents.value = isMuted
-      ? mutedEvents.value.filter((e) => e !== event)
-      : [...mutedEvents.value, event]
+    mutedEvents.value = isMuted ? mutedEvents.value.filter((e) => e !== event) : [...mutedEvents.value, event]
     try {
       await apiClient.post(`${basePath}/${isMuted ? 'unmute' : 'mute'}/`, { event })
     } catch {
@@ -86,7 +86,15 @@ export function useNotifications(basePath) {
   }
 
   return {
-    unreadCount, items, loading, mutedEvents,
-    refreshCount, loadList, markRead, markAllRead, loadPreferences, toggleMute,
+    unreadCount,
+    items,
+    loading,
+    mutedEvents,
+    refreshCount,
+    loadList,
+    markRead,
+    markAllRead,
+    loadPreferences,
+    toggleMute,
   }
 }

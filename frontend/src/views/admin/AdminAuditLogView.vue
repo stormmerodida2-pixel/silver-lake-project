@@ -18,8 +18,8 @@ onMounted(load)
   <div>
     <h1 class="font-[Georgia] text-2xl font-bold text-white">Activity Log</h1>
     <p v-if="auth.user?.organization_name" class="mt-1 text-sm text-slate-400">
-      Who did what within {{ auth.user.organization_name }}: role changes, suspensions,
-      verified/paid payouts, and issued refunds.
+      Who did what within {{ auth.user.organization_name }}: role changes, suspensions, verified/paid payouts, and
+      issued refunds.
     </p>
     <p v-else class="mt-1 text-sm text-slate-400">
       Who did what: role changes, suspensions, verified/paid payouts, and issued refunds.
@@ -47,7 +47,9 @@ onMounted(load)
               <td class="px-4 py-3 text-white">{{ entry.actor_email || 'Unknown' }}</td>
               <td class="px-4 py-3 text-gold-400">{{ entry.action }}</td>
               <td class="px-4 py-3 text-slate-300">{{ entry.target_repr }}</td>
-              <td v-if="!auth.user?.organization_name" class="px-4 py-3 text-slate-400">{{ entry.organization_name || 'Platform' }}</td>
+              <td v-if="!auth.user?.organization_name" class="px-4 py-3 text-slate-400">
+                {{ entry.organization_name || 'Platform' }}
+              </td>
               <td class="px-4 py-3 text-slate-400">{{ entry.detail || '-' }}</td>
             </tr>
           </tbody>

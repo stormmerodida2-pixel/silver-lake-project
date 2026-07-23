@@ -1,7 +1,7 @@
 import sys
 import uuid
-from decimal import Decimal
 from datetime import timedelta
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -1091,7 +1091,7 @@ class EscalateStuckBookingsTests(APITestCase):
         # Reminding the driver is remind_undeposited_cash's job now (see that function's own
         # tests) - this only still needs to notice undeposited cash exists, to fold it into
         # staff escalation once the booking itself is stuck.
-        staff = User.objects.create_user(username='cash-escalation-staff@example.com', email='cash-escalation-staff@example.com', password='pass12345!', is_staff=True)
+        User.objects.create_user(username='cash-escalation-staff@example.com', email='cash-escalation-staff@example.com', password='pass12345!', is_staff=True)
         self.overdue_booking.start_date = timezone.localdate() - timedelta(days=10)
         self.overdue_booking.end_date = timezone.localdate() - timedelta(days=4)
         self.overdue_booking.save(update_fields=['start_date', 'end_date'])
@@ -1159,7 +1159,7 @@ class EscalateStuckBookingsTests(APITestCase):
         self.assertIsNone(self.overdue_booking.payment_escalated_at)
 
     def test_does_not_escalate_to_staff_before_the_threshold(self):
-        staff = User.objects.create_user(username='escalation-staff@example.com', email='escalation-staff@example.com', password='pass12345!', is_staff=True)
+        User.objects.create_user(username='escalation-staff@example.com', email='escalation-staff@example.com', password='pass12345!', is_staff=True)
         mail.outbox = []
         self._run()
         self.overdue_booking.refresh_from_db()

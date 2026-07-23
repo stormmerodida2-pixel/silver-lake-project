@@ -97,7 +97,7 @@ async function exportCsv() {
     link.download = `SilverLake-Payments-${new Date().toISOString().slice(0, 10)}.csv`
     link.click()
     window.URL.revokeObjectURL(url)
-  } catch (err) {
+  } catch {
     error.value = 'Could not export payments to CSV.'
   } finally {
     exportingCsv.value = false
@@ -111,8 +111,8 @@ onMounted(load)
   <div>
     <h1 class="font-[Georgia] text-2xl font-bold text-white">Payments</h1>
     <p class="mt-1 text-sm text-slate-400">
-      Every payment recorded against a booking - M-Pesa, card, cash a driver reported on-site, or a
-      customer-declared bank transfer awaiting confirmation.
+      Every payment recorded against a booking - M-Pesa, card, cash a driver reported on-site, or a customer-declared
+      bank transfer awaiting confirmation.
     </p>
 
     <div class="mt-4 flex flex-wrap gap-3">
@@ -192,8 +192,12 @@ onMounted(load)
               </div>
             </td>
             <td class="px-4 py-3 text-xs text-slate-400">
-              {{ payment.mpesa_receipt_number || payment.card_transaction_ref
-                || (payment.method === 'bank_transfer' ? payment.note : '') || '—' }}
+              {{
+                payment.mpesa_receipt_number ||
+                payment.card_transaction_ref ||
+                (payment.method === 'bank_transfer' ? payment.note : '') ||
+                '—'
+              }}
               <span
                 v-if="payment.reference_reused"
                 class="ml-1 cursor-help text-gold-400"
@@ -204,15 +208,21 @@ onMounted(load)
             </td>
             <td class="px-4 py-3 text-xs text-slate-400">
               {{ payment.recorded_by_driver_name || '—' }}
-              <div v-if="payment.note && payment.method !== 'bank_transfer'" class="italic text-slate-500">{{ payment.note }}</div>
+              <div v-if="payment.note && payment.method !== 'bank_transfer'" class="italic text-slate-500">
+                {{ payment.note }}
+              </div>
             </td>
             <td class="px-4 py-3 text-xs">
               <template v-if="payment.method === 'cash'">
                 <template v-if="payment.cash_deposit">
-                  <span class="font-semibold text-emerald-400">KES {{ Number(payment.cash_deposit.amount).toLocaleString() }}</span>
+                  <span class="font-semibold text-emerald-400"
+                    >KES {{ Number(payment.cash_deposit.amount).toLocaleString() }}</span
+                  >
                   <div class="text-slate-500">{{ payment.cash_deposit.mpesa_reference }}</div>
                 </template>
-                <span v-else-if="payment.status === 'successful'" class="font-semibold text-gold-400">⚠ Not deposited yet</span>
+                <span v-else-if="payment.status === 'successful'" class="font-semibold text-gold-400"
+                  >⚠ Not deposited yet</span
+                >
                 <span v-else class="text-slate-600">—</span>
               </template>
               <span v-else class="text-slate-600">—</span>
@@ -226,7 +236,7 @@ onMounted(load)
                 class="rounded-md border border-navy-700 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
                 @click="remindDriver(payment)"
               >
-                {{ busyId === payment.id ? 'Sending...' : (payment.last_reminded_at ? 'Remind Again' : 'Remind Driver') }}
+                {{ busyId === payment.id ? 'Sending...' : payment.last_reminded_at ? 'Remind Again' : 'Remind Driver' }}
               </button>
               <button
                 v-else-if="needsDeposit(payment) && payment.recorded_by_driver_name"
@@ -235,7 +245,9 @@ onMounted(load)
                 class="rounded-md border border-navy-700 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
                 @click="remindDeposit(payment)"
               >
-                {{ busyId === payment.id ? 'Sending...' : (payment.last_reminded_at ? 'Remind Again' : 'Remind Deposit') }}
+                {{
+                  busyId === payment.id ? 'Sending...' : payment.last_reminded_at ? 'Remind Again' : 'Remind Deposit'
+                }}
               </button>
               <button
                 v-else-if="payment.method === 'bank_transfer' && payment.status === 'pending'"

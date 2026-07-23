@@ -1,0 +1,19 @@
+[tool.ruff]
+line-length = 120
+exclude = ["*/migrations/*", "venv", "staticfiles", "media", "sent_emails"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (unused imports/vars, undefined names, etc.)
+    "I",   # isort (import ordering)
+    "W",   # pycodestyle warnings
+]
+ignore = [
+    "E501",  # line length - this codebase favors long, explanatory comments over hard wrapping
+]
+
+[tool.ruff.lint.per-file-ignores]
+# settings/local.py, development.py, production.py all do `from .base import *` deliberately -
+# that's the whole point of the settings split, not something to "fix" into explicit imports.
+"settings/*.py" = ["F403", "F405"]

@@ -18,7 +18,7 @@ onMounted(() => {
 // something genuine to show (a brand-new deployment with no trips/reviews yet just gets a
 // hero with no stat strip, not a row of zeroes).
 const totalTripsCompleted = computed(() =>
-  catalog.vehicles.reduce((sum, vehicle) => sum + (vehicle.trips_completed || 0), 0)
+  catalog.vehicles.reduce((sum, vehicle) => sum + (vehicle.trips_completed || 0), 0),
 )
 const averageRating = computed(() => {
   if (!catalog.reviews.length) return null
@@ -29,8 +29,8 @@ const averageRating = computed(() => {
 // rather than an arbitrary first-in-list pick.
 const photographedVehiclesByPopularity = computed(() =>
   [...catalog.vehicles.filter((vehicle) => vehicle.image)].sort(
-    (a, b) => (b.trips_completed || 0) - (a.trips_completed || 0)
-  )
+    (a, b) => (b.trips_completed || 0) - (a.trips_completed || 0),
+  ),
 )
 
 // Hero slowly cycles through real fleet photos rather than pinning one - restarts from the
@@ -48,7 +48,7 @@ watch(
       }, 4500)
     }
   },
-  { immediate: true }
+  { immediate: true },
 )
 onUnmounted(() => clearInterval(heroTimer))
 const heroVehicle = computed(() => photographedVehiclesByPopularity.value[heroIndex.value] || null)
@@ -63,7 +63,11 @@ const trustBadges = [
 
 const howItWorks = [
   { title: 'Browse & Choose', text: 'Explore the fleet and pick the vehicle that fits your trip.', icon: 'search' },
-  { title: 'Book Your Dates', text: 'Reserve with a 30% deposit via M-Pesa or bank transfer - confirmed once received.', icon: 'calendar' },
+  {
+    title: 'Book Your Dates',
+    text: 'Reserve with a 30% deposit via M-Pesa or bank transfer - confirmed once received.',
+    icon: 'calendar',
+  },
   { title: 'Ride With Confidence', text: 'Meet your chauffeur or grab the keys - we handle the rest.', icon: 'wheel' },
 ]
 </script>
@@ -73,7 +77,9 @@ const howItWorks = [
     <!-- Hero -->
     <section class="relative overflow-hidden border-b border-navy-800 bg-linear-to-b from-navy-900 to-navy-950">
       <div class="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-gold-500/10 blur-3xl"></div>
-      <div class="pointer-events-none absolute -left-32 bottom-0 h-72 w-72 rounded-full bg-brand-blue-500/10 blur-3xl"></div>
+      <div
+        class="pointer-events-none absolute -left-32 bottom-0 h-72 w-72 rounded-full bg-brand-blue-500/10 blur-3xl"
+      ></div>
 
       <div class="relative mx-auto grid max-w-6xl gap-12 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-2 lg:items-center">
         <div>
@@ -83,8 +89,8 @@ const howItWorks = [
             <span class="text-gold-400">we elevate your journey.</span>
           </h1>
           <p class="mt-5 max-w-xl text-slate-300">
-            From the shores of Lake Victoria to every destination in Kenya, we deliver comfort, class and care in
-            every mile.
+            From the shores of Lake Victoria to every destination in Kenya, we deliver comfort, class and care in every
+            mile.
           </p>
 
           <div class="mt-8 flex flex-wrap gap-4">
@@ -115,16 +121,24 @@ const howItWorks = [
               <dd class="text-xs uppercase tracking-wide text-slate-400">Trips completed</dd>
             </div>
             <div v-if="averageRating">
-              <dt class="font-[Georgia] text-2xl font-bold text-white">{{ averageRating }}<span class="text-gold-400">&#9733;</span></dt>
+              <dt class="font-[Georgia] text-2xl font-bold text-white">
+                {{ averageRating }}<span class="text-gold-400">&#9733;</span>
+              </dt>
               <dd class="text-xs uppercase tracking-wide text-slate-400">Average rating</dd>
             </div>
           </dl>
         </div>
 
-        <div v-if="heroVehicle" v-reveal class="relative mx-auto hidden h-[26rem] w-full max-w-lg overflow-hidden lg:block">
+        <div
+          v-if="heroVehicle"
+          v-reveal
+          class="relative mx-auto hidden h-[26rem] w-full max-w-lg overflow-hidden lg:block"
+        >
           <!-- Stands in for the flyer's Lake Victoria sunset backdrop - a warm gradient glow,
                not a fabricated photo, sitting behind the real fleet photography. -->
-          <div class="absolute inset-0 rounded-full bg-radial from-gold-500/25 via-brand-blue-500/10 to-transparent blur-3xl"></div>
+          <div
+            class="absolute inset-0 rounded-full bg-radial from-gold-500/25 via-brand-blue-500/10 to-transparent blur-3xl"
+          ></div>
 
           <!-- No border/card and no blend/mask trick - object-cover crops in tight enough that
                the studio backdrop's white margin mostly falls outside the frame, so the vehicle
@@ -147,18 +161,28 @@ const howItWorks = [
 
           <!-- A small legibility scrim behind the caption text only, not a frame around the
                whole photo. -->
-          <div class="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-navy-950/90 to-transparent"></div>
+          <div
+            class="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-navy-950/90 to-transparent"
+          ></div>
 
           <Transition name="hero-fade" mode="out-in">
             <p :key="heroVehicle.id" class="absolute inset-x-0 bottom-4 text-center">
               <span class="font-[Georgia] text-lg font-bold text-white drop-shadow-lg">{{ heroVehicle.name }}</span>
-              <span class="ml-2 text-sm font-semibold text-gold-400 drop-shadow-lg">{{ heroVehicle.category_name || heroVehicle.category }}</span>
+              <span class="ml-2 text-sm font-semibold text-gold-400 drop-shadow-lg">{{
+                heroVehicle.category_name || heroVehicle.category
+              }}</span>
             </p>
           </Transition>
         </div>
       </div>
 
-      <svg class="absolute inset-x-0 -bottom-1 h-10 w-full text-navy-900" viewBox="0 0 1440 60" preserveAspectRatio="none" fill="currentColor" aria-hidden="true">
+      <svg
+        class="absolute inset-x-0 -bottom-1 h-10 w-full text-navy-900"
+        viewBox="0 0 1440 60"
+        preserveAspectRatio="none"
+        fill="currentColor"
+        aria-hidden="true"
+      >
         <path d="M0,32 C240,60 480,0 720,20 C960,40 1200,10 1440,30 L1440,60 L0,60 Z" />
       </svg>
     </section>
@@ -176,16 +200,24 @@ const howItWorks = [
         </div>
         <ul class="flex flex-col justify-center gap-4 text-sm text-slate-200">
           <li class="flex items-center gap-3">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400">
+            <span
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400"
+            >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s6-5.2 6-10.5A6 6 0 0 0 6 10.5C6 15.8 12 21 12 21Z" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 21s6-5.2 6-10.5A6 6 0 0 0 6 10.5C6 15.8 12 21 12 21Z"
+                />
                 <circle cx="12" cy="10.5" r="2.2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </span>
             Local Expertise
           </li>
           <li class="flex items-center gap-3">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400">
+            <span
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400"
+            >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 17l4-7 3 4 3-6 5 9" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 20h18" />
@@ -194,9 +226,13 @@ const howItWorks = [
             National Reach
           </li>
           <li class="flex items-center gap-3">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400">
+            <span
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400"
+            >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                <path d="M12 21s-6.716-4.35-9.428-8.028C.86 10.42 1.02 7.36 3.343 5.6a5.5 5.5 0 0 1 7.657 1.02L12 7.8l1-1.18a5.5 5.5 0 0 1 7.657-1.02c2.323 1.76 2.483 4.82.77 7.372C18.716 16.65 12 21 12 21Z" />
+                <path
+                  d="M12 21s-6.716-4.35-9.428-8.028C.86 10.42 1.02 7.36 3.343 5.6a5.5 5.5 0 0 1 7.657 1.02L12 7.8l1-1.18a5.5 5.5 0 0 1 7.657-1.02c2.323 1.76 2.483 4.82.77 7.372C18.716 16.65 12 21 12 21Z"
+                />
               </svg>
             </span>
             Personal Touch
@@ -216,13 +252,33 @@ const howItWorks = [
         <div class="relative mt-14 grid gap-10 sm:grid-cols-3">
           <div class="absolute left-[16.5%] right-[16.5%] top-8 hidden h-px bg-slate-200 sm:block"></div>
 
-          <div v-for="(step, index) in howItWorks" :key="step.title" class="relative flex flex-col items-center text-center">
-            <div class="relative z-10 flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold-400 bg-navy-900 text-gold-400">
-              <svg v-if="step.icon === 'search'" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <div
+            v-for="(step, index) in howItWorks"
+            :key="step.title"
+            class="relative flex flex-col items-center text-center"
+          >
+            <div
+              class="relative z-10 flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold-400 bg-navy-900 text-gold-400"
+            >
+              <svg
+                v-if="step.icon === 'search'"
+                class="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                viewBox="0 0 24 24"
+              >
                 <circle cx="10.5" cy="10.5" r="6.5" stroke-linecap="round" stroke-linejoin="round" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M20 20l-4.35-4.35" />
               </svg>
-              <svg v-else-if="step.icon === 'calendar'" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <svg
+                v-else-if="step.icon === 'calendar'"
+                class="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                viewBox="0 0 24 24"
+              >
                 <rect x="4" y="5" width="16" height="15" rx="2" stroke-linecap="round" stroke-linejoin="round" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 10h16M8 3v4M16 3v4" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 14.5l2 2 4-4.5" />
@@ -230,7 +286,11 @@ const howItWorks = [
               <svg v-else class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="8.5" stroke-linecap="round" stroke-linejoin="round" />
                 <circle cx="12" cy="12" r="2" stroke-linecap="round" stroke-linejoin="round" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5.5v4M6.3 15.3l3.2-2.2M17.7 15.3l-3.2-2.2" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 5.5v4M6.3 15.3l3.2-2.2M17.7 15.3l-3.2-2.2"
+                />
               </svg>
             </div>
             <p class="mt-5 font-[Georgia] text-lg font-bold text-navy-900">
@@ -268,7 +328,9 @@ const howItWorks = [
     <section class="relative overflow-hidden border-y border-navy-800 bg-navy-900">
       <!-- Stands in for the flyer's fisherman-at-sunset photo - a warm horizon-glow gradient,
            not a fabricated photo of a real person or place. -->
-      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-linear-to-t from-gold-500/10 via-brand-blue-500/5 to-transparent"></div>
+      <div
+        class="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-linear-to-t from-gold-500/10 via-brand-blue-500/5 to-transparent"
+      ></div>
       <div class="pointer-events-none absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-gold-500/10 blur-3xl"></div>
 
       <div class="relative mx-auto max-w-6xl px-4 py-14 sm:px-6">
@@ -276,24 +338,67 @@ const howItWorks = [
           It's not just a journey, <span class="text-gold-400">it's an experience.</span>
         </h2>
         <div class="mt-10 grid gap-8 sm:grid-cols-3 lg:grid-cols-5">
-          <div v-for="badge in trustBadges" :key="badge.title" v-reveal class="flex flex-col items-center text-center transition duration-300 hover:-translate-y-1">
-            <div class="flex h-14 w-14 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400">
-              <svg v-if="badge.icon === 'shield'" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l6.5 2.5v4.8c0 4.6-2.9 8-6.5 9.7-3.6-1.7-6.5-5.1-6.5-9.7V6l6.5-2.5z" />
+          <div
+            v-for="badge in trustBadges"
+            :key="badge.title"
+            v-reveal
+            class="flex flex-col items-center text-center transition duration-300 hover:-translate-y-1"
+          >
+            <div
+              class="flex h-14 w-14 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400"
+            >
+              <svg
+                v-if="badge.icon === 'shield'"
+                class="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 3.5l6.5 2.5v4.8c0 4.6-2.9 8-6.5 9.7-3.6-1.7-6.5-5.1-6.5-9.7V6l6.5-2.5z"
+                />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.3l2 2 4.5-4.5" />
               </svg>
-              <svg v-else-if="badge.icon === 'people'" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <svg
+                v-else-if="badge.icon === 'people'"
+                class="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                viewBox="0 0 24 24"
+              >
                 <circle cx="9" cy="8" r="3" stroke-linecap="round" stroke-linejoin="round" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
                 <circle cx="17" cy="9" r="2.4" stroke-linecap="round" stroke-linejoin="round" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 14.2c2.2.3 4 2 4.5 4.3" />
               </svg>
-              <svg v-else-if="badge.icon === 'clock'" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <svg
+                v-else-if="badge.icon === 'clock'"
+                class="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                viewBox="0 0 24 24"
+              >
                 <circle cx="12" cy="12" r="8.5" stroke-linecap="round" stroke-linejoin="round" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5V12l3 2" />
               </svg>
-              <svg v-else-if="badge.icon === 'heart'" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-6.716-4.35-9.428-8.028C.86 10.42 1.02 7.36 3.343 5.6a5.5 5.5 0 0 1 7.657 1.02L12 7.8l1-1.18a5.5 5.5 0 0 1 7.657-1.02c2.323 1.76 2.483 4.82.77 7.372C18.716 16.65 12 21 12 21Z" />
+              <svg
+                v-else-if="badge.icon === 'heart'"
+                class="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 21s-6.716-4.35-9.428-8.028C.86 10.42 1.02 7.36 3.343 5.6a5.5 5.5 0 0 1 7.657 1.02L12 7.8l1-1.18a5.5 5.5 0 0 1 7.657-1.02c2.323 1.76 2.483 4.82.77 7.372C18.716 16.65 12 21 12 21Z"
+                />
               </svg>
               <svg v-else class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                 <circle cx="12" cy="9" r="5.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -306,7 +411,10 @@ const howItWorks = [
           </div>
         </div>
 
-        <div v-reveal class="mx-auto mt-14 flex max-w-lg flex-col items-center gap-2 rounded-2xl border border-gold-400/30 bg-navy-950/60 px-8 py-6 text-center">
+        <div
+          v-reveal
+          class="mx-auto mt-14 flex max-w-lg flex-col items-center gap-2 rounded-2xl border border-gold-400/30 bg-navy-950/60 px-8 py-6 text-center"
+        >
           <svg class="h-7 w-7 text-gold-400" fill="currentColor" viewBox="0 0 24 24">
             <path d="M4 18h16v2H4v-2ZM4 8l3.5 2.5L12 5l4.5 5.5L20 8v8H4V8Z" />
           </svg>
@@ -321,14 +429,17 @@ const howItWorks = [
     <!-- Become a driver CTA (hidden once you're already an active driver-partner) -->
     <section v-if="auth.user?.driver_status !== 'active'" class="bg-white">
       <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <div v-reveal class="flex flex-col items-center justify-between gap-6 rounded-2xl border border-navy-800 bg-navy-900 px-6 py-10 text-center sm:px-12 md:flex-row md:text-left">
+        <div
+          v-reveal
+          class="flex flex-col items-center justify-between gap-6 rounded-2xl border border-navy-800 bg-navy-900 px-6 py-10 text-center sm:px-12 md:flex-row md:text-left"
+        >
           <div>
             <h2 class="font-[Georgia] text-2xl font-bold text-white">
               Own a car? <span class="text-gold-400">Partner with SilverLake.</span>
             </h2>
             <p class="mt-2 max-w-xl text-sm text-slate-300">
-              List your vehicle with us and start earning as a driver-partner. Applications are reviewed
-              by our team before you go live.
+              List your vehicle with us and start earning as a driver-partner. Applications are reviewed by our team
+              before you go live.
             </p>
           </div>
           <p
@@ -351,7 +462,11 @@ const howItWorks = [
     <!-- Reviews preview -->
     <section class="bg-white">
       <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <p v-if="averageRating" v-reveal class="text-center text-sm font-semibold uppercase tracking-widest text-brand-blue-600">
+        <p
+          v-if="averageRating"
+          v-reveal
+          class="text-center text-sm font-semibold uppercase tracking-widest text-brand-blue-600"
+        >
           {{ averageRating }}&#9733; average &middot; real reviews from real trips
         </p>
         <h2 v-reveal class="mt-2 text-center font-[Georgia] text-3xl font-bold text-navy-900">What our clients say</h2>

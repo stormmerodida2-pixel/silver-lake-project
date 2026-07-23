@@ -63,9 +63,7 @@ async function loadMore() {
         <BlogPostCard v-for="post in catalog.blogPosts" :key="post.id" :post="post" />
       </div>
 
-      <p v-if="!catalog.blogPosts.length" class="mt-10 text-center text-slate-500">
-        No posts yet - check back soon.
-      </p>
+      <p v-if="!catalog.blogPosts.length" class="mt-10 text-center text-slate-500">No posts yet - check back soon.</p>
 
       <div v-if="catalog.blogPostsNextUrl" class="mt-10 text-center">
         <button

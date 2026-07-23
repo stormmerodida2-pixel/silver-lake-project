@@ -25,7 +25,7 @@ async function loadPayment() {
   try {
     const { data } = await apiClient.get(url())
     payment.value = data
-  } catch (err) {
+  } catch {
     loadError.value = 'This dispute link is invalid, or this payment is not a cash payment that can be disputed.'
   } finally {
     loading.value = false
@@ -38,7 +38,7 @@ async function submitDispute() {
   try {
     await apiClient.post(url(), { note: note.value.trim() })
     submitted.value = true
-  } catch (err) {
+  } catch {
     submitError.value = 'Could not record your dispute. Please try again, or contact us directly.'
   } finally {
     submitting.value = false
@@ -70,7 +70,10 @@ onMounted(loadPayment)
           <p class="mt-1 text-xs text-slate-500">Recorded {{ new Date(payment.created_at).toLocaleString() }}</p>
         </div>
 
-        <div v-if="submitted || payment.is_disputed" class="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+        <div
+          v-if="submitted || payment.is_disputed"
+          class="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center"
+        >
           <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
             <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -84,8 +87,8 @@ onMounted(loadPayment)
 
         <div v-else class="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-6">
           <p class="text-sm text-slate-600">
-            If you never made this payment, or the amount is wrong, let us know below. This will
-            place the payment on hold until we've looked into it.
+            If you never made this payment, or the amount is wrong, let us know below. This will place the payment on
+            hold until we've looked into it.
           </p>
           <div>
             <label class="mb-1 block text-sm text-slate-600">What happened? (optional)</label>
