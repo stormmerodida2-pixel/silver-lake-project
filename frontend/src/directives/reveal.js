@@ -1,8 +1,7 @@
 // v-reveal: fades/slides an element in the moment it scrolls into view. Registered globally in
 // main.js. Respects prefers-reduced-motion by doing nothing at all - the element just renders
 // normally, no animation, no observer.
-const prefersReducedMotion = () =>
-  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
 export default {
   mounted(el) {

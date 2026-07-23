@@ -61,7 +61,7 @@ async function loadBooking() {
     booking.value = data
     if (data.source === 'driver_onsite') payOption.value = 'full'
     paymentMethod.value = primaryMethod.value
-  } catch (err) {
+  } catch {
     loadError.value = 'This payment link is invalid or has expired.'
   } finally {
     loading.value = false
@@ -101,7 +101,7 @@ function startPolling(paymentId) {
         stopPolling()
         paymentOutcome.value = 'timeout'
       }
-    } catch (err) {
+    } catch {
       if (pollAttempts >= MAX_POLL_ATTEMPTS) {
         stopPolling()
         paymentOutcome.value = 'timeout'
@@ -124,7 +124,9 @@ async function payWithMpesa() {
     requested.value = true
     startPolling(data.payment_id)
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Could not start M-Pesa payment. You can also pay via Paybill 400400 (Acc: SILVERLAKE).'
+    error.value =
+      err.response?.data?.detail ||
+      'Could not start M-Pesa payment. You can also pay via Paybill 400400 (Acc: SILVERLAKE).'
   } finally {
     submitting.value = false
   }
@@ -190,7 +192,8 @@ onMounted(loadBooking)
           <p class="text-sm text-slate-500">Booking for</p>
           <h2 class="font-[Georgia] text-lg font-bold text-navy-900">{{ booking.customer_name }}</h2>
           <p class="mt-1 text-sm text-slate-600">
-            {{ booking.vehicle_name }}<span v-if="booking.driver_name"> &middot; Driver: {{ booking.driver_name }}</span>
+            {{ booking.vehicle_name
+            }}<span v-if="booking.driver_name"> &middot; Driver: {{ booking.driver_name }}</span>
           </p>
           <p class="text-sm text-slate-500">{{ booking.start_date }} to {{ booking.end_date }}</p>
 
@@ -210,14 +213,23 @@ onMounted(loadBooking)
           </div>
         </div>
 
-        <div v-if="booking.status === 'cancelled'" class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+        <div
+          v-if="booking.status === 'cancelled'"
+          class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500"
+        >
           This booking has been cancelled.
         </div>
-        <div v-else-if="Number(booking.balance_due) <= 0" class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center text-emerald-700">
+        <div
+          v-else-if="Number(booking.balance_due) <= 0"
+          class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center text-emerald-700"
+        >
           This booking is fully paid. Thank you!
         </div>
 
-        <div v-else-if="pendingOfflinePayment" class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+        <div
+          v-else-if="pendingOfflinePayment"
+          class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm"
+        >
           <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold-500/10 text-gold-500">
             <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -230,8 +242,8 @@ onMounted(loadBooking)
           </p>
           <p v-else class="mt-2 text-sm text-slate-600">
             You've declared a bank transfer of KES {{ Number(pendingOfflinePayment.amount).toLocaleString() }}
-            <span v-if="pendingOfflinePayment.note">(ref. {{ pendingOfflinePayment.note }})</span>.
-            Once our team confirms it's been received, your balance will be updated.
+            <span v-if="pendingOfflinePayment.note">(ref. {{ pendingOfflinePayment.note }})</span>. Once our team
+            confirms it's been received, your balance will be updated.
           </p>
         </div>
 
@@ -267,13 +279,17 @@ onMounted(loadBooking)
           <template v-else-if="paymentOutcome === 'timeout'">
             <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold-500/10 text-gold-500">
               <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                />
               </svg>
             </div>
             <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Still Waiting on M-Pesa</h2>
             <p class="mt-2 text-sm text-slate-600">
-              This is taking longer than usual. If you already entered your PIN, refresh this page in a
-              moment. Otherwise, you can try again.
+              This is taking longer than usual. If you already entered your PIN, refresh this page in a moment.
+              Otherwise, you can try again.
             </p>
             <button
               class="mt-5 rounded-md bg-gold-500 px-5 py-2.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
@@ -284,7 +300,9 @@ onMounted(loadBooking)
           </template>
 
           <template v-else>
-            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-blue-50 text-brand-blue-600">
+            <div
+              class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-blue-50 text-brand-blue-600"
+            >
               <svg class="h-7 w-7 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" />
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
@@ -307,7 +325,11 @@ onMounted(loadBooking)
               <button
                 type="button"
                 class="rounded-md border px-3 py-2 text-sm font-semibold"
-                :class="payOption === 'deposit' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
+                :class="
+                  payOption === 'deposit'
+                    ? 'border-brand-blue-600 bg-brand-blue-600 text-white'
+                    : 'border-slate-300 text-slate-600'
+                "
                 @click="payOption = 'deposit'"
               >
                 Deposit (30%)<br />
@@ -316,7 +338,11 @@ onMounted(loadBooking)
               <button
                 type="button"
                 class="rounded-md border px-3 py-2 text-sm font-semibold"
-                :class="payOption === 'full' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
+                :class="
+                  payOption === 'full'
+                    ? 'border-brand-blue-600 bg-brand-blue-600 text-white'
+                    : 'border-slate-300 text-slate-600'
+                "
                 @click="payOption = 'full'"
               >
                 Pay in Full<br />
@@ -325,8 +351,8 @@ onMounted(loadBooking)
             </div>
           </div>
           <div v-else class="text-sm text-slate-600">
-            Deposit already paid - paying the remaining balance of
-            KES {{ Number(booking.balance_due).toLocaleString() }}.
+            Deposit already paid - paying the remaining balance of KES
+            {{ Number(booking.balance_due).toLocaleString() }}.
           </div>
 
           <div v-if="booking.driver_name">
@@ -335,7 +361,11 @@ onMounted(loadBooking)
               <button
                 type="button"
                 class="rounded-md border px-3 py-2 text-sm font-semibold"
-                :class="paymentMethod === primaryMethod ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
+                :class="
+                  paymentMethod === primaryMethod
+                    ? 'border-brand-blue-600 bg-brand-blue-600 text-white'
+                    : 'border-slate-300 text-slate-600'
+                "
                 @click="paymentMethod = primaryMethod"
               >
                 {{ MPESA_ENABLED ? 'M-Pesa' : 'Bank Transfer' }}
@@ -344,7 +374,11 @@ onMounted(loadBooking)
                 v-if="booking.driver_cash_enabled"
                 type="button"
                 class="rounded-md border px-3 py-2 text-sm font-semibold"
-                :class="paymentMethod === 'cash' ? 'border-brand-blue-600 bg-brand-blue-600 text-white' : 'border-slate-300 text-slate-600'"
+                :class="
+                  paymentMethod === 'cash'
+                    ? 'border-brand-blue-600 bg-brand-blue-600 text-white'
+                    : 'border-slate-300 text-slate-600'
+                "
                 @click="paymentMethod = 'cash'"
               >
                 Cash
@@ -414,7 +448,11 @@ onMounted(loadBooking)
               class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
               @click="declareBankTransfer"
             >
-              {{ declaringBankTransfer ? 'Recording...' : `I've Sent KES ${amountToPay.toLocaleString()} via Bank Transfer` }}
+              {{
+                declaringBankTransfer
+                  ? 'Recording...'
+                  : `I've Sent KES ${amountToPay.toLocaleString()} via Bank Transfer`
+              }}
             </button>
           </template>
 

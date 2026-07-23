@@ -59,6 +59,12 @@ async function submitCode() {
     submitting.value = false
   }
 }
+
+function backToLogin() {
+  twoFactorUserId.value = null
+  otpCode.value = ''
+  error.value = ''
+}
 </script>
 
 <template>
@@ -69,7 +75,11 @@ async function submitCode() {
       </RouterLink>
       <h1 class="mt-4 text-center font-[Georgia] text-3xl font-bold text-navy-900">Log In</h1>
 
-      <form v-if="!twoFactorUserId" class="mt-8 space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-8" @submit.prevent="submit">
+      <form
+        v-if="!twoFactorUserId"
+        class="mt-8 space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-8"
+        @submit.prevent="submit"
+      >
         <div>
           <label class="mb-1 block text-sm text-slate-600">Email</label>
           <input
@@ -87,9 +97,16 @@ async function submitCode() {
             input-class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
           />
         </div>
-        <div v-if="error" class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div
+          v-if="error"
+          class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
           <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+            />
           </svg>
           <span>{{ error }}</span>
         </div>
@@ -107,11 +124,17 @@ async function submitCode() {
         </p>
         <p class="text-center text-sm text-slate-500">
           No account?
-          <RouterLink to="/register" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Sign up</RouterLink>
+          <RouterLink to="/register" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
+            >Sign up</RouterLink
+          >
         </p>
       </form>
 
-      <form v-else class="mt-8 space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-8" @submit.prevent="submitCode">
+      <form
+        v-else
+        class="mt-8 space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-8"
+        @submit.prevent="submitCode"
+      >
         <div>
           <p class="text-sm text-slate-600">
             We've emailed a 6-digit code to your address. Enter it below to finish logging in.
@@ -128,9 +151,16 @@ async function submitCode() {
             class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-center text-2xl tracking-[0.5em] text-navy-900 focus:border-brand-blue-500 focus:outline-none"
           />
         </div>
-        <div v-if="error" class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div
+          v-if="error"
+          class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
           <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+            />
           </svg>
           <span>{{ error }}</span>
         </div>
@@ -144,7 +174,7 @@ async function submitCode() {
         <button
           type="button"
           class="w-full text-center text-sm font-semibold text-brand-blue-600 hover:text-brand-blue-500"
-          @click="twoFactorUserId = null; otpCode = ''; error = ''"
+          @click="backToLogin"
         >
           Back to login
         </button>

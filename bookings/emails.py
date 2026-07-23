@@ -235,6 +235,7 @@ def send_booking_dates_changed_email(booking, old_start_date, old_end_date):
     server never blocks the date change itself."""
     try:
         from django.conf import settings
+
         from payments.models import RefundStatus
 
         has_pending_refund = hasattr(booking, 'refund') and booking.refund.status == RefundStatus.PENDING

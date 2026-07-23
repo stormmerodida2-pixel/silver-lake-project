@@ -57,12 +57,7 @@ onMounted(async () => {
 
     <template v-else-if="post">
       <div class="relative h-72 w-full bg-slate-100 sm:h-96">
-        <img
-          v-if="post.cover_image"
-          :src="post.cover_image"
-          :alt="post.title"
-          class="h-full w-full object-cover"
-        />
+        <img v-if="post.cover_image" :src="post.cover_image" :alt="post.title" class="h-full w-full object-cover" />
         <div v-else class="flex h-full items-center justify-center text-lg text-slate-300">SilverLake Car Rentals</div>
         <RouterLink
           to="/blog"
@@ -76,20 +71,35 @@ onMounted(async () => {
       </div>
 
       <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-        <div v-if="!post.is_published" class="mb-6 rounded-lg border border-gold-500 bg-gold-500/10 px-4 py-3 text-sm font-semibold text-gold-700">
+        <div
+          v-if="!post.is_published"
+          class="mb-6 rounded-lg border border-gold-500 bg-gold-500/10 px-4 py-3 text-sm font-semibold text-gold-700"
+        >
           Draft preview — this post is not published yet and isn't visible to the public.
         </div>
         <div class="flex items-center gap-2">
-          <span v-if="post.category_display" class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+          <span
+            v-if="post.category_display"
+            class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600"
+          >
             {{ post.category_display }}
           </span>
           <p v-if="post.published_at" class="text-sm font-semibold uppercase tracking-widest text-brand-blue-600">
-            {{ new Date(post.published_at).toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' }) }}
+            {{
+              new Date(post.published_at).toLocaleDateString('en-KE', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })
+            }}
           </p>
         </div>
         <h1 class="mt-2 font-[Georgia] text-3xl font-bold text-navy-900 sm:text-4xl">{{ post.title }}</h1>
         <p class="mt-2 text-sm text-slate-500">By SilverLake Car Rentals Team</p>
 
+        <!-- post.body is server-sanitized (blog.sanitize.sanitize_body, an nh3 allowlist) before it's
+             ever stored, so this can't render attacker-supplied markup. -->
+        <!-- eslint-disable-next-line vue/no-v-html -->
         <div class="prose mt-8 max-w-none text-slate-700" v-html="post.body"></div>
       </div>
     </template>

@@ -5,7 +5,7 @@ import apiClient from '../../api/client'
 import { useCatalogStore } from '../../stores/catalog'
 import { useDriverPortalStore } from '../../stores/driverPortal'
 
-const props = defineProps({
+defineProps({
   modelValue: { type: Boolean, required: true },
 })
 const emit = defineEmits(['update:modelValue'])
@@ -34,8 +34,12 @@ function close() {
 async function open() {
   await catalog.fetchCategories()
   Object.assign(form, {
-    name: '', category: catalog.categories[0]?.slug || '', tagline: '', description: '',
-    passenger_capacity: 4, price_per_day: '',
+    name: '',
+    category: catalog.categories[0]?.slug || '',
+    tagline: '',
+    description: '',
+    passenger_capacity: 4,
+    price_per_day: '',
   })
   photoFiles.value = []
   photoPreviewUrls.value = []
@@ -81,9 +85,10 @@ async function submitVehicle() {
     close()
   } catch (err) {
     const detail = err?.response?.data
-    formError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not submit this vehicle. Please try again.'
+    formError.value =
+      typeof detail === 'object'
+        ? Object.values(detail).flat().join(' ')
+        : 'Could not submit this vehicle. Please try again.'
   } finally {
     saving.value = false
   }
@@ -112,36 +117,59 @@ async function submitVehicle() {
 
           <form class="space-y-4" @submit.prevent="submitVehicle">
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Vehicle Name *</label>
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                >Vehicle Name *</label
+              >
               <input
-                v-model="form.name" type="text" placeholder="Toyota Prado TZG" required
+                v-model="form.name"
+                type="text"
+                placeholder="Toyota Prado TZG"
+                required
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
               />
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Category</label>
-                <select v-model="form.category"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                <select
+                  v-model="form.category"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                >
                   <option v-for="cat in catalog.categories" :key="cat.slug" :value="cat.slug">{{ cat.name }}</option>
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Capacity (pax)</label>
-                <input v-model="form.passenger_capacity" type="number" min="1" max="50"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Capacity (pax)</label
+                >
+                <input
+                  v-model="form.passenger_capacity"
+                  type="number"
+                  min="1"
+                  max="50"
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                 />
               </div>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Price / Day (KES) *</label>
-              <input v-model="form.price_per_day" type="number" min="0" step="0.01" placeholder="15000" required
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                >Price / Day (KES) *</label
+              >
+              <input
+                v-model="form.price_per_day"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="15000"
+                required
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
               />
             </div>
             <div>
               <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Description</label>
-              <textarea v-model="form.description" rows="2"
+              <textarea
+                v-model="form.description"
+                rows="2"
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
               ></textarea>
             </div>
@@ -149,7 +177,11 @@ async function submitVehicle() {
               <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">
                 Vehicle Photos * <span class="normal-case text-slate-500">(at least 2)</span>
               </label>
-              <input type="file" accept="image/*" multiple required
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                required
                 class="w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
                 @change="onPhotosSelected"
               />
@@ -157,7 +189,8 @@ async function submitVehicle() {
                 <div v-for="(url, i) in photoPreviewUrls" :key="i" class="group relative h-16 w-24 shrink-0">
                   <img :src="url" alt="Preview" class="h-full w-full rounded-lg border border-navy-700 object-cover" />
                   <button
-                    type="button" title="Remove this photo"
+                    type="button"
+                    title="Remove this photo"
                     class="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white opacity-0 transition-opacity group-hover:opacity-100"
                     @click="removePhoto(i)"
                   >
@@ -170,21 +203,31 @@ async function submitVehicle() {
               </p>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Logbook / Ownership Document *</label>
-              <input type="file" accept="image/*,.pdf" required
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                >Logbook / Ownership Document *</label
+              >
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                required
                 class="w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
                 @change="logbookFile = $event.target.files[0]"
               />
             </div>
 
             <div class="flex gap-3 pt-2">
-              <button type="button"
+              <button
+                type="button"
                 class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500 hover:text-white"
-                @click="close">
+                @click="close"
+              >
                 Cancel
               </button>
-              <button type="submit" :disabled="saving"
-                class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50">
+              <button
+                type="submit"
+                :disabled="saving"
+                class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+              >
                 {{ saving ? 'Submitting…' : 'Submit for Review' }}
               </button>
             </div>
@@ -197,7 +240,11 @@ async function submitVehicle() {
 
 <style scoped>
 .modal-fade-enter-active,
-.modal-fade-leave-active { transition: opacity 0.2s ease; }
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
 .modal-fade-enter-from,
-.modal-fade-leave-to { opacity: 0; }
+.modal-fade-leave-to {
+  opacity: 0;
+}
 </style>

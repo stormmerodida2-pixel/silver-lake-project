@@ -19,14 +19,12 @@ const viewYear = ref(today.getFullYear())
 const viewMonth = ref(today.getMonth()) // 0-11
 
 const monthLabel = computed(() =>
-  new Date(viewYear.value, viewMonth.value, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  new Date(viewYear.value, viewMonth.value, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
 )
 
 // The calendar never lets you navigate before the current month - past availability isn't
 // useful, and it keeps "Previous" simple to disable rather than clamping mid-navigation.
-const isCurrentMonth = computed(
-  () => viewYear.value === today.getFullYear() && viewMonth.value === today.getMonth()
-)
+const isCurrentMonth = computed(() => viewYear.value === today.getFullYear() && viewMonth.value === today.getMonth())
 
 function isBooked(date) {
   return bookedRanges.value.some((range) => date >= range.start_date && date <= range.end_date)
@@ -79,7 +77,7 @@ async function load() {
   try {
     const { data } = await apiClient.get(`/vehicles/${props.vehicleId}/availability/`)
     bookedRanges.value = data
-  } catch (err) {
+  } catch {
     error.value = "Could not load this vehicle's availability."
   } finally {
     loading.value = false
@@ -140,7 +138,9 @@ watch(() => props.vehicleId, load)
 
       <div class="mt-3 flex items-center gap-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
         <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-red-100" /> Booked</span>
-        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full border border-slate-300" /> Available</span>
+        <span class="flex items-center gap-1.5"
+          ><span class="h-2.5 w-2.5 rounded-full border border-slate-300" /> Available</span
+        >
       </div>
     </template>
   </div>

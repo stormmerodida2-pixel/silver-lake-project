@@ -1,0 +1,4 @@
+# Local/CI-only tooling - never installed into the production image (Dockerfile installs only
+# requirements.txt), so this stays out of what ships.
+-r requirements.txt
+ruff

@@ -47,14 +47,19 @@ async function handleLogout() {
 const mobileMenuOpen = ref(false)
 const mobileMenuButton = ref(null)
 const mobileMenuPanel = ref(null)
-watch(() => route.path, () => {
-  mobileMenuOpen.value = false
-})
+watch(
+  () => route.path,
+  () => {
+    mobileMenuOpen.value = false
+  },
+)
 
 function handleMobileMenuOutsideClick(event) {
   if (
-    mobileMenuButton.value && !mobileMenuButton.value.contains(event.target) &&
-    mobileMenuPanel.value && !mobileMenuPanel.value.contains(event.target)
+    mobileMenuButton.value &&
+    !mobileMenuButton.value.contains(event.target) &&
+    mobileMenuPanel.value &&
+    !mobileMenuPanel.value.contains(event.target)
   ) {
     mobileMenuOpen.value = false
   }
@@ -85,7 +90,7 @@ async function markAway() {
   try {
     await driverPortal.markAway(awayReasonDraft.value.trim())
     showAwayForm.value = false
-  } catch (err) {
+  } catch {
     awayError.value = 'Could not update your availability.'
   } finally {
     awaySaving.value = false
@@ -97,7 +102,7 @@ async function markAvailable() {
   awayError.value = ''
   try {
     await driverPortal.markAvailable()
-  } catch (err) {
+  } catch {
     awayError.value = 'Could not update your availability.'
   } finally {
     awaySaving.value = false
@@ -129,7 +134,14 @@ onMounted(() => {
               : 'text-slate-300 hover:bg-navy-800 hover:text-gold-400'
           "
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
           </svg>
           {{ item.label }}
@@ -141,8 +153,19 @@ onMounted(() => {
           to="/account/profile"
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z"
+            />
           </svg>
           My Profile
         </RouterLink>
@@ -150,7 +173,14 @@ onMounted(() => {
           to="/"
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
           Back to Site
@@ -159,8 +189,19 @@ onMounted(() => {
           class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
           @click="handleLogout"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 5v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 5v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1"
+            />
           </svg>
           Log Out
         </button>
@@ -168,7 +209,9 @@ onMounted(() => {
     </aside>
 
     <div class="min-w-0 flex-1">
-      <header class="flex items-center justify-between border-b border-navy-800 bg-navy-950/95 px-4 py-3 backdrop-blur md:px-8">
+      <header
+        class="flex items-center justify-between border-b border-navy-800 bg-navy-950/95 px-4 py-3 backdrop-blur md:px-8"
+      >
         <div class="flex items-center gap-2 md:hidden">
           <SilverLakeLogo :size="24" />
           <span class="font-[Georgia] text-sm font-bold text-white">Driver</span>
@@ -184,7 +227,14 @@ onMounted(() => {
             @click.stop="mobileMenuOpen = !mobileMenuOpen"
           >
             <!-- .stop matters: without it, this click reaches handleMobileMenuOutsideClick with a detached event.target (the icon's path swaps via v-if/v-else the instant mobileMenuOpen flips), which immediately re-closes the menu it just opened. -->
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <path v-if="!mobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               <path v-else stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -212,7 +262,14 @@ onMounted(() => {
             "
             @click="mobileMenuOpen = false"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
               <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
             </svg>
             {{ item.label }}
@@ -224,8 +281,19 @@ onMounted(() => {
             class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
             @click="mobileMenuOpen = false"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z"
+              />
             </svg>
             My Profile
           </RouterLink>
@@ -234,7 +302,14 @@ onMounted(() => {
             class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
             @click="mobileMenuOpen = false"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
               <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
             Back to Site
@@ -243,8 +318,19 @@ onMounted(() => {
             class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
             @click="handleLogout"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 5v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 5v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1"
+              />
             </svg>
             Log Out
           </button>
@@ -261,17 +347,23 @@ onMounted(() => {
 
         <template v-else-if="driverPortal.profile">
           <!-- Profile hero - persistent across every driver page -->
-          <section class="overflow-hidden rounded-2xl border border-gold-500/40 bg-gradient-to-br from-navy-900 to-navy-950 p-6 sm:p-8">
+          <section
+            class="overflow-hidden rounded-2xl border border-gold-500/40 bg-gradient-to-br from-navy-900 to-navy-950 p-6 sm:p-8"
+          >
             <div class="flex flex-wrap items-start justify-between gap-4">
               <div class="flex items-center gap-4">
-                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/10 font-[Georgia] text-2xl font-bold text-gold-400">
+                <div
+                  class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/10 font-[Georgia] text-2xl font-bold text-gold-400"
+                >
                   {{ driverPortal.initials || '—' }}
                 </div>
                 <div>
                   <h2 class="font-[Georgia] text-2xl font-bold text-white">{{ driverPortal.profile.full_name }}</h2>
                   <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-400">
                     <span class="inline-flex items-center gap-1 text-gold-400">
-                      <span v-for="n in 5" :key="n" class="text-sm leading-none">{{ n <= Math.round(driverPortal.profile.rating) ? '★' : '☆' }}</span>
+                      <span v-for="n in 5" :key="n" class="text-sm leading-none">{{
+                        n <= Math.round(driverPortal.profile.rating) ? '★' : '☆'
+                      }}</span>
                       <span class="ml-1 text-slate-300">{{ Number(driverPortal.profile.rating).toFixed(1) }}</span>
                     </span>
                     <span class="text-slate-600">&middot;</span>
@@ -281,19 +373,27 @@ onMounted(() => {
               </div>
               <span
                 class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
-                :class="driverPortal.profile.is_away ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'"
+                :class="
+                  driverPortal.profile.is_away ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'
+                "
               >
-                <span class="h-1.5 w-1.5 rounded-full" :class="driverPortal.profile.is_away ? 'bg-red-400' : 'bg-emerald-400'" />
+                <span
+                  class="h-1.5 w-1.5 rounded-full"
+                  :class="driverPortal.profile.is_away ? 'bg-red-400' : 'bg-emerald-400'"
+                />
                 {{ driverPortal.profile.is_away ? 'Away' : 'Available' }}
               </span>
             </div>
 
-            <p v-if="driverPortal.profile.is_away && driverPortal.profile.away_reason" class="mt-4 rounded-lg bg-navy-800 px-4 py-3 text-sm text-slate-300">
+            <p
+              v-if="driverPortal.profile.is_away && driverPortal.profile.away_reason"
+              class="mt-4 rounded-lg bg-navy-800 px-4 py-3 text-sm text-slate-300"
+            >
               <span class="font-semibold text-slate-400">Your reason: </span>{{ driverPortal.profile.away_reason }}
             </p>
             <p class="mt-4 text-xs text-slate-500">
-              While marked away, your vehicle(s) won't show up in the public fleet for customers to book.
-              Admins can still see your reason.
+              While marked away, your vehicle(s) won't show up in the public fleet for customers to book. Admins can
+              still see your reason.
             </p>
             <p v-if="awayError" class="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ awayError }}</p>
 

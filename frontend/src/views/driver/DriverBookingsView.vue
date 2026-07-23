@@ -32,7 +32,7 @@ async function acknowledgeBooking(booking) {
   try {
     const { data } = await apiClient.post(`/driver/bookings/${booking.id}/acknowledge/`)
     Object.assign(booking, data)
-  } catch (err) {
+  } catch {
     driverPortal.bookingsError = 'Could not acknowledge this booking.'
   } finally {
     acknowledgingId.value = null
@@ -135,13 +135,15 @@ function reportPosition(bookingId) {
   if (!navigator.geolocation) return
   navigator.geolocation.getCurrentPosition(
     (position) => {
-      apiClient.post(`/driver/bookings/${bookingId}/location/`, {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-      }).catch(() => {
-        // Silently retry on the next interval tick - a single dropped update isn't worth
-        // interrupting the driver over.
-      })
+      apiClient
+        .post(`/driver/bookings/${bookingId}/location/`, {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        })
+        .catch(() => {
+          // Silently retry on the next interval tick - a single dropped update isn't worth
+          // interrupting the driver over.
+        })
     },
     () => {
       driverPortal.bookingsError = 'Could not read your location. Check your browser location permission.'
@@ -183,7 +185,9 @@ onUnmounted(() => {
 })
 
 onMounted(() => {
-  ackClockIntervalId = setInterval(() => { now.value = Date.now() }, 60000)
+  ackClockIntervalId = setInterval(() => {
+    now.value = Date.now()
+  }, 60000)
 })
 
 // ── Walk-up client booking ───────────────────────────────────────────────────
@@ -201,7 +205,11 @@ function openOnsiteModal() {
     <section>
       <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gold-400">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8 3v4M16 3v4M4 9h16M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M8 3v4M16 3v4M4 9h16M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z"
+          />
         </svg>
         My Bookings
       </h2>
@@ -218,7 +226,11 @@ function openOnsiteModal() {
           v-for="booking in driverPortal.bookings"
           :key="booking.id"
           class="rounded-xl border p-4 transition"
-          :class="!booking.driver_acknowledged_at ? 'border-gold-500 bg-navy-900' : 'border-navy-800 bg-navy-900 hover:border-navy-700'"
+          :class="
+            !booking.driver_acknowledged_at
+              ? 'border-gold-500 bg-navy-900'
+              : 'border-navy-800 bg-navy-900 hover:border-navy-700'
+          "
         >
           <div class="flex items-start justify-between gap-3">
             <div>
@@ -233,7 +245,10 @@ function openOnsiteModal() {
                 </span>
                 <span class="text-xs text-slate-500">customer rating</span>
               </div>
-              <p v-if="booking.status === 'completed' && booking.review?.comment" class="mt-1 max-w-sm text-xs italic text-slate-400">
+              <p
+                v-if="booking.status === 'completed' && booking.review?.comment"
+                class="mt-1 max-w-sm text-xs italic text-slate-400"
+              >
                 “{{ booking.review.comment }}”
               </p>
             </div>
@@ -311,9 +326,11 @@ function openOnsiteModal() {
             <button
               v-if="isTripCurrentlyActive(booking)"
               class="rounded-md px-3 py-1.5 text-xs font-semibold"
-              :class="sharingBookingId === booking.id
-                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/40'
-                : 'border border-navy-700 text-slate-300 hover:border-gold-400 hover:text-gold-400'"
+              :class="
+                sharingBookingId === booking.id
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/40'
+                  : 'border border-navy-700 text-slate-300 hover:border-gold-400 hover:text-gold-400'
+              "
               @click="toggleSharingLocation(booking)"
             >
               {{ sharingBookingId === booking.id ? '● Sharing Location' : 'Share My Location' }}
@@ -322,7 +339,9 @@ function openOnsiteModal() {
 
           <BookingPaymentCollector :booking="booking" />
         </div>
-        <p v-if="!driverPortal.bookingsLoading && !driverPortal.bookings.length" class="text-sm text-slate-500">No bookings yet.</p>
+        <p v-if="!driverPortal.bookingsLoading && !driverPortal.bookings.length" class="text-sm text-slate-500">
+          No bookings yet.
+        </p>
       </div>
     </section>
 
@@ -330,14 +349,20 @@ function openOnsiteModal() {
     <section class="mt-10">
       <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gold-400">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 0 0-3-3.87M9 20H4v-2a4 4 0 0 1 3-3.87m5-2.13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-4a4 4 0 0 1-3 3.87" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M17 20h5v-2a4 4 0 0 0-3-3.87M9 20H4v-2a4 4 0 0 1 3-3.87m5-2.13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-4a4 4 0 0 1-3 3.87"
+          />
         </svg>
         Walk-Up Client
       </h2>
-      <div class="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-navy-800 bg-navy-900 p-4">
+      <div
+        class="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-navy-800 bg-navy-900 p-4"
+      >
         <p class="max-w-md text-xs text-slate-400">
-          For a client with you right now who doesn't want to register - creates their booking,
-          then lets you collect cash, card, or bank transfer for the exact amount they tell you.
+          For a client with you right now who doesn't want to register - creates their booking, then lets you collect
+          cash, card, or bank transfer for the exact amount they tell you.
         </p>
         <button
           v-if="driverPortal.profile.vehicles.length"
@@ -354,8 +379,10 @@ function openOnsiteModal() {
 
     <WalkUpBookingModal ref="onsiteModal" v-model="showOnsiteModal" />
     <ConditionReportModal
-      ref="conditionModal" v-model="showConditionModal"
-      :endpoint="conditionEndpoint" :report-type="conditionReportType"
+      ref="conditionModal"
+      v-model="showConditionModal"
+      :endpoint="conditionEndpoint"
+      :report-type="conditionReportType"
     />
   </div>
 </template>

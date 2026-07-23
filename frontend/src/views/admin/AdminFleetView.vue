@@ -16,7 +16,7 @@ const busyId = ref(null)
 
 // ── Shared Add / Edit modal ─────────────────────────────────────────────────
 const showModal = ref(false)
-const editingId = ref(null)   // null = create, number = edit
+const editingId = ref(null) // null = create, number = edit
 const editingVehicle = computed(() => vehicles.value.find((v) => v.id === editingId.value))
 const saving = ref(false)
 const formError = ref('')
@@ -58,7 +58,7 @@ async function addGalleryImages(event) {
     const { data } = await apiClient.post(`/admin/fleet/${editingId.value}/gallery/`, payload)
     galleryImages.value.push(...data)
     syncGalleryToList()
-  } catch (err) {
+  } catch {
     galleryError.value = 'Could not upload one or more photos.'
   } finally {
     galleryUploading.value = false
@@ -73,7 +73,7 @@ async function removeGalleryImage(image) {
     await apiClient.delete(`/admin/fleet/${editingId.value}/gallery/${image.id}/`)
     galleryImages.value = galleryImages.value.filter((img) => img.id !== image.id)
     syncGalleryToList()
-  } catch (err) {
+  } catch {
     galleryError.value = 'Could not remove this photo.'
   } finally {
     removingImageId.value = null
@@ -105,7 +105,7 @@ async function addServiceRecord() {
     syncServiceRecordsToList()
     serviceDateDraft.value = ''
     serviceNotesDraft.value = ''
-  } catch (err) {
+  } catch {
     serviceError.value = 'Could not log this service.'
   } finally {
     serviceSaving.value = false
@@ -117,18 +117,26 @@ function syncServiceRecordsToList() {
   if (vehicle) vehicle.service_records = [...serviceRecords.value]
 }
 
-const modalTitle = () => editingId.value ? 'Edit Vehicle' : 'Add New Vehicle'
-const submitLabel = () => saving.value
-  ? (editingId.value ? 'Saving…' : 'Creating…')
-  : (editingId.value ? 'Save Changes' : 'Add Vehicle')
+const modalTitle = () => (editingId.value ? 'Edit Vehicle' : 'Add New Vehicle')
+const submitLabel = () =>
+  saving.value ? (editingId.value ? 'Saving…' : 'Creating…') : editingId.value ? 'Save Changes' : 'Add Vehicle'
 
 function resetForm() {
   Object.assign(form, {
-    name: '', category: fleetTypes.value.find((c) => c.is_active)?.slug || '', tagline: '', description: '',
-    passenger_capacity: 4, price_per_day: '',
-    allow_self_drive: true, allow_with_driver: true, is_available: true, driver: '',
-    insurance_provider: '', insurance_policy_number: '',
-    insurance_expiry_date: '', inspection_expiry_date: '',
+    name: '',
+    category: fleetTypes.value.find((c) => c.is_active)?.slug || '',
+    tagline: '',
+    description: '',
+    passenger_capacity: 4,
+    price_per_day: '',
+    allow_self_drive: true,
+    allow_with_driver: true,
+    is_available: true,
+    driver: '',
+    insurance_provider: '',
+    insurance_policy_number: '',
+    insurance_expiry_date: '',
+    inspection_expiry_date: '',
   })
   imageFile.value = null
   imagePreviewUrl.value = null
@@ -227,9 +235,8 @@ async function saveVehicle() {
     showModal.value = false
   } catch (err) {
     const detail = err?.response?.data
-    formError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not save vehicle. Please try again.'
+    formError.value =
+      typeof detail === 'object' ? Object.values(detail).flat().join(' ') : 'Could not save vehicle. Please try again.'
   } finally {
     saving.value = false
   }
@@ -316,10 +323,7 @@ onMounted(() => {
     <template v-if="!loading">
       <!-- Card layout - phones/small tablets, avoids a wide table forcing horizontal scroll -->
       <div class="mt-6 space-y-3 md:hidden">
-        <div
-          v-for="vehicle in vehicles" :key="vehicle.id"
-          class="rounded-xl border border-navy-800 bg-navy-900 p-4"
-        >
+        <div v-for="vehicle in vehicles" :key="vehicle.id" class="rounded-xl border border-navy-800 bg-navy-900 p-4">
           <div class="flex gap-3">
             <div class="h-14 w-20 shrink-0 overflow-hidden rounded-md border border-navy-800 bg-navy-800">
               <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
@@ -328,7 +332,10 @@ onMounted(() => {
             <div class="min-w-0 flex-1">
               <div class="flex items-start justify-between gap-2">
                 <p class="font-medium text-white">{{ vehicle.name }}</p>
-                <span :class="vehicle.is_available ? 'text-gold-400' : 'text-red-400'" class="shrink-0 text-xs font-semibold">
+                <span
+                  :class="vehicle.is_available ? 'text-gold-400' : 'text-red-400'"
+                  class="shrink-0 text-xs font-semibold"
+                >
                   {{ vehicle.is_available ? 'Available' : 'Unavailable' }}
                 </span>
               </div>
@@ -400,7 +407,12 @@ onMounted(() => {
             <tr v-for="vehicle in vehicles" :key="vehicle.id">
               <td class="px-4 py-3">
                 <div class="h-12 w-16 overflow-hidden rounded-md border border-navy-800 bg-navy-800">
-                  <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
+                  <img
+                    v-if="vehicle.image"
+                    :src="vehicle.image"
+                    :alt="vehicle.name"
+                    class="h-full w-full object-cover"
+                  />
                   <div v-else class="flex h-full items-center justify-center text-xs text-slate-600">—</div>
                 </div>
               </td>
@@ -421,16 +433,22 @@ onMounted(() => {
                 <span v-else class="text-xs text-slate-500">Up to date</span>
               </td>
               <td class="px-4 py-3">
-                <span v-if="vehicle.insurance_expiry_date"
-                  :class="vehicle.is_insurance_expired ? 'text-red-400' : 'text-slate-400'" class="text-xs">
+                <span
+                  v-if="vehicle.insurance_expiry_date"
+                  :class="vehicle.is_insurance_expired ? 'text-red-400' : 'text-slate-400'"
+                  class="text-xs"
+                >
                   {{ vehicle.insurance_expiry_date }}
                   <span v-if="vehicle.is_insurance_expired" class="ml-1 font-bold">⚠ Expired</span>
                 </span>
                 <span v-else class="text-xs text-slate-600">—</span>
               </td>
               <td class="px-4 py-3">
-                <span v-if="vehicle.inspection_expiry_date"
-                  :class="vehicle.is_inspection_expired ? 'text-red-400' : 'text-slate-400'" class="text-xs">
+                <span
+                  v-if="vehicle.inspection_expiry_date"
+                  :class="vehicle.is_inspection_expired ? 'text-red-400' : 'text-slate-400'"
+                  class="text-xs"
+                >
                   {{ vehicle.inspection_expiry_date }}
                   <span v-if="vehicle.is_inspection_expired" class="ml-1 font-bold">⚠ Expired</span>
                 </span>
@@ -504,46 +522,73 @@ onMounted(() => {
             <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ formError }}</p>
 
             <form class="space-y-5" @submit.prevent="saveVehicle">
-
               <!-- Basic info -->
               <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Vehicle Name *</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                    >Vehicle Name *</label
+                  >
                   <input
-                    v-model="form.name" type="text" placeholder="Toyota Prado TZG" required
+                    v-model="form.name"
+                    type="text"
+                    placeholder="Toyota Prado TZG"
+                    required
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                 </div>
                 <div>
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Category</label>
-                  <select v-model="form.category"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                  <select
+                    v-model="form.category"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  >
                     <option v-for="cat in fleetTypes" :key="cat.slug" :value="cat.slug">
                       {{ cat.name }}{{ cat.is_active ? '' : ' (Inactive)' }}
                     </option>
                   </select>
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Capacity (pax) *</label>
-                  <input v-model="form.passenger_capacity" type="number" min="1" max="50"
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                    >Capacity (pax) *</label
+                  >
+                  <input
+                    v-model="form.passenger_capacity"
+                    type="number"
+                    min="1"
+                    max="50"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Price / Day (KES) *</label>
-                  <input v-model="form.price_per_day" type="number" min="0" step="0.01" placeholder="15000" required
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                    >Price / Day (KES) *</label
+                  >
+                  <input
+                    v-model="form.price_per_day"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="15000"
+                    required
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                 </div>
                 <div>
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Tagline</label>
-                  <input v-model="form.tagline" type="text" placeholder="Luxury · Power · Prestige"
+                  <input
+                    v-model="form.tagline"
+                    type="text"
+                    placeholder="Luxury · Power · Prestige"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                 </div>
                 <div class="col-span-2">
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Description</label>
-                  <textarea v-model="form.description" rows="3"
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                    >Description</label
+                  >
+                  <textarea
+                    v-model="form.description"
+                    rows="3"
                     placeholder="Full vehicle description shown on the detail page..."
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   ></textarea>
@@ -552,13 +597,22 @@ onMounted(() => {
 
               <!-- Photo -->
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Vehicle Photo</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Vehicle Photo</label
+                >
                 <div class="flex items-center gap-3">
                   <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-navy-700 bg-navy-800">
-                    <img v-if="imagePreviewUrl" :src="imagePreviewUrl" alt="Preview" class="h-full w-full object-cover" />
+                    <img
+                      v-if="imagePreviewUrl"
+                      :src="imagePreviewUrl"
+                      alt="Preview"
+                      class="h-full w-full object-cover"
+                    />
                     <div v-else class="flex h-full items-center justify-center text-xs text-slate-500">No photo</div>
                   </div>
-                  <input type="file" accept="image/*"
+                  <input
+                    type="file"
+                    accept="image/*"
                     class="w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
                     @change="onImageSelected"
                   />
@@ -589,7 +643,11 @@ onMounted(() => {
                     </button>
                   </div>
                 </div>
-                <input type="file" accept="image/*" multiple :disabled="galleryUploading"
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  :disabled="galleryUploading"
                   class="mt-2 w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950 disabled:opacity-50"
                   @change="addGalleryImages"
                 />
@@ -602,7 +660,10 @@ onMounted(() => {
               <div v-if="editingId">
                 <label class="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-400">
                   Service History
-                  <span v-if="editingVehicle?.is_service_due" class="rounded-full bg-gold-500/10 px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal text-gold-400">
+                  <span
+                    v-if="editingVehicle?.is_service_due"
+                    class="rounded-full bg-gold-500/10 px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal text-gold-400"
+                  >
                     ⚠ Due (90+ days)
                   </span>
                 </label>
@@ -611,17 +672,22 @@ onMounted(() => {
                   <li v-for="record in serviceRecords" :key="record.id" class="text-xs text-slate-300">
                     <span class="text-white">{{ record.service_date }}</span>
                     <span v-if="record.notes" class="text-slate-400"> &middot; {{ record.notes }}</span>
-                    <span v-if="record.logged_by_name" class="text-slate-500"> (logged by {{ record.logged_by_name }})</span>
+                    <span v-if="record.logged_by_name" class="text-slate-500">
+                      (logged by {{ record.logged_by_name }})</span
+                    >
                   </li>
                 </ul>
                 <p v-else class="mb-2 text-xs text-slate-500">No service logged yet.</p>
                 <div v-if="auth.user?.is_superuser" class="flex gap-2">
                   <input
-                    v-model="serviceDateDraft" type="date"
+                    v-model="serviceDateDraft"
+                    type="date"
                     class="rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white focus:border-gold-500 focus:outline-none"
                   />
                   <input
-                    v-model="serviceNotesDraft" type="text" placeholder="e.g. Oil change + filter"
+                    v-model="serviceNotesDraft"
+                    type="text"
+                    placeholder="e.g. Oil change + filter"
                     class="flex-1 rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                   <button
@@ -638,28 +704,40 @@ onMounted(() => {
 
               <!-- Insurance & Inspection -->
               <div class="grid grid-cols-2 gap-4 rounded-xl border border-navy-700 p-4">
-                <p class="col-span-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Insurance &amp; Inspection</p>
+                <p class="col-span-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Insurance &amp; Inspection
+                </p>
                 <div>
                   <label class="mb-1 block text-xs text-slate-400">Insurance Provider</label>
-                  <input v-model="form.insurance_provider" type="text" placeholder="Jubilee Insurance"
+                  <input
+                    v-model="form.insurance_provider"
+                    type="text"
+                    placeholder="Jubilee Insurance"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                 </div>
                 <div>
                   <label class="mb-1 block text-xs text-slate-400">Policy Number</label>
-                  <input v-model="form.insurance_policy_number" type="text" placeholder="POL-00123"
+                  <input
+                    v-model="form.insurance_policy_number"
+                    type="text"
+                    placeholder="POL-00123"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                 </div>
                 <div>
                   <label class="mb-1 block text-xs text-slate-400">Insurance Expiry</label>
-                  <input v-model="form.insurance_expiry_date" type="date"
+                  <input
+                    v-model="form.insurance_expiry_date"
+                    type="date"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white focus:border-gold-500 focus:outline-none"
                   />
                 </div>
                 <div>
                   <label class="mb-1 block text-xs text-slate-400">Inspection Expiry</label>
-                  <input v-model="form.inspection_expiry_date" type="date"
+                  <input
+                    v-model="form.inspection_expiry_date"
+                    type="date"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white focus:border-gold-500 focus:outline-none"
                   />
                 </div>
@@ -673,36 +751,42 @@ onMounted(() => {
                   Company-owned (SilverLake owns this vehicle)
                 </label>
                 <p class="mt-1 text-xs text-slate-500">
-                  Uncheck if a driver-partner or fleet partner owns this vehicle instead - affects
-                  whether a with-driver booking on it creates a driver payout. A driver-partner's
-                  own submitted car is set correctly automatically; this only matters for vehicles
-                  added directly here.
+                  Uncheck if a driver-partner or fleet partner owns this vehicle instead - affects whether a with-driver
+                  booking on it creates a driver payout. A driver-partner's own submitted car is set correctly
+                  automatically; this only matters for vehicles added directly here.
                 </p>
                 <div v-if="!form.is_company_owned" class="mt-3">
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Fleet Partner</label>
-                  <select v-model="form.owner"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                    >Fleet Partner</label
+                  >
+                  <select
+                    v-model="form.owner"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  >
                     <option value="">None - owned by the assigned driver themselves</option>
                     <option v-for="p in partnerOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
                   </select>
                   <p class="mt-1 text-xs text-slate-500">
-                    Leave as "None" for an individual driver-partner's own car. Pick a registered
-                    company if this vehicle belongs to their fleet instead.
+                    Leave as "None" for an individual driver-partner's own car. Pick a registered company if this
+                    vehicle belongs to their fleet instead.
                   </p>
                 </div>
               </div>
 
               <!-- Driver assignment -->
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Assigned Driver</label>
-                <select v-model="form.driver"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Assigned Driver</label
+                >
+                <select
+                  v-model="form.driver"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                >
                   <option value="">No driver assigned</option>
                   <option v-for="d in driverOptions" :key="d.id" :value="d.id">{{ d.full_name }}</option>
                 </select>
                 <p class="mt-1 text-xs text-slate-500">
-                  Who physically drives this vehicle on "with driver" bookings - separate from
-                  ownership above.
+                  Who physically drives this vehicle on "with driver" bookings - separate from ownership above.
                 </p>
               </div>
 
@@ -723,13 +807,18 @@ onMounted(() => {
               </div>
 
               <div class="flex gap-3 pt-2">
-                <button type="button"
+                <button
+                  type="button"
                   class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
-                  @click="showModal = false">
+                  @click="showModal = false"
+                >
                   Cancel
                 </button>
-                <button type="submit" :disabled="saving"
-                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50">
+                <button
+                  type="submit"
+                  :disabled="saving"
+                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
+                >
                   {{ submitLabel() }}
                 </button>
               </div>
@@ -743,7 +832,11 @@ onMounted(() => {
 
 <style scoped>
 .modal-fade-enter-active,
-.modal-fade-leave-active { transition: opacity 0.2s ease; }
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
 .modal-fade-enter-from,
-.modal-fade-leave-to { opacity: 0; }
+.modal-fade-leave-to {
+  opacity: 0;
+}
 </style>

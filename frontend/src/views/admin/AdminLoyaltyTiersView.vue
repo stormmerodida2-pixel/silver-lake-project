@@ -24,7 +24,9 @@ function openAddModal() {
 function openEditModal(tier) {
   editingId.value = tier.id
   Object.assign(form, {
-    name: tier.name, min_completed_trips: tier.min_completed_trips, discount_percent: tier.discount_percent,
+    name: tier.name,
+    min_completed_trips: tier.min_completed_trips,
+    discount_percent: tier.discount_percent,
   })
   formError.value = ''
   showModal.value = true
@@ -51,9 +53,7 @@ async function saveTier() {
     showModal.value = false
   } catch (err) {
     const detail = err?.response?.data
-    formError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not save this tier.'
+    formError.value = typeof detail === 'object' ? Object.values(detail).flat().join(' ') : 'Could not save this tier.'
   } finally {
     saving.value = false
   }
@@ -83,8 +83,8 @@ onMounted(() => {
       <div>
         <h1 class="font-[Georgia] text-2xl font-bold text-white">Loyalty Tiers</h1>
         <p class="mt-1 text-sm text-slate-400">
-          A customer's tier is based on their own lifetime completed trips, and its discount
-          applies automatically to every booking they make from then on - no code needed.
+          A customer's tier is based on their own lifetime completed trips, and its discount applies automatically to
+          every booking they make from then on - no code needed.
         </p>
       </div>
       <button
@@ -107,13 +107,18 @@ onMounted(() => {
           <div class="flex items-center gap-3">
             <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-500/10 text-gold-400">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674Z" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674Z"
+                />
               </svg>
             </span>
             <div>
               <p class="font-semibold text-white">{{ tier.name }}</p>
               <p class="text-xs text-slate-500">
-                {{ tier.min_completed_trips }}+ completed trips &middot; {{ Number(tier.discount_percent) }}% off every booking
+                {{ tier.min_completed_trips }}+ completed trips &middot; {{ Number(tier.discount_percent) }}% off every
+                booking
               </p>
             </div>
           </div>
@@ -162,22 +167,40 @@ onMounted(() => {
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Tier Name *</label>
                 <input
-                  v-model="form.name" type="text" required placeholder="e.g. Gold"
+                  v-model="form.name"
+                  type="text"
+                  required
+                  placeholder="e.g. Gold"
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 />
               </div>
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Min. Completed Trips *</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                    >Min. Completed Trips *</label
+                  >
                   <input
-                    v-model="form.min_completed_trips" type="number" min="0" step="1" required placeholder="e.g. 6"
+                    v-model="form.min_completed_trips"
+                    type="number"
+                    min="0"
+                    step="1"
+                    required
+                    placeholder="e.g. 6"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Discount (%) *</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                    >Discount (%) *</label
+                  >
                   <input
-                    v-model="form.discount_percent" type="number" min="0" max="100" step="0.01" required placeholder="e.g. 10"
+                    v-model="form.discount_percent"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    required
+                    placeholder="e.g. 10"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />
                 </div>

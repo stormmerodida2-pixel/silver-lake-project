@@ -11,7 +11,7 @@ const { items: categories, nextUrl, loading, loadingMore, error, load, loadMore 
 const busyId = ref(null)
 
 const showModal = ref(false)
-const editingId = ref(null)   // null = create, number = edit
+const editingId = ref(null) // null = create, number = edit
 const saving = ref(false)
 const formError = ref('')
 const form = reactive({
@@ -19,14 +19,13 @@ const form = reactive({
   order: 0,
 })
 
-const modalTitle = () => editingId.value ? 'Edit Fleet Type' : 'Add Fleet Type'
-const submitLabel = () => saving.value
-  ? (editingId.value ? 'Saving…' : 'Creating…')
-  : (editingId.value ? 'Save Changes' : 'Add Fleet Type')
+const modalTitle = () => (editingId.value ? 'Edit Fleet Type' : 'Add Fleet Type')
+const submitLabel = () =>
+  saving.value ? (editingId.value ? 'Saving…' : 'Creating…') : editingId.value ? 'Save Changes' : 'Add Fleet Type'
 
 function openAddModal() {
   editingId.value = null
-  Object.assign(form, { name: '', order: (categories.value.length || 0) })
+  Object.assign(form, { name: '', order: categories.value.length || 0 })
   formError.value = ''
   showModal.value = true
 }
@@ -57,9 +56,10 @@ async function saveCategory() {
     showModal.value = false
   } catch (err) {
     const detail = err?.response?.data
-    formError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not save this fleet type. Please try again.'
+    formError.value =
+      typeof detail === 'object'
+        ? Object.values(detail).flat().join(' ')
+        : 'Could not save this fleet type. Please try again.'
   } finally {
     saving.value = false
   }
@@ -102,9 +102,9 @@ onMounted(() => {
       <div>
         <h1 class="font-[Georgia] text-2xl font-bold text-white">Manage Fleet Types</h1>
         <p class="mt-1 text-sm text-slate-400">
-          The vehicle categories shown across the site (e.g. "Executive SUV") - add new ones here instead of
-          editing code. Deactivate a type to stop offering it for new vehicles/applications without deleting
-          it or affecting vehicles that already use it.
+          The vehicle categories shown across the site (e.g. "Executive SUV") - add new ones here instead of editing
+          code. Deactivate a type to stop offering it for new vehicles/applications without deleting it or affecting
+          vehicles that already use it.
         </p>
       </div>
       <button
@@ -208,14 +208,21 @@ onMounted(() => {
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Name *</label>
                 <input
-                  v-model="form.name" type="text" placeholder="e.g. Luxury Convertible" required
+                  v-model="form.name"
+                  type="text"
+                  placeholder="e.g. Luxury Convertible"
+                  required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Display Order</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Display Order</label
+                >
                 <input
-                  v-model="form.order" type="number" min="0"
+                  v-model="form.order"
+                  type="number"
+                  min="0"
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                 />
                 <p class="mt-1 text-xs text-slate-500">Lower numbers show first in filters and dropdowns.</p>

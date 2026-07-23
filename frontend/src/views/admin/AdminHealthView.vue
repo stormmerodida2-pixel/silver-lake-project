@@ -24,7 +24,7 @@ async function load() {
     const { data } = await apiClient.get('/admin/health/')
     checks.value = data
     error.value = ''
-  } catch (err) {
+  } catch {
     error.value = 'Could not load system health.'
   } finally {
     loading.value = false
@@ -39,8 +39,13 @@ function refresh() {
 }
 
 const {
-  items: errorReportItems, nextUrl: errorReportsNextUrl, loading: errorReportsLoading,
-  loadingMore: errorReportsLoadingMore, error: errorReportsError, load: loadErrorReports, loadMore: loadMoreErrorReports,
+  items: errorReportItems,
+  nextUrl: errorReportsNextUrl,
+  loading: errorReportsLoading,
+  loadingMore: errorReportsLoadingMore,
+  error: errorReportsError,
+  load: loadErrorReports,
+  loadMore: loadMoreErrorReports,
 } = useAdminList('/admin/client-errors/')
 const expandedReportId = ref(null)
 
@@ -76,7 +81,7 @@ onMounted(() => {
 
     <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <div
-        v-for="(key) in Object.keys(labels)"
+        v-for="key in Object.keys(labels)"
         :key="key"
         class="rounded-xl border p-5"
         :class="checks[key]?.ok ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'"
@@ -89,7 +94,9 @@ onMounted(() => {
           {{ checks[key]?.ok ? 'OK' : 'Attention needed' }}
         </p>
         <p v-if="checks[key]?.detail" class="mt-1 text-xs text-slate-400">{{ checks[key].detail }}</p>
-        <p v-if="checks[key]?.environment" class="mt-1 text-xs text-slate-500">Environment: {{ checks[key].environment }}</p>
+        <p v-if="checks[key]?.environment" class="mt-1 text-xs text-slate-500">
+          Environment: {{ checks[key].environment }}
+        </p>
         <p v-if="checks[key]?.engine" class="mt-1 text-xs text-slate-500">Engine: {{ checks[key].engine }}</p>
         <p v-if="checks[key]?.error" class="mt-1 text-xs text-red-400">{{ checks[key].error }}</p>
       </div>
@@ -98,9 +105,8 @@ onMounted(() => {
     <div class="mt-10">
       <h2 class="font-[Georgia] text-xl font-bold text-white">Recent Client Errors</h2>
       <p class="mt-1 text-sm text-slate-400">
-        JS crashes and failed API requests reported by visitors' browsers - includes issues hit
-        during signup and other flows that never reach a server-side log, whether or not the
-        visitor was signed in.
+        JS crashes and failed API requests reported by visitors' browsers - includes issues hit during signup and other
+        flows that never reach a server-side log, whether or not the visitor was signed in.
       </p>
 
       <p v-if="errorReportsLoading" class="mt-6 text-center text-slate-400">Loading...</p>
@@ -139,7 +145,10 @@ onMounted(() => {
                 <tr v-if="expandedReportId === report.id">
                   <td colspan="5" class="border-t border-navy-800 bg-navy-900/50 px-4 py-3">
                     <p class="text-xs text-slate-400">User-Agent: {{ report.user_agent || 'Unknown' }}</p>
-                    <pre v-if="report.stack" class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs text-slate-300">{{ report.stack }}</pre>
+                    <pre
+                      v-if="report.stack"
+                      class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs text-slate-300"
+                      >{{ report.stack }}</pre>
                   </td>
                 </tr>
               </template>

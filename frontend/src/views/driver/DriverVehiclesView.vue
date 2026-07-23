@@ -35,9 +35,8 @@ async function logService(vehicle) {
     serviceFormVehicleId.value = null
   } catch (err) {
     const detail = err?.response?.data
-    serviceError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not log this service.'
+    serviceError.value =
+      typeof detail === 'object' ? Object.values(detail).flat().join(' ') : 'Could not log this service.'
   } finally {
     loggingServiceId.value = null
   }
@@ -59,7 +58,11 @@ async function openAddVehicleModal() {
     <section>
       <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gold-400">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 17h14M6 17l1.5-5h9L18 17M9 12V8h6v4M10 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm5 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M5 17h14M6 17l1.5-5h9L18 17M9 12V8h6v4M10 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm5 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+          />
         </svg>
         My Vehicles
       </h2>
@@ -81,8 +84,8 @@ async function openAddVehicleModal() {
             <div class="flex-1">
               <p class="font-semibold text-white">{{ vehicle.name }}</p>
               <p class="text-xs text-slate-400">
-                {{ vehicle.category_name || vehicle.category }} &middot;
-                KES {{ Number(vehicle.price_per_day).toLocaleString() }}/day
+                {{ vehicle.category_name || vehicle.category }} &middot; KES
+                {{ Number(vehicle.price_per_day).toLocaleString() }}/day
               </p>
             </div>
             <span
@@ -93,9 +96,16 @@ async function openAddVehicleModal() {
             </span>
           </div>
 
-          <p v-if="vehicle.is_service_due" class="mt-3 flex items-center gap-1.5 rounded-lg bg-gold-500/10 px-3 py-2 text-xs font-semibold text-gold-400">
+          <p
+            v-if="vehicle.is_service_due"
+            class="mt-3 flex items-center gap-1.5 rounded-lg bg-gold-500/10 px-3 py-2 text-xs font-semibold text-gold-400"
+          >
             <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
+              />
             </svg>
             Service due - no service logged in the last 90 days. Log one below.
           </p>
@@ -105,7 +115,9 @@ async function openAddVehicleModal() {
             <div class="flex items-center justify-between">
               <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Service History
-                <span v-if="vehicle.service_records?.length" class="text-slate-600">({{ vehicle.service_records.length }})</span>
+                <span v-if="vehicle.service_records?.length" class="text-slate-600"
+                  >({{ vehicle.service_records.length }})</span
+                >
               </p>
               <button
                 v-if="serviceFormVehicleId !== vehicle.id"
@@ -141,11 +153,15 @@ async function openAddVehicleModal() {
               <p v-if="serviceError" class="text-xs text-red-400">{{ serviceError }}</p>
               <div class="flex gap-2">
                 <input
-                  v-model="serviceDateDraft" type="date" required
+                  v-model="serviceDateDraft"
+                  type="date"
+                  required
                   class="rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white focus:border-gold-500 focus:outline-none"
                 />
                 <input
-                  v-model="serviceNotesDraft" type="text" placeholder="e.g. Oil change + filter"
+                  v-model="serviceNotesDraft"
+                  type="text"
+                  placeholder="e.g. Oil change + filter"
                   class="flex-1 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 />
               </div>
@@ -168,7 +184,11 @@ async function openAddVehicleModal() {
       <div class="flex items-center justify-between">
         <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gold-400">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V6Z" />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 6h16M4 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V6Z"
+            />
           </svg>
           My Vehicle Submissions
         </h2>
@@ -182,9 +202,7 @@ async function openAddVehicleModal() {
           Add a Car
         </button>
       </div>
-      <p class="mt-1 text-xs text-slate-500">
-        New cars go live once an admin reviews and approves them.
-      </p>
+      <p class="mt-1 text-xs text-slate-500">New cars go live once an admin reviews and approves them.</p>
 
       <div class="mt-3 space-y-3">
         <div
@@ -196,8 +214,8 @@ async function openAddVehicleModal() {
             <div>
               <p class="font-semibold text-white">{{ submission.name }}</p>
               <p class="text-xs text-slate-400">
-                {{ submission.category_name || submission.category }} &middot;
-                KES {{ Number(submission.price_per_day).toLocaleString() }}/day
+                {{ submission.category_name || submission.category }} &middot; KES
+                {{ Number(submission.price_per_day).toLocaleString() }}/day
               </p>
             </div>
             <span
@@ -215,7 +233,9 @@ async function openAddVehicleModal() {
             {{ submission.review_notes }}
           </p>
         </div>
-        <p v-if="!driverPortal.profile.vehicle_submissions.length" class="text-sm text-slate-500">No submissions yet.</p>
+        <p v-if="!driverPortal.profile.vehicle_submissions.length" class="text-sm text-slate-500">
+          No submissions yet.
+        </p>
       </div>
     </section>
 

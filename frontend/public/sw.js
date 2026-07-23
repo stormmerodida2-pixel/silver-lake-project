@@ -7,7 +7,7 @@ self.addEventListener('push', (event) => {
   let data = { title: 'SilverLake Car Rentals', body: '' }
   try {
     if (event.data) data = { ...data, ...event.data.json() }
-  } catch (err) {
+  } catch {
     if (event.data) data.body = event.data.text()
   }
 

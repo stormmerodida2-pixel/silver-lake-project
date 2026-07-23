@@ -89,16 +89,23 @@ async function submit() {
           <form class="space-y-4" @submit.prevent="submit">
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Odometer (km)</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Odometer (km)</label
+                >
                 <input
-                  v-model="form.mileage" type="number" min="0" placeholder="e.g. 45200"
+                  v-model="form.mileage"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 45200"
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Fuel Level</label>
-                <select v-model="form.fuel_level"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                <select
+                  v-model="form.fuel_level"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                >
                   <option value="">Not noted</option>
                   <option value="empty">Empty</option>
                   <option value="quarter">1/4</option>
@@ -111,14 +118,18 @@ async function submit() {
             <div>
               <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Notes</label>
               <textarea
-                v-model="form.notes" rows="3" placeholder="Existing damage, scratches, anything worth noting"
+                v-model="form.notes"
+                rows="3"
+                placeholder="Existing damage, scratches, anything worth noting"
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
               ></textarea>
             </div>
             <div>
               <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Photos</label>
               <input
-                type="file" accept="image/*" multiple
+                type="file"
+                accept="image/*"
+                multiple
                 class="w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
                 @change="onPhotosSelected"
               />
@@ -126,7 +137,8 @@ async function submit() {
                 <div v-for="(url, i) in photoPreviewUrls" :key="i" class="group relative h-16 w-24 shrink-0">
                   <img :src="url" alt="Preview" class="h-full w-full rounded-lg border border-navy-700 object-cover" />
                   <button
-                    type="button" title="Remove this photo"
+                    type="button"
+                    title="Remove this photo"
                     class="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white opacity-0 transition-opacity group-hover:opacity-100"
                     @click="removePhoto(i)"
                   >
@@ -137,13 +149,18 @@ async function submit() {
             </div>
 
             <div class="flex gap-3 pt-2">
-              <button type="button"
+              <button
+                type="button"
                 class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500 hover:text-white"
-                @click="close">
+                @click="close"
+              >
                 Cancel
               </button>
-              <button type="submit" :disabled="saving"
-                class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50">
+              <button
+                type="submit"
+                :disabled="saving"
+                class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+              >
                 {{ saving ? 'Saving…' : 'Save Report' }}
               </button>
             </div>
@@ -156,7 +173,11 @@ async function submit() {
 
 <style scoped>
 .modal-fade-enter-active,
-.modal-fade-leave-active { transition: opacity 0.2s ease; }
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
 .modal-fade-enter-from,
-.modal-fade-leave-to { opacity: 0; }
+.modal-fade-leave-to {
+  opacity: 0;
+}
 </style>

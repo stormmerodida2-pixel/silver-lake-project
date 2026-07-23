@@ -131,15 +131,16 @@ const baseNavItems = [
   },
 ]
 
-const navItems = computed(() => baseNavItems.filter((item) => {
-  if (item.superAdminOnly && !auth.user?.is_superuser) return false
-  // platformOnly hides it from a FleetPartner's own org-admin too, even though they're also
-  // is_superuser=True - organization_name is only set for an org-scoped account (see
-  // core.models.StaffOrganization / accounts.serializers.UserSerializer.get_organization_name).
-  if (item.platformOnly && auth.user?.organization_name) return false
-  return true
-}))
-
+const navItems = computed(() =>
+  baseNavItems.filter((item) => {
+    if (item.superAdminOnly && !auth.user?.is_superuser) return false
+    // platformOnly hides it from a FleetPartner's own org-admin too, even though they're also
+    // is_superuser=True - organization_name is only set for an org-scoped account (see
+    // core.models.StaffOrganization / accounts.serializers.UserSerializer.get_organization_name).
+    if (item.platformOnly && auth.user?.organization_name) return false
+    return true
+  }),
+)
 
 async function handleLogout() {
   if (!(await confirmDialog('Are you sure you want to log out?'))) return
@@ -156,14 +157,19 @@ async function handleLogout() {
 const mobileMenuOpen = ref(false)
 const mobileMenuButton = ref(null)
 const mobileMenuPanel = ref(null)
-watch(() => route.path, () => {
-  mobileMenuOpen.value = false
-})
+watch(
+  () => route.path,
+  () => {
+    mobileMenuOpen.value = false
+  },
+)
 
 function handleMobileMenuOutsideClick(event) {
   if (
-    mobileMenuButton.value && !mobileMenuButton.value.contains(event.target) &&
-    mobileMenuPanel.value && !mobileMenuPanel.value.contains(event.target)
+    mobileMenuButton.value &&
+    !mobileMenuButton.value.contains(event.target) &&
+    mobileMenuPanel.value &&
+    !mobileMenuPanel.value.contains(event.target)
   ) {
     mobileMenuOpen.value = false
   }
@@ -197,7 +203,14 @@ onUnmounted(() => {
               : 'text-slate-300 hover:bg-navy-800 hover:text-gold-400'
           "
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
           </svg>
           {{ item.label }}
@@ -209,8 +222,19 @@ onUnmounted(() => {
           to="/account/profile"
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z"
+            />
           </svg>
           My Profile
         </RouterLink>
@@ -218,7 +242,14 @@ onUnmounted(() => {
           to="/"
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
           Back to Site
@@ -227,8 +258,19 @@ onUnmounted(() => {
           class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
           @click="handleLogout"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 5v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 5v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1"
+            />
           </svg>
           Log Out
         </button>
@@ -236,7 +278,9 @@ onUnmounted(() => {
     </aside>
 
     <div class="min-w-0 flex-1">
-      <header class="flex items-center justify-between border-b border-navy-800 bg-navy-950/95 px-4 py-3 backdrop-blur md:px-8">
+      <header
+        class="flex items-center justify-between border-b border-navy-800 bg-navy-950/95 px-4 py-3 backdrop-blur md:px-8"
+      >
         <div class="flex items-center gap-2 md:hidden">
           <SilverLakeLogo :size="24" />
           <span class="font-[Georgia] text-sm font-bold text-white">Admin</span>
@@ -252,7 +296,14 @@ onUnmounted(() => {
             @click.stop="mobileMenuOpen = !mobileMenuOpen"
           >
             <!-- .stop matters: without it, this click reaches handleMobileMenuOutsideClick with a detached event.target (the icon's path swaps via v-if/v-else the instant mobileMenuOpen flips), which immediately re-closes the menu it just opened. -->
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <path v-if="!mobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               <path v-else stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -268,7 +319,9 @@ onUnmounted(() => {
             class="hidden rounded-full px-2 py-0.5 text-xs font-semibold sm:inline-block"
             :class="auth.user?.is_superuser ? 'bg-gold-500/10 text-gold-400' : 'bg-navy-800 text-slate-400'"
           >
-            {{ auth.user?.is_superuser ? (auth.user?.organization_name ? 'Org Admin' : 'Super Admin') : 'Support Staff' }}
+            {{
+              auth.user?.is_superuser ? (auth.user?.organization_name ? 'Org Admin' : 'Super Admin') : 'Support Staff'
+            }}
           </span>
           <RouterLink
             to="/account/profile"
@@ -293,7 +346,14 @@ onUnmounted(() => {
             "
             @click="mobileMenuOpen = false"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
               <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
             </svg>
             {{ item.label }}
@@ -305,8 +365,19 @@ onUnmounted(() => {
             class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
             @click="mobileMenuOpen = false"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z"
+              />
             </svg>
             My Profile
           </RouterLink>
@@ -315,7 +386,14 @@ onUnmounted(() => {
             class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
             @click="mobileMenuOpen = false"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
               <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
             Back to Site
@@ -324,8 +402,19 @@ onUnmounted(() => {
             class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
             @click="handleLogout"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 5v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 5v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1"
+              />
             </svg>
             Log Out
           </button>

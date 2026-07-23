@@ -6,7 +6,7 @@ import PhoneInput from '../PhoneInput.vue'
 import { useDriverPortalStore } from '../../stores/driverPortal'
 import BookingPaymentCollector from './BookingPaymentCollector.vue'
 
-const props = defineProps({
+defineProps({
   modelValue: { type: Boolean, required: true },
 })
 const emit = defineEmits(['update:modelValue'])
@@ -35,8 +35,15 @@ function close() {
 
 function open() {
   Object.assign(onsiteForm, {
-    vehicle: '', customer_name: '', customer_phone: '', customer_email: '',
-    pickup_location: '', dropoff_location: '', start_date: '', end_date: '', notes: '',
+    vehicle: '',
+    customer_name: '',
+    customer_phone: '',
+    customer_email: '',
+    pickup_location: '',
+    dropoff_location: '',
+    start_date: '',
+    end_date: '',
+    notes: '',
   })
   onsiteError.value = ''
   onsiteResult.value = null
@@ -53,9 +60,8 @@ async function submitOnsiteBooking() {
     driverPortal.addBooking(data.booking)
   } catch (err) {
     const detail = err?.response?.data
-    onsiteError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not create this booking.'
+    onsiteError.value =
+      typeof detail === 'object' ? Object.values(detail).flat().join(' ') : 'Could not create this booking.'
   } finally {
     onsiteSaving.value = false
   }
@@ -90,8 +96,8 @@ async function copyPaymentLink() {
           <!-- Result: collect payment (method + exact amount), fall back to sharing the link -->
           <div v-if="onsiteResult" class="space-y-4">
             <p class="text-sm text-slate-300">
-              Booking created for <strong>{{ onsiteResult.booking.customer_name }}</strong>.
-              Ask how they're paying and the exact amount.
+              Booking created for <strong>{{ onsiteResult.booking.customer_name }}</strong
+              >. Ask how they're paying and the exact amount.
             </p>
 
             <div class="rounded-lg border border-navy-700 bg-navy-800/50 p-4">
@@ -136,7 +142,8 @@ async function copyPaymentLink() {
             <div>
               <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Vehicle *</label>
               <select
-                v-model.number="onsiteForm.vehicle" required
+                v-model.number="onsiteForm.vehicle"
+                required
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
               >
                 <option value="" disabled>Select one of your vehicles</option>
@@ -145,8 +152,13 @@ async function copyPaymentLink() {
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Client Name *</label>
-                <input v-model="onsiteForm.customer_name" type="text" required
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Client Name *</label
+                >
+                <input
+                  v-model="onsiteForm.customer_name"
+                  type="text"
+                  required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                 />
               </div>
@@ -156,46 +168,74 @@ async function copyPaymentLink() {
               </div>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Email (optional)</label>
-              <input v-model="onsiteForm.customer_email" type="email"
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                >Email (optional)</label
+              >
+              <input
+                v-model="onsiteForm.customer_email"
+                type="email"
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
               />
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Start Date *</label>
-                <input v-model="onsiteForm.start_date" type="date" :min="today" required
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Start Date *</label
+                >
+                <input
+                  v-model="onsiteForm.start_date"
+                  type="date"
+                  :min="today"
+                  required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">End Date *</label>
-                <input v-model="onsiteForm.end_date" type="date" :min="onsiteForm.start_date || today" required
+                <input
+                  v-model="onsiteForm.end_date"
+                  type="date"
+                  :min="onsiteForm.start_date || today"
+                  required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                 />
               </div>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Pickup Location *</label>
-              <input v-model="onsiteForm.pickup_location" type="text" required
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                >Pickup Location *</label
+              >
+              <input
+                v-model="onsiteForm.pickup_location"
+                type="text"
+                required
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
               />
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Drop-off Location (optional)</label>
-              <input v-model="onsiteForm.dropoff_location" type="text"
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                >Drop-off Location (optional)</label
+              >
+              <input
+                v-model="onsiteForm.dropoff_location"
+                type="text"
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
               />
             </div>
 
             <div class="flex gap-3 pt-2">
-              <button type="button"
+              <button
+                type="button"
                 class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500 hover:text-white"
-                @click="close">
+                @click="close"
+              >
                 Cancel
               </button>
-              <button type="submit" :disabled="onsiteSaving"
-                class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50">
+              <button
+                type="submit"
+                :disabled="onsiteSaving"
+                class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+              >
                 {{ onsiteSaving ? 'Creating…' : 'Create Booking' }}
               </button>
             </div>
@@ -208,7 +248,11 @@ async function copyPaymentLink() {
 
 <style scoped>
 .modal-fade-enter-active,
-.modal-fade-leave-active { transition: opacity 0.2s ease; }
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
 .modal-fade-enter-from,
-.modal-fade-leave-to { opacity: 0; }
+.modal-fade-leave-to {
+  opacity: 0;
+}
 </style>

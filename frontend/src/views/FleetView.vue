@@ -32,7 +32,7 @@ async function checkAvailability() {
   try {
     const { data } = await apiClient.get('/vehicles/', { params: dateFilter })
     dateFilteredVehicles.value = data.results ?? data
-  } catch (err) {
+  } catch {
     dateFilterError.value = 'Could not check availability for those dates.'
   } finally {
     dateFilterLoading.value = false
@@ -64,7 +64,9 @@ onMounted(() => {
       <h1 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">Our Fleet</h1>
       <p class="mt-2 text-center text-slate-600">Comfort for every need, available with a driver or self drive.</p>
 
-      <div class="mx-auto mt-8 flex max-w-2xl flex-wrap items-end justify-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div
+        class="mx-auto mt-8 flex max-w-2xl flex-wrap items-end justify-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
+      >
         <div>
           <label class="mb-1 block text-xs font-medium text-slate-600">Pickup date</label>
           <input

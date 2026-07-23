@@ -23,9 +23,7 @@ const featureStrip = [
             <p class="text-xs font-semibold uppercase tracking-wide text-brand-blue-400">Bank Transfer</p>
             <p class="mt-1 text-xs text-slate-400">Co-operative Bank of Kenya</p>
             <p class="text-xs text-slate-400">Paybill <span class="font-semibold text-white">400200</span></p>
-            <p class="text-xs text-slate-400">
-              A/C No: <span class="font-semibold text-white">01101465587001</span>
-            </p>
+            <p class="text-xs text-slate-400">A/C No: <span class="font-semibold text-white">01101465587001</span></p>
           </div>
         </div>
 
@@ -44,18 +42,53 @@ const featureStrip = [
       <div class="border-t border-navy-800">
         <div class="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
           <div v-for="feature in featureStrip" :key="feature.title" class="flex items-center gap-3">
-            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gold-400/40 bg-navy-900 text-gold-400">
-              <svg v-if="feature.icon === 'car'" class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l1.5-5.5A2 2 0 0 1 7.4 9h9.2a2 2 0 0 1 1.9 1.5L20 16" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3.5 16h17v3a1 1 0 0 1-1 1H16a1 1 0 0 1-1-1v-1H9v1a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1v-3Z" />
+            <span
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gold-400/40 bg-navy-900 text-gold-400"
+            >
+              <svg
+                v-if="feature.icon === 'car'"
+                class="h-4.5 w-4.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M4 16l1.5-5.5A2 2 0 0 1 7.4 9h9.2a2 2 0 0 1 1.9 1.5L20 16"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M3.5 16h17v3a1 1 0 0 1-1 1H16a1 1 0 0 1-1-1v-1H9v1a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1v-3Z"
+                />
                 <circle cx="7.5" cy="16" r="1.4" />
                 <circle cx="16.5" cy="16" r="1.4" />
               </svg>
-              <svg v-else-if="feature.icon === 'shield'" class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l6.5 2.5v4.8c0 4.6-2.9 8-6.5 9.7-3.6-1.7-6.5-5.1-6.5-9.7V6l6.5-2.5z" />
+              <svg
+                v-else-if="feature.icon === 'shield'"
+                class="h-4.5 w-4.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 3.5l6.5 2.5v4.8c0 4.6-2.9 8-6.5 9.7-3.6-1.7-6.5-5.1-6.5-9.7V6l6.5-2.5z"
+                />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.3l2 2 4.5-4.5" />
               </svg>
-              <svg v-else-if="feature.icon === 'headset'" class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <svg
+                v-else-if="feature.icon === 'headset'"
+                class="h-4.5 w-4.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                viewBox="0 0 24 24"
+              >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 13v-1a8 8 0 0 1 16 0v1" />
                 <rect x="3" y="13" width="4" height="6" rx="1.2" />
                 <rect x="17" y="13" width="4" height="6" rx="1.2" />
@@ -75,14 +108,18 @@ const featureStrip = [
     </div>
 
     <div class="border-t border-navy-800">
-      <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-10 gap-y-4 px-4 py-6 text-sm sm:px-6">
+      <div
+        class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-10 gap-y-4 px-4 py-6 text-sm sm:px-6"
+      >
         <div class="flex items-center gap-2">
           <SilverLakeLogo :size="22" />
           <span class="font-[Georgia] font-bold text-white">SilverLake Car Rentals</span>
         </div>
 
         <div class="flex flex-wrap gap-x-6 gap-y-2 text-slate-300">
-          <a href="mailto:info@silverlakecarrentals.co.ke" class="hover:text-gold-400">info@silverlakecarrentals.co.ke</a>
+          <a href="mailto:info@silverlakecarrentals.co.ke" class="hover:text-gold-400"
+            >info@silverlakecarrentals.co.ke</a
+          >
           <RouterLink to="/contact" class="hover:text-gold-400">Contact Us</RouterLink>
         </div>
 

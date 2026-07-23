@@ -31,7 +31,13 @@ onMounted(async () => {
       </RouterLink>
       <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-6">
         <h1 class="font-[Georgia] text-2xl font-bold text-navy-900">
-          {{ status === 'activating' ? 'Activating your account...' : status === 'success' ? 'You\'re all set!' : 'Activation failed' }}
+          {{
+            status === 'activating'
+              ? 'Activating your account...'
+              : status === 'success'
+                ? "You're all set!"
+                : 'Activation failed'
+          }}
         </h1>
         <p class="mt-3 text-sm" :class="status === 'error' ? 'text-red-600' : 'text-slate-600'">{{ message }}</p>
         <RouterLink

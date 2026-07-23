@@ -47,7 +47,11 @@ function openAddModal() {
 function openEditModal(post) {
   editingId.value = post.id
   Object.assign(form, {
-    title: post.title, category: post.category, excerpt: post.excerpt, body: post.body, is_published: post.is_published,
+    title: post.title,
+    category: post.category,
+    excerpt: post.excerpt,
+    body: post.body,
+    is_published: post.is_published,
   })
   imageFile.value = null
   imagePreviewUrl.value = post.cover_image || null
@@ -92,9 +96,10 @@ async function savePost() {
     showModal.value = false
   } catch (err) {
     const detail = err?.response?.data
-    formError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not save this post. Please try again.'
+    formError.value =
+      typeof detail === 'object'
+        ? Object.values(detail).flat().join(' ')
+        : 'Could not save this post. Please try again.'
   } finally {
     saving.value = false
   }
@@ -172,20 +177,26 @@ onMounted(() => {
             >
               {{ post.is_published ? 'Published' : 'Draft' }}
             </span>
-            <span class="shrink-0 rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <span
+              class="shrink-0 rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400"
+            >
               {{ post.category_display }}
             </span>
           </div>
           <p class="mt-1 line-clamp-2 text-sm text-slate-400">{{ post.excerpt }}</p>
           <p class="mt-2 text-xs text-slate-500">
             {{ post.created_by_name || 'Unknown' }} &middot;
-            {{ post.published_at ? `Published ${new Date(post.published_at).toLocaleDateString()}` : 'Not yet published' }}
+            {{
+              post.published_at ? `Published ${new Date(post.published_at).toLocaleDateString()}` : 'Not yet published'
+            }}
           </p>
         </div>
         <div class="flex shrink-0 flex-col items-end gap-2">
           <div class="flex gap-2">
             <a
-              :href="`/blog/${post.slug}`" target="_blank" rel="noopener"
+              :href="`/blog/${post.slug}`"
+              target="_blank"
+              rel="noopener"
               class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400"
             >
               Preview
@@ -242,21 +253,29 @@ onMounted(() => {
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Title *</label>
                 <input
-                  v-model="form.title" type="text" placeholder="e.g. A Weekend Guide to Kisumu" required
+                  v-model="form.title"
+                  type="text"
+                  placeholder="e.g. A Weekend Guide to Kisumu"
+                  required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Category</label>
-                <select v-model="form.category"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                <select
+                  v-model="form.category"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                >
                   <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                 </select>
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Excerpt *</label>
                 <textarea
-                  v-model="form.excerpt" rows="2" maxlength="300" required
+                  v-model="form.excerpt"
+                  rows="2"
+                  maxlength="300"
+                  required
                   placeholder="Shown on the blog list page and used as the SEO description."
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 ></textarea>
@@ -265,10 +284,17 @@ onMounted(() => {
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Cover Image</label>
                 <div class="flex items-center gap-3">
                   <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-navy-700 bg-navy-800">
-                    <img v-if="imagePreviewUrl" :src="imagePreviewUrl" alt="Preview" class="h-full w-full object-cover" />
+                    <img
+                      v-if="imagePreviewUrl"
+                      :src="imagePreviewUrl"
+                      alt="Preview"
+                      class="h-full w-full object-cover"
+                    />
                     <div v-else class="flex h-full items-center justify-center text-xs text-slate-500">No cover</div>
                   </div>
-                  <input type="file" accept="image/*"
+                  <input
+                    type="file"
+                    accept="image/*"
                     class="w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
                     @change="onImageSelected"
                   />
@@ -279,7 +305,11 @@ onMounted(() => {
                 <RichTextEditor v-model="form.body" />
               </div>
               <label class="flex items-center gap-2 text-sm text-slate-300">
-                <input v-model="form.is_published" type="checkbox" class="rounded border-navy-700 bg-navy-800 text-gold-500 focus:ring-gold-500" />
+                <input
+                  v-model="form.is_published"
+                  type="checkbox"
+                  class="rounded border-navy-700 bg-navy-800 text-gold-500 focus:ring-gold-500"
+                />
                 Published (visible on the public blog)
               </label>
 
@@ -296,7 +326,7 @@ onMounted(() => {
                   :disabled="saving"
                   class="rounded-lg bg-gold-500 px-5 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
                 >
-                  {{ saving ? 'Saving…' : (editingId ? 'Save Changes' : 'Create Post') }}
+                  {{ saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Post' }}
                 </button>
               </div>
             </form>

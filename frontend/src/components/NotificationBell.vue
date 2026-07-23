@@ -3,7 +3,11 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useNotifications } from '../composables/useNotifications'
-import { disablePushNotifications, enablePushNotifications, getPushSubscriptionStatus } from '../utils/pushNotifications'
+import {
+  disablePushNotifications,
+  enablePushNotifications,
+  getPushSubscriptionStatus,
+} from '../utils/pushNotifications'
 
 const props = defineProps({
   // '/admin/notifications' for the admin dashboard, '/driver/notifications' for the driver
@@ -16,8 +20,16 @@ const POLL_INTERVAL_MS = 30000
 
 const router = useRouter()
 const {
-  unreadCount, items, loading, mutedEvents,
-  refreshCount, loadList, markRead, markAllRead, loadPreferences, toggleMute,
+  unreadCount,
+  items,
+  loading,
+  mutedEvents,
+  refreshCount,
+  loadList,
+  markRead,
+  markAllRead,
+  loadPreferences,
+  toggleMute,
 } = useNotifications(props.basePath)
 
 const root = ref(null)
@@ -42,7 +54,7 @@ async function togglePush() {
     } else {
       await enablePushNotifications()
     }
-  } catch (err) {
+  } catch {
     // Permission denied, unsupported, or the user dismissed the browser prompt - refreshPushStatus
     // below reflects whatever actually happened either way.
   } finally {
@@ -95,17 +107,39 @@ const EVENT_LABELS = {
 // only about which toggles this particular bell bothers to show.
 const MANAGEABLE_EVENTS_BY_BASE_PATH = {
   '/admin/notifications': [
-    'driver_acknowledged', 'booking_created', 'booking_cancelled', 'booking_dates_changed', 'cash_payment_recorded',
-    'cash_deposit_logged', 'payment_escalated', 'acknowledgment_overdue', 'payment_disputed',
-    'dispute_resolved', 'driver_away', 'vehicle_submission', 'driver_application', 'support_ticket_created',
+    'driver_acknowledged',
+    'booking_created',
+    'booking_cancelled',
+    'booking_dates_changed',
+    'cash_payment_recorded',
+    'cash_deposit_logged',
+    'payment_escalated',
+    'acknowledgment_overdue',
+    'payment_disputed',
+    'dispute_resolved',
+    'driver_away',
+    'vehicle_submission',
+    'driver_application',
+    'support_ticket_created',
   ],
   '/driver/notifications': [
-    'driver_booked', 'booking_cancelled', 'payment_reminder', 'cash_deposit_reminder',
-    'payout_paid', 'vehicle_submission_approved', 'vehicle_submission_rejected',
+    'driver_booked',
+    'booking_cancelled',
+    'payment_reminder',
+    'cash_deposit_reminder',
+    'payout_paid',
+    'vehicle_submission_approved',
+    'vehicle_submission_rejected',
   ],
   '/notifications': [
-    'booking_confirmed', 'booking_dates_changed', 'booking_cancelled', 'payment_recorded',
-    'trip_completed', 'refund_issued', 'referral_credit_earned', 'support_ticket_in_progress',
+    'booking_confirmed',
+    'booking_dates_changed',
+    'booking_cancelled',
+    'payment_recorded',
+    'trip_completed',
+    'refund_issued',
+    'referral_credit_earned',
+    'support_ticket_in_progress',
     'support_ticket_resolved',
   ],
 }
@@ -164,7 +198,11 @@ onUnmounted(() => {
       @click="toggle"
     >
       <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0v1a3 3 0 1 1-6 0v-1m6 0H9" />
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0v1a3 3 0 1 1-6 0v-1m6 0H9"
+        />
       </svg>
       <span
         v-if="unreadCount > 0"
@@ -195,8 +233,19 @@ onUnmounted(() => {
             :aria-label="showPreferences ? 'Back to notifications' : 'Notification settings'"
             @click="showPreferences = !showPreferences"
           >
-            <svg v-if="!showPreferences" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065Z" />
+            <svg
+              v-if="!showPreferences"
+              class="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065Z"
+              />
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
             </svg>
             <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -211,11 +260,16 @@ onUnmounted(() => {
           <label class="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm text-slate-200">
             <span>
               Browser Notifications
-              <span class="mt-0.5 block text-xs font-normal text-slate-500">Get nudged even when this tab isn't open</span>
+              <span class="mt-0.5 block text-xs font-normal text-slate-500"
+                >Get nudged even when this tab isn't open</span
+              >
             </span>
             <button
               v-if="pushStatus === 'subscribed' || pushStatus === 'unsubscribed'"
-              type="button" role="switch" :aria-checked="pushStatus === 'subscribed'" :disabled="pushBusy"
+              type="button"
+              role="switch"
+              :aria-checked="pushStatus === 'subscribed'"
+              :disabled="pushBusy"
               class="relative h-5 w-9 shrink-0 rounded-full transition disabled:opacity-50"
               :class="pushStatus === 'subscribed' ? 'bg-gold-500' : 'bg-navy-700'"
               @click="togglePush"
@@ -225,8 +279,12 @@ onUnmounted(() => {
                 :class="pushStatus === 'subscribed' ? 'left-4' : 'left-0.5'"
               />
             </button>
-            <span v-else-if="pushStatus === 'denied'" class="shrink-0 text-xs text-red-400">Blocked in browser settings</span>
-            <span v-else-if="pushStatus === 'unsupported'" class="shrink-0 text-xs text-slate-500">Not supported here</span>
+            <span v-else-if="pushStatus === 'denied'" class="shrink-0 text-xs text-red-400"
+              >Blocked in browser settings</span
+            >
+            <span v-else-if="pushStatus === 'unsupported'" class="shrink-0 text-xs text-slate-500"
+              >Not supported here</span
+            >
           </label>
         </div>
 

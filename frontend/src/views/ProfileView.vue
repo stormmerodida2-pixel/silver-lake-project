@@ -34,7 +34,7 @@ function pickAvatar() {
 
 async function onAvatarSelected(event) {
   const file = event.target.files[0]
-  event.target.value = ''  // allow re-selecting the same file later
+  event.target.value = '' // allow re-selecting the same file later
   if (!file) return
   avatarError.value = ''
   avatarUploading.value = true
@@ -43,12 +43,11 @@ async function onAvatarSelected(event) {
     payload.append('avatar', file)
     const { data } = await apiClient.post('/auth/me/avatar/', payload)
     avatarUrl.value = data.avatar
-    await auth.refreshProfile()  // keeps the NavBar's copy (and localStorage) in sync too
+    await auth.refreshProfile() // keeps the NavBar's copy (and localStorage) in sync too
   } catch (err) {
     const detail = err?.response?.data
-    avatarError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not upload this photo.'
+    avatarError.value =
+      typeof detail === 'object' ? Object.values(detail).flat().join(' ') : 'Could not upload this photo.'
   } finally {
     avatarUploading.value = false
   }
@@ -62,7 +61,7 @@ async function removeAvatar() {
     const { data } = await apiClient.delete('/auth/me/avatar/')
     avatarUrl.value = data.avatar
     await auth.refreshProfile()
-  } catch (err) {
+  } catch {
     avatarError.value = 'Could not remove your photo.'
   } finally {
     avatarUploading.value = false
@@ -86,7 +85,9 @@ const copied = ref(false)
 async function copyReferralLink() {
   await navigator.clipboard.writeText(referralLink.value)
   copied.value = true
-  setTimeout(() => { copied.value = false }, 2000)
+  setTimeout(() => {
+    copied.value = false
+  }, 2000)
 }
 
 // ── Two-factor authentication (staff/admin accounts only) ─────────────────────
@@ -95,15 +96,18 @@ const twoFactorBusy = ref(false)
 const twoFactorError = ref('')
 
 async function enableTwoFactor() {
-  if (!(await confirmDialog(
-    "You'll need to enter a code emailed to you every time you log in from now on. Enable two-factor authentication?",
-  ))) return
+  if (
+    !(await confirmDialog(
+      "You'll need to enter a code emailed to you every time you log in from now on. Enable two-factor authentication?",
+    ))
+  )
+    return
   twoFactorError.value = ''
   twoFactorBusy.value = true
   try {
     await apiClient.post('/auth/2fa/enable/')
     twoFactorEnabled.value = true
-  } catch (err) {
+  } catch {
     twoFactorError.value = 'Could not enable two-factor authentication.'
   } finally {
     twoFactorBusy.value = false
@@ -143,7 +147,7 @@ async function loadProfile() {
     nextLoyaltyTierName.value = data.next_loyalty_tier_name
     tripsToNextLoyaltyTier.value = data.trips_to_next_loyalty_tier
     twoFactorEnabled.value = data.two_factor_enabled
-  } catch (err) {
+  } catch {
     error.value = 'Could not load your profile.'
   } finally {
     loading.value = false
@@ -158,7 +162,7 @@ async function submit() {
     form.first_name = data.first_name
     form.last_name = data.last_name
     form.phone_number = data.phone_number
-    await auth.refreshProfile()  // keeps the NavBar's cached name (and localStorage) in sync too
+    await auth.refreshProfile() // keeps the NavBar's cached name (and localStorage) in sync too
     await Swal.fire({
       icon: 'success',
       title: 'Profile updated!',
@@ -187,10 +191,15 @@ onMounted(loadProfile)
 
       <template v-else>
         <!-- Profile photo -->
-        <div class="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-8 sm:flex-row sm:p-10">
+        <div
+          class="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-8 sm:flex-row sm:p-10"
+        >
           <div class="h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-white bg-navy-900 shadow-sm">
             <img v-if="avatarUrl" :src="avatarUrl" alt="Your profile photo" class="h-full w-full object-cover" />
-            <div v-else class="flex h-full w-full items-center justify-center font-[Georgia] text-2xl font-bold text-gold-400">
+            <div
+              v-else
+              class="flex h-full w-full items-center justify-center font-[Georgia] text-2xl font-bold text-gold-400"
+            >
               {{ initials || '—' }}
             </div>
           </div>
@@ -206,7 +215,7 @@ onMounted(loadProfile)
                 class="rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
                 @click="pickAvatar"
               >
-                {{ avatarUploading ? 'Saving…' : (avatarUrl ? 'Change Photo' : 'Upload Photo') }}
+                {{ avatarUploading ? 'Saving…' : avatarUrl ? 'Change Photo' : 'Upload Photo' }}
               </button>
               <button
                 v-if="avatarUrl"
@@ -222,7 +231,10 @@ onMounted(loadProfile)
         </div>
 
         <!-- Loyalty -->
-        <div v-if="loyaltyTierName || nextLoyaltyTierName" class="mt-6 rounded-2xl border border-navy-800 bg-navy-900 p-8 sm:p-10">
+        <div
+          v-if="loyaltyTierName || nextLoyaltyTierName"
+          class="mt-6 rounded-2xl border border-navy-800 bg-navy-900 p-8 sm:p-10"
+        >
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p class="font-[Georgia] text-lg font-bold text-white">
@@ -237,7 +249,8 @@ onMounted(loadProfile)
                 </template>
               </p>
               <p v-if="nextLoyaltyTierName" class="mt-2 text-xs font-semibold uppercase tracking-wide text-gold-400">
-                {{ tripsToNextLoyaltyTier }} more trip{{ tripsToNextLoyaltyTier === 1 ? '' : 's' }} to {{ nextLoyaltyTierName }}
+                {{ tripsToNextLoyaltyTier }} more trip{{ tripsToNextLoyaltyTier === 1 ? '' : 's' }} to
+                {{ nextLoyaltyTierName }}
               </p>
               <p v-else class="mt-2 text-xs font-semibold uppercase tracking-wide text-gold-400">
                 You've reached the top tier
@@ -255,7 +268,8 @@ onMounted(loadProfile)
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p class="font-[Georgia] text-lg font-bold text-white">
-                Give KES {{ Number(referralCreditAmount).toLocaleString() }}, Get KES {{ Number(referralCreditAmount).toLocaleString() }}
+                Give KES {{ Number(referralCreditAmount).toLocaleString() }}, Get KES
+                {{ Number(referralCreditAmount).toLocaleString() }}
               </p>
               <p class="mt-1 max-w-md text-sm text-slate-300">
                 Share your code - once a friend's first trip is confirmed, you earn KES
@@ -263,7 +277,9 @@ onMounted(loadProfile)
               </p>
             </div>
             <div class="rounded-lg border border-gold-500/40 bg-gold-500/10 px-4 py-2 text-center">
-              <p class="font-[Georgia] text-2xl font-bold text-gold-400">KES {{ Number(referralCreditBalance).toLocaleString() }}</p>
+              <p class="font-[Georgia] text-2xl font-bold text-gold-400">
+                KES {{ Number(referralCreditBalance).toLocaleString() }}
+              </p>
               <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Available Credit</p>
             </div>
           </div>
@@ -288,12 +304,10 @@ onMounted(loadProfile)
             <div>
               <p class="font-[Georgia] text-lg font-bold text-white">Two-Factor Authentication</p>
               <p class="mt-1 max-w-md text-sm text-slate-300">
-                <template v-if="twoFactorEnabled">
-                  Enabled - a code is emailed to you every time you log in.
-                </template>
+                <template v-if="twoFactorEnabled"> Enabled - a code is emailed to you every time you log in. </template>
                 <template v-else>
-                  Adds a second step at login (a code emailed to you) - recommended for staff and
-                  admin accounts, since they can move money and manage users.
+                  Adds a second step at login (a code emailed to you) - recommended for staff and admin accounts, since
+                  they can move money and manage users.
                 </template>
               </p>
             </div>
@@ -325,53 +339,58 @@ onMounted(loadProfile)
           </button>
         </div>
 
-      <form class="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 sm:p-10" @submit.prevent="submit">
-        <div class="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-600">First name</label>
-            <input
-              v-model="form.first_name"
-              type="text"
-              required
-              class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base text-navy-900 focus:border-brand-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-600">Last name</label>
-            <input
-              v-model="form.last_name"
-              type="text"
-              class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base text-navy-900 focus:border-brand-blue-500 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-600">Phone number</label>
-          <PhoneInput v-model="form.phone_number" />
-        </div>
-
-        <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-600">Email</label>
-          <input
-            :value="email"
-            type="email"
-            disabled
-            class="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-base text-slate-500"
-          />
-          <p class="mt-1.5 text-xs text-slate-400">Your email is also your login - contact us if you need it changed.</p>
-        </div>
-
-        <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
-
-        <button
-          type="submit"
-          :disabled="submitting"
-          class="w-full rounded-lg bg-gold-500 px-4 py-3 text-base font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+        <form
+          class="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 sm:p-10"
+          @submit.prevent="submit"
         >
-          {{ submitting ? 'Saving...' : 'Save Changes' }}
-        </button>
-      </form>
+          <div class="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-slate-600">First name</label>
+              <input
+                v-model="form.first_name"
+                type="text"
+                required
+                class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-slate-600">Last name</label>
+              <input
+                v-model="form.last_name"
+                type="text"
+                class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-600">Phone number</label>
+            <PhoneInput v-model="form.phone_number" />
+          </div>
+
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-600">Email</label>
+            <input
+              :value="email"
+              type="email"
+              disabled
+              class="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-base text-slate-500"
+            />
+            <p class="mt-1.5 text-xs text-slate-400">
+              Your email is also your login - contact us if you need it changed.
+            </p>
+          </div>
+
+          <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+
+          <button
+            type="submit"
+            :disabled="submitting"
+            class="w-full rounded-lg bg-gold-500 px-4 py-3 text-base font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+          >
+            {{ submitting ? 'Saving...' : 'Save Changes' }}
+          </button>
+        </form>
       </template>
 
       <p class="mt-6 text-center text-sm text-slate-500">

@@ -18,7 +18,9 @@ const driverPortal = useDriverPortalStore()
     </button>
     <button
       class="rounded-xl border p-4 text-left transition"
-      :class="driverPortal.serviceDueCount ? 'border-gold-500 hover:border-gold-400' : 'border-navy-800 hover:border-gold-400'"
+      :class="
+        driverPortal.serviceDueCount ? 'border-gold-500 hover:border-gold-400' : 'border-navy-800 hover:border-gold-400'
+      "
       @click="router.push('/driver/vehicles')"
     >
       <p class="text-xs text-slate-400">Service Due</p>
@@ -28,7 +30,11 @@ const driverPortal = useDriverPortalStore()
     </button>
     <button
       class="rounded-xl border p-4 text-left transition"
-      :class="driverPortal.pendingBookingsCount ? 'border-gold-500 hover:border-gold-400' : 'border-navy-800 hover:border-gold-400'"
+      :class="
+        driverPortal.pendingBookingsCount
+          ? 'border-gold-500 hover:border-gold-400'
+          : 'border-navy-800 hover:border-gold-400'
+      "
       @click="router.push('/driver/bookings')"
     >
       <p class="text-xs text-slate-400">Awaiting Approval</p>

@@ -68,15 +68,17 @@ async function saveAnnouncement() {
       ? new Date(Date.now() + Number(form.durationDays) * 24 * 60 * 60 * 1000).toISOString()
       : null
     const { data } = await apiClient.post('/admin/announcements/', {
-      title: form.title, body: form.body, audience: form.audience, expires_at,
+      title: form.title,
+      body: form.body,
+      audience: form.audience,
+      expires_at,
     })
     announcements.value.unshift(data)
     showModal.value = false
   } catch (err) {
     const detail = err?.response?.data
-    formError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not send this announcement.'
+    formError.value =
+      typeof detail === 'object' ? Object.values(detail).flat().join(' ') : 'Could not send this announcement.'
   } finally {
     saving.value = false
   }
@@ -122,7 +124,9 @@ async function approve(announcement) {
 }
 
 async function reject(announcement) {
-  const review_note = await promptDialog(`Reason for rejecting "${announcement.title}" (shown to the submitter, optional):`)
+  const review_note = await promptDialog(
+    `Reason for rejecting "${announcement.title}" (shown to the submitter, optional):`,
+  )
   if (review_note === null) return
   busyId.value = announcement.id
   try {
@@ -147,8 +151,8 @@ onMounted(() => {
         <h1 class="font-[Georgia] text-2xl font-bold text-white">Announcements</h1>
         <p class="mt-1 text-sm text-slate-400">
           <template v-if="isSuperAdmin">
-            Broadcast an in-app message to staff, drivers, or clients. No email is sent - they'll
-            see it the next time they're in the app.
+            Broadcast an in-app message to staff, drivers, or clients. No email is sent - they'll see it the next time
+            they're in the app.
           </template>
           <template v-else>
             Propose an in-app message to clients. A super admin reviews it before it goes out.
@@ -183,7 +187,9 @@ onMounted(() => {
               <div>
                 <div class="flex items-center gap-2">
                   <p class="font-semibold text-white">{{ announcement.title }}</p>
-                  <span class="rounded-full bg-gold-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-400">
+                  <span
+                    class="rounded-full bg-gold-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-400"
+                  >
                     {{ statusLabels[announcement.status] }}
                   </span>
                 </div>
@@ -215,9 +221,11 @@ onMounted(() => {
       </div>
 
       <div class="mt-6 space-y-3">
-        <h2 v-if="isSuperAdmin && pending.length" class="text-xs font-semibold uppercase tracking-wide text-slate-500">All Announcements</h2>
+        <h2 v-if="isSuperAdmin && pending.length" class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          All Announcements
+        </h2>
         <div
-          v-for="announcement in (isSuperAdmin ? decided : announcements)"
+          v-for="announcement in isSuperAdmin ? decided : announcements"
           :key="announcement.id"
           class="rounded-xl border p-4"
           :class="announcement.is_active ? 'border-navy-800 bg-navy-900' : 'border-navy-800 bg-navy-950 opacity-60'"
@@ -226,25 +234,38 @@ onMounted(() => {
             <div>
               <div class="flex items-center gap-2">
                 <p class="font-semibold text-white">{{ announcement.title }}</p>
-                <span class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-400">
+                <span
+                  class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-400"
+                >
                   {{ audienceLabels[announcement.audience] }}
                 </span>
                 <span
                   v-if="announcement.status !== 'approved'"
                   class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                  :class="announcement.status === 'rejected' ? 'bg-red-500/10 text-red-400' : 'bg-gold-500/10 text-gold-400'"
+                  :class="
+                    announcement.status === 'rejected' ? 'bg-red-500/10 text-red-400' : 'bg-gold-500/10 text-gold-400'
+                  "
                 >
                   {{ statusLabels[announcement.status] }}
                 </span>
-                <span v-else-if="!announcement.is_active" class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                <span
+                  v-else-if="!announcement.is_active"
+                  class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+                >
                   Inactive
                 </span>
-                <span v-if="isExpired(announcement)" class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                <span
+                  v-if="isExpired(announcement)"
+                  class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+                >
                   Expired
                 </span>
               </div>
               <p class="mt-1 whitespace-pre-line text-sm text-slate-300">{{ announcement.body }}</p>
-              <p v-if="announcement.status === 'rejected' && announcement.review_note" class="mt-2 text-xs text-red-400">
+              <p
+                v-if="announcement.status === 'rejected' && announcement.review_note"
+                class="mt-2 text-xs text-red-400"
+              >
                 Reason: {{ announcement.review_note }}
               </p>
               <p class="mt-2 text-xs text-slate-500">
@@ -254,7 +275,8 @@ onMounted(() => {
                   &middot; reviewed by {{ announcement.reviewed_by_name }}
                 </template>
                 <template v-if="announcement.expires_at">
-                  &middot; {{ isExpired(announcement) ? 'expired' : 'expires' }} {{ new Date(announcement.expires_at).toLocaleString() }}
+                  &middot; {{ isExpired(announcement) ? 'expired' : 'expires' }}
+                  {{ new Date(announcement.expires_at).toLocaleString() }}
                 </template>
               </p>
             </div>
@@ -310,8 +332,10 @@ onMounted(() => {
             <form class="space-y-4" @submit.prevent="saveAnnouncement">
               <div v-if="isSuperAdmin">
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Send To</label>
-                <select v-model="form.audience"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                <select
+                  v-model="form.audience"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                >
                   <option value="clients">Clients</option>
                   <option value="drivers">Drivers</option>
                   <option value="staff">Staff</option>
@@ -320,24 +344,34 @@ onMounted(() => {
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Title *</label>
                 <input
-                  v-model="form.title" type="text" placeholder="e.g. Scheduled maintenance tonight" required
+                  v-model="form.title"
+                  type="text"
+                  placeholder="e.g. Scheduled maintenance tonight"
+                  required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Message *</label>
                 <textarea
-                  v-model="form.body" rows="4" required placeholder="What do they need to know?"
+                  v-model="form.body"
+                  rows="4"
+                  required
+                  placeholder="What do they need to know?"
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                 ></textarea>
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Show For</label>
-                <select v-model="form.durationDays"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                <select
+                  v-model="form.durationDays"
+                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                >
                   <option v-for="opt in durationOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                 </select>
-                <p class="mt-1 text-xs text-slate-500">Stops showing to its audience automatically after this - you can still deactivate it sooner by hand.</p>
+                <p class="mt-1 text-xs text-slate-500">
+                  Stops showing to its audience automatically after this - you can still deactivate it sooner by hand.
+                </p>
               </div>
 
               <div class="flex justify-end gap-3 pt-2">
@@ -353,7 +387,7 @@ onMounted(() => {
                   :disabled="saving"
                   class="rounded-lg bg-gold-500 px-5 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
                 >
-                  {{ saving ? 'Sending…' : (isSuperAdmin ? 'Send Announcement' : 'Submit for Approval') }}
+                  {{ saving ? 'Sending…' : isSuperAdmin ? 'Send Announcement' : 'Submit for Approval' }}
                 </button>
               </div>
             </form>

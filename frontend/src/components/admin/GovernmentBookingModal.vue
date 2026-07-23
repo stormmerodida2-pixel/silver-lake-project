@@ -5,7 +5,7 @@ import apiClient from '../../api/client'
 import { useAdminList } from '../../composables/useAdminList'
 import PhoneInput from '../PhoneInput.vue'
 
-const props = defineProps({
+defineProps({
   modelValue: { type: Boolean, required: true },
   driverOptions: { type: Array, default: () => [] },
 })
@@ -20,9 +20,18 @@ const saving = ref(false)
 const error = ref('')
 const today = new Date().toISOString().split('T')[0]
 const form = reactive({
-  vehicle: '', driver: '', service_type: 'with_driver', customer_name: '', customer_phone: '',
-  customer_email: '', pickup_location: '', dropoff_location: '', start_date: '', end_date: '',
-  government_contract_reference: '', notes: '',
+  vehicle: '',
+  driver: '',
+  service_type: 'with_driver',
+  customer_name: '',
+  customer_phone: '',
+  customer_email: '',
+  pickup_location: '',
+  dropoff_location: '',
+  start_date: '',
+  end_date: '',
+  government_contract_reference: '',
+  notes: '',
 })
 
 function close() {
@@ -31,9 +40,18 @@ function close() {
 
 function open() {
   Object.assign(form, {
-    vehicle: '', driver: '', service_type: 'with_driver', customer_name: '', customer_phone: '',
-    customer_email: '', pickup_location: '', dropoff_location: '', start_date: '', end_date: '',
-    government_contract_reference: '', notes: '',
+    vehicle: '',
+    driver: '',
+    service_type: 'with_driver',
+    customer_name: '',
+    customer_phone: '',
+    customer_email: '',
+    pickup_location: '',
+    dropoff_location: '',
+    start_date: '',
+    end_date: '',
+    government_contract_reference: '',
+    notes: '',
   })
   error.value = ''
   loadVehicleOptions()
@@ -53,9 +71,7 @@ async function submit() {
     close()
   } catch (err) {
     const detail = err?.response?.data
-    error.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not create this booking.'
+    error.value = typeof detail === 'object' ? Object.values(detail).flat().join(' ') : 'Could not create this booking.'
   } finally {
     saving.value = false
   }
@@ -87,9 +103,13 @@ async function submit() {
             </p>
 
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Contract Reference *</label>
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                >Contract Reference *</label
+              >
               <input
-                v-model="form.government_contract_reference" type="text" required
+                v-model="form.government_contract_reference"
+                type="text"
+                required
                 placeholder="e.g. Ministry of Health - LPO#4821"
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
               />
@@ -97,7 +117,9 @@ async function submit() {
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Service Type</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Service Type</label
+                >
                 <select
                   v-model="form.service_type"
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
@@ -109,7 +131,8 @@ async function submit() {
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Vehicle *</label>
                 <select
-                  v-model.number="form.vehicle" required
+                  v-model.number="form.vehicle"
+                  required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                 >
                   <option value="" disabled>Select a vehicle</option>
@@ -119,7 +142,9 @@ async function submit() {
             </div>
 
             <div v-if="form.service_type === 'with_driver'">
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Driver (optional)</label>
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                >Driver (optional)</label
+              >
               <select
                 v-model.number="form.driver"
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
@@ -131,9 +156,13 @@ async function submit() {
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Department Contact *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Department Contact *</label
+                >
                 <input
-                  v-model="form.customer_name" type="text" required
+                  v-model="form.customer_name"
+                  type="text"
+                  required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                 />
               </div>
@@ -143,41 +172,59 @@ async function submit() {
               </div>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Email (optional)</label>
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                >Email (optional)</label
+              >
               <input
-                v-model="form.customer_email" type="email"
+                v-model="form.customer_email"
+                type="email"
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
               />
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Start Date *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  >Start Date *</label
+                >
                 <input
-                  v-model="form.start_date" type="date" :min="today" required
+                  v-model="form.start_date"
+                  type="date"
+                  :min="today"
+                  required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">End Date *</label>
                 <input
-                  v-model="form.end_date" type="date" :min="form.start_date || today" required
+                  v-model="form.end_date"
+                  type="date"
+                  :min="form.start_date || today"
+                  required
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Pickup Location *</label>
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                >Pickup Location *</label
+              >
               <input
-                v-model="form.pickup_location" type="text" required
+                v-model="form.pickup_location"
+                type="text"
+                required
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
               />
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Drop-off Location (optional)</label>
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                >Drop-off Location (optional)</label
+              >
               <input
-                v-model="form.dropoff_location" type="text"
+                v-model="form.dropoff_location"
+                type="text"
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
               />
             </div>
@@ -191,7 +238,8 @@ async function submit() {
                 Cancel
               </button>
               <button
-                type="submit" :disabled="saving"
+                type="submit"
+                :disabled="saving"
                 class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
               >
                 {{ saving ? 'Creating…' : 'Create Booking' }}
@@ -206,7 +254,11 @@ async function submit() {
 
 <style scoped>
 .modal-fade-enter-active,
-.modal-fade-leave-active { transition: opacity 0.2s ease; }
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
 .modal-fade-enter-from,
-.modal-fade-leave-to { opacity: 0; }
+.modal-fade-leave-to {
+  opacity: 0;
+}
 </style>

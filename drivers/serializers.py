@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
-from fleet.serializers import VehicleSerializer, VehicleServiceRecordSerializer
 from fleet.models import VehicleCategory, VehicleSubmission, VehicleSubmissionPhoto
+from fleet.serializers import VehicleSerializer, VehicleServiceRecordSerializer
 
 from .models import Driver, DriverApplication
 

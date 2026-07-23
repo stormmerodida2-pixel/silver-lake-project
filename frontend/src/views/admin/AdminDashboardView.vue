@@ -25,7 +25,7 @@ onMounted(async () => {
   try {
     const { data } = await apiClient.get('/admin/stats/')
     stats.value = data
-  } catch (err) {
+  } catch {
     error.value = 'Could not load dashboard stats.'
   } finally {
     loading.value = false
@@ -51,10 +51,16 @@ onMounted(async () => {
         class="flex items-center justify-between gap-3 rounded-2xl border border-gold-500/40 bg-gold-500/5 p-5 transition hover:border-gold-400"
       >
         <div>
-          <p class="font-[Georgia] text-lg font-bold text-white">Welcome{{ auth.user?.organization_name ? ` to ${auth.user.organization_name}'s dashboard` : '' }}!</p>
-          <p class="mt-1 text-sm text-slate-400">Complete your profile with your name and phone number to get started.</p>
+          <p class="font-[Georgia] text-lg font-bold text-white">
+            Welcome{{ auth.user?.organization_name ? ` to ${auth.user.organization_name}'s dashboard` : '' }}!
+          </p>
+          <p class="mt-1 text-sm text-slate-400">
+            Complete your profile with your name and phone number to get started.
+          </p>
         </div>
-        <span class="shrink-0 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950">Complete Profile</span>
+        <span class="shrink-0 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950"
+          >Complete Profile</span
+        >
       </RouterLink>
 
       <!-- A fresh organization (or, in principle, SilverLake's own account) with no vehicles on
@@ -67,7 +73,8 @@ onMounted(async () => {
         <div>
           <p class="font-[Georgia] text-lg font-bold text-white">Add your first vehicle</p>
           <p class="mt-1 text-sm text-slate-400">
-            {{ auth.user?.organization_name ? 'Your fleet' : 'The fleet' }} is empty - add a vehicle to start receiving bookings.
+            {{ auth.user?.organization_name ? 'Your fleet' : 'The fleet' }} is empty - add a vehicle to start receiving
+            bookings.
           </p>
         </div>
         <span class="shrink-0 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950">Add Vehicle</span>
@@ -78,9 +85,7 @@ onMounted(async () => {
         <p class="mt-2 font-[Georgia] text-4xl font-bold text-white sm:text-5xl">
           {{ fmt(stats.revenue.total_collected) }}
         </p>
-        <p class="mt-2 text-sm text-slate-400">
-          {{ fmt(stats.revenue.collected_this_month) }} collected this month
-        </p>
+        <p class="mt-2 text-sm text-slate-400">{{ fmt(stats.revenue.collected_this_month) }} collected this month</p>
       </section>
 
       <section>
@@ -143,8 +148,7 @@ onMounted(async () => {
             {{ stats.bookings.needing_attention }}
           </p>
           <p class="mt-1 text-xs text-slate-500">
-            Past their scheduled end date but still open - nobody confirmed the trip started/ended,
-            or it's unpaid.
+            Past their scheduled end date but still open - nobody confirmed the trip started/ended, or it's unpaid.
           </p>
         </RouterLink>
       </section>
@@ -177,7 +181,10 @@ onMounted(async () => {
             "
           >
             <p class="text-sm text-slate-400">Pending Driver Applications</p>
-            <p class="mt-1 text-2xl font-bold" :class="stats.drivers.pending_applications ? 'text-gold-400' : 'text-white'">
+            <p
+              class="mt-1 text-2xl font-bold"
+              :class="stats.drivers.pending_applications ? 'text-gold-400' : 'text-white'"
+            >
               {{ stats.drivers.pending_applications }}
             </p>
             <p class="text-xs font-semibold text-gold-400">Review &rarr;</p>
@@ -287,9 +294,9 @@ onMounted(async () => {
           </table>
         </div>
         <p class="mt-2 text-xs text-slate-500">
-          SilverLake keeps the Platform Fee as revenue; the rest is owed back to the partner via
-          Admin → Payouts, same disbursement flow as an individual driver-partner's payout - money
-          still lands in SilverLake's own Paybill either way (no per-partner routing is wired up).
+          SilverLake keeps the Platform Fee as revenue; the rest is owed back to the partner via Admin → Payouts, same
+          disbursement flow as an individual driver-partner's payout - money still lands in SilverLake's own Paybill
+          either way (no per-partner routing is wired up).
         </p>
       </section>
 
@@ -309,10 +316,7 @@ onMounted(async () => {
             "
           >
             <p class="text-sm text-slate-400">Pending Reviews</p>
-            <p
-              class="mt-1 text-2xl font-bold"
-              :class="stats.reviews.pending ? 'text-gold-400' : 'text-white'"
-            >
+            <p class="mt-1 text-2xl font-bold" :class="stats.reviews.pending ? 'text-gold-400' : 'text-white'">
               {{ stats.reviews.pending }}
             </p>
             <p class="mt-1 text-xs font-semibold text-gold-400">
@@ -329,10 +333,7 @@ onMounted(async () => {
             "
           >
             <p class="text-sm text-slate-400">Pending Refunds</p>
-            <p
-              class="mt-1 text-2xl font-bold"
-              :class="stats.refunds.pending ? 'text-gold-400' : 'text-white'"
-            >
+            <p class="mt-1 text-2xl font-bold" :class="stats.refunds.pending ? 'text-gold-400' : 'text-white'">
               {{ stats.refunds.pending }}
             </p>
             <p class="mt-1 text-xs font-semibold text-gold-400">

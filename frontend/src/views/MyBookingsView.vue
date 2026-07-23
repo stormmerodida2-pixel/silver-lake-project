@@ -85,7 +85,7 @@ async function loadBookings() {
   try {
     const { data } = await apiClient.get('/bookings/')
     bookings.value = data.results ?? data
-  } catch (err) {
+  } catch {
     error.value = 'Could not load your bookings.'
   } finally {
     loading.value = false
@@ -154,7 +154,7 @@ async function downloadReceipt(booking) {
     link.download = `SilverLake-Receipt-${booking.id}.pdf`
     link.click()
     window.URL.revokeObjectURL(url)
-  } catch (err) {
+  } catch {
     error.value = 'Could not download the receipt.'
   } finally {
     downloadingId.value = null
@@ -175,15 +175,13 @@ onMounted(() => {
       <p v-else-if="error" class="mt-10 text-center text-red-600">{{ error }}</p>
       <p v-else-if="!bookings.length" class="mt-10 text-center text-slate-500">
         You haven't made any bookings yet.
-        <RouterLink to="/fleet" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">Browse the fleet</RouterLink>
+        <RouterLink to="/fleet" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
+          >Browse the fleet</RouterLink
+        >
       </p>
 
       <div v-else class="mt-10 space-y-4">
-        <div
-          v-for="booking in bookings"
-          :key="booking.id"
-          class="rounded-xl border border-slate-200 bg-slate-50 p-5"
-        >
+        <div v-for="booking in bookings" :key="booking.id" class="rounded-xl border border-slate-200 bg-slate-50 p-5">
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
               <h3 class="font-[Georgia] text-lg font-bold text-navy-900">{{ booking.vehicle_name }}</h3>
@@ -259,7 +257,10 @@ onMounted(() => {
           <TrackVehicleMap v-if="trackingId === booking.id" :booking-id="booking.id" class="mt-3" />
 
           <!-- Change dates form -->
-          <div v-if="changingDatesId === booking.id" class="mt-3 space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+          <div
+            v-if="changingDatesId === booking.id"
+            class="mt-3 space-y-3 rounded-lg border border-slate-200 bg-white p-4"
+          >
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="mb-1 block text-sm text-slate-600">New start date</label>
@@ -280,7 +281,8 @@ onMounted(() => {
               </div>
             </div>
             <p class="text-xs text-slate-500">
-              The trip total is recalculated for the new dates - if it's now lower than what you've already paid, we'll refund the difference.
+              The trip total is recalculated for the new dates - if it's now lower than what you've already paid, we'll
+              refund the difference.
             </p>
             <p v-if="changeDatesError" class="text-sm text-red-600">{{ changeDatesError }}</p>
             <div class="flex gap-3">
@@ -311,17 +313,16 @@ onMounted(() => {
           </div>
 
           <!-- Review form -->
-          <div v-else-if="reviewingId === booking.id" class="mt-3 space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+          <div
+            v-else-if="reviewingId === booking.id"
+            class="mt-3 space-y-3 rounded-lg border border-slate-200 bg-white p-4"
+          >
             <div>
               <label class="mb-1 block text-sm text-slate-600">
                 Rating{{ booking.driver_name ? ` for ${booking.driver_name}` : '' }}
               </label>
               <div class="flex gap-1 text-2xl text-gold-500">
-                <button
-                  v-for="n in 5" :key="n" type="button"
-                  class="leading-none"
-                  @click="reviewForm.rating = n"
-                >
+                <button v-for="n in 5" :key="n" type="button" class="leading-none" @click="reviewForm.rating = n">
                   {{ n <= reviewForm.rating ? '★' : '☆' }}
                 </button>
               </div>

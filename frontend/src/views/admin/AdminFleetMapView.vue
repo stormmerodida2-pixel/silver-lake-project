@@ -19,7 +19,7 @@ L.Icon.Default.mergeOptions({
 
 const LIVE_WINDOW_MS = 15 * 60 * 1000 // a fix newer than this counts as "live"
 const POLL_INTERVAL_MS = 30000 // matches NotificationBell's own refresh cadence
-const KISUMU_CENTER = [-0.0917, 34.7680]
+const KISUMU_CENTER = [-0.0917, 34.768]
 
 const vehicles = ref([])
 const loading = ref(true)
@@ -50,8 +50,9 @@ function timeAgo(isoString) {
 const sortedVehicles = computed(() => {
   const term = search.value.trim().toLowerCase()
   const filtered = term
-    ? vehicles.value.filter((v) =>
-        v.name.toLowerCase().includes(term) || (v.driver_name || '').toLowerCase().includes(term))
+    ? vehicles.value.filter(
+        (v) => v.name.toLowerCase().includes(term) || (v.driver_name || '').toLowerCase().includes(term),
+      )
     : vehicles.value
 
   return [...filtered].sort((a, b) => {
@@ -117,7 +118,7 @@ async function load({ fitBounds } = { fitBounds: false }) {
       const bounds = L.latLngBounds(located.map((v) => [v.last_location_lat, v.last_location_lng]))
       map.fitBounds(bounds.pad(0.3))
     }
-  } catch (err) {
+  } catch {
     error.value = 'Could not load fleet locations.'
   } finally {
     loading.value = false
@@ -146,9 +147,8 @@ onBeforeUnmount(() => {
       <div>
         <h1 class="font-[Georgia] text-2xl font-bold text-white">Fleet Map</h1>
         <p class="mt-1 text-sm text-slate-400">
-          Live position reported by whichever driver has an active trip in a vehicle right now -
-          only works while they have the Driver Portal open in their browser, so gaps are expected.
-          Refreshes automatically every 30 seconds.
+          Live position reported by whichever driver has an active trip in a vehicle right now - only works while they
+          have the Driver Portal open in their browser, so gaps are expected. Refreshes automatically every 30 seconds.
         </p>
       </div>
       <button
@@ -191,11 +191,21 @@ onBeforeUnmount(() => {
               </span>
               <span
                 class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
-                :class="isLive(vehicle)
-                  ? 'bg-green-500/10 text-green-400'
-                  : vehicle.last_location_at ? 'bg-navy-800 text-slate-400' : 'bg-navy-800 text-slate-600'"
+                :class="
+                  isLive(vehicle)
+                    ? 'bg-green-500/10 text-green-400'
+                    : vehicle.last_location_at
+                      ? 'bg-navy-800 text-slate-400'
+                      : 'bg-navy-800 text-slate-600'
+                "
               >
-                {{ isLive(vehicle) ? 'Live' : vehicle.last_location_at ? timeAgo(vehicle.last_location_at) : 'No position' }}
+                {{
+                  isLive(vehicle)
+                    ? 'Live'
+                    : vehicle.last_location_at
+                      ? timeAgo(vehicle.last_location_at)
+                      : 'No position'
+                }}
               </span>
             </button>
           </li>

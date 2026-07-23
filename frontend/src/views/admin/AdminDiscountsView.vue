@@ -46,9 +46,8 @@ async function saveCode() {
     showModal.value = false
   } catch (err) {
     const detail = err?.response?.data
-    formError.value = typeof detail === 'object'
-      ? Object.values(detail).flat().join(' ')
-      : 'Could not create this discount code.'
+    formError.value =
+      typeof detail === 'object' ? Object.values(detail).flat().join(' ') : 'Could not create this discount code.'
   } finally {
     saving.value = false
   }
@@ -90,8 +89,8 @@ onMounted(() => {
       <div>
         <h1 class="font-[Georgia] text-2xl font-bold text-white">Discount Codes</h1>
         <p class="mt-1 text-sm text-slate-400">
-          Generate single-use codes a customer can enter at booking time to reduce their total.
-          Each code works once, for anyone - the first booking to use it burns it for good.
+          Generate single-use codes a customer can enter at booking time to reduce their total. Each code works once,
+          for anyone - the first booking to use it burns it for good.
         </p>
       </div>
       <button
@@ -119,7 +118,9 @@ onMounted(() => {
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <p class="font-mono text-base font-bold tracking-wide text-white">{{ code.code }}</p>
-              <span class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-400">
+              <span
+                class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-400"
+              >
                 {{ describeDiscount(code) }}
               </span>
               <span
@@ -128,10 +129,16 @@ onMounted(() => {
               >
                 Used{{ code.redeemed_booking_id ? ` - Booking #${code.redeemed_booking_id}` : '' }}
               </span>
-              <span v-else class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
+              <span
+                v-else
+                class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400"
+              >
                 Unused
               </span>
-              <span v-if="!code.is_active" class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <span
+                v-if="!code.is_active"
+                class="rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+              >
                 Inactive
               </span>
             </div>
@@ -188,15 +195,21 @@ onMounted(() => {
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Code</label>
                 <input
-                  v-model="form.code" type="text" placeholder="Leave blank to auto-generate one"
+                  v-model="form.code"
+                  type="text"
+                  placeholder="Leave blank to auto-generate one"
                   class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 font-mono text-sm uppercase text-white placeholder-slate-500 placeholder:normal-case focus:border-gold-500 focus:outline-none"
                 />
               </div>
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Discount Type</label>
-                  <select v-model="form.discount_type"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none">
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                    >Discount Type</label
+                  >
+                  <select
+                    v-model="form.discount_type"
+                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  >
                     <option value="fixed">Fixed amount (KES)</option>
                     <option value="percent">Percentage</option>
                   </select>
@@ -206,7 +219,11 @@ onMounted(() => {
                     Value {{ form.discount_type === 'percent' ? '(%)' : '(KES)' }} *
                   </label>
                   <input
-                    v-model="form.value" type="number" min="0" step="0.01" required
+                    v-model="form.value"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
                     :placeholder="form.discount_type === 'percent' ? 'e.g. 10' : 'e.g. 500'"
                     class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
                   />

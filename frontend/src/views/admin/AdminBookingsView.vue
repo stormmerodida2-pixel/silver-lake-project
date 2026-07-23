@@ -15,7 +15,15 @@ const route = useRoute()
 // (see bookings.emails.send_acknowledgment_overdue_staff_notification_email) can land staff
 // directly on the specific booking that needs attention, not just the unfiltered list.
 const filters = reactive({ search: route.query.search || '', status: '', service_type: '' })
-const { items: bookings, nextUrl, loading, loadingMore, error, load, loadMore } = useAdminList('/admin/bookings/', filters)
+const {
+  items: bookings,
+  nextUrl,
+  loading,
+  loadingMore,
+  error,
+  load,
+  loadMore,
+} = useAdminList('/admin/bookings/', filters)
 const { items: driverOptions, load: loadDriverOptions } = useAdminList('/admin/drivers/')
 const busyId = ref(null)
 
@@ -31,7 +39,7 @@ async function changeStatus(booking, newStatus) {
   if (newStatus === 'cancelled' && booking.driver_acknowledged_at) {
     driverAtFault = await confirmDialog(
       "The driver already acknowledged this trip, so cancelling it normally only refunds half of what's been paid. " +
-      "Was this the driver's fault (went unavailable, or delayed without telling anyone)?",
+        "Was this the driver's fault (went unavailable, or delayed without telling anyone)?",
       { confirmText: "Yes, driver's fault - full refund", cancelText: 'No - standard 50% refund' },
     )
   }
@@ -68,8 +76,10 @@ function isUnderpaid(booking) {
 
 function isAwaitingAcknowledgment(booking) {
   return (
-    booking.service_type === 'with_driver' && !!booking.driver_name && !booking.driver_acknowledged_at
-    && ['pending', 'confirmed'].includes(booking.status)
+    booking.service_type === 'with_driver' &&
+    !!booking.driver_name &&
+    !booking.driver_acknowledged_at &&
+    ['pending', 'confirmed'].includes(booking.status)
   )
 }
 
@@ -163,7 +173,7 @@ async function downloadReceipt(booking) {
     link.download = `SilverLake-Receipt-${booking.id}.pdf`
     link.click()
     window.URL.revokeObjectURL(url)
-  } catch (err) {
+  } catch {
     error.value = 'Could not download the receipt.'
   } finally {
     downloadingId.value = null
@@ -187,7 +197,7 @@ async function exportCsv() {
     link.download = `SilverLake-Bookings-${new Date().toISOString().slice(0, 10)}.csv`
     link.click()
     window.URL.revokeObjectURL(url)
-  } catch (err) {
+  } catch {
     error.value = 'Could not export bookings to CSV.'
   } finally {
     exportingCsv.value = false
@@ -250,8 +260,10 @@ onMounted(() => {
       @created="onGovernmentBookingCreated"
     />
     <ConditionReportModal
-      ref="conditionModal" v-model="showConditionModal"
-      :endpoint="conditionEndpoint" :report-type="conditionReportType"
+      ref="conditionModal"
+      v-model="showConditionModal"
+      :endpoint="conditionEndpoint"
+      :report-type="conditionReportType"
     />
 
     <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
@@ -272,11 +284,7 @@ onMounted(() => {
           </tr>
         </thead>
         <tbody class="divide-y divide-navy-800 bg-navy-950">
-          <tr
-            v-for="booking in bookings"
-            :key="booking.id"
-            :class="booking.needs_attention ? 'bg-red-500/5' : ''"
-          >
+          <tr v-for="booking in bookings" :key="booking.id" :class="booking.needs_attention ? 'bg-red-500/5' : ''">
             <td class="px-4 py-3 text-white">
               {{ booking.customer_name }}
               <div class="text-xs text-slate-500">{{ booking.customer_phone }}</div>
@@ -326,7 +334,13 @@ onMounted(() => {
                   class="mt-1 rounded-md border border-navy-700 px-2 py-0.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
                   @click="remindBalance(booking)"
                 >
-                  {{ busyId === booking.id ? 'Sending...' : (booking.last_balance_reminder_at ? 'Remind Again' : 'Remind Driver') }}
+                  {{
+                    busyId === booking.id
+                      ? 'Sending...'
+                      : booking.last_balance_reminder_at
+                        ? 'Remind Again'
+                        : 'Remind Driver'
+                  }}
                 </button>
                 <p v-else-if="!booking.driver_name" class="text-xs text-slate-600">No driver to remind</p>
 
@@ -340,11 +354,16 @@ onMounted(() => {
                   </button>
                   <div v-else class="space-y-1.5 rounded-md border border-navy-700 bg-navy-900 p-2">
                     <input
-                      v-model="invoiceForm.amount" type="number" step="0.01" placeholder="Amount (KES)"
+                      v-model="invoiceForm.amount"
+                      type="number"
+                      step="0.01"
+                      placeholder="Amount (KES)"
                       class="w-full rounded border border-navy-700 bg-navy-950 px-2 py-1 text-xs text-white focus:border-gold-400 focus:outline-none"
                     />
                     <input
-                      v-model="invoiceForm.reference" type="text" placeholder="Reference (optional)"
+                      v-model="invoiceForm.reference"
+                      type="text"
+                      placeholder="Reference (optional)"
                       class="w-full rounded border border-navy-700 bg-navy-950 px-2 py-1 text-xs text-white focus:border-gold-400 focus:outline-none"
                     />
                     <p v-if="invoiceError" class="text-xs text-red-400">{{ invoiceError }}</p>
@@ -406,10 +425,20 @@ onMounted(() => {
                   Awaiting Acknowledgment
                 </span>
               </div>
-              <div v-if="booking.trip_started_at" class="text-slate-500">Started {{ new Date(booking.trip_started_at).toLocaleDateString() }}</div>
-              <div v-if="booking.trip_ended_at" class="text-slate-500">Ended {{ new Date(booking.trip_ended_at).toLocaleDateString() }}</div>
+              <div v-if="booking.trip_started_at" class="text-slate-500">
+                Started {{ new Date(booking.trip_started_at).toLocaleDateString() }}
+              </div>
+              <div v-if="booking.trip_ended_at" class="text-slate-500">
+                Ended {{ new Date(booking.trip_ended_at).toLocaleDateString() }}
+              </div>
               <div
-                v-if="!booking.trip_started_at && !booking.trip_ended_at && !booking.needs_attention && !booking.driver_acknowledged_at && !isAwaitingAcknowledgment(booking)"
+                v-if="
+                  !booking.trip_started_at &&
+                  !booking.trip_ended_at &&
+                  !booking.needs_attention &&
+                  !booking.driver_acknowledged_at &&
+                  !isAwaitingAcknowledgment(booking)
+                "
                 class="text-slate-600"
               >
                 —

@@ -82,7 +82,7 @@ export const useAuthStore = defineStore('auth', {
         const { data } = await apiClient.get('/auth/me/')
         this.user = data
         localStorage.setItem('sl_user', JSON.stringify(data))
-      } catch (err) {
+      } catch {
         // ignore - keep whatever profile we already have
       }
     },
@@ -133,12 +133,8 @@ export const useAuthStore = defineStore('auth', {
 
       if (refresh) {
         try {
-          await apiClient.post(
-            '/auth/logout/',
-            { refresh },
-            { headers: { Authorization: `Bearer ${access}` } },
-          )
-        } catch (err) {
+          await apiClient.post('/auth/logout/', { refresh }, { headers: { Authorization: `Bearer ${access}` } })
+        } catch {
           // Token already expired/invalid, or a network hiccup - local logout already happened.
         }
       }
