@@ -1711,3 +1711,129 @@ class MpesaB2cResultRefundTests(APITestCase):
         self.assertNotEqual(self.refund.status, 'issued')
         self.assertIsNotNone(self.refund.b2c_failed_at)
         self.assertIn('Insufficient funds', self.refund.notes)
+
+
+class ClientDeclareBankTransferPaymentTests(APITestCase):
+    """The client self-declaring a direct bank transfer to SilverLake's own account, from the
+    same no-login pay page used for M-Pesa/cash - unlike cash, this needs no driver at all, since
+    the money never passes through one. Only records what the client says they've sent; staff
+    still have to separately confirm it actually landed (see AdminConfirmBankTransferTests)
+    before it counts toward the balance."""
+
+    def setUp(self):
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='bank-client@example.com', password='pass12345!')
+        self.booking = make_booking(customer, vehicle, status=BookingStatus.PENDING)
+
+    def _url(self, booking=None):
+        return f'/api/pay/{(booking or self.booking).customer_token}/declare-bank-transfer/'
+
+    def test_client_can_declare_a_bank_transfer_with_no_driver_assigned(self):
+        self.assertIsNone(self.booking.driver_id)
+        response = self.client.post(self._url(), {'amount': str(self.booking.deposit_amount)}, format='json')
+        self.assertEqual(response.status_code, 201)
+
+        payment = Payment.objects.get(booking=self.booking)
+        self.assertEqual(payment.method, PaymentMethod.BANK_TRANSFER)
+        self.assertEqual(payment.status, PaymentStatus.PENDING)
+        self.assertIsNone(payment.recorded_by_driver_id)
+        self.assertEqual(Decimal(str(payment.amount)), self.booking.deposit_amount)
+
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.PENDING)  # not confirmed until staff confirm
+
+    def test_client_can_declare_a_bank_transfer_with_a_driver_assigned_too(self):
+        driver = Driver.objects.create(full_name='Bank Transfer Driver', is_active=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='bank-client-2@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
+
+        response = self.client.post(self._url(booking), {'amount': str(booking.deposit_amount)}, format='json')
+        self.assertEqual(response.status_code, 201)
+        payment = Payment.objects.get(booking=booking)
+        self.assertEqual(payment.method, PaymentMethod.BANK_TRANSFER)
+
+    def test_declared_bank_transfer_appears_as_pending_on_the_pay_page(self):
+        self.client.post(self._url(), {'amount': str(self.booking.deposit_amount)}, format='json')
+        response = self.client.get(f'/api/pay/{self.booking.customer_token}/')
+        pending = response.json()['pending_payments']
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]['method'], 'bank_transfer')
+
+    def test_cannot_declare_an_amount_exceeding_the_balance_due(self):
+        response = self.client.post(
+            self._url(), {'amount': str(self.booking.total_amount + 1)}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_cannot_declare_a_zero_or_negative_amount(self):
+        for bad_amount in ('0', '-500'):
+            response = self.client.post(self._url(), {'amount': bad_amount}, format='json')
+            self.assertEqual(response.status_code, 400, f'amount={bad_amount} should have been rejected')
+        self.assertFalse(Payment.objects.filter(booking=self.booking).exists())
+
+    def test_wrong_token_is_a_404(self):
+        response = self.client.post(
+            f'/api/pay/{uuid.uuid4()}/declare-bank-transfer/', {'amount': '100'}, format='json',
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+class AdminConfirmBankTransferTests(APITestCase):
+    """Staff confirming a customer-declared bank transfer actually landed - checked against the
+    real bank statement by hand, unlike cash (which the driver confirms, since they're the one
+    who physically received it) there's no driver in a bank transfer at all to confirm it
+    instead."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='banktransfer-staff@example.com', password='pass12345!', is_staff=True)
+        vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(
+            username='bank-confirm-client@example.com', email='bank-confirm-client@example.com', password='pass12345!',
+        )
+        self.booking = make_booking(self.customer, vehicle, status=BookingStatus.PENDING)
+        self.client.post(
+            f'/api/pay/{self.booking.customer_token}/declare-bank-transfer/',
+            {'amount': str(self.booking.deposit_amount)}, format='json',
+        )
+        self.payment = Payment.objects.get(booking=self.booking)
+
+    def test_staff_can_confirm_a_pending_bank_transfer(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/payments/{self.payment.id}/confirm-bank-transfer/')
+        self.assertEqual(response.status_code, 200)
+
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentStatus.SUCCESSFUL)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.CONFIRMED)
+
+    def test_confirming_a_bank_transfer_emails_the_customer(self):
+        mail.outbox = []
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(f'/api/payments/{self.payment.id}/confirm-bank-transfer/')
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('bank-confirm-client@example.com', mail.outbox[0].to)
+        self.assertNotIn('your driver', mail.outbox[0].body)
+
+    def test_cannot_confirm_bank_transfer_action_on_a_cash_payment(self):
+        driver = Driver.objects.create(full_name='Wrong Method Driver', is_active=True, cash_payments_enabled=True)
+        vehicle = make_vehicle(driver=driver, price_per_day=Decimal('1000'))
+        customer = User.objects.create_user(username='wrong-method-client@example.com', password='pass12345!')
+        booking = make_booking(customer, vehicle, driver=driver, status=BookingStatus.PENDING)
+        cash_payment = declare_offline_payment(booking, PaymentMethod.CASH, booking.deposit_amount, driver=driver)
+
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post(f'/api/payments/{cash_payment.id}/confirm-bank-transfer/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_unauthenticated_user_cannot_confirm_a_bank_transfer(self):
+        response = self.client.post(f'/api/payments/{self.payment.id}/confirm-bank-transfer/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_already_confirmed_bank_transfer_cannot_be_confirmed_again(self):
+        self.client.force_authenticate(user=self.staff)
+        self.client.post(f'/api/payments/{self.payment.id}/confirm-bank-transfer/')
+        response = self.client.post(f'/api/payments/{self.payment.id}/confirm-bank-transfer/')
+        self.assertEqual(response.status_code, 400)

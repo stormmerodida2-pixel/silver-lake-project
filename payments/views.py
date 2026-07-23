@@ -24,7 +24,13 @@ from .serializers import (
     StkPushRequestSerializer,
     TokenStkPushRequestSerializer,
 )
-from .services import PaymentValidationError, declare_offline_payment, initiate_stk_push_payment, redeem_referral_credit
+from .services import (
+    PaymentValidationError,
+    confirm_offline_payment,
+    declare_offline_payment,
+    initiate_stk_push_payment,
+    redeem_referral_credit,
+)
 
 # How often staff can re-nudge the same driver about the same pending payment - long enough that
 # a reminder isn't just spam, short enough that a driver who genuinely forgot can be re-poked
@@ -166,6 +172,25 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
             NotificationEvent.DISPUTE_RESOLVED, f'Dispute resolved for booking #{payment.booking_id}',
             organization=payment.booking.vehicle.owner, link_path='/admin/payments',
         )
+        return Response(self.get_serializer(payment).data)
+
+    @action(detail=True, methods=['post'], url_path='confirm-bank-transfer', permission_classes=[IsSupportStaff])
+    def confirm_bank_transfer(self, request, pk=None):
+        """Staff confirming a customer-declared bank transfer (see
+        payments.views.token_declare_bank_transfer_payment) actually landed - checked against the
+        real bank statement by hand, the same trust-but-verify shape as a driver confirming cash,
+        except here it's staff doing the confirming since there's no driver in a bank transfer at
+        all to confirm it instead."""
+        payment = self.get_object()
+        if payment.method != PaymentMethod.BANK_TRANSFER:
+            return Response({'detail': 'This action is only for bank transfer payments.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            confirm_offline_payment(payment)
+        except PaymentValidationError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        log_admin_action(request, 'payment.confirm_bank_transfer', payment, detail=f'KES {payment.amount}')
         return Response(self.get_serializer(payment).data)
 
     @action(detail=False, methods=['get'])
@@ -320,6 +345,34 @@ def token_declare_cash_payment(request, token):
 
 
 token_declare_cash_payment.cls.throttle_scope = 'token-payment-view'
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([ScopedRateThrottle])
+def token_declare_bank_transfer_payment(request, token):
+    """Lets the client themselves declare they've sent a bank transfer, from the same no-login
+    page used for M-Pesa/cash. Unlike cash, this isn't gated on a driver being assigned - a bank
+    transfer goes straight to SilverLake's own account, nobody has to be physically present to
+    hand it to. Only records what the client says they've sent; staff still have to separately
+    confirm it was actually received (see PaymentViewSet.confirm_bank_transfer) once they see it
+    on the bank statement, before it counts toward the balance."""
+    booking = _get_booking_by_token(token)
+
+    try:
+        amount = parse_amount(request.data.get('amount'))
+    except ValueError:
+        return Response({'detail': 'A valid amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        declare_offline_payment(booking, PaymentMethod.BANK_TRANSFER, amount, driver=booking.driver)
+    except PaymentValidationError as exc:
+        return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(PublicBookingPaymentSerializer(booking).data, status=status.HTTP_201_CREATED)
+
+
+token_declare_bank_transfer_payment.cls.throttle_scope = 'token-payment-view'
 
 
 @api_view(['GET'])

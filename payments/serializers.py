@@ -81,11 +81,13 @@ class PublicBookingPaymentSerializer(serializers.ModelSerializer):
         return obj.driver.cash_payments_enabled if obj.driver else True
 
     def get_pending_payments(self, obj):
-        # A cash payment the client has already declared but their driver hasn't yet confirmed
-        # receiving - shown so the client sees "declared, awaiting confirmation" rather than
-        # being able to declare the same cash payment twice.
+        # A cash/card/bank-transfer payment the client has already declared but nobody (driver,
+        # for cash/card; staff, for bank transfer) has yet confirmed receiving - shown so the
+        # client sees "declared, awaiting confirmation" rather than being able to declare the
+        # same payment twice.
         payments = obj.payments.filter(
-            method__in=(PaymentMethod.CASH, PaymentMethod.CARD), status=PaymentStatus.PENDING,
+            method__in=(PaymentMethod.CASH, PaymentMethod.CARD, PaymentMethod.BANK_TRANSFER),
+            status=PaymentStatus.PENDING,
         )
         return [
             {'id': p.id, 'method': p.method, 'amount': p.amount, 'created_at': p.created_at}

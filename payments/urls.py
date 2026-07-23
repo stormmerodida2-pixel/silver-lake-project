@@ -7,6 +7,7 @@ from .views import (
     mpesa_callback,
     redeem_credit,
     stk_push,
+    token_declare_bank_transfer_payment,
     token_declare_cash_payment,
     token_dispute_payment,
     token_payment_detail,
@@ -25,6 +26,10 @@ urlpatterns = router.urls + [
     path('pay/<uuid:token>/', token_payment_detail, name='token-payment-detail'),
     path('pay/<uuid:token>/stk-push/', token_stk_push, name='token-stk-push'),
     path('pay/<uuid:token>/declare-cash/', token_declare_cash_payment, name='token-declare-cash'),
+    path(
+        'pay/<uuid:token>/declare-bank-transfer/', token_declare_bank_transfer_payment,
+        name='token-declare-bank-transfer',
+    ),
     path('pay/<uuid:token>/payments/<int:payment_id>/', token_payment_status, name='token-payment-status'),
     path('pay/<uuid:token>/payments/<int:payment_id>/dispute/', token_dispute_payment, name='token-dispute-payment'),
 ]

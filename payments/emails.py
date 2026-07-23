@@ -10,12 +10,12 @@ User = get_user_model()
 
 
 def send_offline_payment_recorded_email(payment):
-    """Sent the moment a driver confirms a cash or card payment - the customer didn't initiate
-    this confirmation themselves, so this is their one independent check: if they never actually
-    paid (or a different amount), this email is what tips them off to dispute it. Only cash gets
-    a dispute link right now (see payments.views.token_dispute_payment) - card doesn't have an
-    equivalent self-service flow yet. Swallowed silently on failure so a misconfigured SMTP
-    server never blocks the payment from being confirmed."""
+    """Sent the moment a cash, card, or bank transfer payment is confirmed - the customer didn't
+    initiate this confirmation themselves, so this is their one independent check: if they never
+    actually paid (or a different amount), this email is what tips them off to dispute it. Only
+    cash gets a dispute link right now (see payments.views.token_dispute_payment) - card and bank
+    transfer don't have an equivalent self-service flow yet. Swallowed silently on failure so a
+    misconfigured SMTP server never blocks the payment from being confirmed."""
     booking = payment.booking
     if not booking.customer_email:
         return
@@ -24,7 +24,10 @@ def send_offline_payment_recorded_email(payment):
         'first_name': booking.customer_name.split()[0],
         'amount': f'{payment.amount:,.2f}',
         'method_label': method_label,
-        'driver_name': payment.recorded_by_driver.full_name if payment.recorded_by_driver else 'your driver',
+        # Blank, not a "your driver" fallback, when there's genuinely no driver involved (a bank
+        # transfer goes straight to SilverLake's own account) - the template only renders the
+        # "reported by X" clause at all when this is truthy.
+        'driver_name': payment.recorded_by_driver.full_name if payment.recorded_by_driver else '',
         'booking_id': booking.pk,
         'balance_due': f'{booking.balance_due:,.2f}',
     }
