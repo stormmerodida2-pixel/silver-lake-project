@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import generics, permissions, status
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
@@ -34,12 +35,28 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         identifier = attrs.get(self.username_field)
+        user = None
         if identifier:
             user = User.objects.filter(email__iexact=identifier).first()
             if user:
                 attrs[self.username_field] = user.get_username()
 
-        data = super().validate(attrs)
+        try:
+            data = super().validate(attrs)
+        except AuthenticationFailed:
+            # authenticate() returns None for both "wrong password" and "correct password but
+            # is_active=False" - SimpleJWT can't tell them apart, so its own error message ("No
+            # active account found with the given credentials") reads like a wrong-password error
+            # even when the real problem is an unactivated account. Re-check the password
+            # ourselves here (safe: this only runs after the parent already rejected the login,
+            # so it adds no new way to probe a password) to give the actually-useful message.
+            if user and not user.is_active and user.check_password(attrs.get('password', '')):
+                raise AuthenticationFailed(
+                    "This account hasn't been activated yet. Check your email for the activation "
+                    'link, or request a new one below.',
+                    'account_not_active',
+                )
+            raise
 
         # The password's already been checked by this point (super().validate() raises
         # AuthenticationFailed otherwise) - a staff account with 2FA on doesn't get its tokens
@@ -138,6 +155,27 @@ class RegisterView(APIView):
             {'detail': 'Account created. Check your email to activate it before logging in.'},
             status=status.HTTP_201_CREATED,
         )
+
+
+class ResendActivationView(APIView):
+    """Self-service escape hatch for an account stuck at is_active=False - the original
+    activation link may have expired (default_token_generator honors PASSWORD_RESET_TIMEOUT),
+    never arrived, or been lost. Without this, that account is permanently stuck: it can't
+    re-register (RegisterSerializer.validate_email rejects the email as already taken) and can't
+    log in (see EmailTokenObtainPairSerializer.validate above)."""
+
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth-resend-activation'
+
+    def post(self, request):
+        email = request.data.get('email', '')
+        user = User.objects.filter(email__iexact=email, is_active=False).first()
+        if user is not None:
+            send_activation_email(user)
+        # Same response whether or not the account exists/needs it - don't leak account
+        # existence, same pattern as PasswordResetRequestView below.
+        return Response({'detail': 'If that email needs activating, a new link has been sent.'})
 
 
 class MeView(generics.RetrieveUpdateAPIView):

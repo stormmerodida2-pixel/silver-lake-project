@@ -84,6 +84,7 @@ REST_FRAMEWORK = {
         'auth-login': '10/min',
         'auth-register': '5/hour',
         'auth-password-reset': '5/hour',
+        'auth-resend-activation': '5/hour',
         'auth-2fa': '10/min',
         'mpesa-stk': '5/min',
         'declare-bank-transfer': '5/min',

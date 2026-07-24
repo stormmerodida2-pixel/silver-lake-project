@@ -17,6 +17,7 @@ const error = ref('')
 // over to the code-entry step (see submitCode() below) instead of navigating away immediately.
 const twoFactorUserId = ref(null)
 const otpCode = ref('')
+const resendState = ref('idle') // idle -> sending -> sent
 
 function redirectAfterLogin() {
   if (auth.user?.is_staff) {
@@ -31,6 +32,7 @@ function redirectAfterLogin() {
 async function submit() {
   submitting.value = true
   error.value = ''
+  resendState.value = 'idle'
   try {
     const result = await auth.login(form.email, form.password)
     if (result.two_factor_required) {
@@ -44,6 +46,19 @@ async function submit() {
       'Invalid email or password. If you just signed up, check your email for an activation link first.'
   } finally {
     submitting.value = false
+  }
+}
+
+async function resendActivationEmail() {
+  if (!form.email) {
+    error.value = 'Enter your email above first, then resend the activation email.'
+    return
+  }
+  resendState.value = 'sending'
+  try {
+    await auth.resendActivation(form.email)
+  } finally {
+    resendState.value = 'sent'
   }
 }
 
@@ -128,6 +143,20 @@ function backToLogin() {
           <RouterLink to="/forgot-password" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">
             Forgot password?
           </RouterLink>
+        </p>
+        <p class="text-center text-sm text-slate-500">
+          <template v-if="resendState === 'sent'">Activation email sent - check your inbox.</template>
+          <template v-else>
+            Account not activated?
+            <button
+              type="button"
+              class="font-semibold text-brand-blue-600 hover:text-brand-blue-500 disabled:opacity-60"
+              :disabled="resendState === 'sending'"
+              @click="resendActivationEmail"
+            >
+              {{ resendState === 'sending' ? 'Sending...' : 'Resend activation email' }}
+            </button>
+          </template>
         </p>
         <p class="text-center text-sm text-slate-500">
           No account?

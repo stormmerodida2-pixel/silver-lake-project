@@ -53,6 +53,10 @@ export const useAuthStore = defineStore('auth', {
       const { data } = await apiClient.post(`/auth/activate/${uid}/${token}/`)
       return data
     },
+    async resendActivation(email) {
+      const { data } = await apiClient.post('/auth/resend-activation/', { email })
+      return data
+    },
     async requestPasswordReset(email) {
       const { data } = await apiClient.post('/auth/password-reset/', { email })
       return data
