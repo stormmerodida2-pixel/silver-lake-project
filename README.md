@@ -166,7 +166,9 @@ This needs a one-time AWS setup this repo can't do for you:
    main JS bundle drops from ~150KB to ~46KB) and set `Cache-Control: public, max-age=31536000,
    immutable` on `/assets/` (Vite's hashed filenames make this safe - a new deploy always gets
    new filenames) while leaving `index.html` itself uncached (`no-cache`), so a stale cached
-   copy never points at JS/CSS a previous deploy already deleted. Also create
+   copy never points at JS/CSS a previous deploy already deleted (see `deploy/nginx/` for the
+   actual config, kept in version control even though CI doesn't deploy it - see that
+   directory's own README for how to pull/apply changes). Also create
    `/home/<user>/silverlake.env` on the box containing the real production env vars
    (`SECRET_KEY`, `ALLOWED_HOSTS`, `DATABASE_URL` pointing at an RDS MySQL instance,
    `AWS_STORAGE_BUCKET_NAME` etc. pointing at a real S3 bucket, `MPESA_*`,
