@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -224,6 +224,18 @@ class BookingViewSet(
             'vehicle_name': vehicle.name,
             'driver_name': booking.driver.full_name if booking.driver else None,
         })
+
+    @action(detail=True, methods=['get'], url_path='condition-reports')
+    def condition_reports(self, request, pk=None):
+        """Read-only view of the pickup/return condition reports logged for this booking - see
+        VehicleConditionReport for why these exist (damage-dispute evidence). Surfacing them here
+        turns data already being collected into a trust feature: a customer can see their own
+        car's logged condition (photos, odometer, fuel level) before and after their trip, not
+        just take SilverLake's word for it. Scoped through the same get_object()/get_queryset()
+        as the rest of this viewset, so a customer only ever sees their own booking's reports."""
+        booking = self.get_object()
+        reports = booking.condition_reports.all()
+        return Response(VehicleConditionReportSerializer(reports, many=True, context={'request': request}).data)
 
 
 class DriverOnsiteBookingCreateView(APIView):
@@ -514,6 +526,50 @@ class DriverBookingLocationView(APIView):
             'last_location_lng': vehicle.last_location_lng,
             'last_location_at': vehicle.last_location_at,
         })
+
+
+class DriverNotifyArrivingView(APIView):
+    """Lets a driver send an immediate "I'm arriving" push notification to the customer - a
+    one-tap manual signal rather than automatic GPS proximity detection (see
+    Booking.driver_arriving_notified_at for why). Gated on the same "trip is actually active"
+    window as DriverBookingLocationView, plus a cooldown so a double-tap or a driver stuck in
+    traffic re-tapping every minute doesn't spam the customer with repeat pushes."""
+
+    permission_classes = [IsDriverUser]
+    COOLDOWN = timedelta(minutes=15)
+
+    def post(self, request, pk):
+        driver = request.user.driver_profile
+        booking = get_object_or_404(Booking, pk=pk, driver=driver)
+
+        today = timezone.localdate()
+        if booking.status not in (BookingStatus.CONFIRMED, BookingStatus.ONGOING):
+            return Response(
+                {'detail': 'This trip is not currently active.'}, status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not (booking.start_date <= today <= booking.end_date):
+            return Response(
+                {'detail': "This trip's dates are not currently active."}, status=status.HTTP_400_BAD_REQUEST,
+            )
+        if booking.driver_arriving_notified_at and timezone.now() - booking.driver_arriving_notified_at < self.COOLDOWN:
+            return Response(
+                {'detail': 'The customer was already notified recently. Please wait before sending again.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        booking.driver_arriving_notified_at = timezone.now()
+        booking.save(update_fields=['driver_arriving_notified_at'])
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.DRIVER_ARRIVING,
+            f'{driver.full_name} is arriving shortly for your booking #{booking.pk}',
+            user=booking.user, link_path='/account/bookings',
+        )
+
+        return Response({'detail': 'The customer has been notified.'})
 
 
 class DriverBookingListView(generics.ListAPIView):

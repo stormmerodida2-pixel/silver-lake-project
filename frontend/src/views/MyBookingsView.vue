@@ -8,6 +8,7 @@ import { useAuthStore } from '../stores/auth'
 // "Track" on an active booking, which most visits to this page never do. A static import would
 // pull that whole chunk into every page load here regardless.
 const TrackVehicleMap = defineAsyncComponent(() => import('../components/TrackVehicleMap.vue'))
+const ConditionReportViewer = defineAsyncComponent(() => import('../components/ConditionReportViewer.vue'))
 
 const auth = useAuthStore()
 const bookings = ref([])
@@ -40,6 +41,15 @@ const trackingId = ref(null)
 const canTrack = (booking) => ['confirmed', 'ongoing'].includes(booking.status)
 function toggleTracking(booking) {
   trackingId.value = trackingId.value === booking.id ? null : booking.id
+}
+
+// ── Vehicle condition report ─────────────────────────────────────────────────
+// Surfaces the same pickup/return condition reports drivers already log for damage-dispute
+// evidence - only relevant once a trip has actually started (they're logged at Start/End Trip).
+const conditionReportId = ref(null)
+const canViewConditionReport = (booking) => ['ongoing', 'completed'].includes(booking.status)
+function toggleConditionReport(booking) {
+  conditionReportId.value = conditionReportId.value === booking.id ? null : booking.id
 }
 
 // ── Leave a review ───────────────────────────────────────────────────────────
@@ -214,6 +224,13 @@ onMounted(() => {
               {{ trackingId === booking.id ? 'Hide Map' : 'Track Vehicle' }}
             </button>
             <button
+              v-if="canViewConditionReport(booking)"
+              class="rounded-md border border-brand-blue-600 px-3 py-1.5 text-sm font-semibold text-brand-blue-600 transition hover:bg-brand-blue-600 hover:text-white"
+              @click="toggleConditionReport(booking)"
+            >
+              {{ conditionReportId === booking.id ? 'Hide Condition Report' : 'View Vehicle Condition' }}
+            </button>
+            <button
               v-if="canChangeDates(booking) && changingDatesId !== booking.id"
               class="rounded-md border border-brand-blue-600 px-3 py-1.5 text-sm font-semibold text-brand-blue-600 transition hover:bg-brand-blue-600 hover:text-white"
               @click="openChangeDatesForm(booking)"
@@ -259,6 +276,7 @@ onMounted(() => {
           </div>
 
           <TrackVehicleMap v-if="trackingId === booking.id" :booking-id="booking.id" class="mt-3" />
+          <ConditionReportViewer v-if="conditionReportId === booking.id" :booking-id="booking.id" class="mt-3" />
 
           <!-- Change dates form -->
           <div

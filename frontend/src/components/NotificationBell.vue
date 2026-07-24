@@ -93,6 +93,7 @@ const EVENT_LABELS = {
   // Client account
   booking_confirmed: 'Booking Confirmed',
   driver_assigned: 'Driver Assigned',
+  driver_arriving: 'Driver Arriving',
   booking_dates_changed: 'Booking Dates Updated',
   trip_completed: 'Trip Completed',
   payment_recorded: 'Payment Recorded',
@@ -135,6 +136,7 @@ const MANAGEABLE_EVENTS_BY_BASE_PATH = {
   '/notifications': [
     'booking_confirmed',
     'driver_assigned',
+    'driver_arriving',
     'booking_dates_changed',
     'booking_cancelled',
     'payment_recorded',

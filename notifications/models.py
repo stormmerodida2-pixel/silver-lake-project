@@ -32,6 +32,7 @@ class NotificationEvent(models.TextChoices):
     # Client-facing (see ClientNotificationViewSet) - BOOKING_CANCELLED above is reused here too.
     BOOKING_CONFIRMED = 'booking_confirmed', 'Booking Confirmed'
     DRIVER_ASSIGNED = 'driver_assigned', 'Driver Assigned'
+    DRIVER_ARRIVING = 'driver_arriving', 'Driver Arriving'
     BOOKING_DATES_CHANGED = 'booking_dates_changed', 'Booking Dates Updated'
     TRIP_COMPLETED = 'trip_completed', 'Trip Completed'
     PAYMENT_RECORDED = 'payment_recorded', 'Payment Recorded'

@@ -166,6 +166,14 @@ class Booking(models.Model):
     # yet, whether or not anything has been declared.
     last_balance_reminder_at = models.DateTimeField(null=True, blank=True)
 
+    # Set when the driver taps "Notify customer - I'm arriving" (see
+    # bookings.views.DriverNotifyArrivingView) - a manual signal rather than automatic GPS
+    # proximity detection, since the app has no pickup coordinates to compute distance against
+    # (pickup_location is free text) and a driver's own judgment of "I'm close" is more reliable
+    # than an approximate calculation anyway. Gated on a cooldown, not a strict one-time flag, so
+    # a genuinely delayed driver can send it again without staff intervention.
+    driver_arriving_notified_at = models.DateTimeField(null=True, blank=True)
+
     # Set once a stuck payment/deposit issue on this booking has sat unresolved long enough that
     # the automated reminder sweep gives up on the driver and alerts staff directly instead (see
     # payments.services.escalate_stuck_bookings) - fires at most once per booking, so staff aren't

@@ -179,6 +179,24 @@ function toggleSharingLocation(booking) {
   }
 }
 
+// ── "I'm arriving" notification ──────────────────────────────────────────────
+// A manual one-tap signal rather than automatic GPS proximity detection - the app has no pickup
+// coordinates to measure distance against, and the driver's own judgment of "I'm close" is more
+// reliable anyway. The backend enforces a cooldown so a double-tap doesn't spam the customer.
+const notifyingArrivingId = ref(null)
+
+async function notifyArriving(booking) {
+  notifyingArrivingId.value = booking.id
+  driverPortal.bookingsError = ''
+  try {
+    await apiClient.post(`/driver/bookings/${booking.id}/notify-arriving/`)
+  } catch (err) {
+    driverPortal.bookingsError = err.response?.data?.detail || 'Could not notify the customer.'
+  } finally {
+    notifyingArrivingId.value = null
+  }
+}
+
 onUnmounted(() => {
   stopSharingLocation()
   clearInterval(ackClockIntervalId)
@@ -334,6 +352,15 @@ function openOnsiteModal() {
               @click="toggleSharingLocation(booking)"
             >
               {{ sharingBookingId === booking.id ? '● Sharing Location' : 'Share My Location' }}
+            </button>
+
+            <button
+              v-if="isTripCurrentlyActive(booking)"
+              :disabled="notifyingArrivingId === booking.id"
+              class="rounded-md border border-navy-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              @click="notifyArriving(booking)"
+            >
+              {{ notifyingArrivingId === booking.id ? 'Notifying...' : "Notify Customer: I'm Arriving" }}
             </button>
           </div>
 

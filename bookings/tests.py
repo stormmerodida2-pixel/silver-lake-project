@@ -2307,6 +2307,50 @@ class DriverConditionReportTests(APITestCase):
         self.assertEqual(response.json()[0]['report_type'], 'pickup')
 
 
+class CustomerConditionReportTests(APITestCase):
+    """A customer's read-only view of the pickup/return condition reports already logged for
+    their own booking - turns damage-dispute evidence into a trust feature. Never lets a
+    customer write a report (that's driver/admin-only, see DriverConditionReportTests) or see
+    another customer's."""
+
+    def setUp(self):
+        driver_user = User.objects.create_user(username='cr-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=driver_user, full_name='CR Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='cr-client@example.com', password='pass12345!')
+        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.ONGOING)
+        self.client.force_authenticate(user=self.customer)
+
+    def test_customer_sees_an_empty_list_when_no_reports_exist(self):
+        response = self.client.get(f'/api/bookings/{self.booking.id}/condition-reports/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    def test_customer_can_see_their_own_logged_reports(self):
+        from bookings.services import create_condition_report
+
+        create_condition_report(self.booking, 'pickup', 45200, 'full', 'Small scratch on bumper', [], logged_by=self.driver)
+        response = self.client.get(f'/api/bookings/{self.booking.id}/condition-reports/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['report_type'], 'pickup')
+        self.assertEqual(data[0]['mileage'], 45200)
+        self.assertEqual(data[0]['notes'], 'Small scratch on bumper')
+
+    def test_customer_cannot_see_another_customers_booking_report(self):
+        other_customer = User.objects.create_user(username='other-cr-client@example.com', password='pass12345!')
+        self.client.force_authenticate(user=other_customer)
+
+        response = self.client.get(f'/api/bookings/{self.booking.id}/condition-reports/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_unauthenticated_request_is_rejected(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get(f'/api/bookings/{self.booking.id}/condition-reports/')
+        self.assertEqual(response.status_code, 401)
+
+
 class DriverBookingLocationTests(APITestCase):
     """A driver's own browser reports the vehicle's live position while a trip is actually in
     progress - no GPS hardware involved, so this only ever works while they have the portal
@@ -2383,6 +2427,75 @@ class DriverBookingLocationTests(APITestCase):
         response = self.client.post(
             f'/api/driver/bookings/{self.booking.id}/location/', {'lat': -0.09, 'lng': 34.76}, format='json',
         )
+        self.assertEqual(response.status_code, 401)
+
+
+class DriverNotifyArrivingTests(APITestCase):
+    """A driver's one-tap "I'm arriving" signal - manual rather than automatic GPS proximity
+    detection, since there's no pickup coordinate to measure distance against."""
+
+    def setUp(self):
+        driver_user = User.objects.create_user(username='arriving-driver@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(user=driver_user, full_name='Arriving Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='arriving-client@example.com', password='pass12345!')
+        self.booking = make_booking(
+            self.customer, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
+            start_date=TODAY, end_date=TODAY + timedelta(days=2),
+        )
+        self.client.force_authenticate(user=driver_user)
+
+    def test_driver_can_notify_the_customer_for_a_currently_active_trip(self):
+        from notifications.models import Notification, NotificationEvent
+
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/notify-arriving/')
+        self.assertEqual(response.status_code, 200)
+        self.booking.refresh_from_db()
+        self.assertIsNotNone(self.booking.driver_arriving_notified_at)
+
+        notification = Notification.objects.get(event=NotificationEvent.DRIVER_ARRIVING)
+        self.assertEqual(notification.user, self.customer)
+
+    def test_cannot_notify_before_the_trip_starts(self):
+        self.booking.start_date = TOMORROW
+        self.booking.end_date = NEXT_WEEK
+        self.booking.save(update_fields=['start_date', 'end_date'])
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/notify-arriving/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_cannot_notify_for_a_pending_booking(self):
+        self.booking.status = BookingStatus.PENDING
+        self.booking.save(update_fields=['status'])
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/notify-arriving/')
+        self.assertEqual(response.status_code, 400)
+
+    def test_repeat_notification_within_the_cooldown_is_rejected(self):
+        first = self.client.post(f'/api/driver/bookings/{self.booking.id}/notify-arriving/')
+        self.assertEqual(first.status_code, 200)
+
+        second = self.client.post(f'/api/driver/bookings/{self.booking.id}/notify-arriving/')
+        self.assertEqual(second.status_code, 400)
+
+    def test_notification_is_allowed_again_after_the_cooldown_expires(self):
+        self.client.post(f'/api/driver/bookings/{self.booking.id}/notify-arriving/')
+        self.booking.refresh_from_db()
+        self.booking.driver_arriving_notified_at = timezone.now() - timedelta(minutes=16)
+        self.booking.save(update_fields=['driver_arriving_notified_at'])
+
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/notify-arriving/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_driver_cannot_notify_for_another_drivers_trip(self):
+        other_driver_user = User.objects.create_user(username='other-arriving-driver@example.com', password='pass12345!')
+        Driver.objects.create(user=other_driver_user, full_name='Other Driver', is_active=True)
+        self.client.force_authenticate(user=other_driver_user)
+
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/notify-arriving/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_unauthenticated_request_is_rejected(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/notify-arriving/')
         self.assertEqual(response.status_code, 401)
 
 
