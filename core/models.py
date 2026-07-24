@@ -53,13 +53,22 @@ class AuditLog(models.Model):
 
 
 class ClientErrorReport(models.Model):
-    """A frontend JS crash, reported by frontend/src/utils/clientErrorReporting.js via
-    core.views.ReportClientErrorView - the persisted, browsable counterpart to that view's
-    log-and-maybe-email side effects, so staff can see "did a specific client hit an error"
-    from the admin dashboard itself instead of grepping server logs. user is null for an error
-    that happened to a visitor who wasn't logged in at the time - still worth keeping, just with
-    no client to tie it to."""
+    """Two distinct origins, one shared admin-visible log, so System Health's error table is
+    "any error worth a superadmin's attention", not just the user-facing half:
+    - CLIENT: a frontend JS crash, reported by frontend/src/utils/clientErrorReporting.js via
+      core.views.ReportClientErrorView (this also covers a backend 500 as experienced by a real
+      visitor's failed API call - see api/client.js's response interceptor).
+    - SCHEDULER: a background sweep failure (payments.scheduler._sweep_loop) that happens with
+      no HTTP request or user involved at all - previously only ever visible via `docker logs`,
+      genuinely invisible anywhere in the admin UI otherwise.
+    user is null both for a visitor who wasn't logged in and for every scheduler-sourced report
+    (there's no request, so no one to attribute it to) - still worth keeping either way."""
 
+    class Source(models.TextChoices):
+        CLIENT = 'client', 'Client'
+        SCHEDULER = 'scheduler', 'Background Job'
+
+    source = models.CharField(max_length=20, choices=Source.choices, default=Source.CLIENT)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
     )

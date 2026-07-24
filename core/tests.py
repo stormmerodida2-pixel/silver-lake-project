@@ -2583,6 +2583,25 @@ class AdminClientErrorReportViewSetTests(APITestCase):
         entry = next(r for r in response.data['results'] if r['message'] == 'Booking crash')
         self.assertEqual(entry['user_email'], 'reporter@example.com')
 
+    def test_report_defaults_to_the_client_source(self):
+        self.client.force_authenticate(user=self.platform_staff)
+        response = self.client.get('/api/admin/client-errors/')
+        entry = next(r for r in response.data['results'] if r['message'] == 'Network Error')
+        self.assertEqual(entry['source'], 'client')
+        self.assertEqual(entry['source_display'], 'Client')
+
+    def test_scheduler_sourced_report_is_visible_alongside_client_reports(self):
+        ClientErrorReport.objects.create(
+            source=ClientErrorReport.Source.SCHEDULER, message='Stale M-Pesa payment sweep failed', stack='Traceback...',
+        )
+
+        self.client.force_authenticate(user=self.platform_staff)
+        response = self.client.get('/api/admin/client-errors/')
+        entry = next(r for r in response.data['results'] if r['message'] == 'Stale M-Pesa payment sweep failed')
+        self.assertEqual(entry['source'], 'scheduler')
+        self.assertEqual(entry['source_display'], 'Background Job')
+        self.assertIsNone(entry['user_email'])
+
 
 class PayoutReferenceReuseFlagTests(APITestCase):
     """A soft, staff-facing warning (never a hard rejection at mark-paid time - see
