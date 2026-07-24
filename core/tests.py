@@ -1809,6 +1809,19 @@ class AdminSearchAndFilterTests(APITestCase):
         ids = [b['id'] for b in response.json().get('results', response.json())]
         self.assertEqual(ids, [self.other_booking.id])
 
+    def test_booking_status_active_excludes_completed_and_cancelled(self):
+        self.booking.status = BookingStatus.COMPLETED
+        self.booking.save(update_fields=['status'])
+        self.other_booking.status = BookingStatus.CANCELLED
+        self.other_booking.save(update_fields=['status'])
+        third_booking = make_booking(
+            self.customer, self.vehicle, customer_name='Alice Wonderland',
+            customer_phone='254700111222', customer_email='alice@example.com', status=BookingStatus.CONFIRMED,
+        )
+        response = self.client.get('/api/admin/bookings/', {'status': 'active'})
+        ids = {b['id'] for b in response.json().get('results', response.json())}
+        self.assertEqual(ids, {third_booking.id})
+
     def test_booking_blank_search_returns_everything(self):
         response = self.client.get('/api/admin/bookings/', {'search': ''})
         ids = {b['id'] for b in response.json().get('results', response.json())}

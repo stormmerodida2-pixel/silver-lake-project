@@ -805,7 +805,12 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
             ['customer_name', 'customer_phone', 'customer_email'],
         )
         status_param = params.get('status', '').strip()
-        if status_param:
+        if status_param == 'active':
+            # The list's own default (see AdminBookingsView.vue) - not a real BookingStatus value,
+            # just a sentinel meaning "still needs attention," so completed/cancelled trips from
+            # months ago don't clutter the view a support agent lands on by default.
+            queryset = queryset.exclude(status__in=[BookingStatus.COMPLETED, BookingStatus.CANCELLED])
+        elif status_param:
             queryset = queryset.filter(status=status_param)
         service_type = params.get('service_type', '').strip()
         if service_type:

@@ -14,7 +14,15 @@ const route = useRoute()
 // Pre-fills from a ?search= query param so a link from an escalation email/notification
 // (see bookings.emails.send_acknowledgment_overdue_staff_notification_email) can land staff
 // directly on the specific booking that needs attention, not just the unfiltered list.
-const filters = reactive({ search: route.query.search || '', status: '', service_type: '' })
+// Defaults to 'active' (not a real BookingStatus - see AdminBookingViewSet.get_queryset) so
+// completed/cancelled trips from months ago don't clutter the view by default; a ?search= link
+// from an escalation email still needs to reach a booking regardless of its status, so that case
+// starts on "All statuses" instead.
+const filters = reactive({
+  search: route.query.search || '',
+  status: route.query.search ? '' : 'active',
+  service_type: '',
+})
 const {
   items: bookings,
   nextUrl,
@@ -225,6 +233,7 @@ onMounted(() => {
         v-model="filters.status"
         class="rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white focus:border-gold-400 focus:outline-none"
       >
+        <option value="active">Active (needs attention)</option>
         <option value="">All statuses</option>
         <option v-for="option in statusOptions" :key="option" :value="option">
           {{ option.charAt(0).toUpperCase() + option.slice(1) }}
