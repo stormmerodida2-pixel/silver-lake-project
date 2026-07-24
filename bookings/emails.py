@@ -228,6 +228,53 @@ def send_waitlist_vehicle_available_email(entry):
         pass
 
 
+def send_driver_assigned_email(booking):
+    """Sent whenever a booking's driver is set or changed after creation (see
+    core.views.AdminBookingViewSet.perform_update) - the initial auto-assigned driver at booking
+    creation is already surfaced in Booking._send_confirmation_email's own "Driver" row, so this
+    is specifically for a driver appearing or changing afterwards (e.g. a reassignment), which
+    previously only showed up in the admin audit log with no customer-facing signal at all. Also
+    sent to the account holder (whoever actually paid) when this trip was booked for someone
+    else, same reasoning as Booking._send_confirmation_email. Swallowed silently on failure so a
+    misconfigured SMTP server never blocks the reassignment itself."""
+    if not booking.driver_id:
+        return
+    try:
+        from django.conf import settings
+
+        driver = booking.driver
+        subject = f'A driver has been assigned to your booking #{booking.pk} - SilverLake Car Rentals'
+        base_context = {
+            'booking_id': booking.pk,
+            'vehicle_name': booking.vehicle.name,
+            'driver_name': driver.full_name,
+            'driver_phone': driver.phone_number,
+            'start_date': booking.start_date.strftime('%d %b %Y'),
+            'end_date': booking.end_date.strftime('%d %b %Y'),
+            'bookings_url': f'{settings.FRONTEND_URL}/account/bookings',
+        }
+
+        if booking.customer_email:
+            send_branded_email(
+                subject=subject, template_name='emails/driver_assigned.html',
+                context={**base_context, 'first_name': booking.customer_name.split()[0]},
+                recipient_list=[booking.customer_email],
+            )
+
+        if booking.user.email and booking.user.email != booking.customer_email:
+            send_branded_email(
+                subject=subject, template_name='emails/driver_assigned.html',
+                context={
+                    **base_context,
+                    'first_name': booking.user.first_name.split()[0] if booking.user.first_name else 'there',
+                    'booked_for_name': booking.customer_name,
+                },
+                recipient_list=[booking.user.email],
+            )
+    except Exception:
+        pass
+
+
 def send_booking_dates_changed_email(booking, old_start_date, old_end_date):
     """Sent whenever Booking.change_dates() succeeds - also to the account holder (whoever
     actually paid) when this trip was booked for someone else, same reasoning as

@@ -635,7 +635,9 @@ class AdminBookingEditTests(APITestCase):
         self.staff = User.objects.create_user(username='staff7@example.com', password='pass12345!', is_staff=True)
         self.customer = User.objects.create_user(username='edit-client@example.com', password='pass12345!')
         self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
-        self.booking = make_booking(self.customer, self.vehicle, status=BookingStatus.PENDING)
+        self.booking = make_booking(
+            self.customer, self.vehicle, status=BookingStatus.PENDING, customer_email='edit-client@example.com',
+        )
 
     def test_superadmin_can_reassign_the_driver(self):
         driver = Driver.objects.create(full_name='Reassigned Driver', is_active=True)
@@ -644,6 +646,31 @@ class AdminBookingEditTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.booking.refresh_from_db()
         self.assertEqual(self.booking.driver_id, driver.id)
+
+    def test_reassigning_the_driver_emails_and_notifies_the_customer(self):
+        from notifications.models import Notification, NotificationEvent
+
+        driver = Driver.objects.create(full_name='Reassigned Driver', phone_number='254712345678', is_active=True)
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.patch(f'/api/admin/bookings/{self.booking.id}/', {'driver': driver.id}, format='json')
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(str(self.booking.id), mail.outbox[0].subject)
+        self.assertEqual(mail.outbox[0].to, [self.booking.customer_email])
+
+        notification = Notification.objects.get(event=NotificationEvent.DRIVER_ASSIGNED)
+        self.assertEqual(notification.user, self.customer)
+
+    def test_setting_the_same_driver_again_sends_no_new_email(self):
+        driver = Driver.objects.create(full_name='Same Driver', is_active=True)
+        self.booking.driver = driver
+        self.booking.save(update_fields=['driver'])
+
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.patch(f'/api/admin/bookings/{self.booking.id}/', {'driver': driver.id}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_support_staff_cannot_edit_a_booking(self):
         self.client.force_authenticate(user=self.staff)

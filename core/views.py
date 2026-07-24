@@ -822,8 +822,21 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         old_files = capture_replaced_files(serializer, ['customer_license_document', 'customer_id_document'])
         booking = serializer.save()
         delete_files(old_files)
-        detail = f'driver: {old_driver_id or "none"} -> {booking.driver_id or "none"}' if booking.driver_id != old_driver_id else ''
+        driver_changed = booking.driver_id != old_driver_id
+        detail = f'driver: {old_driver_id or "none"} -> {booking.driver_id or "none"}' if driver_changed else ''
         log_admin_action(self.request, 'booking.update', booking, detail=detail)
+
+        if driver_changed and booking.driver_id:
+            from bookings.emails import send_driver_assigned_email
+            from notifications.models import NotificationEvent
+            from notifications.services import notify
+
+            send_driver_assigned_email(booking)
+            notify(
+                NotificationEvent.DRIVER_ASSIGNED,
+                f'A driver has been assigned to your booking #{booking.pk} for {booking.vehicle.name}',
+                user=booking.user, link_path='/account/bookings',
+            )
 
     @action(detail=True, methods=['post'], url_path='set-status')
     def set_status(self, request, pk=None):

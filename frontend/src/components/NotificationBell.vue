@@ -92,6 +92,7 @@ const EVENT_LABELS = {
   vehicle_submission_rejected: 'Vehicle Rejected',
   // Client account
   booking_confirmed: 'Booking Confirmed',
+  driver_assigned: 'Driver Assigned',
   booking_dates_changed: 'Booking Dates Updated',
   trip_completed: 'Trip Completed',
   payment_recorded: 'Payment Recorded',
@@ -133,6 +134,7 @@ const MANAGEABLE_EVENTS_BY_BASE_PATH = {
   ],
   '/notifications': [
     'booking_confirmed',
+    'driver_assigned',
     'booking_dates_changed',
     'booking_cancelled',
     'payment_recorded',
