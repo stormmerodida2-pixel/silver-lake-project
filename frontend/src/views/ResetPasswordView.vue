@@ -38,8 +38,16 @@ async function submit() {
 <template>
   <div class="bg-white">
     <div class="mx-auto max-w-md px-4 py-16 sm:px-6">
-      <RouterLink to="/" class="flex justify-center">
+      <RouterLink to="/" class="flex items-center justify-center gap-2">
         <SilverLakeLogo :size="48" />
+        <span class="flex flex-col items-start leading-none">
+          <span class="font-[Georgia] text-xl font-bold uppercase tracking-wide text-navy-900">SilverLake</span>
+          <span
+            class="mt-1 border-b-2 border-gold-500 pb-0.5 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500"
+          >
+            Car Rentals
+          </span>
+        </span>
       </RouterLink>
       <h1 class="mt-4 text-center font-[Georgia] text-3xl font-bold text-navy-900">Reset Password</h1>
 
