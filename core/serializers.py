@@ -203,10 +203,11 @@ class AdminAuditLogSerializer(serializers.ModelSerializer):
 
 class AdminClientErrorReportSerializer(serializers.ModelSerializer):
     user_email = serializers.SerializerMethodField()
+    source_display = serializers.CharField(source='get_source_display', read_only=True)
 
     class Meta:
         model = ClientErrorReport
-        fields = ['id', 'user_email', 'message', 'stack', 'url', 'user_agent', 'created_at']
+        fields = ['id', 'source', 'source_display', 'user_email', 'message', 'stack', 'url', 'user_agent', 'created_at']
 
     def get_user_email(self, obj):
         return obj.user.email if obj.user_id else None

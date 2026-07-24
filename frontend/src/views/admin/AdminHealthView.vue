@@ -103,10 +103,12 @@ onMounted(() => {
     </div>
 
     <div class="mt-10">
-      <h2 class="font-[Georgia] text-xl font-bold text-white">Recent Client Errors</h2>
+      <h2 class="font-[Georgia] text-xl font-bold text-white">Recent Errors</h2>
       <p class="mt-1 text-sm text-slate-400">
-        JS crashes and failed API requests reported by visitors' browsers - includes issues hit during signup and other
-        flows that never reach a server-side log, whether or not the visitor was signed in.
+        Everything worth a superadmin's attention, not just what a visitor happened to hit: frontend JS crashes and
+        failed API requests reported by visitors' browsers, plus background sweep failures (stale-payment cleanup,
+        escalation reminders, etc.) that have no user or request to report themselves - previously only ever visible
+        via server logs.
       </p>
 
       <p v-if="errorReportsLoading" class="mt-6 text-center text-slate-400">Loading...</p>
@@ -118,6 +120,7 @@ onMounted(() => {
             <thead class="bg-navy-900 text-slate-400">
               <tr>
                 <th class="px-4 py-3">When</th>
+                <th class="px-4 py-3">Source</th>
                 <th class="px-4 py-3">Client</th>
                 <th class="px-4 py-3">Message</th>
                 <th class="px-4 py-3">Page</th>
@@ -128,7 +131,21 @@ onMounted(() => {
               <template v-for="report in errorReportItems" :key="report.id">
                 <tr>
                   <td class="px-4 py-3 whitespace-nowrap text-slate-400">{{ formatDate(report.created_at) }}</td>
-                  <td class="px-4 py-3 text-white">{{ report.user_email || 'Anonymous visitor' }}</td>
+                  <td class="px-4 py-3">
+                    <span
+                      class="rounded-full px-2 py-0.5 text-xs font-semibold"
+                      :class="
+                        report.source === 'scheduler'
+                          ? 'bg-brand-blue-500/10 text-brand-blue-400'
+                          : 'bg-navy-800 text-slate-300'
+                      "
+                    >
+                      {{ report.source_display }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-white">
+                    {{ report.source === 'scheduler' ? '-' : report.user_email || 'Anonymous visitor' }}
+                  </td>
                   <td class="px-4 py-3 text-red-300">{{ report.message }}</td>
                   <td class="px-4 py-3 text-slate-400">
                     <span class="break-all">{{ report.url || '-' }}</span>
@@ -143,7 +160,7 @@ onMounted(() => {
                   </td>
                 </tr>
                 <tr v-if="expandedReportId === report.id">
-                  <td colspan="5" class="border-t border-navy-800 bg-navy-900/50 px-4 py-3">
+                  <td colspan="6" class="border-t border-navy-800 bg-navy-900/50 px-4 py-3">
                     <p class="text-xs text-slate-400">User-Agent: {{ report.user_agent || 'Unknown' }}</p>
                     <pre
                       v-if="report.stack"
@@ -154,7 +171,7 @@ onMounted(() => {
               </template>
             </tbody>
           </table>
-          <p v-if="!errorReportItems.length" class="p-6 text-center text-slate-400">No client errors reported.</p>
+          <p v-if="!errorReportItems.length" class="p-6 text-center text-slate-400">No errors reported.</p>
           <div v-if="errorReportsNextUrl" class="border-t border-navy-800 p-3 text-center">
             <button
               :disabled="errorReportsLoadingMore"

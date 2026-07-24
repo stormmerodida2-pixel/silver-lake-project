@@ -1190,10 +1190,11 @@ class AdminAuditLogViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, vie
 
 
 class AdminClientErrorReportViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
-    """Recent frontend crashes/API failures reported by clientErrorReporting.js and the
-    apiClient response interceptor (see core.views.ReportClientErrorView) - the System Health
-    page's "did a specific client hit an error" table. Platform-only: a JS bug isn't owned by
-    any one FleetPartner, so unlike AdminAuditLogViewSet there's no org-scoping here."""
+    """The System Health page's "Recent Errors" table - both CLIENT reports (frontend crashes/API
+    failures, via ReportClientErrorView) and SCHEDULER reports (background sweep failures, via
+    payments.scheduler._record_sweep_failure) share this one model/endpoint, so a superadmin sees
+    every kind of error in one place rather than only the user-facing half. Platform-only: none of
+    this is owned by any one FleetPartner, so unlike AdminAuditLogViewSet there's no org-scoping."""
 
     queryset = ClientErrorReport.objects.all().select_related('user')
     serializer_class = AdminClientErrorReportSerializer

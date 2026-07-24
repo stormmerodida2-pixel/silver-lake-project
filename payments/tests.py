@@ -12,7 +12,7 @@ from rest_framework.test import APIClient, APITestCase
 
 from bookings.models import BookingStatus
 from bookings.tests import make_booking, make_vehicle
-from core.models import StaffOrganization
+from core.models import ClientErrorReport, StaffOrganization
 from drivers.models import Driver
 from fleet.models import FleetPartner
 
@@ -1054,6 +1054,27 @@ class SchedulerTests(TestCase):
             scheduler.start()  # must not raise or start a second thread
         finally:
             scheduler._started = original_started
+
+
+class RecordSweepFailureTests(APITestCase):
+    """_record_sweep_failure() is what makes a background sweep's exception visible anywhere
+    beyond `docker logs` (see core.models.ClientErrorReport, System Health's "Recent Errors"
+    table) - _sweep_loop's own infinite sleep loop is deliberately not exercised here, same as
+    SchedulerTests above, but the failure-recording it calls into is a plain function worth
+    testing directly."""
+
+    def test_persists_a_scheduler_sourced_report_with_a_real_traceback(self):
+        from payments.scheduler import _record_sweep_failure
+
+        try:
+            raise ValueError('boom')
+        except ValueError:
+            _record_sweep_failure('Some sweep failed')
+
+        report = ClientErrorReport.objects.get(message='Some sweep failed')
+        self.assertEqual(report.source, ClientErrorReport.Source.SCHEDULER)
+        self.assertIsNone(report.user_id)
+        self.assertIn('ValueError: boom', report.stack)
 
 
 class EscalateStuckBookingsTests(APITestCase):

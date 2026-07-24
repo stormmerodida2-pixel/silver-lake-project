@@ -29,6 +29,7 @@ import os
 import sys
 import threading
 import time
+import traceback
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,20 @@ def _should_run():
     return True
 
 
+def _record_sweep_failure(label):
+    """logger.exception() alone only ever reaches `docker logs` - nothing surfaces a background
+    sweep failure anywhere a superadmin would actually see it, unlike a frontend crash or a
+    failed API call (see core.models.ClientErrorReport). Persisting one here means System
+    Health's error table is genuinely "any error", not just the user-facing half. Imported
+    lazily, matching this module's existing lazy cross-app imports inside _sweep_loop."""
+    logger.exception(label)
+    from core.models import ClientErrorReport
+
+    ClientErrorReport.objects.create(
+        source=ClientErrorReport.Source.SCHEDULER, message=label, stack=traceback.format_exc(),
+    )
+
+
 def _sweep_loop():
     global last_tick_at
     from bookings.services import escalate_unacknowledged_bookings, expire_stale_pending_bookings
@@ -76,29 +91,29 @@ def _sweep_loop():
             if count:
                 logger.info('Marked %d stale pending M-Pesa payment(s) as failed.', count)
         except Exception:
-            logger.exception('Stale M-Pesa payment sweep failed')
+            _record_sweep_failure('Stale M-Pesa payment sweep failed')
 
         try:
             remind_undeposited_cash()
         except Exception:
-            logger.exception('Undeposited-cash reminder sweep failed')
+            _record_sweep_failure('Undeposited-cash reminder sweep failed')
 
         try:
             escalate_stuck_bookings()
         except Exception:
-            logger.exception('Stuck-booking escalation sweep failed')
+            _record_sweep_failure('Stuck-booking escalation sweep failed')
 
         try:
             escalate_unacknowledged_bookings()
         except Exception:
-            logger.exception('Unacknowledged-booking escalation sweep failed')
+            _record_sweep_failure('Unacknowledged-booking escalation sweep failed')
 
         try:
             count = expire_stale_pending_bookings()
             if count:
                 logger.info('Auto-cancelled %d stale unpaid pending booking(s).', count)
         except Exception:
-            logger.exception('Stale pending booking expiry sweep failed')
+            _record_sweep_failure('Stale pending booking expiry sweep failed')
 
 
 def start():
