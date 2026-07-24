@@ -72,8 +72,8 @@ async function handleLogout() {
 
 <template>
   <header class="sticky top-0 z-40 border-b border-navy-800 bg-navy-950/95 backdrop-blur">
-    <nav class="mx-auto flex max-w-6xl items-center gap-10 px-4 py-4 sm:px-6">
-      <RouterLink to="/" class="flex items-center gap-2">
+    <nav class="mx-auto flex max-w-6xl items-center gap-4 px-4 py-4 sm:px-6 lg:gap-8">
+      <RouterLink to="/" class="flex shrink-0 items-center gap-2">
         <SilverLakeLogo :size="32" />
         <span class="hidden flex-col items-start leading-none sm:flex">
           <span class="font-[Georgia] text-sm font-bold uppercase tracking-wide text-white">SilverLake</span>
@@ -85,24 +85,24 @@ async function handleLogout() {
         </span>
       </RouterLink>
 
-      <div class="hidden items-center gap-10 md:flex">
+      <div class="hidden items-center gap-4 md:flex lg:gap-8">
         <RouterLink
           v-for="link in links"
           :key="link.to"
           :to="link.to"
-          class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400"
+          class="whitespace-nowrap font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400"
           active-class="text-gold-400"
         >
           {{ link.label }}
         </RouterLink>
       </div>
 
-      <div class="ml-auto flex items-center gap-3">
-        <div class="hidden items-center gap-6 md:flex">
+      <div class="ml-auto flex shrink-0 items-center gap-3">
+        <div class="hidden items-center gap-4 md:flex lg:gap-6">
           <template v-if="auth.isAuthenticated">
             <RouterLink
               to="/account/profile"
-              class="flex items-center gap-2 font-[Georgia] text-base tracking-wide text-slate-400 transition hover:text-gold-400"
+              class="flex items-center gap-2 whitespace-nowrap font-[Georgia] text-base tracking-wide text-slate-400 transition hover:text-gold-400"
             >
               <span class="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-navy-700 bg-navy-800">
                 <img v-if="auth.user?.avatar" :src="auth.user.avatar" alt="" class="h-full w-full object-cover" />
@@ -116,13 +116,13 @@ async function handleLogout() {
           <template v-else>
             <RouterLink
               to="/login"
-              class="font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400"
+              class="whitespace-nowrap font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400"
             >
               Log In
             </RouterLink>
             <RouterLink
               to="/register"
-              class="rounded-md bg-gold-500 px-3 py-1.5 font-[Georgia] text-base font-semibold tracking-wide text-navy-950 transition hover:bg-gold-400"
+              class="whitespace-nowrap rounded-md bg-gold-500 px-3 py-1.5 font-[Georgia] text-base font-semibold tracking-wide text-navy-950 transition hover:bg-gold-400"
             >
               Sign Up
             </RouterLink>
@@ -133,7 +133,7 @@ async function handleLogout() {
 
         <button
           v-if="auth.isAuthenticated"
-          class="hidden font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400 md:block"
+          class="hidden whitespace-nowrap font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400 md:block"
           @click="handleLogout"
         >
           Log Out
