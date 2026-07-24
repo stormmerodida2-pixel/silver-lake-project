@@ -1,9 +1,13 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { defineAsyncComponent, onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../api/client'
-import TrackVehicleMap from '../components/TrackVehicleMap.vue'
 import { useAuthStore } from '../stores/auth'
+
+// Async, not a static import - Leaflet (~150KB) is only actually needed once someone clicks
+// "Track" on an active booking, which most visits to this page never do. A static import would
+// pull that whole chunk into every page load here regardless.
+const TrackVehicleMap = defineAsyncComponent(() => import('../components/TrackVehicleMap.vue'))
 
 const auth = useAuthStore()
 const bookings = ref([])
