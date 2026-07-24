@@ -9,7 +9,7 @@ from core.images import optimize_image
 from core.validators import validate_kenyan_phone_number
 from fleet.models import VehicleCategory
 
-from .validators import validate_file_size
+from .validators import validate_document_content, validate_file_size
 
 DOCUMENT_EXTENSIONS = FileExtensionValidator(['pdf', 'jpg', 'jpeg', 'png'])
 
@@ -89,7 +89,7 @@ class DriverApplication(models.Model):
     license_number = models.CharField(max_length=50)
     license_document = models.FileField(
         upload_to='driver_applications/licenses/',
-        validators=[DOCUMENT_EXTENSIONS, validate_file_size],
+        validators=[DOCUMENT_EXTENSIONS, validate_file_size, validate_document_content],
         help_text='Photo or PDF of your driving license, max 5MB',
     )
 
@@ -106,7 +106,7 @@ class DriverApplication(models.Model):
     )
     vehicle_logbook_document = models.FileField(
         upload_to='driver_applications/logbooks/', blank=True, null=True,
-        validators=[DOCUMENT_EXTENSIONS, validate_file_size],
+        validators=[DOCUMENT_EXTENSIONS, validate_file_size, validate_document_content],
         help_text='Proof of vehicle ownership/registration, max 5MB',
     )
 

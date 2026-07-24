@@ -1,3 +1,4 @@
+import base64
 import threading
 import time
 from datetime import date, timedelta
@@ -27,6 +28,14 @@ User = get_user_model()
 TODAY = date.today()
 TOMORROW = TODAY + timedelta(days=1)
 NEXT_WEEK = TODAY + timedelta(days=7)
+
+# A real 1x1 PNG - validate_document_content (bookings/validators.py) checks actual file
+# signatures now, so fixture uploads need real bytes even where the filename/content_type claims
+# something else (e.g. 'license.pdf') - only the byte signature is checked, not that it matches
+# the claimed extension.
+DOCUMENT_BYTES = base64.b64decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+)
 
 
 def make_vehicle(**kwargs):
@@ -2157,8 +2166,8 @@ class BookingDriverDefaultingTests(APITestCase):
             'pickup_location': 'Kisumu',
             'start_date': str(TOMORROW),
             'end_date': str(NEXT_WEEK),
-            'customer_license_document': SimpleUploadedFile('license.jpg', b'x', content_type='image/jpeg'),
-            'customer_id_document': SimpleUploadedFile('id.jpg', b'x', content_type='image/jpeg'),
+            'customer_license_document': SimpleUploadedFile('license.jpg', DOCUMENT_BYTES, content_type='image/jpeg'),
+            'customer_id_document': SimpleUploadedFile('id.jpg', DOCUMENT_BYTES, content_type='image/jpeg'),
         }, format='multipart')
         self.assertEqual(response.status_code, 201)
         self.assertIsNone(response.json()['driver'])

@@ -14,7 +14,7 @@ from discounts.models import DiscountCode
 from drivers.models import Driver
 from fleet.models import Vehicle
 
-from .validators import validate_file_size
+from .validators import validate_document_content, validate_file_size
 
 DOCUMENT_EXTENSIONS = FileExtensionValidator(['pdf', 'jpg', 'jpeg', 'png'])
 
@@ -106,12 +106,12 @@ class Booking(models.Model):
     customer_license_number = models.CharField(max_length=50, blank=True)
     customer_license_document = models.FileField(
         upload_to='bookings/licenses/', blank=True, null=True,
-        validators=[DOCUMENT_EXTENSIONS, validate_file_size],
+        validators=[DOCUMENT_EXTENSIONS, validate_file_size, validate_document_content],
         help_text='Required for self-drive bookings',
     )
     customer_id_document = models.FileField(
         upload_to='bookings/ids/', blank=True, null=True,
-        validators=[DOCUMENT_EXTENSIONS, validate_file_size],
+        validators=[DOCUMENT_EXTENSIONS, validate_file_size, validate_document_content],
         help_text='National ID or passport copy, required for self-drive bookings',
     )
 

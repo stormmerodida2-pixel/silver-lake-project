@@ -180,7 +180,7 @@ class VehicleSubmissionTests(APITestCase):
     def _payload(self, image_count=2):
         return {
             'name': 'My Car', 'category': 'compact_sedan', 'passenger_capacity': 4,
-            'price_per_day': '3000', 'logbook_document': SimpleUploadedFile('logbook.pdf', b'x'),
+            'price_per_day': '3000', 'logbook_document': SimpleUploadedFile('logbook.pdf', PNG_1PX),
             'images': [make_image(f'{i}.png') for i in range(image_count)],
         }
 

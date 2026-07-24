@@ -9,7 +9,7 @@ from django.utils.text import slugify
 from core.images import optimize_image
 from core.validators import validate_kenyan_phone_number
 
-from .validators import validate_file_size
+from .validators import validate_document_content, validate_file_size
 
 DOCUMENT_EXTENSIONS = FileExtensionValidator(['pdf', 'jpg', 'jpeg', 'png'])
 
@@ -95,7 +95,7 @@ class Vehicle(models.Model):
     insurance_expiry_date = models.DateField(null=True, blank=True)
     insurance_document = models.FileField(
         upload_to='fleet/insurance/', blank=True, null=True,
-        validators=[DOCUMENT_EXTENSIONS, validate_file_size],
+        validators=[DOCUMENT_EXTENSIONS, validate_file_size, validate_document_content],
         help_text='Insurance certificate, max 5MB',
     )
     inspection_expiry_date = models.DateField(
@@ -269,7 +269,7 @@ class VehicleSubmission(models.Model):
     price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
     logbook_document = models.FileField(
         upload_to='vehicle_submissions/logbooks/',
-        validators=[DOCUMENT_EXTENSIONS, validate_file_size],
+        validators=[DOCUMENT_EXTENSIONS, validate_file_size, validate_document_content],
         help_text='Proof of ownership/registration, max 5MB',
     )
 
