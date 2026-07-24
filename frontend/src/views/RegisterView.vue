@@ -56,7 +56,6 @@ async function submit() {
           </span>
         </span>
       </RouterLink>
-      <h1 class="mt-4 text-center font-[Georgia] text-3xl font-bold text-navy-900">Create Account</h1>
 
       <div v-if="submitted" class="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-8 text-center">
         <h2 class="font-[Georgia] text-xl font-bold text-brand-blue-600">Check your email</h2>
