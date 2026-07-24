@@ -279,7 +279,7 @@ onMounted(load)
                 :class="user.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'"
               >
                 <span class="h-1.5 w-1.5 rounded-full" :class="user.is_active ? 'bg-emerald-400' : 'bg-red-400'" />
-                {{ user.is_active ? 'Active' : 'Suspended' }}
+                {{ user.is_active ? 'Active' : 'Inactive' }}
               </span>
             </td>
             <td class="px-4 py-3 text-slate-400">{{ new Date(user.date_joined).toLocaleDateString() }}</td>
