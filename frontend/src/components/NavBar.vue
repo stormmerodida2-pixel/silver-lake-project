@@ -75,6 +75,9 @@ async function handleLogout() {
     <nav class="mx-auto flex max-w-6xl items-center gap-10 px-4 py-4 sm:px-6">
       <RouterLink to="/" class="flex items-center gap-2">
         <SilverLakeLogo :size="32" />
+        <span class="hidden font-[Georgia] text-lg font-bold tracking-wide text-white sm:inline">
+          SilverLake <span class="text-gold-400">Car Rentals</span>
+        </span>
       </RouterLink>
 
       <div class="hidden items-center gap-10 md:flex">
