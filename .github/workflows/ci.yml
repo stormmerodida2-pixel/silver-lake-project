@@ -188,6 +188,17 @@ jobs:
         env:
           VITE_API_BASE_URL: ${{ vars.PRODUCTION_URL }}/api
           VITE_GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}
+      # Prerenders the public marketing pages (static HTML for crawlers that don't execute JS) -
+      # best-effort, never fails the job (see scripts/prerender.mjs's own resilience design).
+      # Requires deploy/nginx/silverlake.conf's try_files change to already be live on the box
+      # (see that file's own comment) before this ships, or gated/unmatched routes would flash
+      # prerendered homepage content instead of the neutral SPA shell.
+      - working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - working-directory: frontend
+        run: npm run prerender
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
       - uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
