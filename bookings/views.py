@@ -30,7 +30,10 @@ from reviews.serializers import BookingReviewCreateSerializer
 
 from .models import Booking, BookingSource, BookingStatus, ProtectionPlan
 from .serializers import (
-    BookingSerializer, DriverOnsiteBookingSerializer, ProtectionPlanSerializer, VehicleConditionReportSerializer,
+    BookingSerializer,
+    DriverOnsiteBookingSerializer,
+    ProtectionPlanSerializer,
+    VehicleConditionReportSerializer,
 )
 from .services import create_condition_report
 
