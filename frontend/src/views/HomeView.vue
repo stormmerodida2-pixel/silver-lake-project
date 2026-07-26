@@ -96,13 +96,13 @@ const howItWorks = [
           <div class="mt-8 flex flex-wrap gap-4">
             <RouterLink
               to="/book?service=with_driver"
-              class="rounded-md bg-gold-500 px-6 py-3 font-semibold text-navy-950 transition hover:bg-gold-400"
+              class="rounded-md bg-gold-500 px-6 py-3 font-semibold text-navy-950 shadow-lg shadow-gold-500/20 transition hover:-translate-y-0.5 hover:bg-gold-400 hover:shadow-gold-500/30"
             >
               Book with Driver
             </RouterLink>
             <RouterLink
               to="/book?service=self_drive"
-              class="rounded-md border border-gold-400 px-6 py-3 font-semibold text-gold-400 transition hover:bg-navy-800"
+              class="rounded-md border border-gold-400 px-6 py-3 font-semibold text-gold-400 transition hover:-translate-y-0.5 hover:bg-navy-800"
             >
               Self Drive
             </RouterLink>
@@ -129,46 +129,52 @@ const howItWorks = [
           </dl>
         </div>
 
-        <div
-          v-if="heroVehicle"
-          v-reveal
-          class="relative mx-auto hidden h-[26rem] w-full max-w-lg overflow-hidden lg:block"
-        >
+        <div v-if="heroVehicle" v-reveal class="relative mx-auto hidden w-full max-w-lg lg:block">
           <!-- Stands in for the flyer's Lake Victoria sunset backdrop - a warm gradient glow,
                not a fabricated photo, sitting behind the real fleet photography. -->
           <div
-            class="absolute inset-0 rounded-full bg-radial from-gold-500/25 via-brand-blue-500/10 to-transparent blur-3xl"
+            class="pointer-events-none absolute inset-0 -z-10 rounded-full bg-radial from-gold-500/25 via-brand-blue-500/10 to-transparent blur-3xl"
           ></div>
 
-          <!-- No border/card and no blend/mask trick - object-cover crops in tight enough that
-               the studio backdrop's white margin mostly falls outside the frame, so the vehicle
-               itself stays at full, undistorted color while nothing reads as a drawn shape. -->
+          <div class="relative">
+            <!-- Thin corner brackets frame the card like a showcase spotlight - a small,
+                 deliberate accent rather than a plain rectangle floating on the page. -->
+            <span
+              class="pointer-events-none absolute -left-3 -top-3 h-10 w-10 rounded-tl-xl border-l-2 border-t-2 border-gold-400/70"
+            ></span>
+            <span
+              class="pointer-events-none absolute -bottom-3 -right-3 h-10 w-10 rounded-br-xl border-b-2 border-r-2 border-gold-400/70"
+            ></span>
+
+            <!-- Fleet photography is studio-shot on a white background, so it's set on its own
+                 white card rather than cropped/blended into the navy hero - object-contain keeps
+                 the whole vehicle visible (no cropped wheels/roof) and the white backdrop reads
+                 as an intentional plinth instead of a leftover product-photo edge. -->
+            <div class="relative overflow-hidden rounded-2xl bg-white shadow-2xl shadow-black/50 ring-1 ring-black/5">
+              <span
+                v-if="heroVehicle.trips_completed > 0"
+                class="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-navy-950/90 px-3 py-1.5 text-xs font-semibold text-gold-400 shadow-lg backdrop-blur"
+              >
+                &#9733; Most popular ride
+              </span>
+              <Transition name="hero-fade" mode="out-in">
+                <img
+                  :key="heroVehicle.id"
+                  :src="heroVehicle.image"
+                  :alt="heroVehicle.name"
+                  class="h-72 w-full object-contain p-6 sm:h-80"
+                />
+              </Transition>
+            </div>
+
+            <!-- Soft ground shadow gives the card a floating, podium feel. -->
+            <div class="mx-auto -mt-2 h-5 w-4/5 rounded-full bg-navy-950/60 blur-xl"></div>
+          </div>
+
           <Transition name="hero-fade" mode="out-in">
-            <img
-              :key="heroVehicle.id"
-              :src="heroVehicle.image"
-              :alt="heroVehicle.name"
-              class="absolute inset-0 h-full w-full object-cover"
-            />
-          </Transition>
-
-          <span
-            v-if="heroVehicle.trips_completed > 0"
-            class="absolute right-4 top-4 rounded-full bg-navy-950/80 px-3 py-1.5 text-xs font-semibold text-gold-400 shadow-lg backdrop-blur"
-          >
-            &#9733; Most popular ride
-          </span>
-
-          <!-- A small legibility scrim behind the caption text only, not a frame around the
-               whole photo. -->
-          <div
-            class="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-navy-950/90 to-transparent"
-          ></div>
-
-          <Transition name="hero-fade" mode="out-in">
-            <p :key="heroVehicle.id" class="absolute inset-x-0 bottom-4 text-center">
-              <span class="font-[Georgia] text-lg font-bold text-white drop-shadow-lg">{{ heroVehicle.name }}</span>
-              <span class="ml-2 text-sm font-semibold text-gold-400 drop-shadow-lg">{{
+            <p :key="heroVehicle.id" class="mt-5 text-center">
+              <span class="font-[Georgia] text-lg font-bold text-white">{{ heroVehicle.name }}</span>
+              <span class="ml-2 text-sm font-semibold text-gold-400">{{
                 heroVehicle.category_name || heroVehicle.category
               }}</span>
             </p>
