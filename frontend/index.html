@@ -10,6 +10,12 @@
       content="SilverLake Car Rentals - premium car hire in Kisumu with drivers or self-drive. Prado, Voxy, Axio and vans available. Book instantly via WhatsApp or M-Pesa."
     />
     <meta name="keywords" content="car hire Kisumu, car rental Kenya, self drive Kisumu, Prado hire Kisumu, van hire Kisumu" />
+    <meta name="robots" content="index, follow" />
+    <!-- Per-route canonical - utils/seo.js's setPageMeta() rewrites this on every navigation
+         (see its updateCanonical()) so /fleet, /blog/some-post etc. each declare themselves
+         canonical instead of every page pointing back at the homepage. This is just the
+         first-load default, same reasoning as the static OG tags below. -->
+    <link rel="canonical" href="https://silverlakecarentals.com/" />
     <!-- Static, not just utils/seo.js's dynamic setPageMeta() - social crawlers (Facebook,
          WhatsApp, Twitter/X, LinkedIn) fetch raw HTML and don't execute JS, so a tag only added
          after Vue mounts is invisible to them. This is the real fallback every link preview
@@ -42,6 +48,31 @@
       content="SilverLake Car Rentals - premium car hire in Kisumu with drivers or self-drive. Prado, Voxy, Axio and vans available. Book instantly via WhatsApp or M-Pesa."
     />
     <meta name="twitter:image" content="https://silverlakecarentals.com/og-image.jpg" />
+    <!-- LocalBusiness structured data - lets Google associate this exact page with the
+         "SilverLake Car Rentals" brand/entity directly (name, phone, city), which is what a
+         branded search actually needs beyond just being indexed. AutoRental is schema.org's
+         more specific LocalBusiness subtype for a car rental company. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "AutoRental",
+        "name": "SilverLake Car Rentals",
+        "url": "https://silverlakecarentals.com/",
+        "image": "https://silverlakecarentals.com/og-image.jpg",
+        "telephone": "+254790111000",
+        "priceRange": "KES",
+        "description": "Premium car hire in Kisumu with drivers or self-drive. Prado, Voxy, Axio and vans available. Book instantly via WhatsApp or M-Pesa.",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Kisumu",
+          "addressCountry": "KE"
+        },
+        "areaServed": {
+          "@type": "Country",
+          "name": "Kenya"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="app"></div>

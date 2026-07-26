@@ -371,8 +371,14 @@ router.beforeEach((to) => {
 
 router.afterEach((to) => {
   // BlogPostView overrides this with the actual post's title/excerpt/cover image once it
-  // loads - this just ensures every route starts from a sane, non-stale default first.
-  setPageMeta({ title: to.meta.title, description: to.meta.description })
+  // loads - this just ensures every route starts from a sane, non-stale default first. `path`
+  // (not fullPath) - the canonical/og:url shouldn't vary per query string, matching how search
+  // engines treat ?foo=bar params as the same underlying page unless told otherwise.
+  setPageMeta({
+    title: to.meta.title,
+    description: to.meta.description,
+    url: `${window.location.origin}${to.path}`,
+  })
   trackPageView(to.fullPath, to.meta.title)
 })
 
