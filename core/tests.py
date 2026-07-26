@@ -15,13 +15,13 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import CustomerProfile
-from bookings.models import Booking, BookingStatus
+from bookings.models import Booking, BookingStatus, ProtectionPlan
 from bookings.tests import NEXT_WEEK, TOMORROW, make_booking, make_vehicle
 from drivers.models import Driver, DriverApplication
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 
-from .models import AuditLog, ClientErrorReport, StaffOrganization
+from .models import AuditLog, ClientErrorReport, CorporateAccount, StaffOrganization
 from .utils import parse_amount
 from .validators import validate_kenyan_phone_number
 
@@ -811,60 +811,74 @@ class AdminSetStatusTripLifecycleTests(APITestCase):
         self.assertNotEqual(self.booking.status, BookingStatus.COMPLETED)
 
 
-class GovernmentContractBookingTests(APITestCase):
-    """A government contract is confirmed with no deposit and paid for later via invoice,
-    rather than upfront like an ordinary customer - see Booking.is_government_contract."""
+class CorporateAccountBookingTests(APITestCase):
+    """A corporate-account booking is confirmed with no deposit and paid for later via invoice,
+    rather than upfront like an ordinary customer - see bookings.Booking.corporate_account."""
 
     def setUp(self):
-        self.staff = User.objects.create_user(username='gov-staff@example.com', password='pass12345!', is_staff=True)
-        self.plain_user = User.objects.create_user(username='gov-plain@example.com', password='pass12345!')
-        self.driver = Driver.objects.create(full_name='Gov Driver', is_active=True, email='gov-driver@example.com')
-        self.vehicle = make_vehicle(name='Gov Car', price_per_day=Decimal('1000'), driver=self.driver)
+        self.staff = User.objects.create_user(username='corp-staff@example.com', password='pass12345!', is_staff=True)
+        self.plain_user = User.objects.create_user(username='corp-plain@example.com', password='pass12345!')
+        self.driver = Driver.objects.create(full_name='Corp Driver', is_active=True, email='corp-driver@example.com')
+        self.vehicle = make_vehicle(name='Corp Car', price_per_day=Decimal('1000'), driver=self.driver)
+        self.account = CorporateAccount.objects.create(name='Acme Logistics Ltd', contact_email='ap@acme.example.com')
         self.client.force_authenticate(user=self.staff)
 
     def _create_payload(self, **overrides):
         payload = {
-            'vehicle': self.vehicle.id, 'driver': self.driver.id, 'customer_name': 'Ministry of Health',
-            'customer_phone': '254711222333', 'customer_email': 'procurement@health.go.ke',
+            'vehicle': self.vehicle.id, 'driver': self.driver.id, 'customer_name': 'Jane Employee',
+            'customer_phone': '254711222333', 'customer_email': 'jane@acme.example.com',
             'pickup_location': 'Kisumu CBD', 'start_date': str(TOMORROW), 'end_date': str(NEXT_WEEK),
-            'government_contract_reference': 'Ministry of Health - LPO#4821',
+            'corporate_account': self.account.id,
         }
         payload.update(overrides)
         return payload
 
-    def test_creating_a_government_booking_confirms_immediately_with_no_deposit(self):
+    def test_creating_a_corporate_booking_confirms_immediately_with_no_deposit(self):
         mail.outbox = []
-        response = self.client.post('/api/admin/bookings/create-government/', self._create_payload())
+        response = self.client.post('/api/admin/bookings/create-corporate/', self._create_payload())
         self.assertEqual(response.status_code, 201)
         booking_id = response.data['id']
         booking = Booking.objects.get(pk=booking_id)
         self.assertEqual(booking.status, BookingStatus.CONFIRMED)
-        self.assertTrue(booking.is_government_contract)
-        self.assertEqual(booking.government_contract_reference, 'Ministry of Health - LPO#4821')
+        self.assertEqual(booking.corporate_account_id, self.account.id)
         self.assertEqual(booking.amount_paid, Decimal('0'))
         self.assertGreater(booking.balance_due, 0)
         self.assertTrue(any('Booking Confirmed' in m.subject for m in mail.outbox))
-        self.assertTrue(any('procurement@health.go.ke' in m.to for m in mail.outbox))
+        self.assertTrue(any('jane@acme.example.com' in m.to for m in mail.outbox))
 
-    def test_creating_a_government_booking_notifies_the_assigned_driver(self):
+    def test_an_optional_reference_is_stored_when_given(self):
+        response = self.client.post(
+            '/api/admin/bookings/create-corporate/',
+            self._create_payload(corporate_account_reference='PO-9911'),
+        )
+        booking = Booking.objects.get(pk=response.data['id'])
+        self.assertEqual(booking.corporate_account_reference, 'PO-9911')
+
+    def test_the_reference_is_optional(self):
+        response = self.client.post('/api/admin/bookings/create-corporate/', self._create_payload())
+        self.assertEqual(response.status_code, 201)
+        booking = Booking.objects.get(pk=response.data['id'])
+        self.assertEqual(booking.corporate_account_reference, '')
+
+    def test_creating_a_corporate_booking_notifies_the_assigned_driver(self):
         mail.outbox = []
-        self.client.post('/api/admin/bookings/create-government/', self._create_payload())
-        self.assertTrue(any('gov-driver@example.com' in m.to for m in mail.outbox))
+        self.client.post('/api/admin/bookings/create-corporate/', self._create_payload())
+        self.assertTrue(any('corp-driver@example.com' in m.to for m in mail.outbox))
 
-    def test_plain_customer_cannot_create_a_government_booking(self):
+    def test_plain_customer_cannot_create_a_corporate_booking(self):
         self.client.force_authenticate(user=self.plain_user)
-        response = self.client.post('/api/admin/bookings/create-government/', self._create_payload())
+        response = self.client.post('/api/admin/bookings/create-corporate/', self._create_payload())
         self.assertEqual(response.status_code, 403)
 
-    def test_missing_contract_reference_is_rejected(self):
-        payload = self._create_payload()
-        del payload['government_contract_reference']
-        response = self.client.post('/api/admin/bookings/create-government/', payload)
+    def test_an_inactive_corporate_account_cannot_be_used(self):
+        self.account.is_active = False
+        self.account.save(update_fields=['is_active'])
+        response = self.client.post('/api/admin/bookings/create-corporate/', self._create_payload())
         self.assertEqual(response.status_code, 400)
 
     def test_malformed_customer_phone_is_rejected(self):
         response = self.client.post(
-            '/api/admin/bookings/create-government/', self._create_payload(customer_phone='0712345678'),
+            '/api/admin/bookings/create-corporate/', self._create_payload(customer_phone='0712345678'),
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn('customer_phone', response.json())
@@ -874,13 +888,13 @@ class GovernmentContractBookingTests(APITestCase):
             self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
             start_date=TOMORROW, end_date=NEXT_WEEK,
         )
-        response = self.client.post('/api/admin/bookings/create-government/', self._create_payload())
+        response = self.client.post('/api/admin/bookings/create-corporate/', self._create_payload())
         self.assertEqual(response.status_code, 400)
 
-    def test_a_government_contract_trip_completes_despite_an_outstanding_balance(self):
+    def test_a_corporate_account_trip_completes_despite_an_outstanding_balance(self):
         booking = make_booking(
             self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
-            is_government_contract=True, government_contract_reference='LPO#1',
+            corporate_account=self.account,
         )
         response = self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'ongoing'})
         self.assertEqual(response.status_code, 200)
@@ -890,41 +904,34 @@ class GovernmentContractBookingTests(APITestCase):
         self.assertEqual(booking.status, BookingStatus.COMPLETED)
         self.assertGreater(booking.balance_due, 0)
 
-    def test_completing_a_government_contract_queues_the_driver_payout_despite_the_balance(self):
-        driver_owned_vehicle = make_vehicle(name='Gov Payout Car', price_per_day=Decimal('1000'), driver=self.driver)
+    def test_completing_a_corporate_booking_queues_the_driver_payout_despite_the_balance(self):
+        driver_owned_vehicle = make_vehicle(name='Corp Payout Car', price_per_day=Decimal('1000'), driver=self.driver)
         booking = make_booking(
             self.plain_user, driver_owned_vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
-            is_government_contract=True, government_contract_reference='LPO#2',
+            corporate_account=self.account,
         )
         self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'ongoing'})
         self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'completed'})
         self.assertTrue(DriverPayout.objects.filter(booking=booking).exists())
 
-    def test_a_normal_booking_still_cannot_complete_with_an_outstanding_balance(self):
-        booking = make_booking(self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED)
-        self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'ongoing'})
-        response = self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'completed'})
-        self.assertEqual(response.status_code, 400)
-
     def test_recording_an_invoice_payment_creates_a_successful_payment(self):
         booking = make_booking(
             self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
-            is_government_contract=True, government_contract_reference='LPO#3',
+            corporate_account=self.account,
         )
         response = self.client.post(
             f'/api/admin/bookings/{booking.id}/record-invoice-payment/',
-            {'amount': str(booking.total_amount), 'reference': 'Bank transfer - Treasury ref 55821'},
+            {'amount': str(booking.total_amount), 'reference': 'Bank transfer - ref 9911'},
         )
         self.assertEqual(response.status_code, 200)
         payment = Payment.objects.get(booking=booking)
         self.assertEqual(payment.method, PaymentMethod.INVOICE)
         self.assertEqual(payment.status, PaymentStatus.SUCCESSFUL)
         self.assertEqual(payment.amount, booking.total_amount)
-        self.assertEqual(payment.note, 'Bank transfer - Treasury ref 55821')
         booking.refresh_from_db()
         self.assertEqual(booking.balance_due, Decimal('0.00'))
 
-    def test_recording_an_invoice_payment_rejects_a_non_government_booking(self):
+    def test_recording_an_invoice_payment_rejects_a_plain_booking(self):
         booking = make_booking(self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED)
         response = self.client.post(
             f'/api/admin/bookings/{booking.id}/record-invoice-payment/', {'amount': '1000'},
@@ -934,7 +941,7 @@ class GovernmentContractBookingTests(APITestCase):
     def test_recording_an_invoice_payment_requires_a_positive_amount(self):
         booking = make_booking(
             self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
-            is_government_contract=True, government_contract_reference='LPO#4',
+            corporate_account=self.account,
         )
         response = self.client.post(
             f'/api/admin/bookings/{booking.id}/record-invoice-payment/', {'amount': '0'},
@@ -944,13 +951,80 @@ class GovernmentContractBookingTests(APITestCase):
     def test_non_staff_cannot_record_an_invoice_payment(self):
         booking = make_booking(
             self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED,
-            is_government_contract=True, government_contract_reference='LPO#5',
+            corporate_account=self.account,
         )
         self.client.force_authenticate(user=self.plain_user)
         response = self.client.post(
             f'/api/admin/bookings/{booking.id}/record-invoice-payment/', {'amount': '1000'},
         )
         self.assertEqual(response.status_code, 403)
+
+    def test_a_normal_booking_still_cannot_complete_with_an_outstanding_balance(self):
+        booking = make_booking(self.plain_user, self.vehicle, driver=self.driver, status=BookingStatus.CONFIRMED)
+        self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'ongoing'})
+        response = self.client.post(f'/api/admin/bookings/{booking.id}/set-status/', {'status': 'completed'})
+        self.assertEqual(response.status_code, 400)
+
+
+class AdminCorporateAccountViewSetTests(APITestCase):
+    """Platform-superadmin-only to register/edit/delete, but list/retrieve stays open to any
+    support staff so an org-scoped staff member creating a corporate booking can still populate
+    the account dropdown - see AdminCorporateAccountViewSet."""
+
+    def setUp(self):
+        self.platform_super = User.objects.create_superuser(username='corpacct-super@example.com', password='x')
+        self.support_staff = User.objects.create_user(
+            username='corpacct-staff@example.com', password='x', is_staff=True,
+        )
+        org = FleetPartner.objects.create(name='Corp Acct Org', platform_fee_percent=Decimal('10'))
+        self.org_admin = User.objects.create_user(
+            username='corpacct-org-admin@example.com', password='x', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=self.org_admin, organization=org)
+
+    def test_platform_superadmin_can_create_an_account(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post('/api/admin/corporate-accounts/', {'name': 'Acme Ltd'})
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(CorporateAccount.objects.filter(name='Acme Ltd').exists())
+
+    def test_platform_superadmin_can_list_and_update_and_delete(self):
+        account = CorporateAccount.objects.create(name='Beta Co')
+        self.client.force_authenticate(user=self.platform_super)
+
+        response = self.client.get('/api/admin/corporate-accounts/')
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.patch(f'/api/admin/corporate-accounts/{account.id}/', {'is_active': False}, format='json')
+        self.assertEqual(response.status_code, 200)
+        account.refresh_from_db()
+        self.assertFalse(account.is_active)
+
+        response = self.client.delete(f'/api/admin/corporate-accounts/{account.id}/')
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(CorporateAccount.objects.filter(pk=account.id).exists())
+
+    def test_support_staff_can_list_but_not_create(self):
+        self.client.force_authenticate(user=self.support_staff)
+
+        response = self.client.get('/api/admin/corporate-accounts/')
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.post('/api/admin/corporate-accounts/', {'name': 'Gamma Inc'})
+        self.assertEqual(response.status_code, 403)
+
+    def test_org_admin_can_list_but_not_create(self):
+        self.client.force_authenticate(user=self.org_admin)
+
+        response = self.client.get('/api/admin/corporate-accounts/')
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.post('/api/admin/corporate-accounts/', {'name': 'Delta LLC'})
+        self.assertEqual(response.status_code, 403)
+
+    def test_anonymous_cannot_view(self):
+        response = self.client.get('/api/admin/corporate-accounts/')
+        self.assertEqual(response.status_code, 401)
 
 
 class AdminConditionReportActionTests(APITestCase):
@@ -1764,26 +1838,28 @@ class OrganizationScopingTests(APITestCase):
         entry = AuditLog.objects.get(action='fleet_partner.notify')
         self.assertEqual(entry.detail, 'Logged message.')
 
-    # ── Government contract bookings ────────────────────────────────────────
-    def test_org_admin_cannot_create_a_government_booking_for_another_orgs_vehicle(self):
+    # ── Corporate account bookings ────────────────────────────────────────
+    def test_org_admin_cannot_create_a_corporate_booking_for_another_orgs_vehicle(self):
         # Dates offset well clear of org_b_booking's own TOMORROW-NEXT_WEEK range from setUp,
         # so this fails on the org-scoping check and nothing else.
+        account = CorporateAccount.objects.create(name='Acme Ltd')
         self.client.force_authenticate(user=self.org_a_admin)
-        response = self.client.post('/api/admin/bookings/create-government/', {
-            'vehicle': self.org_b_vehicle.id, 'customer_name': 'Ministry Contact',
+        response = self.client.post('/api/admin/bookings/create-corporate/', {
+            'vehicle': self.org_b_vehicle.id, 'customer_name': 'Employee Contact',
             'customer_phone': '254711000000', 'pickup_location': 'Kisumu',
             'start_date': str(TOMORROW + timedelta(days=30)), 'end_date': str(TOMORROW + timedelta(days=35)),
-            'government_contract_reference': 'LPO#1',
+            'corporate_account': account.id,
         })
         self.assertEqual(response.status_code, 403)
 
-    def test_org_admin_can_create_a_government_booking_for_their_own_vehicle(self):
+    def test_org_admin_can_create_a_corporate_booking_for_their_own_vehicle(self):
+        account = CorporateAccount.objects.create(name='Acme Ltd')
         self.client.force_authenticate(user=self.org_a_admin)
-        response = self.client.post('/api/admin/bookings/create-government/', {
-            'vehicle': self.org_a_vehicle.id, 'customer_name': 'Ministry Contact',
+        response = self.client.post('/api/admin/bookings/create-corporate/', {
+            'vehicle': self.org_a_vehicle.id, 'customer_name': 'Employee Contact',
             'customer_phone': '254711000001', 'pickup_location': 'Kisumu',
             'start_date': str(TOMORROW + timedelta(days=30)), 'end_date': str(TOMORROW + timedelta(days=35)),
-            'government_contract_reference': 'LPO#2',
+            'corporate_account': account.id,
         })
         self.assertEqual(response.status_code, 201)
 
@@ -2254,6 +2330,64 @@ class AdminLoyaltyTierTests(APITestCase):
 
     def test_anonymous_cannot_view(self):
         response = self.client.get('/api/admin/loyalty-tiers/')
+        self.assertEqual(response.status_code, 401)
+
+
+class AdminProtectionPlanViewSetTests(APITestCase):
+    """Platform-superadmin-only, same tier as AdminLoyaltyTierViewSet - a FleetPartner's own
+    org-admin has no business configuring platform-wide add-on pricing."""
+
+    def setUp(self):
+        self.platform_super = User.objects.create_superuser(username='plan-super@example.com', password='x')
+        self.support_staff = User.objects.create_user(username='plan-staff@example.com', password='x', is_staff=True)
+        org = FleetPartner.objects.create(name='Plan Org', platform_fee_percent=Decimal('10'))
+        self.org_admin = User.objects.create_user(
+            username='plan-org-admin@example.com', password='x', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=self.org_admin, organization=org)
+        ProtectionPlan.objects.all().delete()
+
+    def test_platform_superadmin_can_create_a_plan(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post('/api/admin/protection-plans/', {
+            'name': 'Standard', 'price_per_day': '1000', 'excess_reduction_description': 'Reduces excess to 20,000',
+        })
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(ProtectionPlan.objects.filter(name='Standard').exists())
+
+    def test_platform_superadmin_can_list_and_update_and_delete(self):
+        plan = ProtectionPlan.objects.create(name='Basic', price_per_day=Decimal('500'))
+        self.client.force_authenticate(user=self.platform_super)
+
+        response = self.client.get('/api/admin/protection-plans/')
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.patch(f'/api/admin/protection-plans/{plan.id}/', {'price_per_day': '600'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        plan.refresh_from_db()
+        self.assertEqual(plan.price_per_day, Decimal('600.00'))
+
+        response = self.client.delete(f'/api/admin/protection-plans/{plan.id}/')
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(ProtectionPlan.objects.filter(pk=plan.id).exists())
+
+    def test_price_per_day_must_be_greater_than_zero(self):
+        self.client.force_authenticate(user=self.platform_super)
+        response = self.client.post('/api/admin/protection-plans/', {'name': 'Free', 'price_per_day': '0'})
+        self.assertEqual(response.status_code, 400)
+
+    def test_org_admin_cannot_manage_plans(self):
+        self.client.force_authenticate(user=self.org_admin)
+        response = self.client.post('/api/admin/protection-plans/', {'name': 'Standard', 'price_per_day': '1000'})
+        self.assertEqual(response.status_code, 403)
+
+    def test_support_staff_cannot_manage_plans(self):
+        self.client.force_authenticate(user=self.support_staff)
+        response = self.client.post('/api/admin/protection-plans/', {'name': 'Standard', 'price_per_day': '1000'})
+        self.assertEqual(response.status_code, 403)
+
+    def test_anonymous_cannot_view(self):
+        response = self.client.get('/api/admin/protection-plans/')
         self.assertEqual(response.status_code, 401)
 
 

@@ -60,6 +60,33 @@ CUSTOMER_TOKEN_GRACE_PERIOD = timedelta(days=14)
 SELF_DRIVE_SURCHARGE_PERCENT = Decimal('3')
 
 
+class ProtectionPlan(models.Model):
+    """An admin-configurable damage-waiver tier a customer can optionally add to a self-drive
+    booking (see Booking.protection_plan) to reduce their liability excess - priced per rental
+    day, like Vehicle.price_per_day, not a flat fee. Never offered on with-driver bookings (see
+    Booking.clean()). Not single-use/redeemed like discounts.DiscountCode - a reusable priced
+    catalog item, closer in shape to fleet.VehicleCategory (admin CRUD + public read-only list a
+    customer picks from) than to a promo code."""
+
+    name = models.CharField(max_length=50, unique=True)
+    price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
+    excess_reduction_description = models.CharField(
+        max_length=200, blank=True,
+        help_text='Customer-facing summary, e.g. "Reduces your excess to KES 20,000".',
+    )
+    # Lets an admin retire a tier without deleting it and losing history on bookings that already
+    # carry it - mirrors VehicleCategory.is_active / DiscountCode.is_active.
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0, help_text='Display order, lowest first.')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'price_per_day']
+
+    def __str__(self):
+        return f'{self.name} (KES {self.price_per_day}/day)'
+
+
 class Booking(models.Model):
     DEPOSIT_PERCENT = Decimal('30')
     # SilverLake's cut of a with-driver booking; the rest is paid out to the assigned driver.
@@ -80,16 +107,23 @@ class Booking(models.Model):
     # this specific booking - shared with them directly by the driver.
     customer_token = models.UUIDField(default=uuid.uuid4, editable=False, null=True, unique=True)
 
-    # A government department's trip, arranged and paid for under a negotiated contract rather
-    # than an ordinary customer paying up front - see Booking.confirm_government_contract,
+    # A company's trip (an employee's booking, or a government department's), arranged and paid
+    # for under a recurring billing relationship rather than an ordinary customer paying up
+    # front - see Booking.confirm_corporate_account, bills_via_invoice,
     # _complete_if_ended_and_paid, and _ensure_driver_payout, all of which treat this booking's
     # (permanently nonzero, until an invoice eventually clears) balance_due as expected rather
-    # than something blocking the trip from starting, completing, or paying its driver out.
-    # Only ever set by an admin (see core.views.AdminBookingViewSet.create_government) - never
-    # something a customer can opt into themselves.
-    is_government_contract = models.BooleanField(default=False)
-    government_contract_reference = models.CharField(
-        max_length=100, blank=True, help_text='e.g. department name and LPO/PO number',
+    # than something blocking the trip from starting, completing, or paying its driver out. Only
+    # ever set by an admin (see core.views.AdminBookingViewSet.create_corporate) - never
+    # something a customer can opt into themselves. PROTECT, not SET_NULL: unlike
+    # discount_code/protection_plan (pricing inputs already baked into a locked-in KES amount),
+    # this FK is the ongoing debtor on a booking that may still owe real money - losing the link
+    # would leave a dangling, unattributable liability. Mirrors Booking.user's own PROTECT
+    # reasoning (suspend via is_active=False, don't delete).
+    corporate_account = models.ForeignKey(
+        'core.CorporateAccount', on_delete=models.PROTECT, null=True, blank=True, related_name='bookings',
+    )
+    corporate_account_reference = models.CharField(
+        max_length=100, blank=True, help_text='e.g. employee name/department or a PO number',
     )
 
     customer_name = models.CharField(max_length=100)
@@ -137,6 +171,19 @@ class Booking(models.Model):
     # time, not re-derived later if the customer's tier (or the tier's own discount_percent)
     # later changes.
     loyalty_discount_amount = models.DecimalField(max_digits=10, decimal_places=2, editable=False, default=0)
+
+    # An admin-configurable damage-waiver tier (see ProtectionPlan) the customer opted into at
+    # checkout - self-drive only (see clean()), since a with-driver booking has SilverLake's own
+    # driver at fault for any driving-caused damage, not the customer. SET_NULL, not
+    # PROTECT/CASCADE: a tier being fully deleted later shouldn't cascade into losing this
+    # booking's own payment history, matching discount_code's own reasoning.
+    protection_plan = models.ForeignKey(
+        'ProtectionPlan', on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings',
+    )
+    # The actual KES amount protection_plan added to total_amount (price_per_day * rental_days at
+    # creation, or after a later change_dates() recompute) - stored explicitly for the same reason
+    # discount_amount is: a locked-in value, not re-derived if the tier's own price later changes.
+    protection_plan_amount = models.DecimalField(max_digits=10, decimal_places=2, editable=False, default=0)
 
     status = models.CharField(max_length=20, choices=BookingStatus.choices, default=BookingStatus.PENDING)
     notes = models.TextField(blank=True)
@@ -234,6 +281,9 @@ class Booking(models.Model):
             if not self.vehicle.allow_with_driver:
                 raise ValidationError(f'{self.vehicle.name} does not allow bookings with a driver.')
 
+        if self.protection_plan_id and self.service_type != ServiceType.SELF_DRIVE:
+            raise ValidationError('A protection plan can only be added to a self-drive booking.')
+
         if not (self.vehicle_id and self.start_date and self.end_date):
             return
 
@@ -270,6 +320,11 @@ class Booking(models.Model):
                 self.discount_amount = self.discount_code.compute_discount(total)
                 total -= self.discount_amount
             total, self.loyalty_discount_amount = self._apply_loyalty_discount(total)
+            if self.protection_plan_id:
+                self.protection_plan_amount = (
+                    self.protection_plan.price_per_day * self.rental_days
+                ).quantize(Decimal('0.01'))
+                total += self.protection_plan_amount
             self.total_amount = total
         super().save(*args, **kwargs)
 
@@ -309,6 +364,13 @@ class Booking(models.Model):
         return self.amount_paid >= self.deposit_amount
 
     @property
+    def bills_via_invoice(self):
+        """True for a corporate-account booking - balance_due staying nonzero until an invoice
+        eventually clears is expected, not something that should block the trip starting,
+        completing, or paying its driver out. See corporate_account."""
+        return self.corporate_account_id is not None
+
+    @property
     def _has_payout_recipient(self):
         """Whether *someone* actually earns a cut of this with-driver booking - an individual
         driver-partner's own car (Vehicle.is_company_owned=False, no FleetPartner owner), or a
@@ -335,20 +397,25 @@ class Booking(models.Model):
     @property
     def platform_fee_amount(self):
         """SilverLake's cut, taken from the payout - only meaningful when someone actually earns
-        a cut of this booking (see _has_payout_recipient)."""
+        a cut of this booking (see _has_payout_recipient). Computed off the fare only
+        (total_amount minus protection_plan_amount) - a protection plan is platform-only revenue,
+        never shared with the driver-partner, so it never enters the payout base."""
         if not self._has_payout_recipient:
             return Decimal('0')
-        return (self.total_amount * self._payout_fee_percent / Decimal('100')).quantize(Decimal('0.01'))
+        payout_base = self.total_amount - self.protection_plan_amount
+        return (payout_base * self._payout_fee_percent / Decimal('100')).quantize(Decimal('0.01'))
 
     @property
     def driver_payout_amount(self):
         """What's actually paid out, after the platform fee - to the driver-partner who owns the
         vehicle, or to the FleetPartner organization that does (see Booking._ensure_driver_payout
         for which). Zero unless someone earns a cut at all (see _has_payout_recipient) - note
-        this can still be the full total_amount if a partner's own rate happens to be 0%."""
+        this can still be the full fare if a partner's own rate happens to be 0%. Computed off the
+        fare only (total_amount minus protection_plan_amount) - see platform_fee_amount."""
         if not self._has_payout_recipient:
             return Decimal('0')
-        return self.total_amount - self.platform_fee_amount
+        payout_base = self.total_amount - self.protection_plan_amount
+        return payout_base - self.platform_fee_amount
 
     @property
     def needs_attention(self):
@@ -459,12 +526,13 @@ class Booking(models.Model):
         - see DriverBookingCompleteView/AdminBookingViewSet.set_status for the user-facing 400
         this produces when someone tries to force completion directly instead.
 
-        A government contract's balance_due stays nonzero until its invoice eventually clears,
-        possibly weeks after the trip - waiting on that here would mean these trips never
-        auto-complete at all, so this is the one case a nonzero balance doesn't hold things up."""
+        A corporate-account booking's balance_due stays nonzero until its invoice eventually
+        clears, possibly weeks after the trip - waiting on that here would mean these trips
+        never auto-complete at all, so this is the one case a nonzero balance doesn't hold
+        things up (see bills_via_invoice)."""
         if self.status == BookingStatus.COMPLETED or not self.trip_ended_at:
             return
-        if not self.is_government_contract and self.balance_due > 0:
+        if not self.bills_via_invoice and self.balance_due > 0:
             return
         if self.has_undeposited_cash:
             return
@@ -658,9 +726,15 @@ class Booking(models.Model):
             self.discount_amount = self.discount_code.compute_discount(total)
             total -= self.discount_amount
         total, self.loyalty_discount_amount = self._apply_loyalty_discount(total)
+        if self.protection_plan_id:
+            self.protection_plan_amount = (
+                self.protection_plan.price_per_day * self.rental_days
+            ).quantize(Decimal('0.01'))
+            total += self.protection_plan_amount
         self.total_amount = total
         self.save(update_fields=[
             'start_date', 'end_date', 'total_amount', 'discount_amount', 'loyalty_discount_amount',
+            'protection_plan_amount',
         ])
 
         from payments.models import Refund, RefundStatus
@@ -739,17 +813,17 @@ class Booking(models.Model):
         except Exception:
             pass  # Never crash a booking over email
 
-    def confirm_government_contract(self):
-        """Called once, right after an admin creates this as a government-contract booking (see
-        core.views.AdminBookingViewSet.create_government) - already CONFIRMED at creation, no
+    def confirm_corporate_account(self):
+        """Called once, right after an admin creates this as a corporate-account booking (see
+        core.views.AdminBookingViewSet.create_corporate) - already CONFIRMED at creation, no
         deposit to wait on, so this only handles the notification side: a purpose-built
         confirmation email that skips the "deposit received"/"balance due before pickup"
         wording that makes no sense here (payment arrives later via invoice, not upfront), the
         same SMS every other confirmed booking gets, and letting the assigned driver know
         exactly like an online customer's own booking would."""
-        from .emails import send_government_contract_confirmed_email
+        from .emails import send_corporate_account_confirmed_email
 
-        send_government_contract_confirmed_email(self)
+        send_corporate_account_confirmed_email(self)
         self._send_confirmation_sms()
 
         from notifications.models import NotificationEvent
@@ -768,7 +842,7 @@ class Booking(models.Model):
 
         notify(
             NotificationEvent.BOOKING_CREATED,
-            f'{self.vehicle.name} booked (government contract: {self.government_contract_reference}) '
+            f'{self.vehicle.name} booked (corporate account: {self.corporate_account.name}) '
             f'for {self.rental_days} day(s)',
             organization=self.vehicle.owner, link_path='/admin/bookings',
         )
@@ -803,13 +877,13 @@ class Booking(models.Model):
         behind this were self-reported cash or card (no independent gateway confirming either,
         unlike M-Pesa), the payout is flagged for admin to verify before it can be paid out.
 
-        A government contract's driver is paid out once the trip completes regardless of
-        balance_due (see _complete_if_ended_and_paid) - the department's invoice can take weeks
-        or months to clear, and a driver-partner shouldn't wait that long to be paid for a trip
-        they've already done."""
+        A corporate-account booking's driver is paid out once the trip completes regardless of
+        balance_due (see _complete_if_ended_and_paid) - the invoice can take weeks or months to
+        clear, and a driver-partner shouldn't wait that long to be paid for a trip they've
+        already done (see bills_via_invoice)."""
         if self.driver_payout_amount <= 0:
             return
-        if not self.is_government_contract and self.balance_due > 0:
+        if not self.bills_via_invoice and self.balance_due > 0:
             return
         from payments.models import DriverPayout, PaymentMethod, PaymentStatus
 

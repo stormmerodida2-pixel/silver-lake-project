@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Booking
+from .models import Booking, ProtectionPlan
+
+
+@admin.register(ProtectionPlan)
+class ProtectionPlanAdmin(admin.ModelAdmin):
+    list_display = ('name', 'price_per_day', 'is_active', 'order', 'created_at')
+    list_filter = ('is_active',)
+    search_fields = ('name',)
 
 
 @admin.register(Booking)

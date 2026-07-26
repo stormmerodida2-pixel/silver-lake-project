@@ -8,12 +8,14 @@ export const useCatalogStore = defineStore('catalog', {
     drivers: [],
     reviews: [],
     categories: [],
+    protectionPlans: [],
     blogPosts: [],
     blogPostsNextUrl: null,
     loaded: {
       drivers: false,
       reviews: false,
       categories: false,
+      protectionPlans: false,
       blogPosts: false,
     },
   }),
@@ -43,6 +45,14 @@ export const useCatalogStore = defineStore('catalog', {
       const { data } = await apiClient.get('/categories/')
       this.categories = data.results ?? data
       this.loaded.categories = true
+    },
+    // Protection plan tiers (e.g. "Standard") - admin-managed, cached once per session like
+    // categories.
+    async fetchProtectionPlans() {
+      if (this.loaded.protectionPlans) return
+      const { data } = await apiClient.get('/protection-plans/')
+      this.protectionPlans = data.results ?? data
+      this.loaded.protectionPlans = true
     },
     // Marketing content, published in advance - doesn't need vehicles' always-refetch
     // freshness, so an unfiltered fetch is cached once per session like drivers/reviews/

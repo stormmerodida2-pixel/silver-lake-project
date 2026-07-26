@@ -321,8 +321,8 @@ def send_booking_dates_changed_email(booking, old_start_date, old_end_date):
         pass
 
 
-def send_government_contract_confirmed_email(booking):
-    """Sent once, from Booking.confirm_government_contract() - deliberately its own template
+def send_corporate_account_confirmed_email(booking):
+    """Sent once, from Booking.confirm_corporate_account() - deliberately its own template
     rather than reusing booking_confirmed.html, since that one's "deposit received"/"balance
     due before pickup" wording doesn't apply here (payment arrives later via invoice, not
     upfront). Swallowed silently on failure so a misconfigured SMTP server never blocks the
@@ -335,7 +335,7 @@ def send_government_contract_confirmed_email(booking):
         service_label = 'Book with Driver' if booking.service_type == 'with_driver' else 'Self Drive'
         send_branded_email(
             subject=f'Booking Confirmed — SilverLake Car Rentals #{booking.pk}',
-            template_name='emails/government_contract_confirmed.html',
+            template_name='emails/corporate_account_confirmed.html',
             context={
                 'first_name': booking.customer_name.split()[0],
                 'booking_id': booking.pk,
@@ -345,7 +345,8 @@ def send_government_contract_confirmed_email(booking):
                 'start_date': booking.start_date.strftime('%d %b %Y'),
                 'end_date': booking.end_date.strftime('%d %b %Y'),
                 'pickup_location': booking.pickup_location,
-                'contract_reference': booking.government_contract_reference,
+                'corporate_account_name': booking.corporate_account.name,
+                'corporate_account_reference': booking.corporate_account_reference,
                 'total_amount': f'{booking.total_amount:,.2f}',
                 'bookings_url': f'{settings.FRONTEND_URL}/account/bookings',
             },

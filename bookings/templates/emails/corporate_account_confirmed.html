@@ -5,9 +5,9 @@
 </p>
 
 <p style="margin:0 0 20px;">
-  Thank you for choosing SilverLake Car Rentals. This trip is confirmed under contract
-  reference <strong>{{ contract_reference }}</strong> - no payment is required from you directly;
-  it's billed separately per your contract's own terms.
+  Thank you for choosing SilverLake Car Rentals. This trip is confirmed under
+  <strong>{{ corporate_account_name }}</strong>'s corporate account - no payment is required from
+  you directly; it's billed separately per your company's own billing terms.
 </p>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
@@ -45,9 +45,15 @@
     <td style="padding:12px 16px; font-size:14px; color:#0a1730; border-bottom:1px solid #e5e7eb;">{{ pickup_location }}</td>
   </tr>
   <tr>
-    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb;">Contract Reference</td>
-    <td style="padding:12px 16px; font-size:14px; color:#0a1730; font-weight:bold; border-bottom:1px solid #e5e7eb;">{{ contract_reference }}</td>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb;">Corporate Account</td>
+    <td style="padding:12px 16px; font-size:14px; color:#0a1730; font-weight:bold; border-bottom:1px solid #e5e7eb;">{{ corporate_account_name }}</td>
   </tr>
+  {% if corporate_account_reference %}
+  <tr>
+    <td style="padding:12px 16px; font-size:14px; color:#64748b; border-bottom:1px solid #e5e7eb;">Reference</td>
+    <td style="padding:12px 16px; font-size:14px; color:#0a1730; border-bottom:1px solid #e5e7eb;">{{ corporate_account_reference }}</td>
+  </tr>
+  {% endif %}
   <tr>
     <td style="padding:12px 16px; font-size:14px; color:#64748b;">Total Amount</td>
     <td style="padding:12px 16px; font-size:14px; color:#0a1730; font-weight:bold;">KES {{ total_amount }}</td>

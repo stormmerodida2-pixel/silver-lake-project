@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from .validators import validate_kenyan_phone_number
+
 
 class StaffOrganization(models.Model):
     """Which FleetPartner a staff/admin account is scoped to - a genuine SilverLake platform
@@ -84,3 +86,31 @@ class ClientErrorReport(models.Model):
     def __str__(self):
         who = self.user.email if self.user_id else 'anonymous visitor'
         return f'{who} - {self.message[:80]}'
+
+
+class CorporateAccount(models.Model):
+    """A company - a private business, or a government department - registered as a recurring
+    billing entity, so an admin can create a booking "for" it (an employee's trip) with the
+    balance settled later via invoice rather than the customer paying a deposit upfront. Admin-
+    created only - no employee self-service login/booking, no credit_limit, no monthly invoice
+    batching (see Booking.corporate_account / confirm_corporate_account /
+    core.views.AdminBookingViewSet.create_corporate). Unbounded credit: nothing here ever blocks
+    a booking from proceeding regardless of how large the unpaid balance grows - see
+    Booking.bills_via_invoice.
+
+    Platform-wide, not scoped to a FleetPartner - any staff can bill a trip to any registered
+    company, regardless of whose vehicle is being booked."""
+
+    name = models.CharField(max_length=150)
+    contact_email = models.EmailField(blank=True)
+    contact_phone = models.CharField(max_length=20, blank=True, validators=[validate_kenyan_phone_number])
+    # Lets a superadmin retire a company without deleting it and losing its booking/invoice
+    # history - mirrors FleetPartner.is_active.
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name

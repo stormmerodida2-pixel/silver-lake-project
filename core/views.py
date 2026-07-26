@@ -18,8 +18,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from accounts.models import LoyaltyTier
 from accounts.serializers import UserSerializer
 from accounts.services import get_or_create_customer_account
-from bookings.models import Booking, BookingSource, BookingStatus
-from bookings.serializers import AdminGovernmentBookingSerializer, BookingSerializer, VehicleConditionReportSerializer
+from bookings.models import Booking, BookingSource, BookingStatus, ProtectionPlan
+from bookings.serializers import AdminCorporateBookingSerializer, BookingSerializer, VehicleConditionReportSerializer
 from bookings.services import create_condition_report
 from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
@@ -30,16 +30,18 @@ from payments.serializers import MIN_BANK_TRANSFER_REFERENCE_LENGTH
 from reviews.models import Review
 
 from .audit import log_admin_action
-from .models import AuditLog, ClientErrorReport
+from .models import AuditLog, ClientErrorReport, CorporateAccount
 from .permissions import IsPlatformStaff, IsPlatformSuperAdmin, IsSuperAdmin, IsSupportStaff, get_user_organization
 from .serializers import (
     AdminAuditLogSerializer,
     AdminClientErrorReportSerializer,
+    AdminCorporateAccountSerializer,
     AdminCreateUserSerializer,
     AdminDriverPayoutSerializer,
     AdminDriverSerializer,
     AdminFleetPartnerSerializer,
     AdminLoyaltyTierSerializer,
+    AdminProtectionPlanSerializer,
     AdminReferralSettingsSerializer,
     AdminRefundSerializer,
     AdminReviewSerializer,
@@ -496,6 +498,59 @@ class AdminLoyaltyTierViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 
+class AdminProtectionPlanViewSet(viewsets.ModelViewSet):
+    """Lets a SilverLake superadmin manage protection-plan tiers - platform-wide, not org-scoped,
+    same tier as AdminLoyaltyTierViewSet (a FleetPartner org-admin has no business configuring
+    platform-wide add-on pricing). Admin sees inactive tiers too (unlike the public
+    bookings.ProtectionPlanViewSet) so a retired tier can still be edited/reactivated."""
+
+    serializer_class = AdminProtectionPlanSerializer
+    permission_classes = [IsPlatformSuperAdmin]
+    queryset = ProtectionPlan.objects.all()
+
+    def perform_create(self, serializer):
+        plan = serializer.save()
+        log_admin_action(self.request, 'protectionplan.create', plan, detail=plan.name)
+
+    def perform_update(self, serializer):
+        plan = serializer.save()
+        log_admin_action(self.request, 'protectionplan.update', plan, detail=plan.name)
+
+    def perform_destroy(self, instance):
+        log_admin_action(self.request, 'protectionplan.delete', instance, detail=instance.name)
+        instance.delete()
+
+
+class AdminCorporateAccountViewSet(viewsets.ModelViewSet):
+    """Registered private companies billed later via invoice for bookings made "for" them (see
+    bookings.Booking.corporate_account) - platform-wide, not org-scoped (any staff, regardless
+    of which FleetPartner's vehicle is being booked, can bill a trip to any registered company).
+    List/retrieve stays open to any support staff (not just platform ones) so the create-
+    corporate-booking form's account dropdown works for org-scoped staff too - only actually
+    registering/editing/deleting a billing relationship is platform-superadmin-only, same tier
+    as AdminLoyaltyTierViewSet/AdminProtectionPlanViewSet's own platform-wide catalogs."""
+
+    serializer_class = AdminCorporateAccountSerializer
+    queryset = CorporateAccount.objects.all()
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [IsPlatformSuperAdmin()]
+        return [IsSupportStaff()]
+
+    def perform_create(self, serializer):
+        account = serializer.save()
+        log_admin_action(self.request, 'corporate_account.create', account, detail=account.name)
+
+    def perform_update(self, serializer):
+        account = serializer.save()
+        log_admin_action(self.request, 'corporate_account.update', account, detail=account.name)
+
+    def perform_destroy(self, instance):
+        log_admin_action(self.request, 'corporate_account.delete', instance, detail=instance.name)
+        instance.delete()
+
+
 class AdminUserViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
@@ -853,10 +908,10 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Guard: Cannot complete with outstanding balance - except a government contract, whose
-        # balance stays outstanding until its invoice eventually clears (see
-        # Booking._complete_if_ended_and_paid).
-        if new_status == BookingStatus.COMPLETED and not booking.is_government_contract and booking.balance_due > 0:
+        # Guard: Cannot complete with outstanding balance - except a corporate-account booking,
+        # whose balance stays outstanding until its invoice eventually clears (see
+        # Booking.bills_via_invoice / _complete_if_ended_and_paid).
+        if new_status == BookingStatus.COMPLETED and not booking.bills_via_invoice and booking.balance_due > 0:
             return Response(
                 {'detail': f'Cannot complete trip. There is an outstanding balance of KES {booking.balance_due:,.2f}.'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -929,16 +984,17 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         log_admin_action(request, 'booking.remind_balance', booking)
         return Response(BookingSerializer(booking).data)
 
-    @action(detail=False, methods=['post'], url_path='create-government')
-    def create_government(self, request):
-        """Creates a booking for a government contract - confirmed immediately, no deposit
-        required, since payment for these arrives later via invoice rather than upfront like a
-        normal customer booking (see Booking.is_government_contract). Staff-only: these are
+    @action(detail=False, methods=['post'], url_path='create-corporate')
+    def create_corporate(self, request):
+        """Creates a booking billed to a registered corporate account - confirmed immediately,
+        no deposit required, since payment arrives later via invoice rather than upfront like a
+        normal customer booking (see Booking.corporate_account). Staff-only: these are
         negotiated B2B arrangements, never something a customer sets up themselves. Reuses
         get_or_create_customer_account (the same helper the driver walk-in flow uses) since the
-        department contact never registers or logs in - it's found/created by name/phone/email,
-        not tied to whichever staff member happens to be creating this."""
-        serializer = AdminGovernmentBookingSerializer(data=request.data)
+        employee contact never registers or logs in - it's found/created by name/phone/email,
+        not tied to whichever staff member happens to be creating this. The company itself has
+        to already be registered (see AdminCorporateAccountViewSet)."""
+        serializer = AdminCorporateBookingSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
@@ -953,28 +1009,31 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         booking = Booking(
             user=customer, vehicle=data['vehicle'], driver=data.get('driver'), service_type=data['service_type'],
             source=BookingSource.ADMIN, status=BookingStatus.CONFIRMED,
-            is_government_contract=True, government_contract_reference=data['government_contract_reference'],
+            corporate_account=data['corporate_account'], corporate_account_reference=data['corporate_account_reference'],
             customer_name=data['customer_name'], customer_phone=data['customer_phone'],
             customer_email=data['customer_email'], pickup_location=data['pickup_location'],
             dropoff_location=data['dropoff_location'], start_date=data['start_date'],
             end_date=data['end_date'], notes=data['notes'],
         )
         booking.save()
-        booking.confirm_government_contract()
-        log_admin_action(request, 'booking.create_government', booking, detail=data['government_contract_reference'])
+        booking.confirm_corporate_account()
+        log_admin_action(request, 'booking.create_corporate', booking, detail=data['corporate_account'].name)
 
         return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='record-invoice-payment')
     def record_invoice_payment(self, request, pk=None):
-        """Logs the real payment once a government department's invoice actually clears - weeks
-        or months after the trip, unlike a normal customer's upfront M-Pesa/card/cash. No other
+        """Logs the real payment once a corporate account's invoice actually clears - weeks or
+        months after the trip, unlike a normal customer's upfront M-Pesa/card/cash. No other
         side effects: the driver's payout already happened at trip completion (see
         Booking._ensure_driver_payout), this is purely a bookkeeping record so amount_paid/
         balance_due (and the receipt) reflect reality."""
         booking = self.get_object()
-        if not booking.is_government_contract:
-            return Response({'detail': 'This action is only for government-contract bookings.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not booking.bills_via_invoice:
+            return Response(
+                {'detail': 'This action is only for corporate-account bookings.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             amount = parse_amount(request.data.get('amount'))
@@ -1030,7 +1089,7 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         except ValueError:
             return Response({'detail': 'start_date/end_date must be in YYYY-MM-DD format.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        queryset = self.get_queryset().select_related('vehicle', 'discount_code')
+        queryset = self.get_queryset().select_related('vehicle', 'discount_code', 'corporate_account')
         if start_date:
             queryset = queryset.filter(created_at__date__gte=start_date)
         if end_date:
@@ -1043,8 +1102,8 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
                 booking.get_service_type_display(), booking.get_source_display(), booking.start_date,
                 booking.end_date, booking.get_status_display(), booking.total_amount,
                 booking.discount_amount, booking.loyalty_discount_amount, booking.amount_paid,
-                booking.balance_due, 'Yes' if booking.is_government_contract else 'No',
-                booking.government_contract_reference,
+                booking.balance_due, booking.corporate_account.name if booking.corporate_account_id else '',
+                booking.corporate_account_reference,
             ]
             for booking in queryset
         )
@@ -1052,7 +1111,7 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
             'ID', 'Created At', 'Customer Name', 'Customer Phone', 'Customer Email', 'Vehicle',
             'Service Type', 'Source', 'Start Date', 'End Date', 'Status', 'Total Amount (KES)',
             'Discount Amount (KES)', 'Loyalty Discount (KES)', 'Amount Paid (KES)',
-            'Balance Due (KES)', 'Government Contract', 'Contract Reference',
+            'Balance Due (KES)', 'Corporate Account', 'Account Reference',
         ], rows)
 
 

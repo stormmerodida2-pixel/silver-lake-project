@@ -11,10 +11,9 @@ defineProps({
 })
 const emit = defineEmits(['update:modelValue', 'created'])
 
-// Own vehicle list - the parent view doesn't already load one (only drivers, for the
-// existing driver-reassignment dropdown), and this is the only place in the admin dashboard
-// that needs it.
+// Own vehicle + corporate-account lists - the parent view doesn't already load either.
 const { items: vehicleOptions, load: loadVehicleOptions } = useAdminList('/admin/fleet/')
+const { items: accountOptions, load: loadAccountOptions } = useAdminList('/admin/corporate-accounts/')
 
 const saving = ref(false)
 const error = ref('')
@@ -30,7 +29,8 @@ const form = reactive({
   dropoff_location: '',
   start_date: '',
   end_date: '',
-  government_contract_reference: '',
+  corporate_account: '',
+  corporate_account_reference: '',
   notes: '',
 })
 
@@ -50,11 +50,13 @@ function open() {
     dropoff_location: '',
     start_date: '',
     end_date: '',
-    government_contract_reference: '',
+    corporate_account: '',
+    corporate_account_reference: '',
     notes: '',
   })
   error.value = ''
   loadVehicleOptions()
+  loadAccountOptions()
 }
 
 defineExpose({ open })
@@ -63,7 +65,7 @@ async function submit() {
   error.value = ''
   saving.value = true
   try {
-    const { data } = await apiClient.post('/admin/bookings/create-government/', {
+    const { data } = await apiClient.post('/admin/bookings/create-corporate/', {
       ...form,
       driver: form.driver || null,
     })
@@ -88,7 +90,7 @@ async function submit() {
       >
         <div class="w-full max-w-lg rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
           <div class="mb-6 flex items-center justify-between">
-            <h2 class="font-[Georgia] text-xl font-bold text-white">New Contract Booking</h2>
+            <h2 class="font-[Georgia] text-xl font-bold text-white">New Corporate Booking</h2>
             <button class="text-slate-400 transition-colors hover:text-white" @click="close">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -99,18 +101,33 @@ async function submit() {
           <form class="space-y-4" @submit.prevent="submit">
             <p v-if="error" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ error }}</p>
             <p class="rounded-lg bg-gold-500/10 px-4 py-3 text-xs text-gold-300">
-              Confirms immediately with no deposit required - billed separately per the contract's own terms.
+              Confirms immediately with no deposit required - billed separately per the company's own billing terms.
             </p>
 
             <div>
               <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
-                >Contract Reference *</label
+                >Corporate Account *</label
+              >
+              <select
+                v-model.number="form.corporate_account"
+                required
+                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+              >
+                <option value="" disabled>Select a company</option>
+                <option v-for="a in accountOptions" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
+              <p v-if="!accountOptions.length" class="mt-1 text-xs text-slate-500">
+                No corporate accounts registered yet - a platform superadmin can add one under Corporate Accounts.
+              </p>
+            </div>
+            <div>
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                >Reference (optional)</label
               >
               <input
-                v-model="form.government_contract_reference"
+                v-model="form.corporate_account_reference"
                 type="text"
-                required
-                placeholder="e.g. Ministry of Health - LPO#4821"
+                placeholder="e.g. employee name/department or a PO number"
                 class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
               />
             </div>
@@ -157,7 +174,7 @@ async function submit() {
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
-                  >Department Contact *</label
+                  >Employee Name *</label
                 >
                 <input
                   v-model="form.customer_name"

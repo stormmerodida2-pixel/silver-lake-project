@@ -15,10 +15,12 @@ from .views import (
     DriverDeclarePaymentView,
     DriverNotifyArrivingView,
     DriverOnsiteBookingCreateView,
+    ProtectionPlanViewSet,
 )
 
 router = DefaultRouter()
 router.register('bookings', BookingViewSet, basename='booking')
+router.register('protection-plans', ProtectionPlanViewSet, basename='protection-plan')
 
 urlpatterns = [
     path('driver/bookings/mine/', DriverBookingListView.as_view(), name='driver-booking-list'),

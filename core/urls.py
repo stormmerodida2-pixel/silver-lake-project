@@ -6,6 +6,7 @@ from .views import (
     AdminAuditLogViewSet,
     AdminBookingViewSet,
     AdminClientErrorReportViewSet,
+    AdminCorporateAccountViewSet,
     AdminDriverApplicationViewSet,
     AdminDriverPayoutViewSet,
     AdminDriverViewSet,
@@ -13,6 +14,7 @@ from .views import (
     AdminFleetViewSet,
     AdminHealthView,
     AdminLoyaltyTierViewSet,
+    AdminProtectionPlanViewSet,
     AdminReferralSettingsView,
     AdminRefundViewSet,
     AdminReviewViewSet,
@@ -38,6 +40,8 @@ router.register('admin/vehicle-submissions', AdminVehicleSubmissionViewSet, base
 router.register('admin/audit-log', AdminAuditLogViewSet, basename='admin-audit-log')
 router.register('admin/client-errors', AdminClientErrorReportViewSet, basename='admin-client-error')
 router.register('admin/loyalty-tiers', AdminLoyaltyTierViewSet, basename='admin-loyalty-tier')
+router.register('admin/protection-plans', AdminProtectionPlanViewSet, basename='admin-protection-plan')
+router.register('admin/corporate-accounts', AdminCorporateAccountViewSet, basename='admin-corporate-account')
 
 urlpatterns = [
     path('admin/stats/', AdminStatsView.as_view(), name='admin-stats'),

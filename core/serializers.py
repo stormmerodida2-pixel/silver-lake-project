@@ -3,6 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from accounts.models import CustomerProfile, LoyaltyTier, ReferralSettings
+from bookings.models import ProtectionPlan
 from core.validators import validate_kenyan_phone_number
 from drivers.models import Driver
 from drivers.serializers import VehicleSubmissionPhotoSerializer
@@ -11,7 +12,7 @@ from fleet.serializers import VehicleImageSerializer, VehicleServiceRecordSerial
 from payments.models import DriverPayout, Refund
 from reviews.models import Review
 
-from .models import AuditLog, ClientErrorReport
+from .models import AuditLog, ClientErrorReport, CorporateAccount
 
 User = get_user_model()
 
@@ -332,3 +333,24 @@ class AdminLoyaltyTierSerializer(serializers.ModelSerializer):
         if value < 0 or value > 100:
             raise serializers.ValidationError('Must be between 0 and 100.')
         return value
+
+
+class AdminProtectionPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProtectionPlan
+        fields = ['id', 'name', 'price_per_day', 'excess_reduction_description', 'is_active', 'order', 'created_at']
+        read_only_fields = ['created_at']
+
+    def validate_price_per_day(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Must be greater than zero.')
+        return value
+
+
+class AdminCorporateAccountSerializer(serializers.ModelSerializer):
+    booking_count = serializers.IntegerField(source='bookings.count', read_only=True)
+
+    class Meta:
+        model = CorporateAccount
+        fields = ['id', 'name', 'contact_email', 'contact_phone', 'is_active', 'booking_count', 'created_at']
+        read_only_fields = ['created_at']

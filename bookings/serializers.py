@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework import serializers
 
+from core.models import CorporateAccount
 from core.validators import validate_kenyan_phone_number
 from discounts.models import DiscountCode
 from discounts.services import DiscountCodeError, find_active_code, reserve_code
@@ -12,13 +13,21 @@ from fleet.models import Vehicle
 from payments.models import PaymentMethod, PaymentStatus
 from reviews.serializers import ReviewSerializer
 
-from .models import Booking, ServiceType, VehicleConditionPhoto, VehicleConditionReport, WaitlistEntry
+from .models import (
+    Booking, ProtectionPlan, ServiceType, VehicleConditionPhoto, VehicleConditionReport, WaitlistEntry,
+)
 
 # Fields Booking.clean() actually looks at - kept in sync with the validation logic there.
 CLEAN_RELEVANT_FIELDS = (
     'vehicle', 'driver', 'start_date', 'end_date', 'service_type',
-    'customer_license_document', 'customer_id_document',
+    'customer_license_document', 'customer_id_document', 'protection_plan',
 )
+
+
+class ProtectionPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProtectionPlan
+        fields = ['id', 'name', 'price_per_day', 'excess_reduction_description', 'order']
 
 
 class BookingSerializer(serializers.ModelSerializer):
@@ -39,6 +48,11 @@ class BookingSerializer(serializers.ModelSerializer):
     # FK. discount_code_display/discount_amount (both read-only) show what actually got applied.
     discount_code = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=20)
     discount_code_display = serializers.SerializerMethodField()
+    protection_plan = serializers.PrimaryKeyRelatedField(
+        queryset=ProtectionPlan.objects.filter(is_active=True), required=False, allow_null=True,
+    )
+    protection_plan_name = serializers.CharField(source='protection_plan.name', read_only=True, default=None)
+    corporate_account_name = serializers.CharField(source='corporate_account.name', read_only=True, default=None)
 
     class Meta:
         model = Booking
@@ -49,16 +63,17 @@ class BookingSerializer(serializers.ModelSerializer):
             'customer_license_number', 'customer_license_document', 'customer_id_document',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid',
             'discount_code', 'discount_code_display', 'discount_amount', 'loyalty_discount_amount',
+            'protection_plan', 'protection_plan_name', 'protection_plan_amount',
             'status', 'notes', 'review', 'created_at', 'driver_acknowledged_at',
             'trip_started_at', 'trip_ended_at', 'needs_attention', 'acknowledgment_deadline',
             'is_acknowledgment_overdue', 'pending_payments',
             'pending_cash_deposits', 'last_balance_reminder_at',
-            'is_government_contract', 'government_contract_reference',
+            'corporate_account', 'corporate_account_name', 'corporate_account_reference',
         ]
         read_only_fields = [
             'status', 'source', 'total_amount', 'discount_amount', 'loyalty_discount_amount', 'created_at',
-            'driver_acknowledged_at', 'trip_started_at', 'trip_ended_at',
-            'last_balance_reminder_at', 'is_government_contract', 'government_contract_reference',
+            'driver_acknowledged_at', 'trip_started_at', 'trip_ended_at', 'protection_plan_amount',
+            'last_balance_reminder_at', 'corporate_account', 'corporate_account_reference',
         ]
 
     def get_vehicle_name(self, obj):
@@ -134,6 +149,12 @@ class BookingSerializer(serializers.ModelSerializer):
             except DiscountCodeError as exc:
                 raise serializers.ValidationError({'discount_code': str(exc)})
 
+        if self.instance is not None and 'protection_plan' in attrs:
+            if attrs['protection_plan'] != self.instance.protection_plan:
+                raise serializers.ValidationError(
+                    {'protection_plan': 'A protection plan can only be selected when creating a booking.'}
+                )
+
         return attrs
 
     def create(self, validated_data):
@@ -192,11 +213,12 @@ class DriverOnsiteBookingSerializer(serializers.Serializer):
         return attrs
 
 
-class AdminGovernmentBookingSerializer(serializers.Serializer):
-    """An admin creating a government-contract booking on behalf of a department that will
-    never register or log in itself - mirrors DriverOnsiteBookingSerializer's plain-Serializer
-    + Booking.clean() reuse, but with an explicit driver choice (an admin can assign any of the
-    vehicle's eligible drivers, not just their own) and a required contract reference."""
+class AdminCorporateBookingSerializer(serializers.Serializer):
+    """An admin creating a booking on behalf of a registered corporate account (see
+    core.models.CorporateAccount) - mirrors DriverOnsiteBookingSerializer's plain-Serializer +
+    Booking.clean() reuse, but with an explicit driver choice (an admin can assign any of the
+    vehicle's eligible drivers, not just their own) and a corporate_account FK plus its own
+    (optional) reference, since the account's own name already identifies the payer."""
 
     vehicle = serializers.PrimaryKeyRelatedField(queryset=Vehicle.objects.all())
     driver = serializers.PrimaryKeyRelatedField(queryset=Driver.objects.all(), required=False, allow_null=True)
@@ -208,7 +230,8 @@ class AdminGovernmentBookingSerializer(serializers.Serializer):
     dropoff_location = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
     start_date = serializers.DateField()
     end_date = serializers.DateField()
-    government_contract_reference = serializers.CharField(max_length=100)
+    corporate_account = serializers.PrimaryKeyRelatedField(queryset=CorporateAccount.objects.filter(is_active=True))
+    corporate_account_reference = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
     notes = serializers.CharField(required=False, allow_blank=True, default='')
 
     def validate(self, attrs):

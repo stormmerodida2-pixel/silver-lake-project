@@ -26,6 +26,7 @@ const form = reactive({
   notes: '',
   customer_license_number: '',
   discount_code: '',
+  protection_plan: '',
 })
 
 // ── Booking for someone else ─────────────────────────────────────────────────
@@ -144,6 +145,7 @@ function submitCardPayment() {
 
 onMounted(() => {
   catalog.fetchVehicles()
+  catalog.fetchProtectionPlans()
 })
 
 // Only offer vehicles that actually support the chosen service type.
@@ -151,12 +153,17 @@ const availableVehicles = computed(() =>
   catalog.vehicles.filter((v) => (form.service_type === 'with_driver' ? v.allow_with_driver : v.allow_self_drive)),
 )
 
-// If the current service type no longer supports the selected vehicle, clear it.
+// If the current service type no longer supports the selected vehicle, clear it. A protection
+// plan only ever applies to self-drive (see Booking.clean()) - a stale selection shouldn't
+// silently survive switching away from it.
 watch(
   () => form.service_type,
   () => {
     if (form.vehicle && !availableVehicles.value.some((v) => v.id === form.vehicle)) {
       form.vehicle = ''
+    }
+    if (form.service_type !== 'self_drive') {
+      form.protection_plan = ''
     }
   },
 )
@@ -310,10 +317,22 @@ const baseCost = computed(() => {
   return totalDays.value * Number(selectedVehicle.value.price_per_day)
 })
 
-const totalCost = computed(() => {
+const surchargedCost = computed(() => {
   if (form.service_type !== 'self_drive') return baseCost.value
   return Math.round(baseCost.value * (1 + SELF_DRIVE_SURCHARGE_PERCENT / 100) * 100) / 100
 })
+
+// Self-drive only (see Booking.clean()) - priced per day like the vehicle's own rate, mirrors
+// Booking.save()'s protection_plan_amount calculation.
+const selectedProtectionPlan = computed(() =>
+  catalog.protectionPlans.find((p) => p.id === Number(form.protection_plan)) || null,
+)
+const protectionPlanCost = computed(() => {
+  if (form.service_type !== 'self_drive' || !selectedProtectionPlan.value) return 0
+  return totalDays.value * Number(selectedProtectionPlan.value.price_per_day)
+})
+
+const totalCost = computed(() => surchargedCost.value + protectionPlanCost.value)
 
 const amountToPay = computed(() => {
   if (!booking.value) return 0
@@ -325,7 +344,10 @@ async function submitBooking() {
   error.value = ''
   try {
     const payload = new FormData()
-    Object.entries(form).forEach(([key, value]) => payload.append(key, value))
+    Object.entries(form).forEach(([key, value]) => {
+      if (key === 'protection_plan' && !value) return
+      payload.append(key, value)
+    })
     if (form.service_type === 'self_drive') {
       payload.append('customer_license_document', licenseDocument.value)
       payload.append('customer_id_document', idDocument.value)
@@ -709,6 +731,44 @@ async function declareBankTransfer() {
               </div>
             </div>
 
+            <div v-if="form.service_type === 'self_drive' && catalog.protectionPlans.length">
+              <label class="mb-1 block text-sm text-slate-600">Protection plan (optional)</label>
+              <div class="space-y-2">
+                <button
+                  type="button"
+                  class="w-full rounded-md border px-3 py-2 text-left text-sm transition"
+                  :class="
+                    !form.protection_plan
+                      ? 'border-brand-blue-600 bg-brand-blue-600/5'
+                      : 'border-slate-300 hover:border-slate-400'
+                  "
+                  @click="form.protection_plan = ''"
+                >
+                  <span class="font-semibold text-navy-900">No protection plan</span>
+                </button>
+                <button
+                  v-for="plan in catalog.protectionPlans"
+                  :key="plan.id"
+                  type="button"
+                  class="w-full rounded-md border px-3 py-2 text-left text-sm transition"
+                  :class="
+                    Number(form.protection_plan) === plan.id
+                      ? 'border-brand-blue-600 bg-brand-blue-600/5'
+                      : 'border-slate-300 hover:border-slate-400'
+                  "
+                  @click="form.protection_plan = plan.id"
+                >
+                  <span class="flex items-center justify-between">
+                    <span class="font-semibold text-navy-900">{{ plan.name }}</span>
+                    <span class="text-slate-500">KES {{ Number(plan.price_per_day).toLocaleString() }}/day</span>
+                  </span>
+                  <span v-if="plan.excess_reduction_description" class="mt-0.5 block text-xs text-slate-500">
+                    {{ plan.excess_reduction_description }}
+                  </span>
+                </button>
+              </div>
+            </div>
+
             <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
 
             <button
@@ -757,6 +817,15 @@ async function declareBankTransfer() {
               >
                 <span>Loyalty Discount</span>
                 <span class="font-medium">- KES {{ Number(booking.loyalty_discount_amount).toLocaleString() }}</span>
+              </div>
+              <div
+                v-if="Number(booking.protection_plan_amount) > 0"
+                class="flex items-center justify-between py-1.5"
+              >
+                <span class="text-slate-500">{{ booking.protection_plan_name }} protection</span>
+                <span class="font-medium text-navy-900">
+                  + KES {{ Number(booking.protection_plan_amount).toLocaleString() }}
+                </span>
               </div>
               <div class="flex items-center justify-between border-t border-dashed border-slate-200 py-1.5 pt-2.5">
                 <span class="font-semibold text-navy-900">Trip Total</span>
@@ -1221,7 +1290,11 @@ async function declareBankTransfer() {
                 </div>
                 <div v-if="totalDays && form.service_type === 'self_drive'" class="flex justify-between text-slate-600">
                   <span>Self-drive surcharge (3%)</span>
-                  <span>+ KES {{ (totalCost - baseCost).toLocaleString() }}</span>
+                  <span>+ KES {{ (surchargedCost - baseCost).toLocaleString() }}</span>
+                </div>
+                <div v-if="totalDays && protectionPlanCost" class="flex justify-between text-slate-600">
+                  <span>{{ selectedProtectionPlan?.name }} protection</span>
+                  <span>+ KES {{ protectionPlanCost.toLocaleString() }}</span>
                 </div>
                 <div
                   v-if="totalDays"

@@ -28,9 +28,22 @@ from payments.services import (
 from reviews.models import Review
 from reviews.serializers import BookingReviewCreateSerializer
 
-from .models import Booking, BookingSource, BookingStatus
-from .serializers import BookingSerializer, DriverOnsiteBookingSerializer, VehicleConditionReportSerializer
+from .models import Booking, BookingSource, BookingStatus, ProtectionPlan
+from .serializers import (
+    BookingSerializer, DriverOnsiteBookingSerializer, ProtectionPlanSerializer, VehicleConditionReportSerializer,
+)
 from .services import create_condition_report
+
+
+class ProtectionPlanViewSet(viewsets.ReadOnlyModelViewSet):
+    """Public read-only list of protection plan tiers, so the booking flow can populate a
+    self-drive-only picker without admin auth - mirrors fleet.VehicleCategoryViewSet. Only active
+    tiers are offered; a retired tier still works fine for bookings already carrying it."""
+
+    queryset = ProtectionPlan.objects.filter(is_active=True)
+    serializer_class = ProtectionPlanSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = None
 
 
 class BookingViewSet(
@@ -420,7 +433,7 @@ class DriverBookingCompleteView(APIView):
             return Response({'detail': 'Cannot complete a cancelled trip.'}, status=status.HTTP_400_BAD_REQUEST)
         if booking.status == BookingStatus.COMPLETED:
             return Response({'detail': 'This trip is already completed.'}, status=status.HTTP_400_BAD_REQUEST)
-        if not booking.is_government_contract and booking.balance_due > 0:
+        if not booking.bills_via_invoice and booking.balance_due > 0:
             return Response(
                 {'detail': f'Cannot complete this trip - there is an outstanding balance of KES {booking.balance_due:,.2f}.'},
                 status=status.HTTP_400_BAD_REQUEST,

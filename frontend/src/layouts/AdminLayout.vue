@@ -129,6 +129,20 @@ const baseNavItems = [
     platformOnly: true,
     icon: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674Z',
   },
+  {
+    to: '/admin/protection-plans',
+    label: 'Protection Plans',
+    superAdminOnly: true,
+    platformOnly: true,
+    icon: 'M12 2.25c-3.75 3-8.25 3.75-8.25 3.75v6.75c0 5.25 3.75 8.25 8.25 9.75 4.5-1.5 8.25-4.5 8.25-9.75V6c0 0-4.5-.75-8.25-3.75Z',
+  },
+  {
+    to: '/admin/corporate-accounts',
+    label: 'Corporate Accounts',
+    superAdminOnly: true,
+    platformOnly: true,
+    icon: 'M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21',
+  },
 ]
 
 const navItems = computed(() =>

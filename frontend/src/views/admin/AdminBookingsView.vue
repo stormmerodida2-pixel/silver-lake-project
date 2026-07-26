@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 
 import apiClient from '../../api/client'
 import ConditionReportModal from '../../components/ConditionReportModal.vue'
-import GovernmentBookingModal from '../../components/admin/GovernmentBookingModal.vue'
+import CorporateBookingModal from '../../components/admin/CorporateBookingModal.vue'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 import { confirmDialog } from '../../utils/dialogs'
@@ -113,16 +113,16 @@ async function remindBalance(booking) {
   }
 }
 
-// ── Government contract bookings ─────────────────────────────────────────────
-const showGovModal = ref(false)
-const govModal = ref(null)
+// ── Corporate account bookings ───────────────────────────────────────────────
+const showCorpModal = ref(false)
+const corpModal = ref(null)
 
-function openGovModal() {
-  govModal.value.open()
-  showGovModal.value = true
+function openCorpModal() {
+  corpModal.value.open()
+  showCorpModal.value = true
 }
 
-function onGovernmentBookingCreated(booking) {
+function onCorporateBookingCreated(booking) {
   bookings.value.unshift(booking)
 }
 
@@ -249,9 +249,9 @@ onMounted(() => {
       </select>
       <button
         class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
-        @click="openGovModal"
+        @click="openCorpModal"
       >
-        + Contract Booking
+        + Corporate Booking
       </button>
       <button
         :disabled="exportingCsv"
@@ -262,11 +262,11 @@ onMounted(() => {
       </button>
     </div>
 
-    <GovernmentBookingModal
-      ref="govModal"
-      v-model="showGovModal"
+    <CorporateBookingModal
+      ref="corpModal"
+      v-model="showCorpModal"
       :driver-options="driverOptions"
-      @created="onGovernmentBookingCreated"
+      @created="onCorporateBookingCreated"
     />
     <ConditionReportModal
       ref="conditionModal"
@@ -304,11 +304,11 @@ onMounted(() => {
                 Walk-in
               </span>
               <span
-                v-if="booking.is_government_contract"
-                :title="booking.government_contract_reference"
+                v-if="booking.corporate_account"
+                :title="booking.corporate_account_reference"
                 class="mt-1 inline-block rounded-full bg-brand-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-blue-400"
               >
-                Contract: {{ booking.government_contract_reference }}
+                Corporate: {{ booking.corporate_account_name }}
               </span>
             </td>
             <td class="px-4 py-3 text-slate-300">
@@ -353,7 +353,7 @@ onMounted(() => {
                 </button>
                 <p v-else-if="!booking.driver_name" class="text-xs text-slate-600">No driver to remind</p>
 
-                <div v-if="booking.is_government_contract" class="mt-2">
+                <div v-if="booking.corporate_account" class="mt-2">
                   <button
                     v-if="recordingInvoiceId !== booking.id"
                     class="rounded-md border border-brand-blue-500 px-2 py-0.5 text-xs font-semibold text-brand-blue-400 hover:bg-brand-blue-500 hover:text-white"

@@ -21,7 +21,7 @@ from fleet.models import FleetPartner, Vehicle, VehicleCategory
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
 from reviews.models import Review
 
-from .models import Booking, BookingSource, BookingStatus, ServiceType, VehicleConditionReport
+from .models import Booking, BookingSource, BookingStatus, ProtectionPlan, ServiceType, VehicleConditionReport
 
 User = get_user_model()
 
@@ -799,6 +799,126 @@ class DiscountCodeBookingTests(APITestCase):
         # same one booking it was originally redeemed against.
         code.refresh_from_db()
         self.assertEqual(code.redeemed_booking_id, booking.id)
+
+
+class ProtectionPlanBookingTests(APITestCase):
+    """A protection plan (see ProtectionPlan) adds its per-rental-day cost to total_amount on a
+    self-drive booking, applied after discount_code/loyalty discounts - platform-only revenue,
+    never shared with a driver-partner's payout (moot in practice today, since a self-drive
+    booking never has a payout recipient at all - see Booking._has_payout_recipient)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='jane-plan@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))  # 7 days -> 7000, self-drive -> 7210
+        ProtectionPlan.objects.all().delete()  # ignore the migration-seeded defaults
+        self.plan = ProtectionPlan.objects.create(name='Standard', price_per_day=Decimal('500'))
+        self.client.force_authenticate(user=self.user)
+
+    def _payload(self, **overrides):
+        payload = {
+            'vehicle': self.vehicle.id, 'service_type': 'self_drive',
+            'customer_name': 'Jane Doe', 'customer_phone': '254700000000',
+            'customer_license_number': 'DL123',
+            'pickup_location': 'Kisumu', 'start_date': str(TOMORROW), 'end_date': str(NEXT_WEEK),
+            'customer_license_document': SimpleUploadedFile('license.jpg', DOCUMENT_BYTES, content_type='image/jpeg'),
+            'customer_id_document': SimpleUploadedFile('id.jpg', DOCUMENT_BYTES, content_type='image/jpeg'),
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_a_protection_plan_adds_its_per_day_cost_to_the_total(self):
+        response = self.client.post('/api/bookings/', self._payload(protection_plan=self.plan.id), format='multipart')
+        self.assertEqual(response.status_code, 201)
+        booking = Booking.objects.get(pk=response.json()['id'])
+        # 7 days * 1000 = 7000, +3% self-drive surcharge = 7210, + 7 * 500 protection plan = 10710
+        self.assertEqual(booking.total_amount, Decimal('10710.00'))
+        self.assertEqual(booking.protection_plan_amount, Decimal('3500.00'))
+        self.assertEqual(booking.protection_plan_id, self.plan.id)
+
+    def test_deposit_and_balance_reflect_the_inflated_total(self):
+        response = self.client.post('/api/bookings/', self._payload(protection_plan=self.plan.id), format='multipart')
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.deposit_amount, Decimal('3213.00'))  # 30% of 10710
+        self.assertEqual(booking.balance_due, Decimal('10710.00'))
+
+    def test_no_protection_plan_selected_leaves_the_total_unaffected(self):
+        response = self.client.post('/api/bookings/', self._payload(), format='multipart')
+        self.assertEqual(response.status_code, 201)
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.total_amount, Decimal('7210.00'))
+        self.assertEqual(booking.protection_plan_amount, Decimal('0'))
+        self.assertIsNone(booking.protection_plan)
+
+    def test_a_protection_plan_cannot_be_selected_on_a_with_driver_booking(self):
+        response = self.client.post(
+            '/api/bookings/', self._payload(service_type='with_driver', protection_plan=self.plan.id),
+            format='multipart',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_an_inactive_protection_plan_cannot_be_selected(self):
+        inactive_plan = ProtectionPlan.objects.create(name='Retired', price_per_day=Decimal('500'), is_active=False)
+        response = self.client.post(
+            '/api/bookings/', self._payload(protection_plan=inactive_plan.id), format='multipart',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('protection_plan', response.json())
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_a_protection_plan_cannot_be_added_via_plain_update(self):
+        booking = make_booking(
+            self.user, self.vehicle, service_type=ServiceType.SELF_DRIVE,
+            customer_license_document=SimpleUploadedFile('l.pdf', b'x'),
+            customer_id_document=SimpleUploadedFile('i.pdf', b'x'),
+            status=BookingStatus.PENDING,
+        )
+        response = self.client.patch(f'/api/bookings/{booking.id}/', {'protection_plan': self.plan.id}, format='json')
+        self.assertEqual(response.status_code, 400)
+        booking.refresh_from_db()
+        self.assertIsNone(booking.protection_plan)
+
+    def test_changing_dates_recomputes_the_protection_plan_amount(self):
+        response = self.client.post('/api/bookings/', self._payload(protection_plan=self.plan.id), format='multipart')
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.protection_plan_amount, Decimal('3500.00'))  # 7 days * 500
+
+        new_start, new_end = TOMORROW, TOMORROW + timedelta(days=1)  # 2 days
+        self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(new_start), 'end_date': str(new_end)},
+        )
+        booking.refresh_from_db()
+        self.assertEqual(booking.protection_plan_amount, Decimal('1000.00'))  # 2 days * 500
+        # 2 days * 1000 = 2000, +3% = 2060, + 2 * 500 protection plan = 3060
+        self.assertEqual(booking.total_amount, Decimal('3060.00'))
+
+    def test_stacks_with_discount_code_and_loyalty_discount_added_last(self):
+        from accounts.models import LoyaltyTier
+        from discounts.models import DiscountCode
+
+        LoyaltyTier.objects.all().delete()
+        LoyaltyTier.objects.create(name='Silver', min_completed_trips=0, discount_percent=Decimal('10'))
+        DiscountCode.objects.create(code='SAVE10', discount_type='percent', value=Decimal('10'))
+
+        response = self.client.post(
+            '/api/bookings/', self._payload(protection_plan=self.plan.id, discount_code='SAVE10'),
+            format='multipart',
+        )
+        self.assertEqual(response.status_code, 201)
+        booking = Booking.objects.get(pk=response.json()['id'])
+        # 7000 fare -> +3% self-drive = 7210 -> -10% discount code = 6489.00 -> -10% loyalty = 5840.10
+        # -> + protection plan (7 * 500 = 3500) = 9340.10
+        self.assertEqual(booking.discount_amount, Decimal('721.00'))
+        self.assertEqual(booking.loyalty_discount_amount, Decimal('648.90'))
+        self.assertEqual(booking.protection_plan_amount, Decimal('3500.00'))
+        self.assertEqual(booking.total_amount, Decimal('9340.10'))
+
+    def test_platform_fee_and_driver_payout_stay_zero_with_a_protection_plan(self):
+        response = self.client.post('/api/bookings/', self._payload(protection_plan=self.plan.id), format='multipart')
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.platform_fee_amount, Decimal('0'))
+        self.assertEqual(booking.driver_payout_amount, Decimal('0'))
 
 
 class LoyaltyDiscountBookingTests(APITestCase):
@@ -2191,6 +2311,16 @@ class DriverBookingCompleteTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.booking.refresh_from_db()
         self.assertEqual(self.booking.status, BookingStatus.CONFIRMED)
+
+    def test_can_complete_a_corporate_account_booking_despite_an_outstanding_balance(self):
+        from core.models import CorporateAccount
+
+        self.booking.corporate_account = CorporateAccount.objects.create(name='Acme Ltd')
+        self.booking.save(update_fields=['corporate_account'])
+        response = self.client.post(f'/api/driver/bookings/{self.booking.id}/complete/')
+        self.assertEqual(response.status_code, 200)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.COMPLETED)
 
     def test_driver_can_complete_a_fully_paid_trip(self):
         self.booking.customer_email = 'complete-client@example.com'

@@ -303,6 +303,18 @@ const routes = [
         meta: { title: 'Loyalty Tiers | SilverLake Car Rentals', pageTitle: 'Loyalty Tiers' },
       },
       {
+        path: 'protection-plans',
+        name: 'admin-protection-plans',
+        component: () => import('../views/admin/AdminProtectionPlansView.vue'),
+        meta: { title: 'Protection Plans | SilverLake Car Rentals', pageTitle: 'Protection Plans' },
+      },
+      {
+        path: 'corporate-accounts',
+        name: 'admin-corporate-accounts',
+        component: () => import('../views/admin/AdminCorporateAccountsView.vue'),
+        meta: { title: 'Corporate Accounts | SilverLake Car Rentals', pageTitle: 'Corporate Accounts' },
+      },
+      {
         path: 'analytics',
         name: 'admin-analytics',
         component: () => import('../views/admin/AdminAnalyticsView.vue'),
