@@ -117,7 +117,8 @@ async function submit() {
                 <option v-for="a in accountOptions" :key="a.id" :value="a.id">{{ a.name }}</option>
               </select>
               <p v-if="!accountOptions.length" class="mt-1 text-xs text-slate-500">
-                No corporate accounts registered yet - a platform superadmin can add one under Corporate Accounts.
+                No corporate accounts registered yet - a platform superadmin can add one via "Manage Corporate
+                Accounts" on this page.
               </p>
             </div>
             <div>
