@@ -3337,6 +3337,73 @@ class SendPickupRemindersTests(APITestCase):
         self.assertIn('account-holder@example.com', recipients)
 
 
+class SendReviewRemindersTests(APITestCase):
+    """The automated review-invite follow-up - fires once per booking, REVIEW_REMINDER_DELAY
+    after a trip completed, only for customers who still haven't left a review by then. See
+    bookings.services.send_review_reminders."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(full_name='Review Reminder Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(
+            username='review-reminder-client@example.com', password='pass12345!',
+        )
+
+    def _run(self):
+        from bookings.services import send_review_reminders
+
+        send_review_reminders()
+
+    def _make_completed_booking(self, trip_ended_days_ago=4, **kwargs):
+        kwargs.setdefault('status', BookingStatus.COMPLETED)
+        kwargs.setdefault('start_date', TODAY - timedelta(days=10))
+        kwargs.setdefault('end_date', TODAY - timedelta(days=trip_ended_days_ago))
+        booking = make_booking(self.customer, self.vehicle, driver=self.driver, **kwargs)
+        Booking.objects.filter(pk=booking.pk).update(
+            trip_ended_at=timezone.now() - timedelta(days=trip_ended_days_ago),
+        )
+        booking.refresh_from_db()
+        return booking
+
+    def test_completed_booking_past_the_delay_with_no_review_gets_reminded(self):
+        booking = self._make_completed_booking(customer_email='jane@example.com')
+        mail.outbox = []
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNotNone(booking.review_reminder_sent_at)
+        reminder_emails = [m for m in mail.outbox if 'Tell us about your' in m.subject]
+        self.assertEqual(len(reminder_emails), 1)
+        self.assertIn('jane@example.com', reminder_emails[0].to)
+
+    def test_booking_not_yet_past_the_delay_is_left_alone(self):
+        booking = self._make_completed_booking(trip_ended_days_ago=1)
+        mail.outbox = []
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.review_reminder_sent_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_booking_that_already_has_a_review_is_left_alone(self):
+        booking = self._make_completed_booking()
+        Review.objects.create(booking=booking, driver=self.driver, customer_name='Jane Doe', rating=5, comment='Great!')
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.review_reminder_sent_at)
+
+    def test_non_completed_booking_is_left_alone(self):
+        booking = self._make_completed_booking(status=BookingStatus.CONFIRMED)
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.review_reminder_sent_at)
+
+    def test_reminder_only_ever_fires_once(self):
+        self._make_completed_booking(customer_email='jane@example.com')
+        self._run()
+        mail.outbox = []
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+
 class ExpireStalePendingBookingsTests(APITestCase):
     """An abandoned checkout - a PENDING booking nobody ever paid anything toward - shouldn't
     block a vehicle from public visibility or from being booked by someone else forever. See

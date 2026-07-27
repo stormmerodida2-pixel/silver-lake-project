@@ -1,7 +1,7 @@
 """In-process background scheduler for periodic cleanup tasks. This project has no Celery/cron
 of its own, so rather than requiring someone to configure an external OS-level Task Scheduler or
 cron entry, a lightweight daemon thread does it automatically for as long as the Django process
-is alive. Runs six independent sweeps on the same interval:
+is alive. Runs seven independent sweeps on the same interval:
 payments.services.expire_stale_mpesa_payments (abandoned STK pushes),
 payments.services.remind_undeposited_cash (nudging a driver to deposit collected cash, starting
 soon after they confirm receiving it - independent of the booking's own end date),
@@ -13,7 +13,9 @@ bookings.services.expire_stale_pending_bookings (auto-cancelling a PENDING booki
 zero payment activity for a full day, so an abandoned checkout doesn't block a vehicle from
 public visibility or from being booked by someone else indefinitely), and
 bookings.services.send_pickup_reminders (sending the customer an SMS + email reminder the day
-before their booking's pickup date, once per booking - the standard no-show-reduction pattern).
+before their booking's pickup date, once per booking - the standard no-show-reduction pattern),
+and bookings.services.send_review_reminders (a one-time follow-up email a few days after a trip
+completes, for any customer who still hasn't left a review).
 
 Deliberately not started for management commands (manage.py test/migrate/shell/etc.) - none of
 those keep a process running long enough for this to matter, and starting it during `test` in
@@ -86,6 +88,7 @@ def _sweep_loop():
         escalate_unacknowledged_bookings,
         expire_stale_pending_bookings,
         send_pickup_reminders,
+        send_review_reminders,
     )
 
     from .services import escalate_stuck_bookings, expire_stale_mpesa_payments, remind_undeposited_cash
@@ -126,6 +129,11 @@ def _sweep_loop():
             send_pickup_reminders()
         except Exception:
             _record_sweep_failure('Pickup reminder sweep failed')
+
+        try:
+            send_review_reminders()
+        except Exception:
+            _record_sweep_failure('Review reminder sweep failed')
 
 
 def start():

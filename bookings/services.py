@@ -122,6 +122,41 @@ def send_pickup_reminders():
         send_pickup_reminder_email(booking)
 
 
+# How long to wait after a trip completes before nudging a customer who hasn't left a review yet -
+# long enough that the original "how was your ride" email (see Booking._complete_if_ended_and_paid)
+# has had a real chance to be seen and acted on, short enough that the trip is still fresh in their
+# mind when the follow-up lands.
+REVIEW_REMINDER_DELAY = timedelta(days=3)
+
+
+def send_review_reminders():
+    """One-time follow-up (see review_reminder_sent_at) for a customer who hasn't left a review
+    REVIEW_REMINDER_DELAY after their trip completed - runs on every scheduler tick (see
+    payments.scheduler). Anchored on trip_ended_at rather than a separate "completed_at" (this
+    model has none) since it's set the moment the driver confirms the car is back, which is
+    always at or before the COMPLETED transition itself (see Booking.end_trip/
+    _complete_if_ended_and_paid) - so it's never an underestimate of how long ago the trip
+    actually finished.
+
+    Skips any booking that already has a review (`review__isnull=True` below) - once the customer
+    has already left one, nudging them again to do it is just noise."""
+    from .emails import send_review_reminder_email
+
+    cutoff = timezone.now() - REVIEW_REMINDER_DELAY
+
+    candidates = Booking.objects.filter(
+        status=BookingStatus.COMPLETED,
+        trip_ended_at__lt=cutoff,
+        review_reminder_sent_at__isnull=True,
+        review__isnull=True,
+    ).select_related('vehicle')
+
+    for booking in candidates:
+        booking.review_reminder_sent_at = timezone.now()
+        booking.save(update_fields=['review_reminder_sent_at'])
+        send_review_reminder_email(booking)
+
+
 def notify_waitlist_for_freed_dates(vehicle, start_date, end_date):
     """Called right after a booking is cancelled (see Booking.mark_cancelled) - tells anyone
     waitlisted for a date range that overlapped it, but only once that range genuinely has no

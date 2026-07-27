@@ -1,0 +1,20 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="font-size:18px; font-weight:bold; color:#0a1730; margin:0 0 16px;">
+  Still there, {{ first_name }}?
+</p>
+
+<p style="margin:0 0 20px; line-height:1.6;">
+  A few days ago your trip with our <strong>{{ vehicle_name }}</strong> wrapped up. We haven't heard back yet - if you have a spare minute, we'd love to know how it went.
+</p>
+
+<p style="margin:0 0 24px; line-height:1.6;">
+  Your review helps other renters choose with confidence, and helps us keep improving.
+</p>
+
+{% include "emails/_button.html" with url=review_url label="Leave a Review" %}
+
+<p style="margin:24px 0 0; font-size:13px; color:#94a3b8;">
+  Thank you again for choosing SilverLake Car Rentals. We look forward to welcoming you on your next journey.
+</p>
+{% endblock %}
