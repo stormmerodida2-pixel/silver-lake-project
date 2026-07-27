@@ -921,6 +921,48 @@ class ProtectionPlanBookingTests(APITestCase):
         self.assertEqual(booking.driver_payout_amount, Decimal('0'))
 
 
+class PickupCoordinatesBookingTests(APITestCase):
+    """pickup_lat/pickup_lng (and their dropoff_ counterparts) are optional, customer-supplied
+    coordinates captured only when the customer selects an address-autocomplete suggestion on
+    the frontend (see AddressAutocomplete.vue) - never required, since a booking made by typing
+    free text (or if the geocoding search was unreachable) must still work exactly as before."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='jane-geo@example.com', password='pass12345!')
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.client.force_authenticate(user=self.user)
+
+    def _payload(self, **overrides):
+        payload = {
+            'vehicle': self.vehicle.id, 'service_type': 'with_driver',
+            'customer_name': 'Jane Doe', 'customer_phone': '254700000000',
+            'pickup_location': 'Kisumu', 'start_date': str(TOMORROW), 'end_date': str(NEXT_WEEK),
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_booking_created_with_pickup_and_dropoff_coordinates(self):
+        response = self.client.post('/api/bookings/', self._payload(
+            pickup_lat='-0.091700', pickup_lng='34.768000',
+            dropoff_location='Kisumu Airport', dropoff_lat='-0.086330', dropoff_lng='34.728890',
+        ), format='json')
+        self.assertEqual(response.status_code, 201)
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertEqual(booking.pickup_lat, Decimal('-0.091700'))
+        self.assertEqual(booking.pickup_lng, Decimal('34.768000'))
+        self.assertEqual(booking.dropoff_lat, Decimal('-0.086330'))
+        self.assertEqual(booking.dropoff_lng, Decimal('34.728890'))
+
+    def test_booking_created_without_coordinates_still_works(self):
+        response = self.client.post('/api/bookings/', self._payload(), format='json')
+        self.assertEqual(response.status_code, 201)
+        booking = Booking.objects.get(pk=response.json()['id'])
+        self.assertIsNone(booking.pickup_lat)
+        self.assertIsNone(booking.pickup_lng)
+        self.assertIsNone(booking.dropoff_lat)
+        self.assertIsNone(booking.dropoff_lng)
+
+
 class LoyaltyDiscountBookingTests(APITestCase):
     """A customer's own loyalty tier (see accounts.LoyaltyTier) reduces total_amount
     automatically at booking creation - no code needed, unlike discounts.DiscountCode, and

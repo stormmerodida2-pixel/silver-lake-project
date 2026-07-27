@@ -64,7 +64,9 @@ class BookingSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'vehicle', 'vehicle_name', 'driver', 'driver_name', 'service_type', 'source',
             'customer_name', 'customer_phone', 'customer_email',
-            'pickup_location', 'dropoff_location', 'start_date', 'end_date',
+            'pickup_location', 'pickup_lat', 'pickup_lng',
+            'dropoff_location', 'dropoff_lat', 'dropoff_lng',
+            'start_date', 'end_date',
             'customer_license_number', 'customer_license_document', 'customer_id_document',
             'total_amount', 'amount_paid', 'balance_due', 'deposit_amount', 'is_deposit_paid',
             'discount_code', 'discount_code_display', 'discount_amount', 'loyalty_discount_amount',

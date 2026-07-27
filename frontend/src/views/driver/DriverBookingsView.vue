@@ -256,7 +256,16 @@ function openOnsiteModal() {
               <p class="text-xs text-slate-400">
                 {{ booking.vehicle_name }} &middot; {{ booking.start_date }} to {{ booking.end_date }}
               </p>
-              <p class="text-xs text-slate-500">{{ booking.pickup_location }}</p>
+              <p class="text-xs text-slate-500">
+                {{ booking.pickup_location }}
+                <a
+                  v-if="booking.pickup_lat && booking.pickup_lng"
+                  :href="`https://www.openstreetmap.org/?mlat=${booking.pickup_lat}&mlon=${booking.pickup_lng}#map=17/${booking.pickup_lat}/${booking.pickup_lng}`"
+                  target="_blank"
+                  rel="noopener"
+                  class="ml-1 text-brand-blue-400 hover:underline"
+                >Open in Maps</a>
+              </p>
               <div v-if="booking.status === 'completed' && booking.review" class="mt-1.5 flex items-center gap-1">
                 <span class="text-sm leading-none text-gold-400">
                   <span v-for="n in 5" :key="n">{{ n <= booking.review.rating ? '★' : '☆' }}</span>

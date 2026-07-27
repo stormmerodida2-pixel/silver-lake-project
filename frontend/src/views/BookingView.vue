@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import apiClient from '../api/client'
+import AddressAutocomplete from '../components/AddressAutocomplete.vue'
 import AvailabilityCalendar from '../components/AvailabilityCalendar.vue'
 import PhoneInput from '../components/PhoneInput.vue'
 import { useAuthStore } from '../stores/auth'
@@ -20,7 +21,11 @@ const form = reactive({
   customer_phone: auth.user?.phone_number || '',
   customer_email: auth.user?.email || '',
   pickup_location: route.query.pickup || '',
+  pickup_lat: null,
+  pickup_lng: null,
   dropoff_location: route.query.dropoff || '',
+  dropoff_lat: null,
+  dropoff_lng: null,
   start_date: '',
   end_date: '',
   notes: '',
@@ -344,8 +349,13 @@ async function submitBooking() {
   error.value = ''
   try {
     const payload = new FormData()
+    const coordFields = ['pickup_lat', 'pickup_lng', 'dropoff_lat', 'dropoff_lng']
     Object.entries(form).forEach(([key, value]) => {
       if (key === 'protection_plan' && !value) return
+      // FormData.append(key, null) serializes to the literal string "null", which the backend's
+      // DecimalField(allow_null=True) would then reject as an invalid decimal - skip entirely
+      // when the customer never selected an autocomplete suggestion (the common free-text case).
+      if (coordFields.includes(key) && !value) return
       payload.append(key, value)
     })
     if (form.service_type === 'self_drive') {
@@ -614,20 +624,21 @@ async function declareBankTransfer() {
 
             <div>
               <label class="mb-1 block text-sm text-slate-600">Pickup location</label>
-              <input
+              <AddressAutocomplete
                 v-model="form.pickup_location"
-                type="text"
                 required
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                @select="(coords) => { form.pickup_lat = coords?.lat ?? null; form.pickup_lng = coords?.lng ?? null }"
               />
+              <p class="mt-1 text-xs text-slate-500">
+                Start typing and pick a suggestion so your driver gets your exact location.
+              </p>
             </div>
 
             <div>
               <label class="mb-1 block text-sm text-slate-600">Drop-off location (optional)</label>
-              <input
+              <AddressAutocomplete
                 v-model="form.dropoff_location"
-                type="text"
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                @select="(coords) => { form.dropoff_lat = coords?.lat ?? null; form.dropoff_lng = coords?.lng ?? null }"
               />
             </div>
 

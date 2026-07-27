@@ -132,6 +132,15 @@ class Booking(models.Model):
 
     pickup_location = models.CharField(max_length=200)
     dropoff_location = models.CharField(max_length=200, blank=True)
+    # Captured only when the customer picks a suggestion from the address-autocomplete dropdown
+    # (see frontend AddressAutocomplete.vue) rather than typing free text - always optional so a
+    # booking still works exactly as before if they never select a suggestion, or if the
+    # third-party geocoding search (Photon) is unreachable. Never required/validated against
+    # pickup_location - the two are allowed to disagree (e.g. free-text edited after selecting).
+    pickup_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    pickup_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    dropoff_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    dropoff_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     start_date = models.DateField()
     end_date = models.DateField()
 
