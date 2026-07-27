@@ -24,6 +24,7 @@ STATIC_PAGES = [
     ('/reviews', 'weekly', '0.6'),
     ('/blog', 'daily', '0.7'),
     ('/become-a-driver', 'monthly', '0.5'),
+    ('/faq', 'monthly', '0.5'),
     ('/contact', 'monthly', '0.4'),
     ('/terms', 'yearly', '0.2'),
     ('/privacy', 'yearly', '0.2'),

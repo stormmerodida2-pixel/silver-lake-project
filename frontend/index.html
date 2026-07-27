@@ -51,11 +51,18 @@
     <!-- LocalBusiness structured data - lets Google associate this exact page with the
          "SilverLake Car Rentals" brand/entity directly (name, phone, city), which is what a
          branded search actually needs beyond just being indexed. AutoRental is schema.org's
-         more specific LocalBusiness subtype for a car rental company. -->
-    <script type="application/ld+json">
+         more specific LocalBusiness subtype for a car rental company.
+
+         id="ld-local-business" + the "@id" inside the JSON below give this specific entity a
+         stable identity that utils/seo.js's dynamic setStructuredData() blocks (e.g. HomeView's
+         AggregateRating) can reference via the same "@id", so they describe additional facts
+         about *this* organization rather than a second, disconnected one. Static, not touched
+         by JS - see utils/seo.js's own "ld-dynamic-" prefix convention for what IS touched. -->
+    <script type="application/ld+json" id="ld-local-business">
       {
         "@context": "https://schema.org",
         "@type": "AutoRental",
+        "@id": "https://silverlakecarentals.com/#organization",
         "name": "SilverLake Car Rentals",
         "url": "https://silverlakecarentals.com/",
         "image": "https://silverlakecarentals.com/og-image.jpg",

@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
 import VehicleCard from '../components/VehicleCard.vue'
 import ReviewCard from '../components/ReviewCard.vue'
+import { setStructuredData } from '../utils/seo'
 
 const auth = useAuthStore()
 const catalog = useCatalogStore()
@@ -25,6 +26,32 @@ const averageRating = computed(() => {
   const total = catalog.reviews.reduce((sum, review) => sum + review.rating, 0)
   return (total / catalog.reviews.length).toFixed(1)
 })
+// AggregateRating must nest under the entity it rates, not stand alone - reuses the same @id
+// as index.html's own static LocalBusiness block so this describes the same organization
+// rather than a second, disconnected one. Guarded on real reviews existing at all (never emit
+// a rating for zero reviews) and fires reactively once catalog.reviews finishes loading, not
+// just once on mount - matches this file's own watcher idiom below.
+watch(
+  averageRating,
+  (rating) => {
+    if (!rating || !catalog.reviews.length) return
+    setStructuredData('ld-dynamic-aggregate-rating', {
+      '@context': 'https://schema.org',
+      '@type': 'AutoRental',
+      '@id': 'https://silverlakecarentals.com/#organization',
+      name: 'SilverLake Car Rentals',
+      url: 'https://silverlakecarentals.com/',
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: rating,
+        reviewCount: catalog.reviews.length,
+        bestRating: '5',
+        worstRating: '1',
+      },
+    })
+  },
+  { immediate: true },
+)
 // The most-traveled photographed vehicles first - a genuine "this is our most popular ride"
 // rather than an arbitrary first-in-list pick.
 const photographedVehiclesByPopularity = computed(() =>

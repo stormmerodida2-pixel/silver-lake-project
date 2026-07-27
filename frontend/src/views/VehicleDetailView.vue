@@ -6,6 +6,7 @@ import apiClient from '../api/client'
 import AvailabilityCalendar from '../components/AvailabilityCalendar.vue'
 import { useCatalogStore } from '../stores/catalog'
 import { trackEvent } from '../utils/analytics'
+import { setPageMeta, setStructuredData } from '../utils/seo'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,6 +24,35 @@ function trackVehicleView(v) {
   })
 }
 
+// Overrides the generic "Vehicle Details" title the router set on navigation - was previously
+// missing entirely (unlike BlogPostView.vue's own override), so every vehicle page shipped the
+// same generic title regardless of which vehicle. Also adds real Product/Offer structured data
+// with this vehicle's actual price - the kind of data an AI answer engine needs to directly
+// answer "how much does it cost to rent a Prado in Kisumu."
+function applySeo(v) {
+  const category = v.category_name || v.category
+  const price = Number(v.price_per_day).toLocaleString()
+  setPageMeta({
+    title: `${v.name} - ${category} for Hire in Kisumu | SilverLake`,
+    description: `Hire the ${v.name} in Kisumu from KES ${price}/day, with driver or self-drive. Book online via M-Pesa or bank transfer.`,
+    image: v.image,
+  })
+  setStructuredData('ld-dynamic-vehicle-offer', {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: v.name,
+    category,
+    image: v.image || undefined,
+    offers: {
+      '@type': 'Offer',
+      price: v.price_per_day,
+      priceCurrency: 'KES',
+      availability: v.is_available ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      url: `https://silverlakecarentals.com/fleet/${v.id}`,
+    },
+  })
+}
+
 onMounted(async () => {
   // Try catalog cache first, fall back to direct API call
   await catalog.fetchVehicles()
@@ -31,12 +61,14 @@ onMounted(async () => {
     vehicle.value = cached
     loading.value = false
     trackVehicleView(cached)
+    applySeo(cached)
     return
   }
   try {
     const { data } = await apiClient.get(`/vehicles/${route.params.id}/`)
     vehicle.value = data
     trackVehicleView(data)
+    applySeo(data)
   } catch (err) {
     if (err.response?.status === 404) {
       router.replace('/fleet')

@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
 import { trackPageView } from '../utils/analytics'
-import { setPageMeta } from '../utils/seo'
+import { clearAllDynamicStructuredData, setPageMeta } from '../utils/seo'
 
 const routes = [
   {
@@ -73,6 +73,16 @@ const routes = [
     name: 'refund-policy',
     component: () => import('../views/legal/RefundPolicyView.vue'),
     meta: { title: 'Refund & Cancellation Policy | SilverLake Car Rentals' },
+  },
+  {
+    path: '/faq',
+    name: 'faq',
+    component: () => import('../views/FAQView.vue'),
+    meta: {
+      title: 'FAQ - Car Hire in Kisumu | SilverLake Car Rentals',
+      description:
+        'Answers to common questions about deposits, cancellations, refunds, required documents and payment methods for renting a car in Kisumu with SilverLake.',
+    },
   },
   {
     path: '/book',
@@ -379,6 +389,11 @@ router.afterEach((to) => {
     description: to.meta.description,
     url: `${window.location.origin}${to.path}`,
   })
+  // Drop any JSON-LD block a previous route's own onMounted set (HomeView's AggregateRating,
+  // VehicleDetailView's Product/Offer, FAQView's FAQPage) - each view sets only what applies to
+  // it, so a stale block from wherever the user navigated from must never survive into the new
+  // page. See utils/seo.js's own "ld-dynamic-" naming convention.
+  clearAllDynamicStructuredData()
   trackPageView(to.fullPath, to.meta.title)
 })
 

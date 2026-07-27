@@ -50,3 +50,32 @@ export function setPageMeta({ title, description, image, url, type = 'website' }
     setMetaTag('property', 'og:url', url)
   }
 }
+
+/**
+ * Adds/updates a page-specific JSON-LD structured data block, find-or-create by id (same
+ * pattern as setMetaTag above). `id` must be prefixed "ld-dynamic-" so clearAllDynamicStructuredData
+ * can find it - the one static block (index.html's own LocalBusiness/AutoRental script) is
+ * deliberately outside this naming scheme and never touched by JS.
+ */
+export function setStructuredData(id, data) {
+  if (!data) return
+  let script = document.getElementById(id)
+  if (!script) {
+    script = document.createElement('script')
+    script.type = 'application/ld+json'
+    script.id = id
+    document.head.appendChild(script)
+  }
+  script.textContent = JSON.stringify(data)
+}
+
+/**
+ * Removes every dynamic JSON-LD block - called from router/index.js's afterEach before a new
+ * route's own onMounted gets a chance to set what it needs. Without this, client-side
+ * navigating from a page that set one dynamic block to a page that sets a different one would
+ * leave the first page's block sitting in document.head alongside the new one (setStructuredData
+ * only overwrites a block with the exact same id, it never removes others).
+ */
+export function clearAllDynamicStructuredData() {
+  document.head.querySelectorAll('script[id^="ld-dynamic-"]').forEach((el) => el.remove())
+}

@@ -131,6 +131,7 @@ const featureStrip = [
           <RouterLink to="/terms" class="hover:text-gold-400">Terms of Service</RouterLink>
           <RouterLink to="/privacy" class="hover:text-gold-400">Privacy Policy</RouterLink>
           <RouterLink to="/refund-policy" class="hover:text-gold-400">Refund &amp; Cancellation</RouterLink>
+          <RouterLink to="/faq" class="hover:text-gold-400">FAQ</RouterLink>
         </div>
       </div>
     </div>

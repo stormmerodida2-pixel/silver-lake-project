@@ -1,0 +1,24 @@
+# SilverLake Car Rentals
+
+> Premium car hire in Kisumu, Kenya, with drivers or self-drive. Book instantly via M-Pesa or bank transfer.
+
+SilverLake Car Rentals is based in Kisumu, Kenya and serves destinations across the country. The
+fleet includes SUVs (e.g. Toyota Prado), family vehicles (Toyota Voxy, Axio) and vans, available
+with a professional driver or for self-drive. Bookings require a deposit of at least 30% of the
+total cost, paid via M-Pesa or bank transfer.
+
+## Key Pages
+
+- [Fleet](https://silverlakecarentals.com/fleet): Browse available vehicles, daily rates, and service types.
+- [Book](https://silverlakecarentals.com/book): Start a booking.
+- [FAQ](https://silverlakecarentals.com/faq): Deposit, cancellation, refund and required-document details.
+- [Refund & Cancellation Policy](https://silverlakecarentals.com/refund-policy): Full terms.
+- [Reviews](https://silverlakecarentals.com/reviews): Customer reviews and ratings.
+- [Blog](https://silverlakecarentals.com/blog): Kisumu and Kenya travel guides.
+- [Become a Driver](https://silverlakecarentals.com/become-a-driver): Apply as a driver-partner.
+- [Contact](https://silverlakecarentals.com/contact): Phone, email and support.
+
+## Contact
+
+- Phone: +254 790 111 000
+- Email: info@silverlakecarrentals.co.ke
