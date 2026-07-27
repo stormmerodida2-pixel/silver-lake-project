@@ -27,7 +27,9 @@ test('a customer can apply their referral credit toward a booking', async ({ pag
 
   await page.locator('label:has-text("Start date") + input').fill(toDateInput(start))
   await page.locator('label:has-text("End date") + input').fill(toDateInput(end))
-  await page.locator('label:has-text("Pickup location") + input').fill('Kisumu Airport')
+  // Pickup location is now AddressAutocomplete.vue, not a bare <input> - the label's immediate
+  // sibling is that component's wrapping <div>, with the real <input> nested inside it.
+  await page.locator('label:has-text("Pickup location") + div input').fill('Kisumu Airport')
   await page.getByRole('button', { name: 'Confirm Booking' }).click()
   await expect(page.getByRole('heading', { name: 'Booking Received' })).toBeVisible()
 

@@ -25,7 +25,9 @@ test('a logged-in customer can book the seeded vehicle, see it in My Bookings, a
   const pickupLocation = `E2E Test Pickup ${Date.now()}`
   await page.locator('label:has-text("Start date") + input').fill(futureDateString(offset))
   await page.locator('label:has-text("End date") + input').fill(futureDateString(offset + 2))
-  await page.locator('label:has-text("Pickup location") + input').fill(pickupLocation)
+  // Pickup location is now AddressAutocomplete.vue, not a bare <input> - the label's immediate
+  // sibling is that component's wrapping <div>, with the real <input> nested inside it.
+  await page.locator('label:has-text("Pickup location") + div input').fill(pickupLocation)
 
   // Name/phone/email are pre-filled from the logged-in account (see BookingView.vue's form
   // defaults) - nothing else to fill for a with-driver booking.
