@@ -3265,6 +3265,78 @@ class EscalateUnacknowledgedBookingsTests(APITestCase):
         self.assertIsNone(booking.ack_escalated_at)
 
 
+class SendPickupRemindersTests(APITestCase):
+    """The automated pre-trip nudge - fires once per booking, the day before pickup, for
+    CONFIRMED bookings only."""
+
+    def setUp(self):
+        self.driver = Driver.objects.create(full_name='Pickup Reminder Driver', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver, price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(
+            username='pickup-reminder-client@example.com', password='pass12345!',
+        )
+
+    def _run(self):
+        from bookings.services import send_pickup_reminders
+
+        send_pickup_reminders()
+
+    def _make_confirmed_booking(self, **kwargs):
+        kwargs.setdefault('status', BookingStatus.CONFIRMED)
+        kwargs.setdefault('start_date', TOMORROW)
+        kwargs.setdefault('end_date', NEXT_WEEK)
+        return make_booking(self.customer, self.vehicle, driver=self.driver, **kwargs)
+
+    def test_confirmed_booking_with_pickup_tomorrow_gets_reminded(self):
+        booking = self._make_confirmed_booking(customer_email='jane@example.com')
+        mail.outbox = []
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNotNone(booking.pickup_reminder_sent_at)
+        reminder_emails = [m for m in mail.outbox if 'pickup is tomorrow' in m.subject]
+        self.assertEqual(len(reminder_emails), 1)
+        self.assertIn('jane@example.com', reminder_emails[0].to)
+
+    def test_pending_booking_is_left_alone(self):
+        booking = self._make_confirmed_booking(status=BookingStatus.PENDING)
+        mail.outbox = []
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.pickup_reminder_sent_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_booking_not_starting_tomorrow_is_left_alone(self):
+        booking = self._make_confirmed_booking(start_date=NEXT_WEEK, end_date=NEXT_WEEK + timedelta(days=3))
+        mail.outbox = []
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.pickup_reminder_sent_at)
+
+    def test_cancelled_booking_is_left_alone(self):
+        booking = self._make_confirmed_booking(status=BookingStatus.CANCELLED)
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.pickup_reminder_sent_at)
+
+    def test_reminder_only_ever_fires_once(self):
+        self._make_confirmed_booking(customer_email='jane@example.com')
+        self._run()
+        mail.outbox = []
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_account_holder_also_reminded_when_trip_booked_for_someone_else(self):
+        self._make_confirmed_booking(customer_email='jane-trip@example.com')
+        self.customer.email = 'account-holder@example.com'
+        self.customer.first_name = 'Account'
+        self.customer.save(update_fields=['email', 'first_name'])
+        mail.outbox = []
+        self._run()
+        recipients = [addr for m in mail.outbox for addr in m.to]
+        self.assertIn('jane-trip@example.com', recipients)
+        self.assertIn('account-holder@example.com', recipients)
+
+
 class ExpireStalePendingBookingsTests(APITestCase):
     """An abandoned checkout - a PENDING booking nobody ever paid anything toward - shouldn't
     block a vehicle from public visibility or from being booked by someone else forever. See
