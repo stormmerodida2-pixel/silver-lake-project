@@ -240,6 +240,11 @@ class Booking(models.Model):
     # bookings.services.send_pickup_reminders) has gone out for this booking - fires at most once.
     pickup_reminder_sent_at = models.DateTimeField(null=True, blank=True)
 
+    # Set once the automated review-invite follow-up (see bookings.services.send_review_reminders)
+    # has gone out for this booking - fires at most once, and only if the customer still hasn't
+    # left a review by then (see the `review__isnull` check there).
+    review_reminder_sent_at = models.DateTimeField(null=True, blank=True)
+
     # Set once (at mark_cancelled time) to whichever refund rule actually applied to this
     # specific cancellation - never re-derived afterwards, since a staff driver-fault override
     # can't be reconstructed later from driver_acknowledged_at alone. Needed so a late-arriving

@@ -201,6 +201,29 @@ def send_trip_completed_email(booking):
         pass
 
 
+def send_review_reminder_email(booking):
+    """One-time follow-up sent to a customer who hasn't left a review a few days after their trip
+    completed (see bookings.services.send_review_reminders). No-ops if the account somehow has no
+    customer_email on file, same as send_trip_completed_email. Swallowed silently on failure so a
+    misconfigured SMTP server never blocks the reminder sweep."""
+    if not booking.customer_email:
+        return
+    try:
+        from django.conf import settings
+        send_branded_email(
+            subject=f'Got a minute? Tell us about your SilverLake trip (Booking #{booking.pk})',
+            template_name='emails/review_reminder.html',
+            context={
+                'first_name': booking.customer_name.split()[0],
+                'vehicle_name': booking.vehicle.name,
+                'review_url': f'{settings.FRONTEND_URL}/account/bookings',
+            },
+            recipient_list=[booking.customer_email],
+        )
+    except Exception:
+        pass
+
+
 def send_waitlist_vehicle_available_email(entry):
     """Sent once (see bookings.services.notify_waitlist_for_freed_dates) when a vehicle a
     customer was waitlisted for opens up for their requested dates. Purely a heads-up - it's not
