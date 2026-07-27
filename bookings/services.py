@@ -91,6 +91,37 @@ def expire_stale_pending_bookings():
     return count
 
 
+def send_pickup_reminders():
+    """Nudges the customer the day before pickup - "your pickup is tomorrow at [vehicle] from
+    [pickup location]" - the industry-standard no-show reduction pattern (Turo/Hertz/Avis all
+    do a version of this). Runs on every scheduler tick (see payments.scheduler); the
+    start_date == tomorrow condition combined with pickup_reminder_sent_at__isnull=True means a
+    given booking is only ever caught by this once, on whichever tick first sees it the day
+    before pickup - no cooldown needed, since "tomorrow" for a fixed start_date is only ever
+    true for a single calendar day.
+
+    Scoped to CONFIRMED bookings only - PENDING means the deposit has not actually cleared yet,
+    so a customer mid-checkout with a near-term start_date would otherwise get a "your pickup is
+    tomorrow" message for a trip that is not actually locked in (and may yet be auto-cancelled by
+    expire_stale_pending_bookings). ONGOING/COMPLETED/CANCELLED are simply the wrong states for a
+    forward-looking pickup reminder."""
+    from .emails import send_pickup_reminder_email, send_pickup_reminder_sms
+
+    tomorrow = timezone.localdate() + timedelta(days=1)
+
+    candidates = Booking.objects.filter(
+        status=BookingStatus.CONFIRMED,
+        start_date=tomorrow,
+        pickup_reminder_sent_at__isnull=True,
+    ).select_related('vehicle')
+
+    for booking in candidates:
+        booking.pickup_reminder_sent_at = timezone.now()
+        booking.save(update_fields=['pickup_reminder_sent_at'])
+        send_pickup_reminder_sms(booking)
+        send_pickup_reminder_email(booking)
+
+
 def notify_waitlist_for_freed_dates(vehicle, start_date, end_date):
     """Called right after a booking is cancelled (see Booking.mark_cancelled) - tells anyone
     waitlisted for a date range that overlapped it, but only once that range genuinely has no

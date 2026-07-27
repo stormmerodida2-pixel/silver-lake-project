@@ -355,3 +355,57 @@ def send_corporate_account_confirmed_email(booking):
     except Exception:
         pass
 
+
+def send_pickup_reminder_sms(booking):
+    """SMS companion to send_pickup_reminder_email() below - same trigger (see
+    bookings.services.send_pickup_reminders), same swallow-on-failure rule, just a different
+    channel. SMS is genuinely more likely to actually be seen the day before a trip than email,
+    so this is not redundant with it."""
+    try:
+        send_sms(
+            booking.customer_phone,
+            f'Hi {booking.customer_name.split()[0]}, your SilverLake pickup is tomorrow! '
+            f'{booking.vehicle.name} from {booking.pickup_location}. See you then.',
+        )
+    except Exception:
+        pass
+
+
+def send_pickup_reminder_email(booking):
+    """Sent once per booking, the day before pickup (see
+    bookings.services.send_pickup_reminders) - reduces no-shows by making sure the trip is
+    front-of-mind the day before it starts. Also sent to the account holder (whoever actually
+    paid) when this trip was booked for someone else, same reasoning as
+    Booking._send_confirmation_email. Swallowed silently on failure so a misconfigured SMTP
+    server never blocks the reminder sweep."""
+    try:
+        subject = f'Reminder: your SilverLake pickup is tomorrow - booking #{booking.pk}'
+        base_context = {
+            'booking_id': booking.pk,
+            'vehicle_name': booking.vehicle.name,
+            'pickup_location': booking.pickup_location,
+            'start_date': booking.start_date.strftime('%d %b %Y'),
+        }
+
+        if booking.customer_email:
+            send_branded_email(
+                subject=subject,
+                template_name='emails/pickup_reminder.html',
+                context={**base_context, 'first_name': booking.customer_name.split()[0]},
+                recipient_list=[booking.customer_email],
+            )
+
+        if booking.user.email and booking.user.email != booking.customer_email:
+            send_branded_email(
+                subject=subject,
+                template_name='emails/pickup_reminder.html',
+                context={
+                    **base_context,
+                    'first_name': booking.user.first_name.split()[0] if booking.user.first_name else 'there',
+                    'booked_for_name': booking.customer_name,
+                },
+                recipient_list=[booking.user.email],
+            )
+    except Exception:
+        pass
+

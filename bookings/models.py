@@ -236,6 +236,10 @@ class Booking(models.Model):
     # re-emailed on every scheduler tick once they've already been told.
     payment_escalated_at = models.DateTimeField(null=True, blank=True)
 
+    # Set once the automated pre-trip reminder (SMS + email, sent the day before pickup - see
+    # bookings.services.send_pickup_reminders) has gone out for this booking - fires at most once.
+    pickup_reminder_sent_at = models.DateTimeField(null=True, blank=True)
+
     # Set once (at mark_cancelled time) to whichever refund rule actually applied to this
     # specific cancellation - never re-derived afterwards, since a staff driver-fault override
     # can't be reconstructed later from driver_acknowledged_at alone. Needed so a late-arriving
