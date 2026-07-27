@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Installable PWA - a service worker is already registered unconditionally on every page
+         load (src/utils/pushNotifications.js, for Web Push), which alongside this manifest is
+         everything Chrome/Android need to offer "Add to Home Screen". iOS Safari doesn't read
+         the manifest for its own home-screen icon, hence the separate apple-touch-icon/
+         apple-mobile-web-app-* tags below. -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0a1730" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="SilverLake" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>SilverLake Car Rentals | Car Hire in Kisumu &amp; Across Kenya</title>
     <meta
       name="description"
