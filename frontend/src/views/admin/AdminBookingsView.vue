@@ -116,6 +116,10 @@ async function remindBalance(booking) {
 // ── Corporate account bookings ───────────────────────────────────────────────
 const showCorpModal = ref(false)
 const corpModal = ref(null)
+// Corporate account management (create/edit companies) used to have its own top-level nav
+// entry - moved here since it's only ever needed alongside creating a corporate booking. Same
+// audience as before (platform superadmins only - see AdminCorporateAccountViewSet).
+const canManageCorporateAccounts = computed(() => auth.user?.is_superuser && !auth.user?.organization_name)
 
 function openCorpModal() {
   corpModal.value.open()
@@ -253,6 +257,13 @@ onMounted(() => {
       >
         + Corporate Booking
       </button>
+      <RouterLink
+        v-if="canManageCorporateAccounts"
+        to="/admin/corporate-accounts"
+        class="rounded-md border border-navy-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-gold-400 hover:text-gold-400"
+      >
+        Manage Corporate Accounts
+      </RouterLink>
       <button
         :disabled="exportingCsv"
         class="rounded-md border border-navy-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
