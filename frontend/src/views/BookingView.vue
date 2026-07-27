@@ -312,6 +312,25 @@ const totalDays = computed(() => {
   return Math.max(1, Math.round(diff) + 1)
 })
 
+// Straight-line (great-circle) distance, not a driving route - the app doesn't price by
+// distance, this is just so the customer can sanity-check how far apart the two points are.
+const EARTH_RADIUS_KM = 6371
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const toRad = (deg) => (deg * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a =
+    Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+const pickupDropoffDistanceKm = computed(() => {
+  if (form.pickup_lat == null || form.pickup_lng == null || form.dropoff_lat == null || form.dropoff_lng == null) {
+    return null
+  }
+  return haversineKm(Number(form.pickup_lat), Number(form.pickup_lng), Number(form.dropoff_lat), Number(form.dropoff_lng))
+})
+
 // Self-drive costs 3% more than the vehicle's own with-driver rate - mirrors Booking.save()'s
 // SELF_DRIVE_SURCHARGE_PERCENT on the backend, so the preview shown here matches what actually
 // gets charged.
@@ -640,6 +659,9 @@ async function declareBankTransfer() {
                 v-model="form.dropoff_location"
                 @select="(coords) => { form.dropoff_lat = coords?.lat ?? null; form.dropoff_lng = coords?.lng ?? null }"
               />
+              <p v-if="pickupDropoffDistanceKm !== null" class="mt-1 text-xs text-slate-500">
+                Straight-line distance: {{ pickupDropoffDistanceKm.toFixed(1) }} km
+              </p>
             </div>
 
             <div>
