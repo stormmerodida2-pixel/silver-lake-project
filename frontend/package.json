@@ -15,7 +15,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@sentry/vue": "^10.66.0",
+    "@sentry/vue": "^10.68.0",
     "@tailwindcss/typography": "^0.5.20",
     "@tiptap/extension-image": "^2.27.2",
     "@tiptap/extension-link": "^2.27.2",
