@@ -12,8 +12,7 @@
     <!-- Contact cards -->
     <section class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
       <div class="grid gap-6 sm:grid-cols-3">
-        <a
-          href="tel:+254790111000"
+        <div
           class="group flex flex-col items-center rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center transition hover:border-gold-400 hover:shadow-lg"
         >
           <div
@@ -28,14 +27,16 @@
             </svg>
           </div>
           <h2 class="mt-5 font-[Georgia] text-lg font-bold text-navy-900">Call Us</h2>
-          <p class="mt-2 text-base font-semibold text-brand-blue-600">0790 111 000</p>
+          <a href="tel:+254798184193" class="mt-2 block text-base font-semibold text-brand-blue-600 hover:underline">
+            0798 184 193
+          </a>
+          <a href="tel:+254710315345" class="mt-1 block text-base font-semibold text-brand-blue-600 hover:underline">
+            0710 315 345
+          </a>
           <p class="mt-1 text-sm text-slate-500">Available 7 days a week</p>
-        </a>
+        </div>
 
-        <a
-          href="https://wa.me/254790111000?text=Hello%20SilverLake%20Car%20Rentals%2C%20I%20would%20like%20to%20enquire%20about%20a%20booking."
-          target="_blank"
-          rel="noopener noreferrer"
+        <div
           class="group flex flex-col items-center rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center transition hover:border-green-500 hover:shadow-lg"
         >
           <div
@@ -48,9 +49,24 @@
             </svg>
           </div>
           <h2 class="mt-5 font-[Georgia] text-lg font-bold text-navy-900">WhatsApp</h2>
-          <p class="mt-2 text-base font-semibold text-green-600">0790 111 000</p>
+          <a
+            href="https://wa.me/254798184193?text=Hello%20SilverLake%20Car%20Rentals%2C%20I%20would%20like%20to%20enquire%20about%20a%20booking."
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mt-2 block text-base font-semibold text-green-600 hover:underline"
+          >
+            0798 184 193
+          </a>
+          <a
+            href="https://wa.me/254710315345?text=Hello%20SilverLake%20Car%20Rentals%2C%20I%20would%20like%20to%20enquire%20about%20a%20booking."
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mt-1 block text-base font-semibold text-green-600 hover:underline"
+          >
+            0710 315 345
+          </a>
           <p class="mt-1 text-sm text-slate-500">Fast replies, 7am–10pm</p>
-        </a>
+        </div>
 
         <a
           href="mailto:info@silverlakecarrentals.co.ke"

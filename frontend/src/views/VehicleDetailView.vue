@@ -198,8 +198,8 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
 
               <p class="mt-5 text-center text-xs text-slate-500">
                 Need help?
-                <a href="tel:+254790111000" class="font-semibold text-brand-blue-600 hover:underline">
-                  Call 0790 111 000
+                <a href="tel:+254798184193" class="font-semibold text-brand-blue-600 hover:underline">
+                  Call 0798 184 193
                 </a>
               </p>
             </div>
