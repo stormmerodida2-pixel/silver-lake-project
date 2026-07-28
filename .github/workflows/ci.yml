@@ -36,7 +36,7 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: npm
@@ -61,7 +61,7 @@ jobs:
           python-version: '3.12'
       - run: pip install pip-audit
       - run: pip-audit -r requirements.txt
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: npm
@@ -94,7 +94,7 @@ jobs:
             sleep 1
           done
           echo "Backend never came up" && exit 1
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: npm
@@ -176,7 +176,7 @@ jobs:
       # this is the one that actually ships. Uploaded to a staging path first, then moved into
       # nginx's serving root as a second SSH step - nginx (and the one-time certbot/reverse-proxy
       # config) was set up manually once; see README's Deployment section.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: npm
