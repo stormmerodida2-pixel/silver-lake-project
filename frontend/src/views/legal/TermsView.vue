@@ -122,7 +122,7 @@
             >
               info@silverlakecarrentals.co.ke
             </a>
-            or by calling 0790 111 000.
+            or by calling 0798 184 193.
           </p>
         </div>
       </div>

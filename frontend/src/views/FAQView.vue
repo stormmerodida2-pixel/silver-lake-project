@@ -51,7 +51,7 @@ const faqs = [
   },
   {
     question: 'How do I contact SilverLake Car Rentals?',
-    answer: 'Email info@silverlakecarrentals.co.ke or call 0790 111 000.',
+    answer: 'Email info@silverlakecarrentals.co.ke or call 0798 184 193.',
   },
 ]
 
@@ -93,7 +93,7 @@ onMounted(() => {
         <a href="mailto:info@silverlakecarrentals.co.ke" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
           >info@silverlakecarrentals.co.ke</a
         >
-        or call 0790 111 000.
+        or call 0798 184 193.
       </p>
     </section>
   </div>
