@@ -30,7 +30,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div v-if="unread.length" class="space-y-3">
+  <div v-if="unread.length" class="mx-auto w-full max-w-6xl space-y-3 px-4 pt-4 sm:px-6">
     <div
       v-for="announcement in unread"
       :key="announcement.id"
