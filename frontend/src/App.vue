@@ -16,9 +16,7 @@ const route = useRoute()
     (hideChrome true), so this needs to stay visible in every layout regardless. -->
     <ImpersonationBanner />
     <NavBar v-if="!route.meta.hideChrome" />
-    <div v-if="!route.meta.hideChrome" class="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6">
-      <AnnouncementBanner />
-    </div>
+    <AnnouncementBanner v-if="!route.meta.hideChrome" />
     <main class="flex-1">
       <RouterView />
     </main>
