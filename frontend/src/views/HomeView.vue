@@ -108,7 +108,9 @@ const howItWorks = [
         class="pointer-events-none absolute -left-32 bottom-0 h-72 w-72 rounded-full bg-brand-blue-500/10 blur-3xl"
       ></div>
 
-      <div class="relative mx-auto grid max-w-6xl gap-12 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-2 lg:items-center">
+      <div
+        class="relative mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:gap-12 sm:px-6 sm:py-28 lg:grid-cols-2 lg:items-center"
+      >
         <div>
           <p class="text-sm font-semibold uppercase tracking-widest text-gold-400">Kisumu &bull; Across Kenya</p>
           <h1 class="mt-3 max-w-2xl font-[Georgia] text-4xl font-bold leading-tight text-white sm:text-5xl">
@@ -156,7 +158,7 @@ const howItWorks = [
           </dl>
         </div>
 
-        <div v-if="heroVehicle" v-reveal class="relative mx-auto hidden w-full max-w-lg lg:block">
+        <div v-if="heroVehicle" v-reveal class="relative mx-auto w-full max-w-xs sm:max-w-sm lg:max-w-lg">
           <!-- Stands in for the flyer's Lake Victoria sunset backdrop - a warm gradient glow,
                not a fabricated photo, sitting behind the real fleet photography. -->
           <div
@@ -167,10 +169,10 @@ const howItWorks = [
             <!-- Thin corner brackets frame the card like a showcase spotlight - a small,
                  deliberate accent rather than a plain rectangle floating on the page. -->
             <span
-              class="pointer-events-none absolute -left-3 -top-3 h-10 w-10 rounded-tl-xl border-l-2 border-t-2 border-gold-400/70"
+              class="pointer-events-none absolute -left-3 -top-3 h-8 w-8 rounded-tl-xl border-l-2 border-t-2 border-gold-400/70 sm:h-10 sm:w-10"
             ></span>
             <span
-              class="pointer-events-none absolute -bottom-3 -right-3 h-10 w-10 rounded-br-xl border-b-2 border-r-2 border-gold-400/70"
+              class="pointer-events-none absolute -bottom-3 -right-3 h-8 w-8 rounded-br-xl border-b-2 border-r-2 border-gold-400/70 sm:h-10 sm:w-10"
             ></span>
 
             <!-- Fleet photography is studio-shot on a white background, so it's set on its own
@@ -189,7 +191,7 @@ const howItWorks = [
                   :key="heroVehicle.id"
                   :src="heroVehicle.image"
                   :alt="heroVehicle.name"
-                  class="h-72 w-full object-contain p-6 sm:h-80"
+                  class="h-44 w-full object-contain p-4 sm:h-64 sm:p-6 lg:h-80"
                 />
               </Transition>
             </div>
@@ -276,13 +278,13 @@ const howItWorks = [
 
     <!-- How it works -->
     <section v-reveal class="bg-white">
-      <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <p class="text-center text-sm font-semibold uppercase tracking-widest text-brand-blue-600">
           Simple, from booking to ride
         </p>
         <h2 class="mt-2 text-center font-[Georgia] text-3xl font-bold text-navy-900">How It Works</h2>
 
-        <div class="relative mt-14 grid gap-10 sm:grid-cols-3">
+        <div class="relative mt-10 grid gap-8 sm:mt-14 sm:grid-cols-3 sm:gap-10">
           <div class="absolute left-[16.5%] right-[16.5%] top-8 hidden h-px bg-slate-200 sm:block"></div>
 
           <div
@@ -291,7 +293,7 @@ const howItWorks = [
             class="relative flex flex-col items-center text-center"
           >
             <div
-              class="relative z-10 flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold-400 bg-navy-900 text-gold-400"
+              class="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border-2 border-gold-400 bg-navy-900 text-gold-400 sm:h-16 sm:w-16"
             >
               <svg
                 v-if="step.icon === 'search'"
@@ -337,7 +339,7 @@ const howItWorks = [
 
     <!-- Fleet preview -->
     <section class="bg-slate-50">
-      <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <p v-reveal class="text-center text-sm font-semibold uppercase tracking-widest text-brand-blue-600">
           Handpicked &amp; well maintained
         </p>
@@ -345,7 +347,7 @@ const howItWorks = [
           Our Fleet. <span class="text-brand-blue-600">Comfort for every need.</span>
         </h2>
 
-        <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="mt-8 grid gap-6 sm:mt-10 sm:grid-cols-2 lg:grid-cols-4">
           <VehicleCard v-for="vehicle in catalog.vehicles.slice(0, 4)" :key="vehicle.id" v-reveal :vehicle="vehicle" />
         </div>
 
@@ -366,16 +368,17 @@ const howItWorks = [
       ></div>
       <div class="pointer-events-none absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-gold-500/10 blur-3xl"></div>
 
-      <div class="relative mx-auto max-w-6xl px-4 py-14 sm:px-6">
+      <div class="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-14">
         <h2 v-reveal class="text-center font-[Georgia] text-2xl font-bold text-white">
           It's not just a journey, <span class="text-gold-400">it's an experience.</span>
         </h2>
-        <div class="mt-10 grid gap-8 sm:grid-cols-3 lg:grid-cols-5">
+        <div class="mt-8 grid grid-cols-2 gap-x-6 gap-y-8 sm:mt-10 sm:grid-cols-3 sm:gap-8 lg:grid-cols-5">
           <div
-            v-for="badge in trustBadges"
+            v-for="(badge, index) in trustBadges"
             :key="badge.title"
             v-reveal
             class="flex flex-col items-center text-center transition duration-300 hover:-translate-y-1"
+            :class="{ 'col-span-2 sm:col-span-1': index === trustBadges.length - 1 && trustBadges.length % 2 !== 0 }"
           >
             <div
               class="flex h-14 w-14 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400"
@@ -461,7 +464,7 @@ const howItWorks = [
 
     <!-- Become a driver CTA (hidden once you're already an active driver-partner) -->
     <section v-if="auth.user?.driver_status !== 'active'" class="bg-white">
-      <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <div
           v-reveal
           class="flex flex-col items-center justify-between gap-6 rounded-2xl border border-navy-800 bg-navy-900 px-6 py-10 text-center sm:px-12 md:flex-row md:text-left"
@@ -494,7 +497,7 @@ const howItWorks = [
 
     <!-- Reviews preview -->
     <section class="bg-white">
-      <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <p
           v-if="averageRating"
           v-reveal
