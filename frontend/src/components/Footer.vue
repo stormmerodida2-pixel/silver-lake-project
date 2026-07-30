@@ -109,7 +109,7 @@ const featureStrip = [
 
     <div class="border-t border-navy-800">
       <div
-        class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-10 gap-y-4 px-4 py-6 text-sm sm:px-6"
+        class="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-10 sm:gap-y-4 sm:px-6"
       >
         <div class="flex items-center gap-2">
           <SilverLakeLogo :size="22" />
@@ -121,13 +121,7 @@ const featureStrip = [
             >info@silverlakecarrentals.co.ke</a
           >
           <RouterLink to="/contact" class="hover:text-gold-400">Contact Us</RouterLink>
-        </div>
-
-        <div class="flex flex-wrap gap-x-6 gap-y-2 text-slate-300">
           <RouterLink to="/drivers" class="hover:text-gold-400">Meet Our Drivers</RouterLink>
-        </div>
-
-        <div class="flex flex-wrap gap-x-6 gap-y-2 text-slate-300">
           <RouterLink to="/terms" class="hover:text-gold-400">Terms of Service</RouterLink>
           <RouterLink to="/privacy" class="hover:text-gold-400">Privacy Policy</RouterLink>
           <RouterLink to="/refund-policy" class="hover:text-gold-400">Refund &amp; Cancellation</RouterLink>
