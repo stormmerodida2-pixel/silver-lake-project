@@ -66,18 +66,18 @@ onMounted(() => {
 <template>
   <div>
     <div class="mb-6 flex items-center justify-between">
-      <h1 class="font-[Georgia] text-2xl font-bold text-white">System Health</h1>
+      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">System Health</h1>
       <button
         :disabled="refreshing"
-        class="rounded-md border border-navy-700 px-3 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+        class="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
         @click="refresh"
       >
         {{ refreshing ? 'Checking...' : 'Refresh' }}
       </button>
     </div>
 
-    <p v-if="loading" class="text-center text-slate-400">Loading...</p>
-    <p v-else-if="error" class="text-center text-red-400">{{ error }}</p>
+    <p v-if="loading" class="text-center text-foreground-muted">Loading...</p>
+    <p v-else-if="error" class="text-center text-danger">{{ error }}</p>
 
     <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <div
@@ -88,36 +88,36 @@ onMounted(() => {
       >
         <div class="flex items-center gap-2">
           <span class="h-2.5 w-2.5 shrink-0 rounded-full" :class="checks[key]?.ok ? 'bg-emerald-400' : 'bg-red-400'" />
-          <h2 class="font-semibold text-white">{{ labels[key] }}</h2>
+          <h2 class="font-semibold text-foreground">{{ labels[key] }}</h2>
         </div>
         <p class="mt-2 text-sm" :class="checks[key]?.ok ? 'text-emerald-300' : 'text-red-300'">
           {{ checks[key]?.ok ? 'OK' : 'Attention needed' }}
         </p>
-        <p v-if="checks[key]?.detail" class="mt-1 text-xs text-slate-400">{{ checks[key].detail }}</p>
-        <p v-if="checks[key]?.environment" class="mt-1 text-xs text-slate-500">
+        <p v-if="checks[key]?.detail" class="mt-1 text-xs text-foreground-muted">{{ checks[key].detail }}</p>
+        <p v-if="checks[key]?.environment" class="mt-1 text-xs text-foreground-subtle">
           Environment: {{ checks[key].environment }}
         </p>
-        <p v-if="checks[key]?.engine" class="mt-1 text-xs text-slate-500">Engine: {{ checks[key].engine }}</p>
-        <p v-if="checks[key]?.error" class="mt-1 text-xs text-red-400">{{ checks[key].error }}</p>
+        <p v-if="checks[key]?.engine" class="mt-1 text-xs text-foreground-subtle">Engine: {{ checks[key].engine }}</p>
+        <p v-if="checks[key]?.error" class="mt-1 text-xs text-danger">{{ checks[key].error }}</p>
       </div>
     </div>
 
     <div class="mt-10">
-      <h2 class="font-[Georgia] text-xl font-bold text-white">Recent Errors</h2>
-      <p class="mt-1 text-sm text-slate-400">
+      <h2 class="font-[Georgia] text-xl font-bold text-foreground">Recent Errors</h2>
+      <p class="mt-1 text-sm text-foreground-muted">
         Everything worth a superadmin's attention, not just what a visitor happened to hit: frontend JS crashes and
         failed API requests reported by visitors' browsers, plus background sweep failures (stale-payment cleanup,
         escalation reminders, etc.) that have no user or request to report themselves - previously only ever visible
         via server logs.
       </p>
 
-      <p v-if="errorReportsLoading" class="mt-6 text-center text-slate-400">Loading...</p>
-      <p v-else-if="errorReportsError" class="mt-4 text-sm text-red-400">{{ errorReportsError }}</p>
+      <p v-if="errorReportsLoading" class="mt-6 text-center text-foreground-muted">Loading...</p>
+      <p v-else-if="errorReportsError" class="mt-4 text-sm text-danger">{{ errorReportsError }}</p>
 
       <template v-else>
-        <div class="mt-4 overflow-x-auto rounded-xl border border-navy-800">
+        <div class="mt-4 overflow-x-auto rounded-xl border border-border-subtle">
           <table class="w-full text-left text-sm">
-            <thead class="bg-navy-900 text-slate-400">
+            <thead class="bg-surface text-foreground-muted">
               <tr>
                 <th class="px-4 py-3">When</th>
                 <th class="px-4 py-3">Source</th>
@@ -127,32 +127,32 @@ onMounted(() => {
                 <th class="px-4 py-3" />
               </tr>
             </thead>
-            <tbody class="divide-y divide-navy-800 bg-navy-950">
+            <tbody class="divide-y divide-border-subtle bg-page">
               <template v-for="report in errorReportItems" :key="report.id">
                 <tr>
-                  <td class="px-4 py-3 whitespace-nowrap text-slate-400">{{ formatDate(report.created_at) }}</td>
+                  <td class="px-4 py-3 whitespace-nowrap text-foreground-muted">{{ formatDate(report.created_at) }}</td>
                   <td class="px-4 py-3">
                     <span
                       class="rounded-full px-2 py-0.5 text-xs font-semibold"
                       :class="
                         report.source === 'scheduler'
                           ? 'bg-brand-blue-500/10 text-brand-blue-400'
-                          : 'bg-navy-800 text-slate-300'
+                          : 'bg-surface-2 text-foreground-secondary'
                       "
                     >
                       {{ report.source_display }}
                     </span>
                   </td>
-                  <td class="px-4 py-3 text-white">
+                  <td class="px-4 py-3 text-foreground">
                     {{ report.source === 'scheduler' ? '-' : report.user_email || 'Anonymous visitor' }}
                   </td>
                   <td class="px-4 py-3 text-red-300">{{ report.message }}</td>
-                  <td class="px-4 py-3 text-slate-400">
+                  <td class="px-4 py-3 text-foreground-muted">
                     <span class="break-all">{{ report.url || '-' }}</span>
                   </td>
                   <td class="px-4 py-3 text-right">
                     <button
-                      class="text-xs font-medium text-gold-400 hover:underline"
+                      class="text-xs font-medium text-accent hover:underline"
                       @click="toggleExpanded(report.id)"
                     >
                       {{ expandedReportId === report.id ? 'Hide' : 'Details' }}
@@ -160,22 +160,22 @@ onMounted(() => {
                   </td>
                 </tr>
                 <tr v-if="expandedReportId === report.id">
-                  <td colspan="6" class="border-t border-navy-800 bg-navy-900/50 px-4 py-3">
-                    <p class="text-xs text-slate-400">User-Agent: {{ report.user_agent || 'Unknown' }}</p>
+                  <td colspan="6" class="border-t border-border-subtle bg-surface/50 px-4 py-3">
+                    <p class="text-xs text-foreground-muted">User-Agent: {{ report.user_agent || 'Unknown' }}</p>
                     <pre
                       v-if="report.stack"
-                      class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs text-slate-300"
+                      class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs text-foreground-secondary"
                       >{{ report.stack }}</pre>
                   </td>
                 </tr>
               </template>
             </tbody>
           </table>
-          <p v-if="!errorReportItems.length" class="p-6 text-center text-slate-400">No errors reported.</p>
-          <div v-if="errorReportsNextUrl" class="border-t border-navy-800 p-3 text-center">
+          <p v-if="!errorReportItems.length" class="p-6 text-center text-foreground-muted">No errors reported.</p>
+          <div v-if="errorReportsNextUrl" class="border-t border-border-subtle p-3 text-center">
             <button
               :disabled="errorReportsLoadingMore"
-              class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="loadMoreErrorReports"
             >
               {{ errorReportsLoadingMore ? 'Loading...' : 'Load More' }}

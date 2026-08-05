@@ -64,22 +64,22 @@ async function submit() {
 </script>
 
 <template>
-  <div class="bg-white">
+  <div class="bg-page">
     <div class="mx-auto max-w-2xl px-4 py-16 sm:px-6">
-      <h1 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">Become a Driver</h1>
-      <p class="mt-2 text-center text-slate-600">
+      <h1 class="text-center font-[Georgia] text-3xl font-bold text-foreground">Become a Driver</h1>
+      <p class="mt-2 text-center text-foreground-muted">
         Drive for SilverLake with your own vehicle. Submit your details below - our team reviews every application
         before you and your car go live on the platform.
       </p>
 
       <div
         v-if="auth.user?.driver_status === 'active'"
-        class="mt-10 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center"
+        class="mt-10 rounded-xl border border-border-subtle bg-surface p-6 text-center"
       >
-        <h2 class="font-[Georgia] text-xl font-bold text-brand-blue-600">You're already a driver-partner!</h2>
-        <p class="mt-2 text-sm text-slate-600">
+        <h2 class="font-[Georgia] text-xl font-bold text-accent">You're already a driver-partner!</h2>
+        <p class="mt-2 text-sm text-foreground-muted">
           Head to your
-          <RouterLink to="/driver" class="font-semibold text-brand-blue-600 hover:underline"
+          <RouterLink to="/driver" class="font-semibold text-accent hover:underline"
             >Driver Dashboard</RouterLink
           >
           to manage your vehicles and availability.
@@ -88,103 +88,103 @@ async function submit() {
 
       <div
         v-else-if="auth.user?.driver_status === 'suspended'"
-        class="mt-10 rounded-xl border border-red-200 bg-red-50 p-6 text-center"
+        class="mt-10 rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center"
       >
-        <h2 class="font-[Georgia] text-xl font-bold text-red-700">Currently Suspended</h2>
-        <p class="mt-2 text-sm text-red-700">
+        <h2 class="font-[Georgia] text-xl font-bold text-danger">Currently Suspended</h2>
+        <p class="mt-2 text-sm text-danger">
           Your driver-partner account is currently suspended. Contact us if you believe this was a mistake.
         </p>
       </div>
 
-      <div v-else-if="submitted" class="mt-10 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
-        <h2 class="font-[Georgia] text-xl font-bold text-brand-blue-600">Application received!</h2>
-        <p class="mt-2 text-sm text-slate-600">
+      <div v-else-if="submitted" class="mt-10 rounded-xl border border-border-subtle bg-surface p-6 text-center">
+        <h2 class="font-[Georgia] text-xl font-bold text-accent">Application received!</h2>
+        <p class="mt-2 text-sm text-foreground-muted">
           We'll review your documents and vehicle details, then contact you at {{ form.email }} or
           {{ form.phone_number }}.
         </p>
         <RouterLink
           to="/"
-          class="mt-4 inline-block rounded-md bg-gold-500 px-5 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400"
+          class="mt-4 inline-block rounded-md bg-accent-bg px-5 py-2.5 font-semibold text-on-accent transition hover:bg-accent-bg-hover"
         >
           Back to Home
         </RouterLink>
       </div>
 
-      <form v-else class="mt-10 space-y-6 rounded-xl border border-slate-200 bg-slate-50 p-6" @submit.prevent="submit">
+      <form v-else class="mt-10 space-y-6 rounded-xl border border-border-subtle bg-surface p-6" @submit.prevent="submit">
         <div>
-          <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-blue-600">About You</h3>
+          <h3 class="text-sm font-semibold uppercase tracking-wide text-accent">About You</h3>
           <div class="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
-              <label class="mb-1 block text-sm text-slate-600">First name</label>
+              <label class="mb-1 block text-sm text-foreground-muted">First name</label>
               <input
                 v-model="firstName"
                 type="text"
                 required
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
               />
             </div>
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Last name</label>
+              <label class="mb-1 block text-sm text-foreground-muted">Last name</label>
               <input
                 v-model="lastName"
                 type="text"
                 required
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
               />
             </div>
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Phone number</label>
-              <PhoneInput v-model="form.phone_number" required />
+              <label class="mb-1 block text-sm text-foreground-muted">Phone number</label>
+              <PhoneInput v-model="form.phone_number" required dark />
             </div>
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Email</label>
+              <label class="mb-1 block text-sm text-foreground-muted">Email</label>
               <input
                 v-model="form.email"
                 type="email"
                 required
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
               />
             </div>
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Years of driving experience</label>
+              <label class="mb-1 block text-sm text-foreground-muted">Years of driving experience</label>
               <input
                 v-model="form.years_of_experience"
                 type="number"
                 min="0"
                 required
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
               />
             </div>
           </div>
           <div class="mt-4">
-            <label class="mb-1 block text-sm text-slate-600">Short bio</label>
+            <label class="mb-1 block text-sm text-foreground-muted">Short bio</label>
             <textarea
               v-model="form.bio"
               rows="3"
-              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+              class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
             ></textarea>
           </div>
         </div>
 
         <div>
-          <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-blue-600">License</h3>
+          <h3 class="text-sm font-semibold uppercase tracking-wide text-accent">License</h3>
           <div class="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
-              <label class="mb-1 block text-sm text-slate-600">License number</label>
+              <label class="mb-1 block text-sm text-foreground-muted">License number</label>
               <input
                 v-model="form.license_number"
                 type="text"
                 required
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
               />
             </div>
             <div>
-              <label class="mb-1 block text-sm text-slate-600">License document (photo or PDF)</label>
+              <label class="mb-1 block text-sm text-foreground-muted">License document (photo or PDF)</label>
               <input
                 type="file"
                 required
                 accept="image/*,.pdf"
-                class="w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
+                class="w-full text-sm text-foreground-muted file:mr-3 file:rounded-md file:border-0 file:bg-accent-bg file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-on-accent"
                 @change="licenseDocument = $event.target.files[0]"
               />
             </div>
@@ -192,76 +192,76 @@ async function submit() {
         </div>
 
         <div>
-          <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-blue-600">Your Vehicle</h3>
+          <h3 class="text-sm font-semibold uppercase tracking-wide text-accent">Your Vehicle</h3>
           <div class="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Vehicle name</label>
+              <label class="mb-1 block text-sm text-foreground-muted">Vehicle name</label>
               <input
                 v-model="form.vehicle_name"
                 type="text"
                 placeholder="e.g. Toyota Noah"
                 required
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
               />
             </div>
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Category</label>
+              <label class="mb-1 block text-sm text-foreground-muted">Category</label>
               <select
                 v-model="form.vehicle_category"
                 required
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
               >
                 <option value="" disabled>Select a category</option>
                 <option v-for="cat in catalog.categories" :key="cat.slug" :value="cat.slug">{{ cat.name }}</option>
               </select>
             </div>
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Passenger capacity</label>
+              <label class="mb-1 block text-sm text-foreground-muted">Passenger capacity</label>
               <input
                 v-model="form.passenger_capacity"
                 type="number"
                 min="1"
                 required
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
               />
             </div>
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Proposed price per day (KES)</label>
+              <label class="mb-1 block text-sm text-foreground-muted">Proposed price per day (KES)</label>
               <input
                 v-model="form.price_per_day"
                 type="number"
                 min="0"
                 required
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
               />
             </div>
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Vehicle photo (optional)</label>
+              <label class="mb-1 block text-sm text-foreground-muted">Vehicle photo (optional)</label>
               <input
                 type="file"
                 accept="image/*"
-                class="w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
+                class="w-full text-sm text-foreground-muted file:mr-3 file:rounded-md file:border-0 file:bg-accent-bg file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-on-accent"
                 @change="vehiclePhoto = $event.target.files[0]"
               />
             </div>
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Logbook / proof of ownership (optional)</label>
+              <label class="mb-1 block text-sm text-foreground-muted">Logbook / proof of ownership (optional)</label>
               <input
                 type="file"
                 accept="image/*,.pdf"
-                class="w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
+                class="w-full text-sm text-foreground-muted file:mr-3 file:rounded-md file:border-0 file:bg-accent-bg file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-on-accent"
                 @change="vehicleLogbookDocument = $event.target.files[0]"
               />
             </div>
           </div>
         </div>
 
-        <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+        <p v-if="error" class="text-sm text-danger">{{ error }}</p>
 
         <button
           type="submit"
           :disabled="submitting"
-          class="w-full rounded-md bg-gold-500 px-4 py-2 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+          class="w-full rounded-md bg-accent-bg px-4 py-2 font-semibold text-on-accent transition hover:bg-accent-bg-hover disabled:opacity-60"
         >
           {{ submitting ? 'Submitting...' : 'Submit Application' }}
         </button>

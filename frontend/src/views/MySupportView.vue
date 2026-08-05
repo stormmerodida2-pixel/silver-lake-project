@@ -23,9 +23,9 @@ const statusLabels = {
   resolved: 'Resolved',
 }
 const statusStyles = {
-  open: 'bg-gold-500/10 text-gold-700',
-  in_progress: 'bg-brand-blue-50 text-brand-blue-600',
-  resolved: 'bg-emerald-50 text-emerald-600',
+  open: 'bg-accent-bg/10 text-accent border border-accent-border-strong/20',
+  in_progress: 'bg-blue-500/10 text-info border border-blue-500/20',
+  resolved: 'bg-emerald-500/10 text-success border border-emerald-500/20',
 }
 
 async function loadTickets() {
@@ -132,42 +132,45 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="bg-white">
+  <div class="bg-page">
     <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
       <div class="flex items-center justify-between">
-        <h1 class="font-[Georgia] text-3xl font-bold text-navy-900">Support</h1>
+        <h1 class="font-[Georgia] text-3xl font-bold text-foreground">Support</h1>
         <button
-          class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+          class="rounded-md bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover"
           @click="openForm"
         >
           + New Ticket
         </button>
       </div>
-      <p class="mt-2 text-slate-500">
+      <p class="mt-2 text-foreground-muted">
         Raise a billing question, dispute a charge, or report an issue with a trip - and track it here.
       </p>
 
       <!-- New ticket form -->
-      <div v-if="showForm" class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-6">
-        <p v-if="formError" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      <div v-if="showForm" class="mt-6 rounded-xl border border-border-subtle bg-surface p-6">
+        <p
+          v-if="formError"
+          class="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-danger"
+        >
           {{ formError }}
         </p>
         <form class="space-y-4" @submit.prevent="submitTicket">
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Category</label>
+              <label class="mb-1 block text-sm text-foreground-muted">Category</label>
               <select
                 v-model="form.category"
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
               >
                 <option v-for="(label, key) in categoryLabels" :key="key" :value="key">{{ label }}</option>
               </select>
             </div>
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Related booking (optional)</label>
+              <label class="mb-1 block text-sm text-foreground-muted">Related booking (optional)</label>
               <select
                 v-model="form.booking"
-                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
               >
                 <option value="">None</option>
                 <option v-for="booking in bookings" :key="booking.id" :value="booking.id">
@@ -177,49 +180,49 @@ onMounted(() => {
             </div>
           </div>
           <div>
-            <label class="mb-1 block text-sm text-slate-600">Subject</label>
+            <label class="mb-1 block text-sm text-foreground-muted">Subject</label>
             <input
               v-model="form.subject"
               type="text"
               required
               placeholder="Short summary of the issue"
-              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 placeholder-slate-400 focus:border-brand-blue-500 focus:outline-none"
+              class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground placeholder-foreground-subtle focus:border-accent-border focus:outline-none"
             />
           </div>
           <div>
-            <label class="mb-1 block text-sm text-slate-600">Description</label>
+            <label class="mb-1 block text-sm text-foreground-muted">Description</label>
             <textarea
               v-model="form.description"
               rows="4"
               required
               placeholder="Tell us what happened"
-              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 placeholder-slate-400 focus:border-brand-blue-500 focus:outline-none"
+              class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground placeholder-foreground-subtle focus:border-accent-border focus:outline-none"
             ></textarea>
           </div>
           <div>
-            <label class="mb-1 block text-sm text-slate-600">Photos (optional)</label>
+            <label class="mb-1 block text-sm text-foreground-muted">Photos (optional)</label>
             <input
               type="file"
               accept="image/*"
               multiple
-              class="w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-navy-900 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
+              class="w-full text-sm text-foreground-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground"
               @change="onPhotosSelected"
             />
             <div v-if="photoFiles.length" class="mt-2 flex flex-wrap gap-2">
               <div
                 v-for="(file, i) in photoFiles"
                 :key="i"
-                class="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs text-slate-600 shadow-sm"
+                class="flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-xs text-foreground-secondary shadow-sm"
               >
                 {{ file.name }}
-                <button type="button" class="font-bold text-red-500" @click="removePhoto(i)">&times;</button>
+                <button type="button" class="font-bold text-danger" @click="removePhoto(i)">&times;</button>
               </div>
             </div>
           </div>
           <div class="flex justify-end gap-3">
             <button
               type="button"
-              class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-400"
+              class="rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-surface-2"
               @click="showForm = false"
             >
               Cancel
@@ -227,7 +230,7 @@ onMounted(() => {
             <button
               type="submit"
               :disabled="saving"
-              class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-60"
+              class="rounded-md bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-60"
             >
               {{ saving ? 'Submitting…' : 'Submit Ticket' }}
             </button>
@@ -235,16 +238,16 @@ onMounted(() => {
         </form>
       </div>
 
-      <p v-if="loading" class="mt-10 text-center text-slate-500">Loading...</p>
-      <p v-else-if="error" class="mt-10 text-center text-red-600">{{ error }}</p>
-      <p v-else-if="!tickets.length" class="mt-10 text-center text-slate-500">You haven't filed any support tickets.</p>
+      <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>
+      <p v-else-if="error" class="mt-10 text-center text-danger">{{ error }}</p>
+      <p v-else-if="!tickets.length" class="mt-10 text-center text-foreground-subtle">You haven't filed any support tickets.</p>
 
       <div v-else class="mt-8 space-y-4">
-        <div v-for="ticket in tickets" :key="ticket.id" class="rounded-xl border border-slate-200 bg-slate-50 p-5">
+        <div v-for="ticket in tickets" :key="ticket.id" class="rounded-xl border border-border-subtle bg-surface p-5">
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h3 class="font-[Georgia] text-lg font-bold text-navy-900">{{ ticket.subject }}</h3>
-              <p class="text-sm text-slate-500">
+              <h3 class="font-[Georgia] text-lg font-bold text-foreground">{{ ticket.subject }}</h3>
+              <p class="text-sm text-foreground-subtle">
                 {{ categoryLabels[ticket.category] }}
                 <template v-if="ticket.booking_label"> &middot; {{ ticket.booking_label }}</template>
                 &middot; {{ new Date(ticket.created_at).toLocaleDateString() }}
@@ -257,23 +260,26 @@ onMounted(() => {
               {{ statusLabels[ticket.status] }}
             </span>
           </div>
-          <p class="mt-3 whitespace-pre-line text-sm text-slate-700">{{ ticket.description }}</p>
+          <p class="mt-3 whitespace-pre-line text-sm text-foreground-secondary">{{ ticket.description }}</p>
           <div v-if="ticket.photos.length" class="mt-3 flex flex-wrap gap-2">
             <a v-for="photo in ticket.photos" :key="photo.id" :href="photo.image" target="_blank" rel="noopener">
               <img
                 :src="photo.image"
                 alt="Attached photo"
-                class="h-16 w-16 rounded-lg border border-slate-200 object-cover"
+                class="h-16 w-16 rounded-lg border border-border-subtle object-cover"
               />
             </a>
           </div>
 
-          <div v-if="ticket.status === 'resolved'" class="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Resolution</p>
-            <p class="mt-1 whitespace-pre-line text-sm text-emerald-900">{{ ticket.resolution_note }}</p>
+          <div
+            v-if="ticket.status === 'resolved'"
+            class="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4"
+          >
+            <p class="text-xs font-semibold uppercase tracking-wide text-success">Resolution</p>
+            <p class="mt-1 whitespace-pre-line text-sm text-emerald-200">{{ ticket.resolution_note }}</p>
             <button
               :disabled="reopeningId === ticket.id"
-              class="mt-3 rounded-md border border-emerald-600 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-600 hover:text-white disabled:opacity-60"
+              class="mt-3 rounded-md border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold text-success transition hover:bg-emerald-500 hover:text-foreground disabled:opacity-60"
               @click="reopenTicket(ticket)"
             >
               {{ reopeningId === ticket.id ? 'Reopening…' : 'Not resolved? Reopen' }}

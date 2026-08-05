@@ -88,10 +88,10 @@ async function submit() {
         class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
         @click.self="close"
       >
-        <div class="w-full max-w-lg rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+        <div class="w-full max-w-lg rounded-2xl border border-border bg-surface p-8 shadow-2xl">
           <div class="mb-6 flex items-center justify-between">
-            <h2 class="font-[Georgia] text-xl font-bold text-white">New Corporate Booking</h2>
-            <button class="text-slate-400 transition-colors hover:text-white" @click="close">
+            <h2 class="font-[Georgia] text-xl font-bold text-foreground">New Corporate Booking</h2>
+            <button class="text-foreground-muted transition-colors hover:text-foreground" @click="close">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -99,59 +99,59 @@ async function submit() {
           </div>
 
           <form class="space-y-4" @submit.prevent="submit">
-            <p v-if="error" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ error }}</p>
-            <p class="rounded-lg bg-gold-500/10 px-4 py-3 text-xs text-gold-300">
+            <p v-if="error" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-danger">{{ error }}</p>
+            <p class="rounded-lg bg-accent-bg/10 px-4 py-3 text-xs text-accent-strong">
               Confirms immediately with no deposit required - billed separately per the company's own billing terms.
             </p>
 
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                 >Corporate Account *</label
               >
               <select
                 v-model.number="form.corporate_account"
                 required
-                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
               >
                 <option value="" disabled>Select a company</option>
                 <option v-for="a in accountOptions" :key="a.id" :value="a.id">{{ a.name }}</option>
               </select>
-              <p v-if="!accountOptions.length" class="mt-1 text-xs text-slate-500">
+              <p v-if="!accountOptions.length" class="mt-1 text-xs text-foreground-subtle">
                 No corporate accounts registered yet - a platform superadmin can add one via "Manage Corporate
                 Accounts" on this page.
               </p>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                 >Reference (optional)</label
               >
               <input
                 v-model="form.corporate_account_reference"
                 type="text"
                 placeholder="e.g. employee name/department or a PO number"
-                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
               />
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Service Type</label
                 >
                 <select
                   v-model="form.service_type"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                 >
                   <option value="with_driver">With Driver</option>
                   <option value="self_drive">Self Drive</option>
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Vehicle *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Vehicle *</label>
                 <select
                   v-model.number="form.vehicle"
                   required
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                 >
                   <option value="" disabled>Select a vehicle</option>
                   <option v-for="v in vehicleOptions" :key="v.id" :value="v.id">{{ v.name }}</option>
@@ -160,12 +160,12 @@ async function submit() {
             </div>
 
             <div v-if="form.service_type === 'with_driver'">
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                 >Driver (optional)</label
               >
               <select
                 v-model.number="form.driver"
-                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
               >
                 <option value="">No driver assigned yet</option>
                 <option v-for="d in driverOptions" :key="d.id" :value="d.id">{{ d.full_name }}</option>
@@ -174,35 +174,35 @@ async function submit() {
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Employee Name *</label
                 >
                 <input
                   v-model="form.customer_name"
                   type="text"
                   required
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Phone *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Phone *</label>
                 <PhoneInput v-model="form.customer_phone" required dark />
               </div>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                 >Email (optional)</label
               >
               <input
                 v-model="form.customer_email"
                 type="email"
-                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
               />
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Start Date *</label
                 >
                 <input
@@ -210,47 +210,47 @@ async function submit() {
                   type="date"
                   :min="today"
                   required
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">End Date *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">End Date *</label>
                 <input
                   v-model="form.end_date"
                   type="date"
                   :min="form.start_date || today"
                   required
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                 >Pickup Location *</label
               >
               <input
                 v-model="form.pickup_location"
                 type="text"
                 required
-                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
               />
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                 >Drop-off Location (optional)</label
               >
               <input
                 v-model="form.dropoff_location"
                 type="text"
-                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
               />
             </div>
 
             <div class="flex gap-3 pt-2">
               <button
                 type="button"
-                class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500 hover:text-white"
+                class="flex-1 rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground-secondary hover:border-slate-500 hover:text-foreground"
                 @click="close"
               >
                 Cancel
@@ -258,7 +258,7 @@ async function submit() {
               <button
                 type="submit"
                 :disabled="saving"
-                class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                class="flex-1 rounded-lg bg-accent-bg py-2.5 text-sm font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
               >
                 {{ saving ? 'Creating…' : 'Create Booking' }}
               </button>

@@ -102,8 +102,8 @@ const howItWorks = [
 <template>
   <div>
     <!-- Hero -->
-    <section class="relative overflow-hidden border-b border-navy-800 bg-linear-to-b from-navy-900 to-navy-950">
-      <div class="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-gold-500/10 blur-3xl"></div>
+    <section class="relative overflow-hidden border-b border-border-subtle bg-linear-to-b from-surface to-page">
+      <div class="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-accent-bg/10 blur-3xl"></div>
       <div
         class="pointer-events-none absolute -left-32 bottom-0 h-72 w-72 rounded-full bg-brand-blue-500/10 blur-3xl"
       ></div>
@@ -112,12 +112,12 @@ const howItWorks = [
         class="relative mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:gap-12 sm:px-6 sm:py-28 lg:grid-cols-2 lg:items-center"
       >
         <div>
-          <p class="text-sm font-semibold uppercase tracking-widest text-gold-400">Kisumu &bull; Across Kenya</p>
-          <h1 class="mt-3 max-w-2xl font-[Georgia] text-4xl font-bold leading-tight text-white sm:text-5xl">
+          <p class="text-sm font-semibold uppercase tracking-widest text-accent">Kisumu &bull; Across Kenya</p>
+          <h1 class="mt-3 max-w-2xl font-[Georgia] text-4xl font-bold leading-tight text-foreground sm:text-5xl">
             We don't just move you,
-            <span class="text-gold-400">we elevate your journey.</span>
+            <span class="text-accent">we elevate your journey.</span>
           </h1>
-          <p class="mt-5 max-w-xl text-slate-300">
+          <p class="mt-5 max-w-xl text-foreground-secondary">
             From the shores of Lake Victoria to every destination in Kenya, we deliver comfort, class and care in every
             mile.
           </p>
@@ -125,13 +125,13 @@ const howItWorks = [
           <div class="mt-8 flex flex-wrap gap-4">
             <RouterLink
               to="/book?service=with_driver"
-              class="rounded-md bg-gold-500 px-6 py-3 font-semibold text-navy-950 shadow-lg shadow-gold-500/20 transition hover:-translate-y-0.5 hover:bg-gold-400 hover:shadow-gold-500/30"
+              class="rounded-md bg-accent-bg px-6 py-3 font-semibold text-on-accent shadow-lg shadow-gold-500/20 transition hover:-translate-y-0.5 hover:bg-accent-bg-hover hover:shadow-gold-500/30"
             >
               Book with Driver
             </RouterLink>
             <RouterLink
               to="/book?service=self_drive"
-              class="rounded-md border border-gold-400 px-6 py-3 font-semibold text-gold-400 transition hover:-translate-y-0.5 hover:bg-navy-800"
+              class="rounded-md border border-accent-border px-6 py-3 font-semibold text-accent transition hover:-translate-y-0.5 hover:bg-surface-2"
             >
               Self Drive
             </RouterLink>
@@ -139,21 +139,21 @@ const howItWorks = [
 
           <dl
             v-if="catalog.vehicles.length || totalTripsCompleted > 0 || averageRating"
-            class="mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-navy-800 pt-6"
+            class="mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-border-subtle pt-6"
           >
             <div v-if="catalog.vehicles.length">
-              <dt class="font-[Georgia] text-2xl font-bold text-white">{{ catalog.vehicles.length }}+</dt>
-              <dd class="text-xs uppercase tracking-wide text-slate-400">Vehicles in the fleet</dd>
+              <dt class="font-[Georgia] text-2xl font-bold text-foreground">{{ catalog.vehicles.length }}+</dt>
+              <dd class="text-xs uppercase tracking-wide text-foreground-muted">Vehicles in the fleet</dd>
             </div>
             <div v-if="totalTripsCompleted > 0">
-              <dt class="font-[Georgia] text-2xl font-bold text-white">{{ totalTripsCompleted }}+</dt>
-              <dd class="text-xs uppercase tracking-wide text-slate-400">Trips completed</dd>
+              <dt class="font-[Georgia] text-2xl font-bold text-foreground">{{ totalTripsCompleted }}+</dt>
+              <dd class="text-xs uppercase tracking-wide text-foreground-muted">Trips completed</dd>
             </div>
             <div v-if="averageRating">
-              <dt class="font-[Georgia] text-2xl font-bold text-white">
-                {{ averageRating }}<span class="text-gold-400">&#9733;</span>
+              <dt class="font-[Georgia] text-2xl font-bold text-foreground">
+                {{ averageRating }}<span class="text-accent">&#9733;</span>
               </dt>
-              <dd class="text-xs uppercase tracking-wide text-slate-400">Average rating</dd>
+              <dd class="text-xs uppercase tracking-wide text-foreground-muted">Average rating</dd>
             </div>
           </dl>
         </div>
@@ -169,10 +169,10 @@ const howItWorks = [
             <!-- Thin corner brackets frame the card like a showcase spotlight - a small,
                  deliberate accent rather than a plain rectangle floating on the page. -->
             <span
-              class="pointer-events-none absolute -left-3 -top-3 h-8 w-8 rounded-tl-xl border-l-2 border-t-2 border-gold-400/70 sm:h-10 sm:w-10"
+              class="pointer-events-none absolute -left-3 -top-3 h-8 w-8 rounded-tl-xl border-l-2 border-t-2 border-accent-border/70 sm:h-10 sm:w-10"
             ></span>
             <span
-              class="pointer-events-none absolute -bottom-3 -right-3 h-8 w-8 rounded-br-xl border-b-2 border-r-2 border-gold-400/70 sm:h-10 sm:w-10"
+              class="pointer-events-none absolute -bottom-3 -right-3 h-8 w-8 rounded-br-xl border-b-2 border-r-2 border-accent-border/70 sm:h-10 sm:w-10"
             ></span>
 
             <!-- Fleet photography is studio-shot on a white background, so it's set on its own
@@ -182,7 +182,7 @@ const howItWorks = [
             <div class="relative overflow-hidden rounded-2xl bg-white shadow-2xl shadow-black/50 ring-1 ring-black/5">
               <span
                 v-if="heroVehicle.trips_completed > 0"
-                class="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-navy-950/90 px-3 py-1.5 text-xs font-semibold text-gold-400 shadow-lg backdrop-blur"
+                class="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-page/90 px-3 py-1.5 text-xs font-semibold text-accent shadow-lg backdrop-blur"
               >
                 &#9733; Most popular ride
               </span>
@@ -197,13 +197,13 @@ const howItWorks = [
             </div>
 
             <!-- Soft ground shadow gives the card a floating, podium feel. -->
-            <div class="mx-auto -mt-2 h-5 w-4/5 rounded-full bg-navy-950/60 blur-xl"></div>
+            <div class="mx-auto -mt-2 h-5 w-4/5 rounded-full bg-page/60 blur-xl"></div>
           </div>
 
           <Transition name="hero-fade" mode="out-in">
             <p :key="heroVehicle.id" class="mt-5 text-center">
-              <span class="font-[Georgia] text-lg font-bold text-white">{{ heroVehicle.name }}</span>
-              <span class="ml-2 text-sm font-semibold text-gold-400">{{
+              <span class="font-[Georgia] text-lg font-bold text-foreground">{{ heroVehicle.name }}</span>
+              <span class="ml-2 text-sm font-semibold text-accent">{{
                 heroVehicle.category_name || heroVehicle.category
               }}</span>
             </p>
@@ -223,20 +223,20 @@ const howItWorks = [
     </section>
 
     <!-- Rooted in Kisumu banner -->
-    <section v-reveal class="border-b border-navy-800 bg-navy-900">
+    <section v-reveal class="border-b border-border-subtle bg-surface">
       <div class="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-2">
         <div>
-          <h2 class="font-[Georgia] text-2xl font-bold text-white">
-            Rooted in Kisumu. <span class="text-gold-400">Driven across Kenya.</span>
+          <h2 class="font-[Georgia] text-2xl font-bold text-foreground">
+            Rooted in Kisumu. <span class="text-accent">Driven across Kenya.</span>
           </h2>
-          <p class="mt-2 text-sm text-slate-300">
+          <p class="mt-2 text-sm text-foreground-secondary">
             We are more than a car hire company. We are your travel partners. Anywhere. Anytime.
           </p>
         </div>
-        <ul class="flex flex-col justify-center gap-4 text-sm text-slate-200">
+        <ul class="flex flex-col justify-center gap-4 text-sm text-foreground">
           <li class="flex items-center gap-3">
             <span
-              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accent-border/40 bg-page text-accent"
             >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                 <path
@@ -251,7 +251,7 @@ const howItWorks = [
           </li>
           <li class="flex items-center gap-3">
             <span
-              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accent-border/40 bg-page text-accent"
             >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 17l4-7 3 4 3-6 5 9" />
@@ -262,7 +262,7 @@ const howItWorks = [
           </li>
           <li class="flex items-center gap-3">
             <span
-              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accent-border/40 bg-page text-accent"
             >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                 <path
@@ -277,15 +277,15 @@ const howItWorks = [
     </section>
 
     <!-- How it works -->
-    <section v-reveal class="bg-white">
+    <section v-reveal class="bg-page">
       <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
-        <p class="text-center text-sm font-semibold uppercase tracking-widest text-brand-blue-600">
+        <p class="text-center text-sm font-semibold uppercase tracking-widest text-accent">
           Simple, from booking to ride
         </p>
-        <h2 class="mt-2 text-center font-[Georgia] text-3xl font-bold text-navy-900">How It Works</h2>
+        <h2 class="mt-2 text-center font-[Georgia] text-3xl font-bold text-foreground">How It Works</h2>
 
         <div class="relative mt-10 grid gap-8 sm:mt-14 sm:grid-cols-3 sm:gap-10">
-          <div class="absolute left-[16.5%] right-[16.5%] top-8 hidden h-px bg-slate-200 sm:block"></div>
+          <div class="absolute left-[16.5%] right-[16.5%] top-8 hidden h-px bg-surface-2 sm:block"></div>
 
           <div
             v-for="(step, index) in howItWorks"
@@ -293,7 +293,7 @@ const howItWorks = [
             class="relative flex flex-col items-center text-center"
           >
             <div
-              class="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border-2 border-gold-400 bg-navy-900 text-gold-400 sm:h-16 sm:w-16"
+              class="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border-2 border-accent-border bg-surface text-accent sm:h-16 sm:w-16"
             >
               <svg
                 v-if="step.icon === 'search'"
@@ -328,23 +328,23 @@ const howItWorks = [
                 />
               </svg>
             </div>
-            <p class="mt-5 font-[Georgia] text-lg font-bold text-navy-900">
-              <span class="text-gold-500">{{ String(index + 1).padStart(2, '0') }}.</span> {{ step.title }}
+            <p class="mt-5 font-[Georgia] text-lg font-bold text-foreground">
+              <span class="text-accent-strong">{{ String(index + 1).padStart(2, '0') }}.</span> {{ step.title }}
             </p>
-            <p class="mt-1 max-w-64 text-sm text-slate-600">{{ step.text }}</p>
+            <p class="mt-1 max-w-64 text-sm text-foreground-muted">{{ step.text }}</p>
           </div>
         </div>
       </div>
     </section>
 
     <!-- Fleet preview -->
-    <section class="bg-slate-50">
+    <section class="bg-page">
       <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
-        <p v-reveal class="text-center text-sm font-semibold uppercase tracking-widest text-brand-blue-600">
+        <p v-reveal class="text-center text-sm font-semibold uppercase tracking-widest text-accent">
           Handpicked &amp; well maintained
         </p>
-        <h2 v-reveal class="mt-2 text-center font-[Georgia] text-3xl font-bold text-navy-900">
-          Our Fleet. <span class="text-brand-blue-600">Comfort for every need.</span>
+        <h2 v-reveal class="mt-2 text-center font-[Georgia] text-3xl font-bold text-foreground">
+          Our Fleet. <span class="text-accent">Comfort for every need.</span>
         </h2>
 
         <div class="mt-8 grid gap-6 sm:mt-10 sm:grid-cols-2 lg:grid-cols-4">
@@ -352,7 +352,7 @@ const howItWorks = [
         </div>
 
         <div class="mt-8 text-center">
-          <RouterLink to="/fleet" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">
+          <RouterLink to="/fleet" class="font-semibold text-accent hover:text-accent-strong">
             View full fleet &rarr;
           </RouterLink>
         </div>
@@ -360,17 +360,17 @@ const howItWorks = [
     </section>
 
     <!-- Experience / trust badges -->
-    <section class="relative overflow-hidden border-y border-navy-800 bg-navy-900">
+    <section class="relative overflow-hidden border-y border-border-subtle bg-surface">
       <!-- Stands in for the flyer's fisherman-at-sunset photo - a warm horizon-glow gradient,
            not a fabricated photo of a real person or place. -->
       <div
         class="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-linear-to-t from-gold-500/10 via-brand-blue-500/5 to-transparent"
       ></div>
-      <div class="pointer-events-none absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-gold-500/10 blur-3xl"></div>
+      <div class="pointer-events-none absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-accent-bg/10 blur-3xl"></div>
 
       <div class="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-14">
-        <h2 v-reveal class="text-center font-[Georgia] text-2xl font-bold text-white">
-          It's not just a journey, <span class="text-gold-400">it's an experience.</span>
+        <h2 v-reveal class="text-center font-[Georgia] text-2xl font-bold text-foreground">
+          It's not just a journey, <span class="text-accent">it's an experience.</span>
         </h2>
         <div class="mt-8 grid grid-cols-2 gap-x-6 gap-y-8 sm:mt-10 sm:grid-cols-3 sm:gap-8 lg:grid-cols-5">
           <div
@@ -381,7 +381,7 @@ const howItWorks = [
             :class="{ 'col-span-2 sm:col-span-1': index === trustBadges.length - 1 && trustBadges.length % 2 !== 0 }"
           >
             <div
-              class="flex h-14 w-14 items-center justify-center rounded-full border border-gold-400/40 bg-navy-950 text-gold-400"
+              class="flex h-14 w-14 items-center justify-center rounded-full border border-accent-border/40 bg-page text-accent"
             >
               <svg
                 v-if="badge.icon === 'shield'"
@@ -442,52 +442,52 @@ const howItWorks = [
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 13.8L7.5 21l4.5-2.5 4.5 2.5-1.5-7.2" />
               </svg>
             </div>
-            <p class="mt-3 font-semibold text-gold-400">{{ badge.title }}</p>
-            <p class="mt-1 text-sm text-slate-300">{{ badge.text }}</p>
+            <p class="mt-3 font-semibold text-accent">{{ badge.title }}</p>
+            <p class="mt-1 text-sm text-foreground-secondary">{{ badge.text }}</p>
           </div>
         </div>
 
         <div
           v-reveal
-          class="mx-auto mt-14 flex max-w-lg flex-col items-center gap-2 rounded-2xl border border-gold-400/30 bg-navy-950/60 px-8 py-6 text-center"
+          class="mx-auto mt-14 flex max-w-lg flex-col items-center gap-2 rounded-2xl border border-accent-border/30 bg-page/60 px-8 py-6 text-center"
         >
-          <svg class="h-7 w-7 text-gold-400" fill="currentColor" viewBox="0 0 24 24">
+          <svg class="h-7 w-7 text-accent" fill="currentColor" viewBox="0 0 24 24">
             <path d="M4 18h16v2H4v-2ZM4 8l3.5 2.5L12 5l4.5 5.5L20 8v8H4V8Z" />
           </svg>
-          <p class="font-[Georgia] text-lg font-bold text-white">
-            Your Comfort. <span class="text-gold-400">Our Commitment.</span>
+          <p class="font-[Georgia] text-lg font-bold text-foreground">
+            Your Comfort. <span class="text-accent">Our Commitment.</span>
           </p>
-          <p class="font-[Georgia] text-base italic text-slate-300">Karibu sana!</p>
+          <p class="font-[Georgia] text-base italic text-foreground-secondary">Karibu sana!</p>
         </div>
       </div>
     </section>
 
     <!-- Become a driver CTA (hidden once you're already an active driver-partner) -->
-    <section v-if="auth.user?.driver_status !== 'active'" class="bg-white">
+    <section v-if="auth.user?.driver_status !== 'active'" class="bg-page">
       <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <div
           v-reveal
-          class="flex flex-col items-center justify-between gap-6 rounded-2xl border border-navy-800 bg-navy-900 px-6 py-10 text-center sm:px-12 md:flex-row md:text-left"
+          class="flex flex-col items-center justify-between gap-6 rounded-2xl border border-border-subtle bg-surface px-6 py-10 text-center sm:px-12 md:flex-row md:text-left"
         >
           <div>
-            <h2 class="font-[Georgia] text-2xl font-bold text-white">
-              Own a car? <span class="text-gold-400">Partner with SilverLake.</span>
+            <h2 class="font-[Georgia] text-2xl font-bold text-foreground">
+              Own a car? <span class="text-accent">Partner with SilverLake.</span>
             </h2>
-            <p class="mt-2 max-w-xl text-sm text-slate-300">
+            <p class="mt-2 max-w-xl text-sm text-foreground-secondary">
               List your vehicle with us and start earning as a driver-partner. Applications are reviewed by our team
               before you go live.
             </p>
           </div>
           <p
             v-if="auth.user?.driver_status === 'suspended'"
-            class="shrink-0 rounded-md border border-red-400 px-6 py-3 font-semibold text-red-400"
+            class="shrink-0 rounded-md border border-danger-border px-6 py-3 font-semibold text-danger"
           >
             Currently Suspended
           </p>
           <RouterLink
             v-else
             to="/become-a-driver"
-            class="shrink-0 rounded-md bg-gold-500 px-6 py-3 font-semibold text-navy-950 transition hover:bg-gold-400"
+            class="shrink-0 rounded-md bg-accent-bg px-6 py-3 font-semibold text-on-accent transition hover:bg-accent-bg-hover"
           >
             Become a Driver
           </RouterLink>
@@ -496,21 +496,21 @@ const howItWorks = [
     </section>
 
     <!-- Reviews preview -->
-    <section class="bg-white">
+    <section class="bg-page">
       <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <p
           v-if="averageRating"
           v-reveal
-          class="text-center text-sm font-semibold uppercase tracking-widest text-brand-blue-600"
+          class="text-center text-sm font-semibold uppercase tracking-widest text-accent"
         >
           {{ averageRating }}&#9733; average &middot; real reviews from real trips
         </p>
-        <h2 v-reveal class="mt-2 text-center font-[Georgia] text-3xl font-bold text-navy-900">What our clients say</h2>
+        <h2 v-reveal class="mt-2 text-center font-[Georgia] text-3xl font-bold text-foreground">What our clients say</h2>
         <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <ReviewCard v-for="review in catalog.reviews.slice(0, 3)" :key="review.id" v-reveal :review="review" />
         </div>
         <div class="mt-8 text-center">
-          <RouterLink to="/reviews" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500">
+          <RouterLink to="/reviews" class="font-semibold text-accent hover:text-accent-strong">
             Read all reviews &rarr;
           </RouterLink>
         </div>

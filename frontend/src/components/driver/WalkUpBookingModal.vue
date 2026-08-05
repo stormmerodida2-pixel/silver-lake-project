@@ -81,12 +81,12 @@ async function copyPaymentLink() {
         class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
         @click.self="close"
       >
-        <div class="w-full max-w-lg rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+        <div class="w-full max-w-lg rounded-2xl border border-border bg-surface p-8 shadow-2xl">
           <div class="mb-6 flex items-center justify-between">
-            <h2 class="font-[Georgia] text-xl font-bold text-white">
+            <h2 class="font-[Georgia] text-xl font-bold text-foreground">
               {{ onsiteResult ? 'Booking Created' : 'Book For a Client On-Site' }}
             </h2>
-            <button class="text-slate-400 transition-colors hover:text-white" @click="close">
+            <button class="text-foreground-muted transition-colors hover:text-foreground" @click="close">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -95,23 +95,23 @@ async function copyPaymentLink() {
 
           <!-- Result: collect payment (method + exact amount), fall back to sharing the link -->
           <div v-if="onsiteResult" class="space-y-4">
-            <p class="text-sm text-slate-300">
+            <p class="text-sm text-foreground-secondary">
               Booking created for <strong>{{ onsiteResult.booking.customer_name }}</strong
               >. Ask how they're paying and the exact amount.
             </p>
 
-            <div class="rounded-lg border border-navy-700 bg-navy-800/50 p-4">
+            <div class="rounded-lg border border-border bg-surface-2/50 p-4">
               <BookingPaymentCollector :booking="onsiteResult.booking" />
             </div>
 
-            <details class="text-sm text-slate-400">
-              <summary class="cursor-pointer select-none font-semibold text-slate-300">
+            <details class="text-sm text-foreground-muted">
+              <summary class="cursor-pointer select-none font-semibold text-foreground-secondary">
                 Or share a payment link instead
               </summary>
-              <div class="mt-2 flex items-center gap-2 rounded-lg border border-navy-700 bg-navy-800 px-3 py-2">
-                <span class="flex-1 truncate text-xs text-slate-300">{{ onsiteResult.payment_url }}</span>
+              <div class="mt-2 flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2">
+                <span class="flex-1 truncate text-xs text-foreground-secondary">{{ onsiteResult.payment_url }}</span>
                 <button
-                  class="shrink-0 rounded-md bg-gold-500 px-3 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400"
+                  class="shrink-0 rounded-md bg-accent-bg px-3 py-1 text-xs font-semibold text-on-accent hover:bg-accent-bg-hover"
                   @click="copyPaymentLink"
                 >
                   Copy
@@ -121,14 +121,14 @@ async function copyPaymentLink() {
                 :href="`https://wa.me/?text=${encodeURIComponent('Here is your SilverLake payment link: ' + onsiteResult.payment_url)}`"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500 py-2.5 text-sm font-semibold text-emerald-400 hover:bg-emerald-500 hover:text-navy-950"
+                class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500 py-2.5 text-sm font-semibold text-success hover:bg-emerald-500 hover:text-on-accent"
               >
                 Share via WhatsApp
               </a>
             </details>
 
             <button
-              class="w-full rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500 hover:text-white"
+              class="w-full rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground-secondary hover:border-slate-500 hover:text-foreground"
               @click="close"
             >
               Done
@@ -137,14 +137,14 @@ async function copyPaymentLink() {
 
           <!-- Form -->
           <form v-else class="space-y-4" @submit.prevent="submitOnsiteBooking">
-            <p v-if="onsiteError" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ onsiteError }}</p>
+            <p v-if="onsiteError" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-danger">{{ onsiteError }}</p>
 
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Vehicle *</label>
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Vehicle *</label>
               <select
                 v-model.number="onsiteForm.vehicle"
                 required
-                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
               >
                 <option value="" disabled>Select one of your vehicles</option>
                 <option v-for="v in driverPortal.profile.vehicles" :key="v.id" :value="v.id">{{ v.name }}</option>
@@ -152,34 +152,34 @@ async function copyPaymentLink() {
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Client Name *</label
                 >
                 <input
                   v-model="onsiteForm.customer_name"
                   type="text"
                   required
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Phone *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Phone *</label>
                 <PhoneInput v-model="onsiteForm.customer_phone" required dark />
               </div>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                 >Email (optional)</label
               >
               <input
                 v-model="onsiteForm.customer_email"
                 type="email"
-                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
               />
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Start Date *</label
                 >
                 <input
@@ -187,46 +187,46 @@ async function copyPaymentLink() {
                   type="date"
                   :min="today"
                   required
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">End Date *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">End Date *</label>
                 <input
                   v-model="onsiteForm.end_date"
                   type="date"
                   :min="onsiteForm.start_date || today"
                   required
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                 />
               </div>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                 >Pickup Location *</label
               >
               <input
                 v-model="onsiteForm.pickup_location"
                 type="text"
                 required
-                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
               />
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                 >Drop-off Location (optional)</label
               >
               <input
                 v-model="onsiteForm.dropoff_location"
                 type="text"
-                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
               />
             </div>
 
             <div class="flex gap-3 pt-2">
               <button
                 type="button"
-                class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500 hover:text-white"
+                class="flex-1 rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground-secondary hover:border-slate-500 hover:text-foreground"
                 @click="close"
               >
                 Cancel
@@ -234,7 +234,7 @@ async function copyPaymentLink() {
               <button
                 type="submit"
                 :disabled="onsiteSaving"
-                class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                class="flex-1 rounded-lg bg-accent-bg py-2.5 text-sm font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
               >
                 {{ onsiteSaving ? 'Creating…' : 'Create Booking' }}
               </button>

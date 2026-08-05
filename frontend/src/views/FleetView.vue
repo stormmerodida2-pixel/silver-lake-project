@@ -59,36 +59,37 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="bg-white">
-    <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <h1 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">Our Fleet</h1>
-      <p class="mt-2 text-center text-slate-600">Comfort for every need, available with a driver or self drive.</p>
+  <div class="bg-page">
+    <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
+      <p class="text-center text-sm font-semibold uppercase tracking-widest text-accent">Select Your Car</p>
+      <h1 class="mt-2 text-center font-[Georgia] text-3xl font-bold text-foreground">Our Fleet</h1>
+      <p class="mt-2 text-center text-foreground-muted">Comfort for every need, available with a driver or self drive.</p>
 
       <div
-        class="mx-auto mt-8 flex max-w-2xl flex-wrap items-end justify-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
+        class="mx-auto mt-8 flex max-w-2xl flex-wrap items-end justify-center gap-3 rounded-2xl border border-border-subtle bg-surface p-4"
       >
         <div>
-          <label class="mb-1 block text-xs font-medium text-slate-600">Pickup date</label>
+          <label class="mb-1 block text-xs font-medium text-foreground-muted">Pickup date</label>
           <input
             v-model="dateFilter.start_date"
             type="date"
             :min="todayString"
-            class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            class="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground [color-scheme:dark] focus:border-accent-border focus:outline-none"
           />
         </div>
         <div>
-          <label class="mb-1 block text-xs font-medium text-slate-600">Return date</label>
+          <label class="mb-1 block text-xs font-medium text-foreground-muted">Return date</label>
           <input
             v-model="dateFilter.end_date"
             type="date"
             :min="dateFilter.start_date || todayString"
-            class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            class="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground [color-scheme:dark] focus:border-accent-border focus:outline-none"
           />
         </div>
         <button
           type="button"
           :disabled="!dateFilter.start_date || !dateFilter.end_date || dateFilterLoading"
-          class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-50"
+          class="rounded-full bg-accent-bg px-5 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover disabled:cursor-not-allowed disabled:opacity-50"
           @click="checkAvailability"
         >
           {{ dateFilterLoading ? 'Checking...' : 'Check Availability' }}
@@ -96,14 +97,14 @@ onMounted(() => {
         <button
           v-if="isDateFilterActive"
           type="button"
-          class="rounded-md px-3 py-2 text-sm font-semibold text-slate-500 transition hover:text-navy-900"
+          class="rounded-full px-3 py-2.5 text-sm font-semibold text-foreground-muted transition hover:text-foreground"
           @click="clearDateFilter"
         >
           Clear
         </button>
       </div>
-      <p v-if="dateFilterError" class="mt-3 text-center text-sm text-red-600">{{ dateFilterError }}</p>
-      <p v-else-if="isDateFilterActive" class="mt-3 text-center text-sm text-slate-500">
+      <p v-if="dateFilterError" class="mt-3 text-center text-sm text-danger">{{ dateFilterError }}</p>
+      <p v-else-if="isDateFilterActive" class="mt-3 text-center text-sm text-foreground-muted">
         Showing vehicles available {{ dateFilter.start_date }} to {{ dateFilter.end_date }}.
       </p>
 
@@ -111,11 +112,11 @@ onMounted(() => {
         <button
           v-for="cat in categories"
           :key="cat.value"
-          class="rounded-full border px-4 py-1.5 text-sm font-medium transition"
+          class="rounded-full px-5 py-2 text-sm font-semibold transition"
           :class="
             activeCategory === cat.value
-              ? 'border-brand-blue-600 bg-brand-blue-600 text-white'
-              : 'border-slate-300 text-slate-600 hover:border-brand-blue-500 hover:text-brand-blue-600'
+              ? 'bg-accent-bg text-on-accent shadow-lg shadow-gold-500/20'
+              : 'bg-surface text-foreground-secondary hover:bg-surface-2'
           "
           @click="activeCategory = cat.value"
         >
@@ -127,7 +128,7 @@ onMounted(() => {
         <VehicleCard v-for="vehicle in filteredVehicles" :key="vehicle.id" v-reveal :vehicle="vehicle" />
       </div>
 
-      <p v-if="!filteredVehicles.length" class="mt-10 text-center text-slate-500">
+      <p v-if="!filteredVehicles.length" class="mt-10 text-center text-foreground-muted">
         {{ isDateFilterActive ? 'No vehicles are available for those dates.' : 'No vehicles in this category yet.' }}
       </p>
     </div>

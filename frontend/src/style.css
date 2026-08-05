@@ -1,37 +1,93 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant light (&:where(.light, .light *));
+
 @theme {
   --color-navy-950: #050d1f;
   --color-navy-900: #0a1730;
   --color-navy-800: #0f2142;
   --color-navy-700: #16305c;
+  --color-navy-600: #23406b;
+  --color-navy-400: #5b7099;
   --color-gold-500: #c9a227;
   --color-gold-400: #d9b94d;
   --color-gold-300: #e8cf7d;
+  --color-gold-600: #a3801f;
+  --color-gold-700: #8a6a14;
+  --color-gold-800: #6b5210;
   --color-brand-blue-600: #1d4ed8;
   --color-brand-blue-500: #2f6fed;
   --color-brand-blue-400: #5b9bf7;
   --color-brand-blue-50: #eef3fd;
+  --color-cream-50: #fdfbf5;
+  --color-cream-100: #f6efdd;
+  --color-cream-200: #ece0c4;
+  --color-cream-300: #ddcba0;
 
   --font-display: Georgia, 'Times New Roman', serif;
+
+  /* Semantic tokens, dark values - also the safe pre-JS/no-JS fallback since the app has
+     always looked like this; see the .light override block below for the light-mode swap. */
+  --color-page: var(--color-navy-950);
+  --color-surface: var(--color-navy-900);
+  --color-surface-2: var(--color-navy-800);
+  --color-border: var(--color-navy-700);
+  --color-border-subtle: var(--color-navy-800);
+  --color-foreground: #ffffff;
+  --color-foreground-secondary: #cbd5e1;
+  --color-foreground-muted: #94a3b8;
+  --color-foreground-subtle: #64748b;
+  --color-accent: var(--color-gold-400);
+  --color-accent-strong: var(--color-gold-300);
+  --color-accent-bg: var(--color-gold-500);
+  --color-accent-bg-hover: var(--color-gold-400);
+  --color-on-accent: var(--color-navy-950);
+  --color-accent-border: var(--color-gold-400);
+  --color-accent-border-strong: var(--color-gold-500);
+  --color-danger: #f87171;
+  --color-danger-border: #f87171;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-info: var(--color-brand-blue-400);
+}
+
+/* Light theme override. Unlayered, so per CSS cascade-layer rules it always wins over
+   @theme's own `@layer theme` output regardless of selector order/specificity. */
+.light {
+  --color-page: var(--color-cream-100);
+  --color-surface: var(--color-cream-50);
+  --color-surface-2: var(--color-cream-200);
+  --color-border: var(--color-cream-300);
+  --color-border-subtle: var(--color-cream-200);
+  --color-foreground: var(--color-navy-950);
+  --color-foreground-secondary: var(--color-navy-700);
+  --color-foreground-muted: var(--color-navy-600);
+  --color-foreground-subtle: var(--color-navy-400);
+  --color-accent: var(--color-gold-700);
+  --color-accent-strong: var(--color-gold-800);
+  --color-accent-border: var(--color-gold-600);
+  --color-accent-border-strong: var(--color-gold-700);
+  --color-danger: #b91c1c;
+  --color-danger-border: #dc2626;
+  --color-success: #047857;
+  --color-warning: #b45309;
+  --color-info: var(--color-brand-blue-600);
+  color-scheme: light;
 }
 
 html {
   overflow-y: scroll;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
-  background-color: #ffffff;
-  color: #1e2937;
+  background-color: var(--color-page);
+  color: var(--color-foreground);
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Light-section form fields use the native light date/time picker; dark sections
-   (none currently have date inputs) would need color-scheme: dark instead. */
-input[type='date'],
-input[type='time'],
-input[type='datetime-local'] {
-  color-scheme: light;
-}
+/* Native date/time pickers now follow the color-scheme set on <html> (dark by default,
+   "light" in the .light block above), inherited automatically - no per-input rule needed. */

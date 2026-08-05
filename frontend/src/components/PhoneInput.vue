@@ -32,8 +32,8 @@ const localDigits = computed({
 
 <template>
   <div
-    class="flex overflow-hidden rounded-md border focus-within:border-brand-blue-500"
-    :class="dark ? 'border-navy-700 bg-navy-800' : 'border-slate-300 bg-white'"
+    class="flex overflow-hidden rounded-md border"
+    :class="dark ? 'border-navy-700 bg-navy-800 focus-within:border-gold-400' : 'border-slate-300 bg-white focus-within:border-brand-blue-500'"
   >
     <span
       class="flex select-none items-center px-3 text-sm font-medium"

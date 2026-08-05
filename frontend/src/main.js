@@ -5,6 +5,7 @@ import './style.css'
 import App from './App.vue'
 import reveal from './directives/reveal'
 import router from './router'
+import { useThemeStore } from './stores/theme'
 import { initAnalytics } from './utils/analytics'
 import { initClientErrorReporting } from './utils/clientErrorReporting'
 import { initErrorTracking } from './utils/errorTracking'
@@ -23,3 +24,4 @@ if (!window.__PRERENDERING__) {
   initErrorTracking(app, router)
 }
 app.use(createPinia()).use(router).directive('reveal', reveal).mount('#app')
+useThemeStore().init()

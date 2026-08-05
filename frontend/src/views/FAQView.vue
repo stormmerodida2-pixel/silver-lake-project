@@ -69,28 +69,28 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="bg-white">
-    <section class="bg-navy-950 py-16">
+  <div class="bg-page">
+    <section class="bg-page py-16">
       <div class="mx-auto max-w-3xl px-4 text-center sm:px-6">
-        <p class="text-sm font-semibold uppercase tracking-widest text-gold-400">Help</p>
-        <h1 class="mt-3 font-[Georgia] text-4xl font-bold text-white">Frequently Asked Questions</h1>
-        <p class="mt-3 text-sm text-slate-400">
+        <p class="text-sm font-semibold uppercase tracking-widest text-accent">Help</p>
+        <h1 class="mt-3 font-[Georgia] text-4xl font-bold text-foreground">Frequently Asked Questions</h1>
+        <p class="mt-3 text-sm text-foreground-muted">
           Answers to common questions about booking, payment, cancellations and documents.
         </p>
       </div>
     </section>
 
     <section class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <div class="space-y-10 text-slate-700">
+      <div class="space-y-10 text-foreground-secondary">
         <div v-for="faq in faqs" :key="faq.question">
-          <h2 class="font-[Georgia] text-xl font-bold text-navy-900">{{ faq.question }}</h2>
+          <h2 class="font-[Georgia] text-xl font-bold text-foreground">{{ faq.question }}</h2>
           <p class="mt-3 leading-relaxed">{{ faq.answer }}</p>
         </div>
       </div>
 
-      <p class="mt-12 border-t border-slate-200 pt-8 text-sm text-slate-500">
+      <p class="mt-12 border-t border-border-subtle pt-8 text-sm text-foreground-subtle">
         Have a question we haven't covered? Email
-        <a href="mailto:info@silverlakecarrentals.co.ke" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
+        <a href="mailto:info@silverlakecarrentals.co.ke" class="font-semibold text-accent hover:text-accent-strong"
           >info@silverlakecarrentals.co.ke</a
         >
         or call 0798 184 193.

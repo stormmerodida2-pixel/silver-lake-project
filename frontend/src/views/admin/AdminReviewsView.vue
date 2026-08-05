@@ -17,7 +17,7 @@ const filteredReviews = computed(() => {
   return reviews.value.filter((r) => !r.is_approved)
 })
 
-const starFill = (rating, i) => (i <= rating ? 'text-gold-400' : 'text-navy-700')
+const starFill = (rating, i) => (i <= rating ? 'text-accent' : 'text-navy-700')
 
 async function approve(review) {
   busyId.value = review.id
@@ -64,7 +64,7 @@ onMounted(load)
   <div>
     <!-- Header -->
     <div class="flex flex-wrap items-center justify-between gap-4">
-      <h1 class="font-[Georgia] text-2xl font-bold text-white">Review Moderation</h1>
+      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Review Moderation</h1>
 
       <!-- Filter tabs -->
       <div class="flex gap-2">
@@ -74,8 +74,8 @@ onMounted(load)
           class="rounded-md border px-3 py-1.5 text-sm font-medium transition"
           :class="
             filter === option
-              ? 'border-gold-500 bg-gold-500 text-navy-950'
-              : 'border-navy-700 text-slate-300 hover:border-gold-400 hover:text-gold-400'
+              ? 'border-accent-border-strong bg-accent-bg text-on-accent'
+              : 'border-border text-foreground-secondary hover:border-accent-border hover:text-accent'
           "
           @click="filter = option"
         >
@@ -84,16 +84,16 @@ onMounted(load)
       </div>
     </div>
 
-    <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
-    <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="loading" class="mt-10 text-center text-foreground-muted">Loading...</p>
+    <p v-else-if="error" class="mt-4 text-sm text-danger">{{ error }}</p>
 
     <div v-if="!loading" class="mt-6 space-y-4">
       <!-- Review cards -->
       <div
         v-for="review in filteredReviews"
         :key="review.id"
-        class="rounded-xl border bg-navy-900 p-5 transition"
-        :class="review.is_approved ? 'border-navy-800' : 'border-gold-500/40'"
+        class="rounded-xl border bg-surface p-5 transition"
+        :class="review.is_approved ? 'border-border-subtle' : 'border-accent-border-strong/40'"
       >
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div class="flex-1">
@@ -113,17 +113,17 @@ onMounted(load)
               </svg>
             </div>
 
-            <p class="mt-2 text-sm leading-relaxed text-slate-300">{{ review.comment }}</p>
+            <p class="mt-2 text-sm leading-relaxed text-foreground-secondary">{{ review.comment }}</p>
 
-            <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-              <span class="font-medium text-white">{{ review.customer_name }}</span>
+            <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-foreground-subtle">
+              <span class="font-medium text-foreground">{{ review.customer_name }}</span>
               <span v-if="review.driver_name">·</span>
               <span v-if="review.driver_name">Re: {{ review.driver_name }}</span>
               <span>·</span>
               <span>{{ new Date(review.created_at).toLocaleDateString() }}</span>
               <span
                 class="rounded-full px-2 py-0.5 font-medium"
-                :class="review.is_approved ? 'bg-gold-500/10 text-gold-400' : 'bg-red-500/10 text-red-400'"
+                :class="review.is_approved ? 'bg-accent-bg/10 text-accent' : 'bg-red-500/10 text-danger'"
               >
                 {{ review.is_approved ? 'Approved' : 'Pending' }}
               </span>
@@ -135,7 +135,7 @@ onMounted(load)
             <button
               v-if="!review.is_approved"
               :disabled="busyId === review.id"
-              class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+              class="rounded-md bg-accent-bg px-3 py-1.5 text-sm font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
               @click="approve(review)"
             >
               Approve
@@ -143,7 +143,7 @@ onMounted(load)
             <button
               v-if="review.is_approved"
               :disabled="busyId === review.id"
-              class="rounded-md border border-navy-700 px-3 py-1.5 text-sm font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="rounded-md border border-border px-3 py-1.5 text-sm font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="reject(review)"
             >
               Revoke
@@ -151,7 +151,7 @@ onMounted(load)
             <button
               v-if="auth.user?.is_superuser"
               :disabled="busyId === review.id"
-              class="rounded-md border border-red-400 px-3 py-1.5 text-sm font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
+              class="rounded-md border border-danger-border px-3 py-1.5 text-sm font-semibold text-danger hover:bg-red-400 hover:text-on-accent disabled:opacity-50"
               @click="deleteReview(review)"
             >
               Delete
@@ -160,14 +160,14 @@ onMounted(load)
         </div>
       </div>
 
-      <p v-if="!filteredReviews.length" class="py-10 text-center text-slate-400">
+      <p v-if="!filteredReviews.length" class="py-10 text-center text-foreground-muted">
         {{ filter === 'pending' ? 'No pending reviews — all caught up! 🎉' : 'No reviews in this view.' }}
       </p>
 
       <div v-if="nextUrl" class="text-center pt-2">
         <button
           :disabled="loadingMore"
-          class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+          class="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
           @click="loadMore"
         >
           {{ loadingMore ? 'Loading...' : 'Load More' }}

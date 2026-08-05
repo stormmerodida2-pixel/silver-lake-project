@@ -18,11 +18,11 @@ const statusLabels = {
   cancelled: 'Cancelled',
 }
 const statusClasses = {
-  pending: 'bg-gold-500/10 text-gold-400',
+  pending: 'bg-accent-bg/10 text-accent',
   confirmed: 'bg-brand-blue-500/10 text-brand-blue-400',
   ongoing: 'bg-brand-blue-500/10 text-brand-blue-400',
-  completed: 'bg-emerald-500/10 text-emerald-400',
-  cancelled: 'bg-red-500/10 text-red-400',
+  completed: 'bg-emerald-500/10 text-success',
+  cancelled: 'bg-red-500/10 text-danger',
 }
 
 const acknowledgingId = ref(null)
@@ -221,7 +221,7 @@ function openOnsiteModal() {
 <template>
   <div>
     <section>
-      <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gold-400">
+      <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-accent">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
@@ -231,11 +231,11 @@ function openOnsiteModal() {
         </svg>
         My Bookings
       </h2>
-      <p class="mt-1 text-xs text-slate-500">
+      <p class="mt-1 text-xs text-foreground-subtle">
         Trips customers have booked with you online - approve a new one to let us know you've seen it.
       </p>
 
-      <p v-if="driverPortal.bookingsError" class="mt-3 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+      <p v-if="driverPortal.bookingsError" class="mt-3 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-danger">
         {{ driverPortal.bookingsError }}
       </p>
 
@@ -246,17 +246,17 @@ function openOnsiteModal() {
           class="rounded-xl border p-4 transition"
           :class="
             !booking.driver_acknowledged_at
-              ? 'border-gold-500 bg-navy-900'
-              : 'border-navy-800 bg-navy-900 hover:border-navy-700'
+              ? 'border-accent-border-strong bg-surface'
+              : 'border-border-subtle bg-surface hover:border-border'
           "
         >
           <div class="flex items-start justify-between gap-3">
             <div>
-              <p class="font-semibold text-white">{{ booking.customer_name }}</p>
-              <p class="text-xs text-slate-400">
+              <p class="font-semibold text-foreground">{{ booking.customer_name }}</p>
+              <p class="text-xs text-foreground-muted">
                 {{ booking.vehicle_name }} &middot; {{ booking.start_date }} to {{ booking.end_date }}
               </p>
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-foreground-subtle">
                 {{ booking.pickup_location }}
                 <a
                   v-if="booking.pickup_lat && booking.pickup_lng"
@@ -267,14 +267,14 @@ function openOnsiteModal() {
                 >Open in Maps</a>
               </p>
               <div v-if="booking.status === 'completed' && booking.review" class="mt-1.5 flex items-center gap-1">
-                <span class="text-sm leading-none text-gold-400">
+                <span class="text-sm leading-none text-accent">
                   <span v-for="n in 5" :key="n">{{ n <= booking.review.rating ? '★' : '☆' }}</span>
                 </span>
-                <span class="text-xs text-slate-500">customer rating</span>
+                <span class="text-xs text-foreground-subtle">customer rating</span>
               </div>
               <p
                 v-if="booking.status === 'completed' && booking.review?.comment"
-                class="mt-1 max-w-sm text-xs italic text-slate-400"
+                class="mt-1 max-w-sm text-xs italic text-foreground-muted"
               >
                 “{{ booking.review.comment }}”
               </p>
@@ -287,14 +287,14 @@ function openOnsiteModal() {
             </span>
           </div>
           <div class="mt-3 flex flex-wrap items-center gap-2">
-            <span v-if="booking.driver_acknowledged_at" class="mr-auto text-xs font-semibold text-emerald-400">
+            <span v-if="booking.driver_acknowledged_at" class="mr-auto text-xs font-semibold text-success">
               Acknowledged
             </span>
             <template v-else>
               <div class="mr-auto flex flex-col items-start gap-1">
                 <button
                   :disabled="acknowledgingId === booking.id"
-                  class="rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                  class="rounded-md bg-accent-bg px-3 py-1.5 text-xs font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
                   @click="acknowledgeBooking(booking)"
                 >
                   {{ acknowledgingId === booking.id ? 'Approving...' : 'Approve' }}
@@ -302,7 +302,7 @@ function openOnsiteModal() {
                 <span
                   v-if="ackDeadlineInfo(booking)"
                   class="text-xs font-semibold"
-                  :class="ackDeadlineInfo(booking).urgent ? 'text-red-400' : 'text-slate-400'"
+                  :class="ackDeadlineInfo(booking).urgent ? 'text-danger' : 'text-foreground-muted'"
                 >
                   {{ ackDeadlineInfo(booking).label }}
                 </span>
@@ -312,14 +312,14 @@ function openOnsiteModal() {
             <button
               v-if="booking.status === 'confirmed'"
               :disabled="startingId === booking.id"
-              class="rounded-md border border-navy-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="startTrip(booking)"
             >
               {{ startingId === booking.id ? 'Starting...' : 'Start Trip' }}
             </button>
             <button
               v-if="['confirmed', 'ongoing'].includes(booking.status)"
-              class="rounded-md border border-navy-800 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-gold-400 hover:text-gold-400"
+              class="rounded-md border border-border-subtle px-3 py-1.5 text-xs font-semibold text-foreground-subtle hover:border-accent-border hover:text-accent"
               @click="openConditionModal(booking, 'pickup')"
             >
               + Pickup Condition
@@ -328,14 +328,14 @@ function openOnsiteModal() {
             <button
               v-if="['confirmed', 'ongoing'].includes(booking.status) && !booking.trip_ended_at"
               :disabled="endingId === booking.id"
-              class="rounded-md border border-navy-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="endTrip(booking)"
             >
               {{ endingId === booking.id ? 'Ending...' : 'End Trip' }}
             </button>
             <button
               v-if="['confirmed', 'ongoing', 'completed'].includes(booking.status)"
-              class="rounded-md border border-navy-800 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-gold-400 hover:text-gold-400"
+              class="rounded-md border border-border-subtle px-3 py-1.5 text-xs font-semibold text-foreground-subtle hover:border-accent-border hover:text-accent"
               @click="openConditionModal(booking, 'return')"
             >
               + Return Condition
@@ -344,7 +344,7 @@ function openOnsiteModal() {
             <button
               v-if="['confirmed', 'ongoing'].includes(booking.status)"
               :disabled="completingId === booking.id"
-              class="rounded-md border border-navy-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="completeBooking(booking)"
             >
               {{ completingId === booking.id ? 'Completing...' : 'Complete Trip' }}
@@ -355,8 +355,8 @@ function openOnsiteModal() {
               class="rounded-md px-3 py-1.5 text-xs font-semibold"
               :class="
                 sharingBookingId === booking.id
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/40'
-                  : 'border border-navy-700 text-slate-300 hover:border-gold-400 hover:text-gold-400'
+                  ? 'bg-emerald-500/10 text-success border border-emerald-500/40'
+                  : 'border border-border text-foreground-secondary hover:border-accent-border hover:text-accent'
               "
               @click="toggleSharingLocation(booking)"
             >
@@ -366,7 +366,7 @@ function openOnsiteModal() {
             <button
               v-if="isTripCurrentlyActive(booking)"
               :disabled="notifyingArrivingId === booking.id"
-              class="rounded-md border border-navy-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="notifyArriving(booking)"
             >
               {{ notifyingArrivingId === booking.id ? 'Notifying...' : "Notify Customer: I'm Arriving" }}
@@ -375,7 +375,7 @@ function openOnsiteModal() {
 
           <BookingPaymentCollector :booking="booking" />
         </div>
-        <p v-if="!driverPortal.bookingsLoading && !driverPortal.bookings.length" class="text-sm text-slate-500">
+        <p v-if="!driverPortal.bookingsLoading && !driverPortal.bookings.length" class="text-sm text-foreground-subtle">
           No bookings yet.
         </p>
       </div>
@@ -383,7 +383,7 @@ function openOnsiteModal() {
 
     <!-- Walk-up client booking -->
     <section class="mt-10">
-      <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gold-400">
+      <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-accent">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
@@ -394,15 +394,15 @@ function openOnsiteModal() {
         Walk-Up Client
       </h2>
       <div
-        class="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-navy-800 bg-navy-900 p-4"
+        class="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border-subtle bg-surface p-4"
       >
-        <p class="max-w-md text-xs text-slate-400">
+        <p class="max-w-md text-xs text-foreground-muted">
           For a client with you right now who doesn't want to register - creates their booking, then lets you collect
           cash, card, or bank transfer for the exact amount they tell you.
         </p>
         <button
           v-if="driverPortal.profile.vehicles.length"
-          class="flex shrink-0 items-center gap-2 rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 transition hover:bg-gold-400"
+          class="flex shrink-0 items-center gap-2 rounded-lg bg-accent-bg px-3 py-1.5 text-xs font-semibold text-on-accent transition hover:bg-accent-bg-hover"
           @click="openOnsiteModal"
         >
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

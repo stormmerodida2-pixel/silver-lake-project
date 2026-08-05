@@ -9,8 +9,8 @@ const { items: payments, nextUrl, loading, loadingMore, error, load, loadMore } 
 const busyId = ref(null)
 
 const methodBadge = {
-  mpesa: 'bg-emerald-500/10 text-emerald-400',
-  cash: 'bg-gold-500/10 text-gold-400',
+  mpesa: 'bg-emerald-500/10 text-success',
+  cash: 'bg-accent-bg/10 text-accent',
   card: 'bg-brand-blue-500/10 text-brand-blue-400',
   bank_transfer: 'bg-brand-blue-500/10 text-brand-blue-400',
 }
@@ -23,9 +23,9 @@ const methodLabel = {
 }
 
 const statusBadge = {
-  successful: 'bg-emerald-500/10 text-emerald-400',
-  pending: 'bg-navy-800 text-slate-400',
-  failed: 'bg-red-500/10 text-red-400',
+  successful: 'bg-emerald-500/10 text-success',
+  pending: 'bg-surface-2 text-foreground-muted',
+  failed: 'bg-red-500/10 text-danger',
 }
 
 async function remindDriver(payment) {
@@ -109,8 +109,8 @@ onMounted(load)
 
 <template>
   <div>
-    <h1 class="font-[Georgia] text-2xl font-bold text-white">Payments</h1>
-    <p class="mt-1 text-sm text-slate-400">
+    <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Payments</h1>
+    <p class="mt-1 text-sm text-foreground-muted">
       Every payment recorded against a booking - M-Pesa, card, cash a driver reported on-site, or a customer-declared
       bank transfer awaiting confirmation.
     </p>
@@ -120,11 +120,11 @@ onMounted(load)
         v-model="filters.search"
         type="text"
         placeholder="Search by M-Pesa receipt, card ref or customer..."
-        class="min-w-64 flex-1 rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-gold-400 focus:outline-none"
+        class="min-w-64 flex-1 rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground placeholder:text-foreground-subtle focus:border-accent-border focus:outline-none"
       />
       <select
         v-model="filters.method"
-        class="rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white focus:border-gold-400 focus:outline-none"
+        class="rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground focus:border-accent-border focus:outline-none"
       >
         <option value="">All methods</option>
         <option value="mpesa">M-Pesa</option>
@@ -134,7 +134,7 @@ onMounted(load)
       </select>
       <select
         v-model="filters.status"
-        class="rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white focus:border-gold-400 focus:outline-none"
+        class="rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground focus:border-accent-border focus:outline-none"
       >
         <option value="">All statuses</option>
         <option value="successful">Successful</option>
@@ -143,19 +143,19 @@ onMounted(load)
       </select>
       <button
         :disabled="exportingCsv"
-        class="rounded-md border border-navy-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+        class="rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground-secondary transition hover:border-accent-border hover:text-accent disabled:opacity-50"
         @click="exportCsv"
       >
         {{ exportingCsv ? 'Exporting...' : 'Export CSV' }}
       </button>
     </div>
 
-    <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
-    <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="loading" class="mt-10 text-center text-foreground-muted">Loading...</p>
+    <p v-else-if="error" class="mt-4 text-sm text-danger">{{ error }}</p>
 
-    <div v-if="!loading" class="mt-6 overflow-x-auto rounded-xl border border-navy-800">
+    <div v-if="!loading" class="mt-6 overflow-x-auto rounded-xl border border-border-subtle">
       <table class="w-full text-left text-sm">
-        <thead class="bg-navy-900 text-slate-400">
+        <thead class="bg-surface text-foreground-muted">
           <tr>
             <th class="px-4 py-3">Booking</th>
             <th class="px-4 py-3">Method</th>
@@ -168,15 +168,15 @@ onMounted(load)
             <th class="px-4 py-3">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-navy-800 bg-navy-950">
+        <tbody class="divide-y divide-border-subtle bg-page">
           <tr v-for="payment in payments" :key="payment.id">
-            <td class="px-4 py-3 text-white">#{{ payment.booking }}</td>
+            <td class="px-4 py-3 text-foreground">#{{ payment.booking }}</td>
             <td class="px-4 py-3">
               <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="methodBadge[payment.method]">
                 {{ methodLabel[payment.method] || payment.method }}
               </span>
             </td>
-            <td class="px-4 py-3 text-slate-300">KES {{ Number(payment.amount).toLocaleString() }}</td>
+            <td class="px-4 py-3 text-foreground-secondary">KES {{ Number(payment.amount).toLocaleString() }}</td>
             <td class="px-4 py-3">
               <div class="flex flex-wrap items-center gap-1.5">
                 <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="statusBadge[payment.status]">
@@ -184,14 +184,14 @@ onMounted(load)
                 </span>
                 <span
                   v-if="payment.is_disputed"
-                  class="rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-red-400"
+                  class="rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-danger"
                   :title="payment.dispute_note"
                 >
                   ⚠ Disputed
                 </span>
               </div>
             </td>
-            <td class="px-4 py-3 text-xs text-slate-400">
+            <td class="px-4 py-3 text-xs text-foreground-muted">
               {{
                 payment.mpesa_receipt_number ||
                 payment.card_transaction_ref ||
@@ -200,40 +200,40 @@ onMounted(load)
               }}
               <span
                 v-if="payment.reference_reused"
-                class="ml-1 cursor-help text-gold-400"
+                class="ml-1 cursor-help text-accent"
                 title="This reference has been used on another payment too - could be a coincidental match (short references can recur) or a real duplicate. Double-check the bank statement before confirming."
               >
                 ⚠
               </span>
             </td>
-            <td class="px-4 py-3 text-xs text-slate-400">
+            <td class="px-4 py-3 text-xs text-foreground-muted">
               {{ payment.recorded_by_driver_name || '—' }}
-              <div v-if="payment.note && payment.method !== 'bank_transfer'" class="italic text-slate-500">
+              <div v-if="payment.note && payment.method !== 'bank_transfer'" class="italic text-foreground-subtle">
                 {{ payment.note }}
               </div>
             </td>
             <td class="px-4 py-3 text-xs">
               <template v-if="payment.method === 'cash'">
                 <template v-if="payment.cash_deposit">
-                  <span class="font-semibold text-emerald-400"
+                  <span class="font-semibold text-success"
                     >KES {{ Number(payment.cash_deposit.amount).toLocaleString() }}</span
                   >
-                  <div class="text-slate-500">{{ payment.cash_deposit.mpesa_reference }}</div>
+                  <div class="text-foreground-subtle">{{ payment.cash_deposit.mpesa_reference }}</div>
                 </template>
-                <span v-else-if="payment.status === 'successful'" class="font-semibold text-gold-400"
+                <span v-else-if="payment.status === 'successful'" class="font-semibold text-accent"
                   >⚠ Not deposited yet</span
                 >
-                <span v-else class="text-slate-600">—</span>
+                <span v-else class="text-foreground-subtle">—</span>
               </template>
-              <span v-else class="text-slate-600">—</span>
+              <span v-else class="text-foreground-subtle">—</span>
             </td>
-            <td class="px-4 py-3 text-xs text-slate-500">{{ new Date(payment.created_at).toLocaleString() }}</td>
+            <td class="px-4 py-3 text-xs text-foreground-subtle">{{ new Date(payment.created_at).toLocaleString() }}</td>
             <td class="px-4 py-3">
               <button
                 v-if="payment.status === 'pending' && payment.recorded_by_driver_name"
                 :disabled="busyId === payment.id || !!remindDisabledReason(payment)"
                 :title="remindDisabledReason(payment) || ''"
-                class="rounded-md border border-navy-700 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                class="rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                 @click="remindDriver(payment)"
               >
                 {{ busyId === payment.id ? 'Sending...' : payment.last_reminded_at ? 'Remind Again' : 'Remind Driver' }}
@@ -242,7 +242,7 @@ onMounted(load)
                 v-else-if="needsDeposit(payment) && payment.recorded_by_driver_name"
                 :disabled="busyId === payment.id || !!remindDepositDisabledReason(payment)"
                 :title="remindDepositDisabledReason(payment) || ''"
-                class="rounded-md border border-navy-700 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                class="rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                 @click="remindDeposit(payment)"
               >
                 {{
@@ -252,7 +252,7 @@ onMounted(load)
               <button
                 v-else-if="payment.method === 'bank_transfer' && payment.status === 'pending'"
                 :disabled="busyId === payment.id"
-                class="rounded-md border border-emerald-700 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:border-emerald-400 disabled:opacity-50"
+                class="rounded-md border border-emerald-700 px-2.5 py-1 text-xs font-semibold text-success hover:border-emerald-400 disabled:opacity-50"
                 @click="confirmBankTransfer(payment)"
               >
                 {{ busyId === payment.id ? 'Confirming...' : 'Confirm Received' }}
@@ -261,11 +261,11 @@ onMounted(load)
           </tr>
         </tbody>
       </table>
-      <p v-if="!payments.length" class="p-6 text-center text-slate-400">No payments yet.</p>
-      <div v-if="nextUrl" class="border-t border-navy-800 p-3 text-center">
+      <p v-if="!payments.length" class="p-6 text-center text-foreground-muted">No payments yet.</p>
+      <div v-if="nextUrl" class="border-t border-border-subtle p-3 text-center">
         <button
           :disabled="loadingMore"
-          class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+          class="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
           @click="loadMore"
         >
           {{ loadingMore ? 'Loading...' : 'Load More' }}

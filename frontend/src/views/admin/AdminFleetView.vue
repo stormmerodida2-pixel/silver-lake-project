@@ -279,11 +279,11 @@ onMounted(() => {
   <div>
     <!-- Header -->
     <div class="flex items-center justify-between">
-      <h1 class="font-[Georgia] text-2xl font-bold text-white">Manage Fleet</h1>
+      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Manage Fleet</h1>
       <button
         v-if="auth.user?.is_superuser"
         id="add-vehicle-btn"
-        class="flex items-center gap-2 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400"
+        class="flex items-center gap-2 rounded-lg bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-bg-hover"
         @click="openAddModal"
       >
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -298,18 +298,18 @@ onMounted(() => {
         v-model="filters.search"
         type="text"
         placeholder="Search by name or tagline..."
-        class="min-w-64 flex-1 rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-gold-400 focus:outline-none"
+        class="min-w-64 flex-1 rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground placeholder:text-foreground-subtle focus:border-accent-border focus:outline-none"
       />
       <select
         v-model="filters.category"
-        class="rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white focus:border-gold-400 focus:outline-none"
+        class="rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground focus:border-accent-border focus:outline-none"
       >
         <option value="">All types</option>
         <option v-for="cat in fleetTypes" :key="cat.slug" :value="cat.slug">{{ cat.name }}</option>
       </select>
       <select
         v-model="filters.is_available"
-        class="rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white focus:border-gold-400 focus:outline-none"
+        class="rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground focus:border-accent-border focus:outline-none"
       >
         <option value="">All availability</option>
         <option value="true">Available</option>
@@ -317,55 +317,55 @@ onMounted(() => {
       </select>
     </div>
 
-    <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
-    <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="loading" class="mt-10 text-center text-foreground-muted">Loading...</p>
+    <p v-else-if="error" class="mt-4 text-sm text-danger">{{ error }}</p>
 
     <template v-if="!loading">
       <!-- Card layout - phones/small tablets, avoids a wide table forcing horizontal scroll -->
       <div class="mt-6 space-y-3 md:hidden">
-        <div v-for="vehicle in vehicles" :key="vehicle.id" class="rounded-xl border border-navy-800 bg-navy-900 p-4">
+        <div v-for="vehicle in vehicles" :key="vehicle.id" class="rounded-xl border border-border-subtle bg-surface p-4">
           <div class="flex gap-3">
-            <div class="h-14 w-20 shrink-0 overflow-hidden rounded-md border border-navy-800 bg-navy-800">
+            <div class="h-14 w-20 shrink-0 overflow-hidden rounded-md border border-border-subtle bg-surface-2">
               <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
-              <div v-else class="flex h-full items-center justify-center text-xs text-slate-600">—</div>
+              <div v-else class="flex h-full items-center justify-center text-xs text-foreground-subtle">—</div>
             </div>
             <div class="min-w-0 flex-1">
               <div class="flex items-start justify-between gap-2">
-                <p class="font-medium text-white">{{ vehicle.name }}</p>
+                <p class="font-medium text-foreground">{{ vehicle.name }}</p>
                 <span
-                  :class="vehicle.is_available ? 'text-gold-400' : 'text-red-400'"
+                  :class="vehicle.is_available ? 'text-accent' : 'text-danger'"
                   class="shrink-0 text-xs font-semibold"
                 >
                   {{ vehicle.is_available ? 'Available' : 'Unavailable' }}
                 </span>
               </div>
-              <p v-if="vehicle.tagline" class="text-xs text-slate-500">{{ vehicle.tagline }}</p>
-              <p v-if="vehicle.driver_name" class="text-xs text-gold-400">Driver: {{ vehicle.driver_name }}</p>
-              <p class="mt-1 text-xs text-slate-400">
+              <p v-if="vehicle.tagline" class="text-xs text-foreground-subtle">{{ vehicle.tagline }}</p>
+              <p v-if="vehicle.driver_name" class="text-xs text-accent">Driver: {{ vehicle.driver_name }}</p>
+              <p class="mt-1 text-xs text-foreground-muted">
                 {{ vehicle.category_name || vehicle.category }} &middot; {{ vehicle.passenger_capacity }} pax &middot;
                 KES {{ Number(vehicle.price_per_day).toLocaleString() }}/day
               </p>
             </div>
           </div>
 
-          <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-navy-800 pt-3 text-xs">
-            <span v-if="vehicle.is_service_due" class="font-bold text-gold-400">⚠ Service due</span>
-            <span v-if="vehicle.is_insurance_expired" class="font-bold text-red-400">⚠ Insurance expired</span>
-            <span v-if="vehicle.is_inspection_expired" class="font-bold text-red-400">⚠ Inspection expired</span>
+          <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-border-subtle pt-3 text-xs">
+            <span v-if="vehicle.is_service_due" class="font-bold text-accent">⚠ Service due</span>
+            <span v-if="vehicle.is_insurance_expired" class="font-bold text-danger">⚠ Insurance expired</span>
+            <span v-if="vehicle.is_inspection_expired" class="font-bold text-danger">⚠ Inspection expired</span>
           </div>
 
-          <div class="mt-3 flex gap-2 border-t border-navy-800 pt-3">
+          <div class="mt-3 flex gap-2 border-t border-border-subtle pt-3">
             <button
               v-if="auth.user?.is_superuser"
               :disabled="busyId === vehicle.id"
-              class="flex-1 rounded-md border border-navy-700 px-2 py-1.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="flex-1 rounded-md border border-border px-2 py-1.5 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="openEditModal(vehicle)"
             >
               Edit
             </button>
             <button
               :disabled="busyId === vehicle.id"
-              class="flex-1 rounded-md border border-navy-700 px-2 py-1.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="flex-1 rounded-md border border-border px-2 py-1.5 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="toggleAvailability(vehicle)"
             >
               {{ vehicle.is_available ? 'Disable' : 'Enable' }}
@@ -373,22 +373,22 @@ onMounted(() => {
             <button
               v-if="auth.user?.is_superuser"
               :disabled="busyId === vehicle.id"
-              class="flex-1 rounded-md border border-red-400 px-2 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
+              class="flex-1 rounded-md border border-danger-border px-2 py-1.5 text-xs font-semibold text-danger hover:bg-red-400 hover:text-on-accent disabled:opacity-50"
               @click="deleteVehicle(vehicle)"
             >
               Delete
             </button>
           </div>
         </div>
-        <p v-if="!vehicles.length" class="rounded-xl border border-navy-800 bg-navy-900 p-6 text-center text-slate-400">
+        <p v-if="!vehicles.length" class="rounded-xl border border-border-subtle bg-surface p-6 text-center text-foreground-muted">
           No vehicles in the fleet yet.
         </p>
       </div>
 
       <!-- Table layout - md and up -->
-      <div class="mt-6 hidden overflow-x-auto rounded-xl border border-navy-800 md:block">
+      <div class="mt-6 hidden overflow-x-auto rounded-xl border border-border-subtle md:block">
         <table class="w-full text-left text-sm">
-          <thead class="bg-navy-900 text-slate-400">
+          <thead class="bg-surface text-foreground-muted">
             <tr>
               <th class="px-4 py-3">Photo</th>
               <th class="px-4 py-3">Vehicle</th>
@@ -403,59 +403,59 @@ onMounted(() => {
               <th class="px-4 py-3"></th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-navy-800 bg-navy-950">
+          <tbody class="divide-y divide-border-subtle bg-page">
             <tr v-for="vehicle in vehicles" :key="vehicle.id">
               <td class="px-4 py-3">
-                <div class="h-12 w-16 overflow-hidden rounded-md border border-navy-800 bg-navy-800">
+                <div class="h-12 w-16 overflow-hidden rounded-md border border-border-subtle bg-surface-2">
                   <img
                     v-if="vehicle.image"
                     :src="vehicle.image"
                     :alt="vehicle.name"
                     class="h-full w-full object-cover"
                   />
-                  <div v-else class="flex h-full items-center justify-center text-xs text-slate-600">—</div>
+                  <div v-else class="flex h-full items-center justify-center text-xs text-foreground-subtle">—</div>
                 </div>
               </td>
               <td class="px-4 py-3">
-                <p class="font-medium text-white">{{ vehicle.name }}</p>
-                <p v-if="vehicle.tagline" class="text-xs text-slate-500">{{ vehicle.tagline }}</p>
-                <p v-if="vehicle.driver_name" class="text-xs text-gold-400">Driver: {{ vehicle.driver_name }}</p>
+                <p class="font-medium text-foreground">{{ vehicle.name }}</p>
+                <p v-if="vehicle.tagline" class="text-xs text-foreground-subtle">{{ vehicle.tagline }}</p>
+                <p v-if="vehicle.driver_name" class="text-xs text-accent">Driver: {{ vehicle.driver_name }}</p>
               </td>
-              <td class="px-4 py-3 text-slate-300">{{ vehicle.category_name || vehicle.category }}</td>
-              <td class="px-4 py-3 text-slate-300">{{ vehicle.passenger_capacity }} pax</td>
-              <td class="px-4 py-3 text-slate-300">KES {{ Number(vehicle.price_per_day).toLocaleString() }}</td>
-              <td class="px-4 py-3 text-xs text-slate-400">
-                <span v-if="vehicle.allow_self_drive" class="mr-1 rounded bg-navy-800 px-1.5 py-0.5">Self Drive</span>
-                <span v-if="vehicle.allow_with_driver" class="rounded bg-navy-800 px-1.5 py-0.5">With Driver</span>
+              <td class="px-4 py-3 text-foreground-secondary">{{ vehicle.category_name || vehicle.category }}</td>
+              <td class="px-4 py-3 text-foreground-secondary">{{ vehicle.passenger_capacity }} pax</td>
+              <td class="px-4 py-3 text-foreground-secondary">KES {{ Number(vehicle.price_per_day).toLocaleString() }}</td>
+              <td class="px-4 py-3 text-xs text-foreground-muted">
+                <span v-if="vehicle.allow_self_drive" class="mr-1 rounded bg-surface-2 px-1.5 py-0.5">Self Drive</span>
+                <span v-if="vehicle.allow_with_driver" class="rounded bg-surface-2 px-1.5 py-0.5">With Driver</span>
               </td>
               <td class="px-4 py-3">
-                <span v-if="vehicle.is_service_due" class="text-xs font-bold text-gold-400">⚠ Due</span>
-                <span v-else class="text-xs text-slate-500">Up to date</span>
+                <span v-if="vehicle.is_service_due" class="text-xs font-bold text-accent">⚠ Due</span>
+                <span v-else class="text-xs text-foreground-subtle">Up to date</span>
               </td>
               <td class="px-4 py-3">
                 <span
                   v-if="vehicle.insurance_expiry_date"
-                  :class="vehicle.is_insurance_expired ? 'text-red-400' : 'text-slate-400'"
+                  :class="vehicle.is_insurance_expired ? 'text-danger' : 'text-foreground-muted'"
                   class="text-xs"
                 >
                   {{ vehicle.insurance_expiry_date }}
                   <span v-if="vehicle.is_insurance_expired" class="ml-1 font-bold">⚠ Expired</span>
                 </span>
-                <span v-else class="text-xs text-slate-600">—</span>
+                <span v-else class="text-xs text-foreground-subtle">—</span>
               </td>
               <td class="px-4 py-3">
                 <span
                   v-if="vehicle.inspection_expiry_date"
-                  :class="vehicle.is_inspection_expired ? 'text-red-400' : 'text-slate-400'"
+                  :class="vehicle.is_inspection_expired ? 'text-danger' : 'text-foreground-muted'"
                   class="text-xs"
                 >
                   {{ vehicle.inspection_expiry_date }}
                   <span v-if="vehicle.is_inspection_expired" class="ml-1 font-bold">⚠ Expired</span>
                 </span>
-                <span v-else class="text-xs text-slate-600">—</span>
+                <span v-else class="text-xs text-foreground-subtle">—</span>
               </td>
               <td class="px-4 py-3">
-                <span :class="vehicle.is_available ? 'text-gold-400' : 'text-red-400'">
+                <span :class="vehicle.is_available ? 'text-accent' : 'text-danger'">
                   {{ vehicle.is_available ? 'Available' : 'Unavailable' }}
                 </span>
               </td>
@@ -463,14 +463,14 @@ onMounted(() => {
                 <button
                   v-if="auth.user?.is_superuser"
                   :disabled="busyId === vehicle.id"
-                  class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                  class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                   @click="openEditModal(vehicle)"
                 >
                   Edit
                 </button>
                 <button
                   :disabled="busyId === vehicle.id"
-                  class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                  class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                   @click="toggleAvailability(vehicle)"
                 >
                   {{ vehicle.is_available ? 'Disable' : 'Enable' }}
@@ -478,7 +478,7 @@ onMounted(() => {
                 <button
                   v-if="auth.user?.is_superuser"
                   :disabled="busyId === vehicle.id"
-                  class="rounded-md border border-red-400 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
+                  class="rounded-md border border-danger-border px-2 py-1 text-xs font-semibold text-danger hover:bg-red-400 hover:text-on-accent disabled:opacity-50"
                   @click="deleteVehicle(vehicle)"
                 >
                   Delete
@@ -487,13 +487,13 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
-        <p v-if="!vehicles.length" class="p-6 text-center text-slate-400">No vehicles in the fleet yet.</p>
+        <p v-if="!vehicles.length" class="p-6 text-center text-foreground-muted">No vehicles in the fleet yet.</p>
       </div>
 
       <div v-if="nextUrl" class="mt-3 text-center">
         <button
           :disabled="loadingMore"
-          class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+          class="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
           @click="loadMore"
         >
           {{ loadingMore ? 'Loading...' : 'Load More' }}
@@ -509,23 +509,23 @@ onMounted(() => {
           class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
           @click.self="showModal = false"
         >
-          <div class="w-full max-w-2xl rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+          <div class="w-full max-w-2xl rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-white">{{ modalTitle() }}</h2>
-              <button class="text-slate-400 transition-colors hover:text-white" @click="showModal = false">
+              <h2 class="font-[Georgia] text-xl font-bold text-foreground">{{ modalTitle() }}</h2>
+              <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ formError }}</p>
+            <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-danger">{{ formError }}</p>
 
             <form class="space-y-5" @submit.prevent="saveVehicle">
               <!-- Basic info -->
               <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                     >Vehicle Name *</label
                   >
                   <input
@@ -533,14 +533,14 @@ onMounted(() => {
                     type="text"
                     placeholder="Toyota Prado TZG"
                     required
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Category</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Category</label>
                   <select
                     v-model="form.category"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                   >
                     <option v-for="cat in fleetTypes" :key="cat.slug" :value="cat.slug">
                       {{ cat.name }}{{ cat.is_active ? '' : ' (Inactive)' }}
@@ -548,7 +548,7 @@ onMounted(() => {
                   </select>
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                     >Capacity (pax) *</label
                   >
                   <input
@@ -556,11 +556,11 @@ onMounted(() => {
                     type="number"
                     min="1"
                     max="50"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                     >Price / Day (KES) *</label
                   >
                   <input
@@ -570,73 +570,73 @@ onMounted(() => {
                     step="0.01"
                     placeholder="15000"
                     required
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Tagline</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Tagline</label>
                   <input
                     v-model="form.tagline"
                     type="text"
                     placeholder="Luxury · Power · Prestige"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                   />
                 </div>
                 <div class="col-span-2">
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                     >Description</label
                   >
                   <textarea
                     v-model="form.description"
                     rows="3"
                     placeholder="Full vehicle description shown on the detail page..."
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                   ></textarea>
                 </div>
               </div>
 
               <!-- Photo -->
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Vehicle Photo</label
                 >
                 <div class="flex items-center gap-3">
-                  <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-navy-700 bg-navy-800">
+                  <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-2">
                     <img
                       v-if="imagePreviewUrl"
                       :src="imagePreviewUrl"
                       alt="Preview"
                       class="h-full w-full object-cover"
                     />
-                    <div v-else class="flex h-full items-center justify-center text-xs text-slate-500">No photo</div>
+                    <div v-else class="flex h-full items-center justify-center text-xs text-foreground-subtle">No photo</div>
                   </div>
                   <input
                     type="file"
                     accept="image/*"
-                    class="w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
+                    class="w-full text-sm text-foreground-secondary file:mr-3 file:rounded-md file:border-0 file:bg-accent-bg file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-on-accent"
                     @change="onImageSelected"
                   />
                 </div>
-                <p v-if="editingId" class="mt-1 text-xs text-slate-500">Leave blank to keep the existing photo.</p>
+                <p v-if="editingId" class="mt-1 text-xs text-foreground-subtle">Leave blank to keep the existing photo.</p>
               </div>
 
               <!-- Gallery photos (existing vehicles only) -->
               <div v-if="editingId">
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">
                   Gallery Photos
                 </label>
-                <p v-if="galleryError" class="mb-2 text-xs text-red-400">{{ galleryError }}</p>
+                <p v-if="galleryError" class="mb-2 text-xs text-danger">{{ galleryError }}</p>
                 <div class="flex flex-wrap gap-2">
                   <div
                     v-for="image in galleryImages"
                     :key="image.id"
-                    class="group relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-navy-700 bg-navy-800"
+                    class="group relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-2"
                   >
                     <img :src="image.image" alt="Gallery photo" class="h-full w-full object-cover" />
                     <button
                       type="button"
                       :disabled="removingImageId === image.id"
-                      class="absolute inset-0 flex items-center justify-center bg-black/60 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100 disabled:opacity-100"
+                      class="absolute inset-0 flex items-center justify-center bg-black/60 text-xs font-semibold text-foreground opacity-0 transition group-hover:opacity-100 disabled:opacity-100"
                       @click="removeGalleryImage(image)"
                     >
                       {{ removingImageId === image.id ? 'Removing…' : 'Remove' }}
@@ -648,125 +648,125 @@ onMounted(() => {
                   accept="image/*"
                   multiple
                   :disabled="galleryUploading"
-                  class="mt-2 w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950 disabled:opacity-50"
+                  class="mt-2 w-full text-sm text-foreground-secondary file:mr-3 file:rounded-md file:border-0 file:bg-accent-bg file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-on-accent disabled:opacity-50"
                   @change="addGalleryImages"
                 />
-                <p class="mt-1 text-xs text-slate-500">
+                <p class="mt-1 text-xs text-foreground-subtle">
                   {{ galleryUploading ? 'Uploading…' : 'Uploads immediately, separate from the fields below.' }}
                 </p>
               </div>
 
               <!-- Service history (existing vehicles only) -->
               <div v-if="editingId">
-                <label class="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+                <label class="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-foreground-muted">
                   Service History
                   <span
                     v-if="editingVehicle?.is_service_due"
-                    class="rounded-full bg-gold-500/10 px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal text-gold-400"
+                    class="rounded-full bg-accent-bg/10 px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal text-accent"
                   >
                     ⚠ Due (90+ days)
                   </span>
                 </label>
-                <p v-if="serviceError" class="mb-2 text-xs text-red-400">{{ serviceError }}</p>
-                <ul v-if="serviceRecords.length" class="mb-2 space-y-1 rounded-lg border border-navy-700 p-3">
-                  <li v-for="record in serviceRecords" :key="record.id" class="text-xs text-slate-300">
-                    <span class="text-white">{{ record.service_date }}</span>
-                    <span v-if="record.notes" class="text-slate-400"> &middot; {{ record.notes }}</span>
-                    <span v-if="record.logged_by_name" class="text-slate-500">
+                <p v-if="serviceError" class="mb-2 text-xs text-danger">{{ serviceError }}</p>
+                <ul v-if="serviceRecords.length" class="mb-2 space-y-1 rounded-lg border border-border p-3">
+                  <li v-for="record in serviceRecords" :key="record.id" class="text-xs text-foreground-secondary">
+                    <span class="text-foreground">{{ record.service_date }}</span>
+                    <span v-if="record.notes" class="text-foreground-muted"> &middot; {{ record.notes }}</span>
+                    <span v-if="record.logged_by_name" class="text-foreground-subtle">
                       (logged by {{ record.logged_by_name }})</span
                     >
                   </li>
                 </ul>
-                <p v-else class="mb-2 text-xs text-slate-500">No service logged yet.</p>
+                <p v-else class="mb-2 text-xs text-foreground-subtle">No service logged yet.</p>
                 <div v-if="auth.user?.is_superuser" class="flex gap-2">
                   <input
                     v-model="serviceDateDraft"
                     type="date"
-                    class="rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white focus:border-gold-500 focus:outline-none"
+                    class="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                   />
                   <input
                     v-model="serviceNotesDraft"
                     type="text"
                     placeholder="e.g. Oil change + filter"
-                    class="flex-1 rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                    class="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                   />
                   <button
                     type="button"
                     :disabled="serviceSaving || !serviceDateDraft"
-                    class="shrink-0 rounded-lg bg-gold-500 px-3 py-2 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                    class="shrink-0 rounded-lg bg-accent-bg px-3 py-2 text-sm font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
                     @click="addServiceRecord"
                   >
                     {{ serviceSaving ? 'Saving…' : 'Log' }}
                   </button>
                 </div>
-                <p class="mt-1 text-xs text-slate-500">Logs immediately, separate from the fields below.</p>
+                <p class="mt-1 text-xs text-foreground-subtle">Logs immediately, separate from the fields below.</p>
               </div>
 
               <!-- Insurance & Inspection -->
-              <div class="grid grid-cols-2 gap-4 rounded-xl border border-navy-700 p-4">
-                <p class="col-span-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <div class="grid grid-cols-2 gap-4 rounded-xl border border-border p-4">
+                <p class="col-span-2 text-xs font-semibold uppercase tracking-wide text-foreground-muted">
                   Insurance &amp; Inspection
                 </p>
                 <div>
-                  <label class="mb-1 block text-xs text-slate-400">Insurance Provider</label>
+                  <label class="mb-1 block text-xs text-foreground-muted">Insurance Provider</label>
                   <input
                     v-model="form.insurance_provider"
                     type="text"
                     placeholder="Jubilee Insurance"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs text-slate-400">Policy Number</label>
+                  <label class="mb-1 block text-xs text-foreground-muted">Policy Number</label>
                   <input
                     v-model="form.insurance_policy_number"
                     type="text"
                     placeholder="POL-00123"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs text-slate-400">Insurance Expiry</label>
+                  <label class="mb-1 block text-xs text-foreground-muted">Insurance Expiry</label>
                   <input
                     v-model="form.insurance_expiry_date"
                     type="date"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs text-slate-400">Inspection Expiry</label>
+                  <label class="mb-1 block text-xs text-foreground-muted">Inspection Expiry</label>
                   <input
                     v-model="form.inspection_expiry_date"
                     type="date"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2 text-sm text-white focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                   />
                 </div>
               </div>
 
               <!-- Ownership -->
-              <div class="rounded-xl border border-navy-700 p-4">
-                <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Ownership</p>
-                <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-                  <input v-model="form.is_company_owned" type="checkbox" class="accent-gold-500" />
+              <div class="rounded-xl border border-border p-4">
+                <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-foreground-muted">Ownership</p>
+                <label class="flex cursor-pointer items-center gap-2 text-sm text-foreground-secondary">
+                  <input v-model="form.is_company_owned" type="checkbox" class="accent-accent-border-strong" />
                   Company-owned (SilverLake owns this vehicle)
                 </label>
-                <p class="mt-1 text-xs text-slate-500">
+                <p class="mt-1 text-xs text-foreground-subtle">
                   Uncheck if a driver-partner or fleet partner owns this vehicle instead - affects whether a with-driver
                   booking on it creates a driver payout. A driver-partner's own submitted car is set correctly
                   automatically; this only matters for vehicles added directly here.
                 </p>
                 <div v-if="!form.is_company_owned" class="mt-3">
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                     >Fleet Partner</label
                   >
                   <select
                     v-model="form.owner"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                   >
                     <option value="">None - owned by the assigned driver themselves</option>
                     <option v-for="p in partnerOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
                   </select>
-                  <p class="mt-1 text-xs text-slate-500">
+                  <p class="mt-1 text-xs text-foreground-subtle">
                     Leave as "None" for an individual driver-partner's own car. Pick a registered company if this
                     vehicle belongs to their fleet instead.
                   </p>
@@ -775,33 +775,33 @@ onMounted(() => {
 
               <!-- Driver assignment -->
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Assigned Driver</label
                 >
                 <select
                   v-model="form.driver"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                 >
                   <option value="">No driver assigned</option>
                   <option v-for="d in driverOptions" :key="d.id" :value="d.id">{{ d.full_name }}</option>
                 </select>
-                <p class="mt-1 text-xs text-slate-500">
+                <p class="mt-1 text-xs text-foreground-subtle">
                   Who physically drives this vehicle on "with driver" bookings - separate from ownership above.
                 </p>
               </div>
 
               <!-- Checkboxes -->
               <div class="flex flex-wrap gap-4">
-                <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-                  <input v-model="form.allow_self_drive" type="checkbox" class="accent-gold-500" />
+                <label class="flex cursor-pointer items-center gap-2 text-sm text-foreground-secondary">
+                  <input v-model="form.allow_self_drive" type="checkbox" class="accent-accent-border-strong" />
                   Allow Self Drive
                 </label>
-                <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-                  <input v-model="form.allow_with_driver" type="checkbox" class="accent-gold-500" />
+                <label class="flex cursor-pointer items-center gap-2 text-sm text-foreground-secondary">
+                  <input v-model="form.allow_with_driver" type="checkbox" class="accent-accent-border-strong" />
                   Allow With Driver
                 </label>
-                <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-                  <input v-model="form.is_available" type="checkbox" class="accent-gold-500" />
+                <label class="flex cursor-pointer items-center gap-2 text-sm text-foreground-secondary">
+                  <input v-model="form.is_available" type="checkbox" class="accent-accent-border-strong" />
                   Mark as Available
                 </label>
               </div>
@@ -809,7 +809,7 @@ onMounted(() => {
               <div class="flex gap-3 pt-2">
                 <button
                   type="button"
-                  class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                  class="flex-1 rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground-secondary transition-colors hover:border-slate-500 hover:text-foreground"
                   @click="showModal = false"
                 >
                   Cancel
@@ -817,7 +817,7 @@ onMounted(() => {
                 <button
                   type="submit"
                   :disabled="saving"
-                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
+                  class="flex-1 rounded-lg bg-accent-bg py-2.5 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-bg-hover disabled:opacity-50"
                 >
                   {{ submitLabel() }}
                 </button>

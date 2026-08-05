@@ -139,13 +139,13 @@ onMounted(() => {
   <div>
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="font-[Georgia] text-2xl font-bold text-white">Blog</h1>
-        <p class="mt-1 text-sm text-slate-400">
+        <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Blog</h1>
+        <p class="mt-1 text-sm text-foreground-muted">
           Marketing & SEO content - travel tips, destination guides, fleet and driver spotlights.
         </p>
       </div>
       <button
-        class="flex items-center gap-2 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400"
+        class="flex items-center gap-2 rounded-lg bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-bg-hover"
         @click="openAddModal"
       >
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -155,36 +155,36 @@ onMounted(() => {
       </button>
     </div>
 
-    <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
-    <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="loading" class="mt-10 text-center text-foreground-muted">Loading...</p>
+    <p v-else-if="error" class="mt-4 text-sm text-danger">{{ error }}</p>
 
     <div v-else class="mt-6 space-y-3">
       <div
         v-for="post in posts"
         :key="post.id"
-        class="flex items-start gap-4 rounded-xl border border-navy-800 bg-navy-900 p-4"
+        class="flex items-start gap-4 rounded-xl border border-border-subtle bg-surface p-4"
       >
-        <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-navy-700 bg-navy-800">
+        <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-2">
           <img v-if="post.cover_image" :src="post.cover_image" :alt="post.title" class="h-full w-full object-cover" />
-          <div v-else class="flex h-full items-center justify-center text-xs text-slate-600">No cover</div>
+          <div v-else class="flex h-full items-center justify-center text-xs text-foreground-subtle">No cover</div>
         </div>
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
-            <p class="truncate font-semibold text-white">{{ post.title }}</p>
+            <p class="truncate font-semibold text-foreground">{{ post.title }}</p>
             <span
               class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-              :class="post.is_published ? 'bg-green-500/10 text-green-400' : 'bg-navy-800 text-slate-500'"
+              :class="post.is_published ? 'bg-green-500/10 text-success' : 'bg-surface-2 text-foreground-subtle'"
             >
               {{ post.is_published ? 'Published' : 'Draft' }}
             </span>
             <span
-              class="shrink-0 rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400"
+              class="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground-muted"
             >
               {{ post.category_display }}
             </span>
           </div>
-          <p class="mt-1 line-clamp-2 text-sm text-slate-400">{{ post.excerpt }}</p>
-          <p class="mt-2 text-xs text-slate-500">
+          <p class="mt-1 line-clamp-2 text-sm text-foreground-muted">{{ post.excerpt }}</p>
+          <p class="mt-2 text-xs text-foreground-subtle">
             {{ post.created_by_name || 'Unknown' }} &middot;
             {{
               post.published_at ? `Published ${new Date(post.published_at).toLocaleDateString()}` : 'Not yet published'
@@ -197,27 +197,27 @@ onMounted(() => {
               :href="`/blog/${post.slug}`"
               target="_blank"
               rel="noopener"
-              class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400"
+              class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent"
             >
               Preview
             </a>
             <button
               :disabled="busyId === post.id"
-              class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="openEditModal(post)"
             >
               Edit
             </button>
             <button
               :disabled="busyId === post.id"
-              class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="togglePublished(post)"
             >
               {{ post.is_published ? 'Unpublish' : 'Publish' }}
             </button>
             <button
               :disabled="busyId === post.id"
-              class="rounded-md border border-red-400 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
+              class="rounded-md border border-danger-border px-2 py-1 text-xs font-semibold text-danger hover:bg-red-400 hover:text-on-accent disabled:opacity-50"
               @click="deletePost(post)"
             >
               Delete
@@ -225,7 +225,7 @@ onMounted(() => {
           </div>
         </div>
       </div>
-      <p v-if="!posts.length" class="p-6 text-center text-slate-400">No posts yet.</p>
+      <p v-if="!posts.length" class="p-6 text-center text-foreground-muted">No posts yet.</p>
     </div>
 
     <Teleport to="body">
@@ -235,80 +235,80 @@ onMounted(() => {
           class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
           @click.self="showModal = false"
         >
-          <div class="w-full max-w-2xl rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+          <div class="w-full max-w-2xl rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-white">
+              <h2 class="font-[Georgia] text-xl font-bold text-foreground">
                 {{ editingId ? 'Edit Post' : 'New Post' }}
               </h2>
-              <button class="text-slate-400 transition-colors hover:text-white" @click="showModal = false">
+              <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ formError }}</p>
+            <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-danger">{{ formError }}</p>
 
             <form class="space-y-4" @submit.prevent="savePost">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Title *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Title *</label>
                 <input
                   v-model="form.title"
                   type="text"
                   placeholder="e.g. A Weekend Guide to Kisumu"
                   required
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Category</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Category</label>
                 <select
                   v-model="form.category"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                 >
                   <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Excerpt *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Excerpt *</label>
                 <textarea
                   v-model="form.excerpt"
                   rows="2"
                   maxlength="300"
                   required
                   placeholder="Shown on the blog list page and used as the SEO description."
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                 ></textarea>
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Cover Image</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Cover Image</label>
                 <div class="flex items-center gap-3">
-                  <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-navy-700 bg-navy-800">
+                  <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-2">
                     <img
                       v-if="imagePreviewUrl"
                       :src="imagePreviewUrl"
                       alt="Preview"
                       class="h-full w-full object-cover"
                     />
-                    <div v-else class="flex h-full items-center justify-center text-xs text-slate-500">No cover</div>
+                    <div v-else class="flex h-full items-center justify-center text-xs text-foreground-subtle">No cover</div>
                   </div>
                   <input
                     type="file"
                     accept="image/*"
-                    class="w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
+                    class="w-full text-sm text-foreground-secondary file:mr-3 file:rounded-md file:border-0 file:bg-accent-bg file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-on-accent"
                     @change="onImageSelected"
                   />
                 </div>
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Body *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Body *</label>
                 <RichTextEditor v-model="form.body" />
               </div>
-              <label class="flex items-center gap-2 text-sm text-slate-300">
+              <label class="flex items-center gap-2 text-sm text-foreground-secondary">
                 <input
                   v-model="form.is_published"
                   type="checkbox"
-                  class="rounded border-navy-700 bg-navy-800 text-gold-500 focus:ring-gold-500"
+                  class="rounded border-border bg-surface-2 text-accent-strong focus:ring-accent-border-strong"
                 />
                 Published (visible on the public blog)
               </label>
@@ -316,7 +316,7 @@ onMounted(() => {
               <div class="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  class="rounded-lg border border-navy-700 px-4 py-2 text-sm font-medium text-slate-300 hover:text-white"
+                  class="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground-secondary hover:text-foreground"
                   @click="showModal = false"
                 >
                   Cancel
@@ -324,7 +324,7 @@ onMounted(() => {
                 <button
                   type="submit"
                   :disabled="saving"
-                  class="rounded-lg bg-gold-500 px-5 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
+                  class="rounded-lg bg-accent-bg px-5 py-2 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-bg-hover disabled:opacity-50"
                 >
                   {{ saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Post' }}
                 </button>

@@ -56,7 +56,7 @@ async function openAddVehicleModal() {
   <div>
     <!-- My live vehicles -->
     <section>
-      <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gold-400">
+      <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-accent">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
@@ -70,27 +70,27 @@ async function openAddVehicleModal() {
         <div
           v-for="vehicle in driverPortal.profile.vehicles"
           :key="vehicle.id"
-          class="rounded-xl border border-navy-800 bg-navy-900 p-4 transition hover:border-navy-700"
+          class="rounded-xl border border-border-subtle bg-surface p-4 transition hover:border-border"
         >
           <div class="flex items-center gap-4">
-            <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-navy-800 bg-navy-800">
+            <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-2">
               <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
-              <div v-else class="flex h-full w-full items-center justify-center text-slate-600">
+              <div v-else class="flex h-full w-full items-center justify-center text-foreground-subtle">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 17h14M6 17l1.5-5h9L18 17M9 12V8h6v4" />
                 </svg>
               </div>
             </div>
             <div class="flex-1">
-              <p class="font-semibold text-white">{{ vehicle.name }}</p>
-              <p class="text-xs text-slate-400">
+              <p class="font-semibold text-foreground">{{ vehicle.name }}</p>
+              <p class="text-xs text-foreground-muted">
                 {{ vehicle.category_name || vehicle.category }} &middot; KES
                 {{ Number(vehicle.price_per_day).toLocaleString() }}/day
               </p>
             </div>
             <span
               class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
-              :class="vehicle.is_available ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'"
+              :class="vehicle.is_available ? 'bg-emerald-500/10 text-success' : 'bg-red-500/10 text-danger'"
             >
               {{ vehicle.is_available ? 'Available' : 'Unavailable' }}
             </span>
@@ -98,7 +98,7 @@ async function openAddVehicleModal() {
 
           <p
             v-if="vehicle.is_service_due"
-            class="mt-3 flex items-center gap-1.5 rounded-lg bg-gold-500/10 px-3 py-2 text-xs font-semibold text-gold-400"
+            class="mt-3 flex items-center gap-1.5 rounded-lg bg-accent-bg/10 px-3 py-2 text-xs font-semibold text-accent"
           >
             <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path
@@ -111,24 +111,24 @@ async function openAddVehicleModal() {
           </p>
 
           <!-- Service history -->
-          <div class="mt-3 border-t border-navy-800 pt-3">
+          <div class="mt-3 border-t border-border-subtle pt-3">
             <div class="flex items-center justify-between">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <p class="text-xs font-semibold uppercase tracking-wide text-foreground-subtle">
                 Service History
-                <span v-if="vehicle.service_records?.length" class="text-slate-600"
+                <span v-if="vehicle.service_records?.length" class="text-foreground-subtle"
                   >({{ vehicle.service_records.length }})</span
                 >
               </p>
               <button
                 v-if="serviceFormVehicleId !== vehicle.id"
-                class="text-xs font-semibold text-gold-400 hover:text-gold-300"
+                class="text-xs font-semibold text-accent hover:text-accent-strong"
                 @click="openServiceForm(vehicle.id)"
               >
                 + Log Service
               </button>
               <button
                 v-else
-                class="text-xs font-semibold text-slate-400 hover:text-white"
+                class="text-xs font-semibold text-foreground-muted hover:text-foreground"
                 @click="serviceFormVehicleId = null"
               >
                 Cancel
@@ -136,53 +136,53 @@ async function openAddVehicleModal() {
             </div>
 
             <ul v-if="vehicle.service_records?.length" class="mt-2 space-y-1">
-              <li v-for="record in vehicle.service_records" :key="record.id" class="text-xs text-slate-400">
-                <span class="text-slate-300">{{ record.service_date }}</span>
+              <li v-for="record in vehicle.service_records" :key="record.id" class="text-xs text-foreground-muted">
+                <span class="text-foreground-secondary">{{ record.service_date }}</span>
                 <span v-if="record.notes"> &middot; {{ record.notes }}</span>
               </li>
             </ul>
-            <p v-else-if="serviceFormVehicleId !== vehicle.id" class="mt-2 text-xs text-slate-600">
+            <p v-else-if="serviceFormVehicleId !== vehicle.id" class="mt-2 text-xs text-foreground-subtle">
               No service logged yet.
             </p>
 
             <form
               v-if="serviceFormVehicleId === vehicle.id"
-              class="mt-2 space-y-2 rounded-lg bg-navy-950 p-3"
+              class="mt-2 space-y-2 rounded-lg bg-page p-3"
               @submit.prevent="logService(vehicle)"
             >
-              <p v-if="serviceError" class="text-xs text-red-400">{{ serviceError }}</p>
+              <p v-if="serviceError" class="text-xs text-danger">{{ serviceError }}</p>
               <div class="flex gap-2">
                 <input
                   v-model="serviceDateDraft"
                   type="date"
                   required
-                  class="rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white focus:border-gold-500 focus:outline-none"
+                  class="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-foreground focus:border-accent-border-strong focus:outline-none"
                 />
                 <input
                   v-model="serviceNotesDraft"
                   type="text"
                   placeholder="e.g. Oil change + filter"
-                  class="flex-1 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  class="flex-1 rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                 />
               </div>
               <button
                 type="submit"
                 :disabled="loggingServiceId === vehicle.id"
-                class="rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                class="rounded-md bg-accent-bg px-3 py-1.5 text-xs font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
               >
                 {{ loggingServiceId === vehicle.id ? 'Saving...' : 'Save' }}
               </button>
             </form>
           </div>
         </div>
-        <p v-if="!driverPortal.profile.vehicles.length" class="text-sm text-slate-500">No live vehicles yet.</p>
+        <p v-if="!driverPortal.profile.vehicles.length" class="text-sm text-foreground-subtle">No live vehicles yet.</p>
       </div>
     </section>
 
     <!-- Vehicle submissions -->
     <section class="mt-10">
       <div class="flex items-center justify-between">
-        <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gold-400">
+        <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-accent">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path
               stroke-linecap="round"
@@ -193,7 +193,7 @@ async function openAddVehicleModal() {
           My Vehicle Submissions
         </h2>
         <button
-          class="flex items-center gap-2 rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 transition hover:bg-gold-400"
+          class="flex items-center gap-2 rounded-lg bg-accent-bg px-3 py-1.5 text-xs font-semibold text-on-accent transition hover:bg-accent-bg-hover"
           @click="openAddVehicleModal"
         >
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -202,18 +202,18 @@ async function openAddVehicleModal() {
           Add a Car
         </button>
       </div>
-      <p class="mt-1 text-xs text-slate-500">New cars go live once an admin reviews and approves them.</p>
+      <p class="mt-1 text-xs text-foreground-subtle">New cars go live once an admin reviews and approves them.</p>
 
       <div class="mt-3 space-y-3">
         <div
           v-for="submission in driverPortal.profile.vehicle_submissions"
           :key="submission.id"
-          class="rounded-xl border border-navy-800 bg-navy-900 p-4 transition hover:border-navy-700"
+          class="rounded-xl border border-border-subtle bg-surface p-4 transition hover:border-border"
         >
           <div class="flex items-center justify-between gap-3">
             <div>
-              <p class="font-semibold text-white">{{ submission.name }}</p>
-              <p class="text-xs text-slate-400">
+              <p class="font-semibold text-foreground">{{ submission.name }}</p>
+              <p class="text-xs text-foreground-muted">
                 {{ submission.category_name || submission.category }} &middot; KES
                 {{ Number(submission.price_per_day).toLocaleString() }}/day
               </p>
@@ -221,19 +221,19 @@ async function openAddVehicleModal() {
             <span
               class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
               :class="{
-                'bg-gold-500/10 text-gold-400': submission.status === 'pending',
-                'bg-emerald-500/10 text-emerald-400': submission.status === 'approved',
-                'bg-red-500/10 text-red-400': submission.status === 'rejected',
+                'bg-accent-bg/10 text-accent': submission.status === 'pending',
+                'bg-emerald-500/10 text-success': submission.status === 'approved',
+                'bg-red-500/10 text-danger': submission.status === 'rejected',
               }"
             >
               {{ submission.status }}
             </span>
           </div>
-          <p v-if="submission.status === 'rejected' && submission.review_notes" class="mt-2 text-xs text-red-400">
+          <p v-if="submission.status === 'rejected' && submission.review_notes" class="mt-2 text-xs text-danger">
             {{ submission.review_notes }}
           </p>
         </div>
-        <p v-if="!driverPortal.profile.vehicle_submissions.length" class="text-sm text-slate-500">
+        <p v-if="!driverPortal.profile.vehicle_submissions.length" class="text-sm text-foreground-subtle">
           No submissions yet.
         </p>
       </div>
