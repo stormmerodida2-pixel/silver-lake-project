@@ -1,14 +1,31 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
+import StickyMobileCTA from '../components/StickyMobileCTA.vue'
 import VehicleCard from '../components/VehicleCard.vue'
 import ReviewCard from '../components/ReviewCard.vue'
 import { setStructuredData } from '../utils/seo'
+import { buildWhatsAppLink } from '../utils/whatsapp'
 
 const auth = useAuthStore()
 const catalog = useCatalogStore()
+
+const heroSectionRef = ref(null)
+const showStickyCta = ref(false)
+let heroObserver = null
+watch(heroSectionRef, (el) => {
+  heroObserver?.disconnect()
+  if (!el) return
+  heroObserver = new IntersectionObserver(([entry]) => {
+    showStickyCta.value = !entry.isIntersecting
+  })
+  heroObserver.observe(el)
+})
+onBeforeUnmount(() => heroObserver?.disconnect())
+
+const whatsappHref = buildWhatsAppLink("Hello SilverLake Car Rentals, I'd like to book a car.")
 
 onMounted(() => {
   catalog.fetchVehicles()
@@ -102,7 +119,7 @@ const howItWorks = [
 <template>
   <div>
     <!-- Hero -->
-    <section class="relative overflow-hidden border-b border-border-subtle bg-linear-to-b from-surface to-page">
+    <section ref="heroSectionRef" class="relative overflow-hidden border-b border-border-subtle bg-linear-to-b from-surface to-page">
       <div class="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-accent-bg/10 blur-3xl"></div>
       <div
         class="pointer-events-none absolute -left-32 bottom-0 h-72 w-72 rounded-full bg-brand-blue-500/10 blur-3xl"
@@ -137,8 +154,13 @@ const howItWorks = [
             </RouterLink>
           </div>
 
+          <p v-if="averageRating" class="mt-4 flex items-center gap-1.5 text-sm text-foreground-secondary">
+            <span class="font-semibold text-foreground">{{ averageRating }}<span class="text-accent">&#9733;</span></span>
+            <span>from {{ catalog.reviews.length }} review{{ catalog.reviews.length === 1 ? '' : 's' }}</span>
+          </p>
+
           <dl
-            v-if="catalog.vehicles.length || totalTripsCompleted > 0 || averageRating"
+            v-if="catalog.vehicles.length || totalTripsCompleted > 0"
             class="mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-border-subtle pt-6"
           >
             <div v-if="catalog.vehicles.length">
@@ -148,12 +170,6 @@ const howItWorks = [
             <div v-if="totalTripsCompleted > 0">
               <dt class="font-[Georgia] text-2xl font-bold text-foreground">{{ totalTripsCompleted }}+</dt>
               <dd class="text-xs uppercase tracking-wide text-foreground-muted">Trips completed</dd>
-            </div>
-            <div v-if="averageRating">
-              <dt class="font-[Georgia] text-2xl font-bold text-foreground">
-                {{ averageRating }}<span class="text-accent">&#9733;</span>
-              </dt>
-              <dd class="text-xs uppercase tracking-wide text-foreground-muted">Average rating</dd>
             </div>
           </dl>
         </div>
@@ -516,6 +532,8 @@ const howItWorks = [
         </div>
       </div>
     </section>
+
+    <StickyMobileCTA :visible="showStickyCta" book-href="/book" :whatsapp-href="whatsappHref" />
   </div>
 </template>
 

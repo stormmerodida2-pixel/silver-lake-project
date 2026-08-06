@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import apiClient from '../api/client'
@@ -10,8 +10,27 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  startDate: {
+    type: String,
+    default: '',
+  },
+  endDate: {
+    type: String,
+    default: '',
+  },
 })
 const emit = defineEmits(['unfavorited'])
+
+// Carries a date search made on the Fleet listing through to the vehicle's own detail page, so
+// its "Book with Driver"/"Self Drive" CTAs can forward the same dates into the booking form
+// instead of the customer re-entering them (see VehicleDetailView.vue's own withDriverUrl/
+// selfDriveUrl computeds, which read these same query params back out).
+const detailHref = computed(() => {
+  const query = {}
+  if (props.startDate) query.start_date = props.startDate
+  if (props.endDate) query.end_date = props.endDate
+  return { path: `/fleet/${props.vehicle.id}`, query }
+})
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -54,7 +73,7 @@ async function toggleFavorite(event) {
 
 <template>
   <RouterLink
-    :to="`/fleet/${vehicle.id}`"
+    :to="detailHref"
     class="group flex flex-col overflow-hidden rounded-3xl border border-border-subtle bg-surface shadow-lg shadow-black/20 transition-all duration-300 ease-out hover:-translate-y-1 hover:border-accent-border/50 hover:shadow-xl hover:shadow-gold-500/10"
   >
     <div class="relative aspect-[4/3] w-full overflow-hidden bg-page">

@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
-import { trackPageView } from '../utils/analytics'
+import { trackEvent, trackPageView } from '../utils/analytics'
 import { clearAllDynamicStructuredData, setPageMeta } from '../utils/seo'
 
 const routes = [
@@ -358,6 +358,7 @@ const router = createRouter({
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    if (to.name === 'book') trackEvent('login_required', { context: 'booking' })
     return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (to.meta.requiresStaff) {

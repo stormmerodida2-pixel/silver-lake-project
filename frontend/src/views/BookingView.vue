@@ -9,6 +9,7 @@ import PhoneInput from '../components/PhoneInput.vue'
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
 import { trackEvent } from '../utils/analytics'
+import { calculateEstimatedCost, calculateTotalDays, SELF_DRIVE_SURCHARGE_PERCENT } from '../utils/pricing'
 
 const route = useRoute()
 const catalog = useCatalogStore()
@@ -26,8 +27,8 @@ const form = reactive({
   dropoff_location: route.query.dropoff || '',
   dropoff_lat: null,
   dropoff_lng: null,
-  start_date: '',
-  end_date: '',
+  start_date: route.query.start_date || '',
+  end_date: route.query.end_date || '',
   notes: '',
   customer_license_number: '',
   discount_code: '',
@@ -151,6 +152,11 @@ function submitCardPayment() {
 onMounted(() => {
   catalog.fetchVehicles()
   catalog.fetchProtectionPlans()
+  trackEvent('begin_checkout', {
+    currency: 'KES',
+    items: form.vehicle ? [{ item_id: String(form.vehicle) }] : [],
+    service_type: form.service_type,
+  })
 })
 
 // Only offer vehicles that actually support the chosen service type.
@@ -306,11 +312,7 @@ function goToPhoto(index) {
   startPhotoTimer()
 }
 
-const totalDays = computed(() => {
-  if (!form.start_date || !form.end_date) return 0
-  const diff = (new Date(form.end_date) - new Date(form.start_date)) / (1000 * 60 * 60 * 24)
-  return Math.max(1, Math.round(diff) + 1)
-})
+const totalDays = computed(() => calculateTotalDays(form.start_date, form.end_date))
 
 // Straight-line (great-circle) distance, not a driving route - the app doesn't price by
 // distance, this is just so the customer can sanity-check how far apart the two points are.
@@ -331,19 +333,14 @@ const pickupDropoffDistanceKm = computed(() => {
   return haversineKm(Number(form.pickup_lat), Number(form.pickup_lng), Number(form.dropoff_lat), Number(form.dropoff_lng))
 })
 
-// Self-drive costs 3% more than the vehicle's own with-driver rate - mirrors Booking.save()'s
-// SELF_DRIVE_SURCHARGE_PERCENT on the backend, so the preview shown here matches what actually
-// gets charged.
-const SELF_DRIVE_SURCHARGE_PERCENT = 3
-
 const baseCost = computed(() => {
   if (!selectedVehicle.value) return 0
   return totalDays.value * Number(selectedVehicle.value.price_per_day)
 })
 
 const surchargedCost = computed(() => {
-  if (form.service_type !== 'self_drive') return baseCost.value
-  return Math.round(baseCost.value * (1 + SELF_DRIVE_SURCHARGE_PERCENT / 100) * 100) / 100
+  if (!selectedVehicle.value) return 0
+  return calculateEstimatedCost(selectedVehicle.value.price_per_day, totalDays.value, form.service_type)
 })
 
 // Self-drive only (see Booking.clean()) - priced per day like the vehicle's own rate, mirrors
@@ -461,6 +458,7 @@ async function payWithMpesa() {
     error.value = 'Enter the M-Pesa number to charge.'
     return
   }
+  trackEvent('add_payment_info', { payment_type: 'mpesa', currency: 'KES', value: amountToPay.value })
   submitting.value = true
   error.value = ''
   try {
@@ -487,6 +485,7 @@ function retryPayment() {
 }
 
 async function declareBankTransfer() {
+  trackEvent('add_payment_info', { payment_type: 'bank_transfer', currency: 'KES', value: amountToPay.value })
   declaringBankTransfer.value = true
   bankTransferError.value = ''
   try {
@@ -800,6 +799,19 @@ async function declareBankTransfer() {
                   </span>
                 </button>
               </div>
+            </div>
+
+            <div>
+              <label class="mb-1 block text-sm text-foreground-muted">Discount Code (optional)</label>
+              <input
+                v-model="form.discount_code"
+                type="text"
+                placeholder="e.g. WELCOME500"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm uppercase text-foreground placeholder-foreground-subtle placeholder:normal-case focus:border-accent-border focus:outline-none"
+              />
+              <p class="mt-1 text-xs text-foreground-subtle">
+                Applied automatically when you book - it'll show on your total below.
+              </p>
             </div>
 
             <p v-if="error" class="text-sm text-danger">{{ error }}</p>
@@ -1322,7 +1334,7 @@ async function declareBankTransfer() {
                   <span>&times; KES {{ Number(selectedVehicle.price_per_day).toLocaleString() }}</span>
                 </div>
                 <div v-if="totalDays && form.service_type === 'self_drive'" class="flex justify-between text-foreground-muted">
-                  <span>Self-drive surcharge (3%)</span>
+                  <span>Self-drive surcharge ({{ SELF_DRIVE_SURCHARGE_PERCENT }}%)</span>
                   <span>+ KES {{ (surchargedCost - baseCost).toLocaleString() }}</span>
                 </div>
                 <div v-if="totalDays && protectionPlanCost" class="flex justify-between text-foreground-muted">
@@ -1344,20 +1356,6 @@ async function declareBankTransfer() {
                 rest anytime before pickup.
               </div>
 
-              <div class="mt-4 border-t border-border-subtle pt-4">
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-subtle">
-                  Discount Code (optional)
-                </label>
-                <input
-                  v-model="form.discount_code"
-                  type="text"
-                  placeholder="e.g. WELCOME500"
-                  class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm uppercase text-foreground placeholder-foreground-subtle placeholder:normal-case focus:border-accent-border focus:outline-none"
-                />
-                <p class="mt-1 text-xs text-foreground-subtle">
-                  Applied automatically when you book - it'll show on your total below.
-                </p>
-              </div>
             </div>
           </div>
 

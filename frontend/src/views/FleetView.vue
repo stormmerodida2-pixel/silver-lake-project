@@ -1,11 +1,14 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import apiClient from '../api/client'
 import { useCatalogStore } from '../stores/catalog'
 import VehicleCard from '../components/VehicleCard.vue'
 
 const catalog = useCatalogStore()
+const route = useRoute()
+const router = useRouter()
 const activeCategory = ref('all')
 const todayString = new Date().toISOString().split('T')[0]
 
@@ -19,7 +22,10 @@ const categories = computed(() => [
 // of a customer discovering a conflict only after picking a vehicle and filling out the whole
 // booking form. `null` here (not just empty dates) distinguishes "no search run yet" from "ran
 // a search and nothing was available".
-const dateFilter = reactive({ start_date: '', end_date: '' })
+const dateFilter = reactive({
+  start_date: typeof route.query.start_date === 'string' ? route.query.start_date : '',
+  end_date: typeof route.query.end_date === 'string' ? route.query.end_date : '',
+})
 const dateFilteredVehicles = ref(null)
 const dateFilterLoading = ref(false)
 const dateFilterError = ref('')
@@ -32,6 +38,9 @@ async function checkAvailability() {
   try {
     const { data } = await apiClient.get('/vehicles/', { params: dateFilter })
     dateFilteredVehicles.value = data.results ?? data
+    // Keeps the URL shareable/bookmarkable, and is what lets a vehicle's detail-page CTA
+    // carry these dates forward into the booking form instead of the customer re-typing them.
+    router.replace({ query: { start_date: dateFilter.start_date, end_date: dateFilter.end_date } })
   } catch {
     dateFilterError.value = 'Could not check availability for those dates.'
   } finally {
@@ -44,6 +53,7 @@ function clearDateFilter() {
   dateFilter.end_date = ''
   dateFilteredVehicles.value = null
   dateFilterError.value = ''
+  router.replace({ query: {} })
 }
 
 const baseVehicles = computed(() => dateFilteredVehicles.value ?? catalog.vehicles)
@@ -55,6 +65,7 @@ const filteredVehicles = computed(() => {
 onMounted(() => {
   catalog.fetchVehicles()
   catalog.fetchCategories()
+  if (dateFilter.start_date && dateFilter.end_date) checkAvailability()
 })
 </script>
 
@@ -125,7 +136,14 @@ onMounted(() => {
       </div>
 
       <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <VehicleCard v-for="vehicle in filteredVehicles" :key="vehicle.id" v-reveal :vehicle="vehicle" />
+        <VehicleCard
+          v-for="vehicle in filteredVehicles"
+          :key="vehicle.id"
+          v-reveal
+          :vehicle="vehicle"
+          :start-date="dateFilter.start_date"
+          :end-date="dateFilter.end_date"
+        />
       </div>
 
       <p v-if="!filteredVehicles.length" class="mt-10 text-center text-foreground-muted">
