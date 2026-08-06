@@ -182,37 +182,37 @@ onMounted(loadProfile)
 </script>
 
 <template>
-  <div class="bg-white">
+  <div class="bg-page">
     <div class="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:py-20">
-      <h1 class="text-center font-[Georgia] text-4xl font-bold text-navy-900">My Profile</h1>
-      <p class="mt-3 text-center text-base text-slate-500">Update your name and contact details.</p>
+      <h1 class="text-center font-[Georgia] text-4xl font-bold text-foreground">My Profile</h1>
+      <p class="mt-3 text-center text-base text-foreground-subtle">Update your name and contact details.</p>
 
-      <p v-if="loading" class="mt-10 text-center text-slate-500">Loading...</p>
+      <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>
 
       <template v-else>
         <!-- Profile photo -->
         <div
-          class="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-8 sm:flex-row sm:p-10"
+          class="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-border-subtle bg-surface p-8 sm:flex-row sm:p-10"
         >
-          <div class="h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-white bg-navy-900 shadow-sm">
+          <div class="h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-border-subtle bg-surface shadow-sm">
             <img v-if="avatarUrl" :src="avatarUrl" alt="Your profile photo" class="h-full w-full object-cover" />
             <div
               v-else
-              class="flex h-full w-full items-center justify-center font-[Georgia] text-2xl font-bold text-gold-400"
+              class="flex h-full w-full items-center justify-center font-[Georgia] text-2xl font-bold text-accent"
             >
               {{ initials || '—' }}
             </div>
           </div>
           <div class="flex-1 text-center sm:text-left">
-            <p class="font-[Georgia] text-lg font-bold text-navy-900">Profile Photo</p>
-            <p class="mt-1 text-sm text-slate-500">JPG or PNG, up to 5MB.</p>
-            <p v-if="avatarError" class="mt-2 text-sm text-red-600">{{ avatarError }}</p>
+            <p class="font-[Georgia] text-lg font-bold text-foreground">Profile Photo</p>
+            <p class="mt-1 text-sm text-foreground-subtle">JPG or PNG, up to 5MB.</p>
+            <p v-if="avatarError" class="mt-2 text-sm text-danger">{{ avatarError }}</p>
             <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarSelected" />
             <div class="mt-3 flex flex-wrap justify-center gap-3 sm:justify-start">
               <button
                 type="button"
                 :disabled="avatarUploading"
-                class="rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+                class="rounded-lg bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover disabled:opacity-60"
                 @click="pickAvatar"
               >
                 {{ avatarUploading ? 'Saving…' : avatarUrl ? 'Change Photo' : 'Upload Photo' }}
@@ -221,7 +221,7 @@ onMounted(loadProfile)
                 v-if="avatarUrl"
                 type="button"
                 :disabled="avatarUploading"
-                class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-red-400 hover:text-red-600 disabled:opacity-60"
+                class="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground-secondary transition hover:border-danger-border hover:text-danger disabled:opacity-60"
                 @click="removeAvatar"
               >
                 Remove
@@ -233,14 +233,14 @@ onMounted(loadProfile)
         <!-- Loyalty -->
         <div
           v-if="loyaltyTierName || nextLoyaltyTierName"
-          class="mt-6 rounded-2xl border border-navy-800 bg-navy-900 p-8 sm:p-10"
+          class="mt-6 rounded-2xl border border-border-subtle bg-surface p-8 sm:p-10"
         >
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="font-[Georgia] text-lg font-bold text-white">
+              <p class="font-[Georgia] text-lg font-bold text-foreground">
                 {{ loyaltyTierName ? `${loyaltyTierName} Member` : 'Loyalty Program' }}
               </p>
-              <p class="mt-1 max-w-md text-sm text-slate-300">
+              <p class="mt-1 max-w-md text-sm text-foreground-secondary">
                 <template v-if="loyaltyTierName && Number(loyaltyDiscountPercent) > 0">
                   You get {{ Number(loyaltyDiscountPercent) }}% off every booking, automatically - no code needed.
                 </template>
@@ -248,49 +248,49 @@ onMounted(loadProfile)
                   Complete more trips to unlock an automatic discount on every future booking.
                 </template>
               </p>
-              <p v-if="nextLoyaltyTierName" class="mt-2 text-xs font-semibold uppercase tracking-wide text-gold-400">
+              <p v-if="nextLoyaltyTierName" class="mt-2 text-xs font-semibold uppercase tracking-wide text-accent">
                 {{ tripsToNextLoyaltyTier }} more trip{{ tripsToNextLoyaltyTier === 1 ? '' : 's' }} to
                 {{ nextLoyaltyTierName }}
               </p>
-              <p v-else class="mt-2 text-xs font-semibold uppercase tracking-wide text-gold-400">
+              <p v-else class="mt-2 text-xs font-semibold uppercase tracking-wide text-accent">
                 You've reached the top tier
               </p>
             </div>
-            <div class="rounded-lg border border-gold-500/40 bg-gold-500/10 px-4 py-2 text-center">
-              <p class="font-[Georgia] text-2xl font-bold text-gold-400">{{ completedTripCount }}</p>
-              <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Completed Trips</p>
+            <div class="rounded-lg border border-accent-border-strong/40 bg-accent-bg/10 px-4 py-2 text-center">
+              <p class="font-[Georgia] text-2xl font-bold text-accent">{{ completedTripCount }}</p>
+              <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted">Completed Trips</p>
             </div>
           </div>
         </div>
 
         <!-- Referrals -->
-        <div class="mt-6 rounded-2xl border border-navy-800 bg-navy-900 p-8 sm:p-10">
+        <div class="mt-6 rounded-2xl border border-border-subtle bg-surface p-8 sm:p-10">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="font-[Georgia] text-lg font-bold text-white">
+              <p class="font-[Georgia] text-lg font-bold text-foreground">
                 Give KES {{ Number(referralCreditAmount).toLocaleString() }}, Get KES
                 {{ Number(referralCreditAmount).toLocaleString() }}
               </p>
-              <p class="mt-1 max-w-md text-sm text-slate-300">
+              <p class="mt-1 max-w-md text-sm text-foreground-secondary">
                 Share your code - once a friend's first trip is confirmed, you earn KES
                 {{ Number(referralCreditAmount).toLocaleString() }} in credit toward your own next booking.
               </p>
             </div>
-            <div class="rounded-lg border border-gold-500/40 bg-gold-500/10 px-4 py-2 text-center">
-              <p class="font-[Georgia] text-2xl font-bold text-gold-400">
+            <div class="rounded-lg border border-accent-border-strong/40 bg-accent-bg/10 px-4 py-2 text-center">
+              <p class="font-[Georgia] text-2xl font-bold text-accent">
                 KES {{ Number(referralCreditBalance).toLocaleString() }}
               </p>
-              <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Available Credit</p>
+              <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted">Available Credit</p>
             </div>
           </div>
 
           <div class="mt-5 flex flex-wrap items-center gap-3">
-            <span class="rounded-md bg-navy-800 px-4 py-2 font-mono text-lg font-bold tracking-widest text-gold-400">
+            <span class="rounded-md bg-surface-2 px-4 py-2 font-mono text-lg font-bold tracking-widest text-accent">
               {{ referralCode }}
             </span>
             <button
               type="button"
-              class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+              class="rounded-md bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover"
               @click="copyReferralLink"
             >
               {{ copied ? 'Link Copied!' : 'Copy Referral Link' }}
@@ -299,11 +299,11 @@ onMounted(loadProfile)
         </div>
 
         <!-- Security (staff/admin accounts only) -->
-        <div v-if="auth.user?.is_staff" class="mt-6 rounded-2xl border border-navy-800 bg-navy-900 p-8 sm:p-10">
+        <div v-if="auth.user?.is_staff" class="mt-6 rounded-2xl border border-border-subtle bg-surface p-8 sm:p-10">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="font-[Georgia] text-lg font-bold text-white">Two-Factor Authentication</p>
-              <p class="mt-1 max-w-md text-sm text-slate-300">
+              <p class="font-[Georgia] text-lg font-bold text-foreground">Two-Factor Authentication</p>
+              <p class="mt-1 max-w-md text-sm text-foreground-secondary">
                 <template v-if="twoFactorEnabled"> Enabled - a code is emailed to you every time you log in. </template>
                 <template v-else>
                   Adds a second step at login (a code emailed to you) - recommended for staff and admin accounts, since
@@ -313,17 +313,17 @@ onMounted(loadProfile)
             </div>
             <span
               class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
-              :class="twoFactorEnabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-navy-800 text-slate-400'"
+              :class="twoFactorEnabled ? 'bg-emerald-500/10 text-success' : 'bg-surface-2 text-foreground-muted'"
             >
               {{ twoFactorEnabled ? 'Enabled' : 'Disabled' }}
             </span>
           </div>
-          <p v-if="twoFactorError" class="mt-3 text-sm text-red-400">{{ twoFactorError }}</p>
+          <p v-if="twoFactorError" class="mt-3 text-sm text-danger">{{ twoFactorError }}</p>
           <button
             v-if="!twoFactorEnabled"
             type="button"
             :disabled="twoFactorBusy"
-            class="mt-5 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+            class="mt-5 rounded-md bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover disabled:opacity-60"
             @click="enableTwoFactor"
           >
             {{ twoFactorBusy ? 'Enabling...' : 'Enable Two-Factor Authentication' }}
@@ -332,7 +332,7 @@ onMounted(loadProfile)
             v-else
             type="button"
             :disabled="twoFactorBusy"
-            class="mt-5 rounded-md border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/10 disabled:opacity-60"
+            class="mt-5 rounded-md border border-red-500/40 px-4 py-2 text-sm font-semibold text-danger transition hover:bg-red-500/10 disabled:opacity-60"
             @click="disableTwoFactor"
           >
             {{ twoFactorBusy ? 'Disabling...' : 'Disable Two-Factor Authentication' }}
@@ -340,62 +340,62 @@ onMounted(loadProfile)
         </div>
 
         <form
-          class="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 sm:p-10"
+          class="mt-6 space-y-6 rounded-2xl border border-border-subtle bg-surface p-8 sm:p-10"
           @submit.prevent="submit"
         >
           <div class="grid gap-5 sm:grid-cols-2">
             <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-600">First name</label>
+              <label class="mb-1.5 block text-sm font-medium text-foreground-muted">First name</label>
               <input
                 v-model="form.first_name"
                 type="text"
                 required
-                class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-3 text-base text-foreground focus:border-accent-border focus:outline-none"
               />
             </div>
             <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-600">Last name</label>
+              <label class="mb-1.5 block text-sm font-medium text-foreground-muted">Last name</label>
               <input
                 v-model="form.last_name"
                 type="text"
-                class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-3 text-base text-foreground focus:border-accent-border focus:outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-600">Phone number</label>
-            <PhoneInput v-model="form.phone_number" />
+            <label class="mb-1.5 block text-sm font-medium text-foreground-muted">Phone number</label>
+            <PhoneInput v-model="form.phone_number" dark />
           </div>
 
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-600">Email</label>
+            <label class="mb-1.5 block text-sm font-medium text-foreground-muted">Email</label>
             <input
               :value="email"
               type="email"
               disabled
-              class="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-base text-slate-500"
+              class="w-full cursor-not-allowed rounded-lg border border-border-subtle bg-surface-2 px-4 py-3 text-base text-foreground-subtle"
             />
-            <p class="mt-1.5 text-xs text-slate-400">
+            <p class="mt-1.5 text-xs text-foreground-muted">
               Your email is also your login - contact us if you need it changed.
             </p>
           </div>
 
-          <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+          <p v-if="error" class="text-sm text-danger">{{ error }}</p>
 
           <button
             type="submit"
             :disabled="submitting"
-            class="w-full rounded-lg bg-gold-500 px-4 py-3 text-base font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+            class="w-full rounded-lg bg-accent-bg px-4 py-3 text-base font-semibold text-on-accent transition hover:bg-accent-bg-hover disabled:opacity-60"
           >
             {{ submitting ? 'Saving...' : 'Save Changes' }}
           </button>
         </form>
       </template>
 
-      <p class="mt-6 text-center text-sm text-slate-500">
+      <p class="mt-6 text-center text-sm text-foreground-subtle">
         Want to change your password instead?
-        <RouterLink to="/account/change-password" class="font-semibold text-brand-blue-600 hover:underline">
+        <RouterLink to="/account/change-password" class="font-semibold text-accent hover:underline">
           Change Password
         </RouterLink>
       </p>

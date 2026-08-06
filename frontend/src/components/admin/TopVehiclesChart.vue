@@ -79,16 +79,16 @@ const tooltipStyle = computed(() => {
 
     <div
       v-if="hoverIndex !== null"
-      class="pointer-events-none absolute -translate-x-1/2 -translate-y-full rounded-lg border border-navy-700 bg-navy-950 px-3 py-2 text-xs shadow-lg"
+      class="pointer-events-none absolute -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-page px-3 py-2 text-xs shadow-lg"
       :style="tooltipStyle"
     >
-      <p class="font-semibold text-white">{{ data[hoverIndex].name }}</p>
-      <p class="mt-0.5 font-bold text-gold-400">KES {{ Number(data[hoverIndex].revenue).toLocaleString() }}</p>
-      <p class="text-slate-400">
+      <p class="font-semibold text-foreground">{{ data[hoverIndex].name }}</p>
+      <p class="mt-0.5 font-bold text-accent">KES {{ Number(data[hoverIndex].revenue).toLocaleString() }}</p>
+      <p class="text-foreground-muted">
         {{ data[hoverIndex].bookings }} booking{{ data[hoverIndex].bookings === 1 ? '' : 's' }}
       </p>
     </div>
 
-    <p v-if="!data.length" class="py-6 text-center text-sm text-slate-500">No bookings in the last 12 months.</p>
+    <p v-if="!data.length" class="py-6 text-center text-sm text-foreground-subtle">No bookings in the last 12 months.</p>
   </div>
 </template>

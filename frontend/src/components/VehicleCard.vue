@@ -55,33 +55,33 @@ async function toggleFavorite(event) {
 <template>
   <RouterLink
     :to="`/fleet/${vehicle.id}`"
-    class="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 transition-all duration-300 ease-out hover:-translate-y-1 hover:border-gold-300 hover:shadow-xl hover:shadow-gold-500/10"
+    class="group flex flex-col overflow-hidden rounded-3xl border border-border-subtle bg-surface shadow-lg shadow-black/20 transition-all duration-300 ease-out hover:-translate-y-1 hover:border-accent-border/50 hover:shadow-xl hover:shadow-gold-500/10"
   >
-    <div class="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
+    <div class="relative aspect-[4/3] w-full overflow-hidden bg-page">
       <img
         v-if="vehicle.image"
         :src="vehicle.image"
         :alt="vehicle.name"
         class="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
       />
-      <div v-else class="flex h-full items-center justify-center text-slate-400">No photo yet</div>
+      <div v-else class="flex h-full items-center justify-center text-foreground-subtle">No photo yet</div>
 
       <!-- Real social proof - a genuine completed-trip count, never a fabricated "X viewing now". -->
       <span
         v-if="vehicle.trips_completed > 0"
-        class="absolute right-3 top-3 rounded-full bg-navy-950/80 px-2.5 py-1 text-xs font-semibold text-gold-400 backdrop-blur"
+        class="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-page/85 px-2.5 py-1 text-xs font-semibold text-accent shadow-lg backdrop-blur"
       >
-        {{ vehicle.trips_completed }} trip{{ vehicle.trips_completed === 1 ? '' : 's' }} completed
+        &#9733; {{ vehicle.trips_completed }} trip{{ vehicle.trips_completed === 1 ? '' : 's' }}
       </span>
 
       <button
         type="button"
-        class="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-navy-950/60 text-white backdrop-blur transition hover:bg-navy-950/80 disabled:cursor-not-allowed"
+        class="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-page/70 text-foreground backdrop-blur transition hover:bg-page/90 disabled:cursor-not-allowed"
         :aria-label="isFavorited ? 'Remove from favorites' : 'Add to favorites'"
         :disabled="togglingFavorite"
         @click="toggleFavorite"
       >
-        <svg v-if="isFavorited" class="h-4 w-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+        <svg v-if="isFavorited" class="h-4 w-4 text-danger" fill="currentColor" viewBox="0 0 24 24">
           <path
             d="M12 21s-6.716-4.35-9.428-8.028C.86 10.42 1.02 7.36 3.343 5.6a5.5 5.5 0 0 1 7.657 1.02L12 7.8l1-1.18a5.5 5.5 0 0 1 7.657-1.02c2.323 1.76 2.483 4.82.77 7.372C18.716 16.65 12 21 12 21Z"
           />
@@ -96,33 +96,37 @@ async function toggleFavorite(event) {
       </button>
     </div>
 
-    <div class="flex flex-1 flex-col gap-2 p-4">
-      <h3 class="font-[Georgia] text-lg font-bold uppercase tracking-wide text-navy-900">
-        {{ vehicle.name }}
-      </h3>
-      <p class="text-sm font-semibold text-brand-blue-600">
+    <div class="flex flex-1 flex-col gap-2 p-5">
+      <p class="text-xs font-semibold uppercase tracking-widest text-accent/90">
         {{ vehicle.category_name || vehicle.category }}
       </p>
-      <p class="flex items-center gap-1 text-sm text-slate-600">{{ vehicle.passenger_capacity }} Passengers</p>
-      <p v-if="vehicle.tagline" class="text-sm text-slate-500">{{ vehicle.tagline }}</p>
+      <h3 class="font-[Georgia] text-lg font-bold text-foreground">
+        {{ vehicle.name }}
+      </h3>
+      <p class="flex items-center gap-1.5 text-sm text-foreground-muted">
+        <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <circle cx="9" cy="7" r="3" stroke-linecap="round" stroke-linejoin="round" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.5 18c0-2.8 2.5-5 5.5-5s5.5 2.2 5.5 5" />
+          <circle cx="17" cy="8" r="2.4" stroke-linecap="round" stroke-linejoin="round" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.2 13.2c2 .3 3.6 1.9 3.8 4" />
+        </svg>
+        {{ vehicle.passenger_capacity }} Passengers
+      </p>
+      <p v-if="vehicle.tagline" class="text-sm text-foreground-subtle">{{ vehicle.tagline }}</p>
 
-      <div class="mt-auto flex items-center justify-between pt-3">
-        <span class="text-lg font-bold text-navy-900">
-          KES {{ Number(vehicle.price_per_day).toLocaleString()
-          }}<span class="text-sm font-normal text-slate-500">/day</span>
+      <div class="mt-auto flex items-center justify-between pt-4">
+        <span class="leading-tight">
+          <span class="block text-xs uppercase tracking-wide text-foreground-subtle">From</span>
+          <span class="text-lg font-bold text-foreground">
+            KES {{ Number(vehicle.price_per_day).toLocaleString() }}<span class="text-sm font-normal text-foreground-muted">/day</span>
+          </span>
         </span>
         <span
-          class="flex items-center gap-1 rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 transition-colors group-hover:bg-gold-400"
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-bg text-on-accent shadow-lg shadow-gold-500/20 transition-all duration-300 group-hover:bg-accent-bg-hover group-hover:rotate-45"
+          aria-hidden="true"
         >
-          View Details
-          <svg
-            class="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            viewBox="0 0 24 24"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M9 7h8v8" />
           </svg>
         </span>
       </div>

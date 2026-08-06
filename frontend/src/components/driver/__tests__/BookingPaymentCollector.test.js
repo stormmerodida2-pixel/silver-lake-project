@@ -57,7 +57,7 @@ describe('BookingPaymentCollector payment method options', () => {
     const wrapper = await mountAndOpenForm(makeBooking(), false)
 
     const cardButton = wrapper.findAll('button').find((b) => b.text() === 'card')
-    expect(cardButton.classes()).toContain('border-gold-500')
+    expect(cardButton.classes()).toContain('border-accent-border-strong')
   })
 
   it('does not offer to collect payment at all once the balance is fully paid', async () => {

@@ -15,7 +15,7 @@ function stop() {
 <template>
   <div
     v-if="auth.impersonating"
-    class="flex flex-wrap items-center justify-center gap-2 bg-gold-500 px-4 py-2 text-center text-sm font-semibold text-navy-950"
+    class="flex flex-wrap items-center justify-center gap-2 bg-accent-bg px-4 py-2 text-center text-sm font-semibold text-on-accent"
   >
     <span>
       Impersonating {{ auth.user?.first_name || auth.user?.email }}
@@ -23,7 +23,7 @@ function stop() {
       <span v-if="auth.user?.is_read_only_session" class="font-normal">- read-only, view only</span>
     </span>
     <button
-      class="rounded-md bg-navy-950 px-3 py-1 text-xs font-bold text-gold-400 transition hover:bg-navy-800"
+      class="rounded-md bg-page px-3 py-1 text-xs font-bold text-accent transition hover:bg-surface-2"
       @click="stop"
     >
       Stop Impersonating

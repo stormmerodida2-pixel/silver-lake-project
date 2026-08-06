@@ -74,22 +74,22 @@ async function submit() {
         class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
         @click.self="close"
       >
-        <div class="w-full max-w-lg rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+        <div class="w-full max-w-lg rounded-2xl border border-border bg-surface p-8 shadow-2xl">
           <div class="mb-6 flex items-center justify-between">
-            <h2 class="font-[Georgia] text-xl font-bold text-white">{{ title }}</h2>
-            <button class="text-slate-400 transition-colors hover:text-white" @click="close">
+            <h2 class="font-[Georgia] text-xl font-bold text-foreground">{{ title }}</h2>
+            <button class="text-foreground-muted transition-colors hover:text-foreground" @click="close">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ formError }}</p>
+          <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-danger">{{ formError }}</p>
 
           <form class="space-y-4" @submit.prevent="submit">
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Odometer (km)</label
                 >
                 <input
@@ -97,14 +97,14 @@ async function submit() {
                   type="number"
                   min="0"
                   placeholder="e.g. 45200"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Fuel Level</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Fuel Level</label>
                 <select
                   v-model="form.fuel_level"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                 >
                   <option value="">Not noted</option>
                   <option value="empty">Empty</option>
@@ -116,26 +116,26 @@ async function submit() {
               </div>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Notes</label>
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Notes</label>
               <textarea
                 v-model="form.notes"
                 rows="3"
                 placeholder="Existing damage, scratches, anything worth noting"
-                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
               ></textarea>
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Photos</label>
+              <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Photos</label>
               <input
                 type="file"
                 accept="image/*"
                 multiple
-                class="w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-gold-500 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-navy-950"
+                class="w-full text-sm text-foreground-secondary file:mr-3 file:rounded-md file:border-0 file:bg-accent-bg file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-on-accent"
                 @change="onPhotosSelected"
               />
               <div v-if="photoPreviewUrls.length" class="mt-2 flex flex-wrap gap-2">
                 <div v-for="(url, i) in photoPreviewUrls" :key="i" class="group relative h-16 w-24 shrink-0">
-                  <img :src="url" alt="Preview" class="h-full w-full rounded-lg border border-navy-700 object-cover" />
+                  <img :src="url" alt="Preview" class="h-full w-full rounded-lg border border-border object-cover" />
                   <button
                     type="button"
                     title="Remove this photo"
@@ -151,7 +151,7 @@ async function submit() {
             <div class="flex gap-3 pt-2">
               <button
                 type="button"
-                class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500 hover:text-white"
+                class="flex-1 rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground-secondary hover:border-slate-500 hover:text-foreground"
                 @click="close"
               >
                 Cancel
@@ -159,7 +159,7 @@ async function submit() {
               <button
                 type="submit"
                 :disabled="saving"
-                class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                class="flex-1 rounded-lg bg-accent-bg py-2.5 text-sm font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
               >
                 {{ saving ? 'Saving…' : 'Save Report' }}
               </button>

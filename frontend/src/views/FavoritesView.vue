@@ -29,16 +29,16 @@ onMounted(loadFavorites)
 </script>
 
 <template>
-  <div class="bg-white">
+  <div class="bg-page">
     <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <h1 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">My Favorites</h1>
-      <p class="mt-2 text-center text-slate-600">Vehicles you've saved for later.</p>
+      <h1 class="text-center font-[Georgia] text-3xl font-bold text-foreground">My Favorites</h1>
+      <p class="mt-2 text-center text-foreground-muted">Vehicles you've saved for later.</p>
 
-      <p v-if="loading" class="mt-10 text-center text-slate-500">Loading...</p>
-      <p v-else-if="error" class="mt-10 text-center text-red-600">{{ error }}</p>
-      <p v-else-if="!vehicles.length" class="mt-10 text-center text-slate-500">
+      <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>
+      <p v-else-if="error" class="mt-10 text-center text-danger">{{ error }}</p>
+      <p v-else-if="!vehicles.length" class="mt-10 text-center text-foreground-subtle">
         No favorites yet - tap the heart on any vehicle to save it here.
-        <RouterLink to="/fleet" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
+        <RouterLink to="/fleet" class="font-semibold text-accent hover:text-accent-strong"
           >Browse the fleet</RouterLink
         >
       </p>

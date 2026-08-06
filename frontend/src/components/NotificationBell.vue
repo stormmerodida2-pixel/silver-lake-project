@@ -197,7 +197,7 @@ onUnmounted(() => {
 <template>
   <div ref="root" class="relative">
     <button
-      class="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+      class="relative flex h-9 w-9 items-center justify-center rounded-full text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
       aria-label="Notifications"
       @click="toggle"
     >
@@ -218,22 +218,22 @@ onUnmounted(() => {
 
     <div
       v-if="open"
-      class="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-navy-700 bg-navy-900 shadow-2xl shadow-black/40"
+      class="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-border bg-surface shadow-2xl shadow-black/40"
     >
-      <div class="flex items-center justify-between border-b border-navy-800 px-4 py-3">
-        <span class="font-[Georgia] text-sm font-bold text-white">
+      <div class="flex items-center justify-between border-b border-border-subtle px-4 py-3">
+        <span class="font-[Georgia] text-sm font-bold text-foreground">
           {{ showPreferences ? 'Notification Settings' : 'Notifications' }}
         </span>
         <div class="flex items-center gap-3">
           <button
             v-if="!showPreferences && unreadCount > 0"
-            class="text-xs font-semibold text-gold-400 hover:text-gold-300"
+            class="text-xs font-semibold text-accent hover:text-accent-strong"
             @click="markAllRead"
           >
             Mark all read
           </button>
           <button
-            class="text-slate-400 transition hover:text-gold-400"
+            class="text-foreground-muted transition hover:text-accent"
             :aria-label="showPreferences ? 'Back to notifications' : 'Notification settings'"
             @click="showPreferences = !showPreferences"
           >
@@ -260,11 +260,11 @@ onUnmounted(() => {
       </div>
 
       <div v-if="showPreferences" class="max-h-96 overflow-y-auto p-2">
-        <div class="mb-2 border-b border-navy-800 pb-2">
-          <label class="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm text-slate-200">
+        <div class="mb-2 border-b border-border-subtle pb-2">
+          <label class="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm text-foreground">
             <span>
               Browser Notifications
-              <span class="mt-0.5 block text-xs font-normal text-slate-500"
+              <span class="mt-0.5 block text-xs font-normal text-foreground-subtle"
                 >Get nudged even when this tab isn't open</span
               >
             </span>
@@ -275,7 +275,7 @@ onUnmounted(() => {
               :aria-checked="pushStatus === 'subscribed'"
               :disabled="pushBusy"
               class="relative h-5 w-9 shrink-0 rounded-full transition disabled:opacity-50"
-              :class="pushStatus === 'subscribed' ? 'bg-gold-500' : 'bg-navy-700'"
+              :class="pushStatus === 'subscribed' ? 'bg-accent-bg' : 'bg-navy-700'"
               @click="togglePush"
             >
               <span
@@ -283,20 +283,20 @@ onUnmounted(() => {
                 :class="pushStatus === 'subscribed' ? 'left-4' : 'left-0.5'"
               />
             </button>
-            <span v-else-if="pushStatus === 'denied'" class="shrink-0 text-xs text-red-400"
+            <span v-else-if="pushStatus === 'denied'" class="shrink-0 text-xs text-danger"
               >Blocked in browser settings</span
             >
-            <span v-else-if="pushStatus === 'unsupported'" class="shrink-0 text-xs text-slate-500"
+            <span v-else-if="pushStatus === 'unsupported'" class="shrink-0 text-xs text-foreground-subtle"
               >Not supported here</span
             >
           </label>
         </div>
 
-        <p class="px-2 pb-2 text-xs text-slate-500">Choose which of these you want to hear about.</p>
+        <p class="px-2 pb-2 text-xs text-foreground-subtle">Choose which of these you want to hear about.</p>
         <label
           v-for="event in manageableEvents"
           :key="event"
-          class="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm text-slate-200 hover:bg-navy-800"
+          class="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm text-foreground hover:bg-surface-2"
         >
           <span>{{ eventLabel(event) }}</span>
           <button
@@ -304,7 +304,7 @@ onUnmounted(() => {
             role="switch"
             :aria-checked="!mutedEvents.includes(event)"
             class="relative h-5 w-9 shrink-0 rounded-full transition"
-            :class="mutedEvents.includes(event) ? 'bg-navy-700' : 'bg-gold-500'"
+            :class="mutedEvents.includes(event) ? 'bg-navy-700' : 'bg-accent-bg'"
             @click="toggleMute(event)"
           >
             <span
@@ -316,26 +316,26 @@ onUnmounted(() => {
       </div>
 
       <div v-else class="max-h-96 overflow-y-auto">
-        <p v-if="loading" class="p-4 text-center text-xs text-slate-500">Loading...</p>
-        <p v-else-if="!items.length" class="p-4 text-center text-xs text-slate-500">No notifications yet.</p>
+        <p v-if="loading" class="p-4 text-center text-xs text-foreground-subtle">Loading...</p>
+        <p v-else-if="!items.length" class="p-4 text-center text-xs text-foreground-subtle">No notifications yet.</p>
         <button
           v-for="notification in items"
           :key="notification.id"
-          class="flex w-full items-start gap-2.5 border-b border-navy-800 px-4 py-3 text-left transition hover:bg-navy-800"
+          class="flex w-full items-start gap-2.5 border-b border-border-subtle px-4 py-3 text-left transition hover:bg-surface-2"
           @click="selectNotification(notification)"
         >
           <span
             class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
-            :class="notification.is_read ? 'bg-transparent' : 'bg-gold-400'"
+            :class="notification.is_read ? 'bg-transparent' : 'bg-accent-bg-hover'"
           />
           <span class="min-w-0 flex-1">
-            <span class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <span class="block text-[10px] font-semibold uppercase tracking-wide text-foreground-subtle">
               {{ eventLabel(notification.event) }}
             </span>
-            <span class="mt-0.5 block text-sm" :class="notification.is_read ? 'text-slate-400' : 'text-white'">
+            <span class="mt-0.5 block text-sm" :class="notification.is_read ? 'text-foreground-muted' : 'text-foreground'">
               {{ notification.message }}
             </span>
-            <span class="mt-0.5 block text-xs text-slate-500">{{ timeAgo(notification.created_at) }}</span>
+            <span class="mt-0.5 block text-xs text-foreground-subtle">{{ timeAgo(notification.created_at) }}</span>
           </span>
         </button>
       </div>

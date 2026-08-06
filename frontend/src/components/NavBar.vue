@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth.js'
 import { confirmDialog } from '../utils/dialogs'
 import NotificationBell from './NotificationBell.vue'
 import SilverLakeLogo from './SilverLakeLogo.vue'
+import ThemeToggle from './ThemeToggle.vue'
 
 const isOpen = ref(false)
 const mobileMenuButton = ref(null)
@@ -71,14 +72,14 @@ async function handleLogout() {
 </script>
 
 <template>
-  <header class="sticky top-0 z-40 border-b border-navy-800 bg-navy-950/95 backdrop-blur">
+  <header class="sticky top-0 z-40 border-b border-border-subtle bg-page/95 backdrop-blur">
     <nav class="mx-auto flex max-w-6xl items-center gap-4 px-4 py-4 sm:px-6 lg:gap-8">
       <RouterLink to="/" class="flex shrink-0 items-center gap-2">
         <SilverLakeLogo :size="32" />
         <span class="hidden flex-col items-start leading-none sm:flex">
-          <span class="font-[Georgia] text-sm font-bold uppercase tracking-wide text-white">SilverLake</span>
+          <span class="font-[Georgia] text-sm font-bold uppercase tracking-wide text-foreground">SilverLake</span>
           <span
-            class="mt-0.5 border-b border-gold-500 pb-0.5 text-[8px] font-bold uppercase tracking-[0.2em] text-slate-400"
+            class="mt-0.5 border-b border-accent-border-strong pb-0.5 text-[8px] font-bold uppercase tracking-[0.2em] text-foreground-muted"
           >
             Car Rentals
           </span>
@@ -90,8 +91,8 @@ async function handleLogout() {
           v-for="link in links"
           :key="link.to"
           :to="link.to"
-          class="whitespace-nowrap font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400"
-          active-class="text-gold-400"
+          class="whitespace-nowrap font-[Georgia] text-base font-semibold tracking-wide text-foreground transition hover:text-accent"
+          active-class="text-accent"
         >
           {{ link.label }}
         </RouterLink>
@@ -102,11 +103,11 @@ async function handleLogout() {
           <template v-if="auth.isAuthenticated">
             <RouterLink
               to="/account/profile"
-              class="flex items-center gap-2 whitespace-nowrap font-[Georgia] text-base tracking-wide text-slate-400 transition hover:text-gold-400"
+              class="flex items-center gap-2 whitespace-nowrap font-[Georgia] text-base tracking-wide text-foreground-muted transition hover:text-accent"
             >
-              <span class="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-navy-700 bg-navy-800">
+              <span class="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-border bg-surface-2">
                 <img v-if="auth.user?.avatar" :src="auth.user.avatar" alt="" class="h-full w-full object-cover" />
-                <span v-else class="flex h-full w-full items-center justify-center text-xs font-bold text-gold-400">
+                <span v-else class="flex h-full w-full items-center justify-center text-xs font-bold text-accent">
                   {{ (auth.user?.first_name || '?')[0] }}
                 </span>
               </span>
@@ -116,24 +117,26 @@ async function handleLogout() {
           <template v-else>
             <RouterLink
               to="/login"
-              class="whitespace-nowrap font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400"
+              class="whitespace-nowrap font-[Georgia] text-base font-semibold tracking-wide text-foreground transition hover:text-accent"
             >
               Log In
             </RouterLink>
             <RouterLink
               to="/register"
-              class="whitespace-nowrap rounded-md bg-gold-500 px-3 py-1.5 font-[Georgia] text-base font-semibold tracking-wide text-navy-950 transition hover:bg-gold-400"
+              class="whitespace-nowrap rounded-md bg-accent-bg px-3 py-1.5 font-[Georgia] text-base font-semibold tracking-wide text-on-accent transition hover:bg-accent-bg-hover"
             >
               Sign Up
             </RouterLink>
           </template>
         </div>
 
+        <ThemeToggle />
+
         <NotificationBell v-if="auth.isAuthenticated" base-path="/notifications" />
 
         <button
           v-if="auth.isAuthenticated"
-          class="hidden whitespace-nowrap font-[Georgia] text-base font-semibold tracking-wide text-slate-200 transition hover:text-gold-400 md:block"
+          class="hidden whitespace-nowrap font-[Georgia] text-base font-semibold tracking-wide text-foreground transition hover:text-accent md:block"
           @click="handleLogout"
         >
           Log Out
@@ -141,7 +144,7 @@ async function handleLogout() {
 
         <button
           ref="mobileMenuButton"
-          class="flex h-9 w-9 items-center justify-center rounded-full text-slate-200 transition hover:bg-navy-800 hover:text-gold-400 md:hidden"
+          class="flex h-9 w-9 items-center justify-center rounded-full text-foreground transition hover:bg-surface-2 hover:text-accent md:hidden"
           aria-label="Toggle menu"
           :aria-expanded="isOpen"
           @click.stop="isOpen = !isOpen"
@@ -175,29 +178,34 @@ async function handleLogout() {
       v-if="isOpen"
       ref="mobileMenuPanel"
       data-testid="mobile-nav-panel"
-      class="flex flex-col gap-1 border-t border-navy-800 px-4 py-3 md:hidden"
+      class="flex flex-col gap-1 border-t border-border-subtle px-4 py-3 md:hidden"
     >
+      <div class="flex items-center justify-between rounded px-2 py-2">
+        <span class="text-sm font-medium text-foreground">Theme</span>
+        <ThemeToggle />
+      </div>
+
       <RouterLink
         v-for="link in links"
         :key="link.to"
         :to="link.to"
-        class="rounded px-2 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
+        class="rounded px-2 py-2 text-sm font-medium text-foreground hover:bg-surface-2 hover:text-accent"
         @click="isOpen = false"
       >
         {{ link.label }}
       </RouterLink>
 
-      <div class="mt-2 border-t border-navy-800 pt-2">
+      <div class="mt-2 border-t border-border-subtle pt-2">
         <template v-if="auth.isAuthenticated">
           <RouterLink
             to="/account/profile"
-            class="block rounded px-2 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
+            class="block rounded px-2 py-2 text-sm font-medium text-foreground hover:bg-surface-2 hover:text-accent"
             @click="isOpen = false"
           >
             My Profile
           </RouterLink>
           <button
-            class="w-full rounded px-2 py-2 text-left text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
+            class="w-full rounded px-2 py-2 text-left text-sm font-medium text-foreground hover:bg-surface-2 hover:text-accent"
             @click="handleLogout"
           >
             Log Out
@@ -206,14 +214,14 @@ async function handleLogout() {
         <template v-else>
           <RouterLink
             to="/login"
-            class="block rounded px-2 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
+            class="block rounded px-2 py-2 text-sm font-medium text-foreground hover:bg-surface-2 hover:text-accent"
             @click="isOpen = false"
           >
             Log In
           </RouterLink>
           <RouterLink
             to="/register"
-            class="block rounded px-2 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 hover:text-gold-400"
+            class="block rounded px-2 py-2 text-sm font-medium text-foreground hover:bg-surface-2 hover:text-accent"
             @click="isOpen = false"
           >
             Sign Up

@@ -43,87 +43,87 @@ async function submit() {
 </script>
 
 <template>
-  <div class="bg-white">
+  <div class="bg-page">
     <div class="mx-auto max-w-lg px-4 py-16 sm:px-6">
       <RouterLink to="/" class="flex items-center justify-center gap-2">
         <SilverLakeLogo :size="48" />
         <span class="flex flex-col items-start leading-none">
-          <span class="font-[Georgia] text-xl font-bold uppercase tracking-wide text-navy-900">SilverLake</span>
+          <span class="font-[Georgia] text-xl font-bold uppercase tracking-wide text-foreground">SilverLake</span>
           <span
-            class="mt-1 border-b-2 border-gold-500 pb-0.5 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500"
+            class="mt-1 border-b-2 border-accent-border-strong pb-0.5 text-[11px] font-bold uppercase tracking-[0.2em] text-foreground-muted"
           >
             Car Rentals
           </span>
         </span>
       </RouterLink>
 
-      <div v-if="submitted" class="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-8 text-center">
-        <h2 class="font-[Georgia] text-xl font-bold text-brand-blue-600">Check your email</h2>
-        <p class="mt-2 text-sm text-slate-600">
+      <div v-if="submitted" class="mt-8 rounded-xl border border-border-subtle bg-surface p-8 text-center">
+        <h2 class="font-[Georgia] text-xl font-bold text-success">Check your email</h2>
+        <p class="mt-2 text-sm text-foreground-muted">
           We've sent an activation link to {{ form.email }}. Click it to activate your account, then log in.
         </p>
-        <RouterLink to="/login" class="mt-4 inline-block font-semibold text-brand-blue-600 hover:text-brand-blue-500">
+        <RouterLink to="/login" class="mt-4 inline-block font-semibold text-accent hover:text-accent-strong">
           Go to Log In
         </RouterLink>
       </div>
 
-      <form v-else class="mt-8 space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-8" @submit.prevent="submit">
+      <form v-else class="mt-8 space-y-5 rounded-xl border border-border-subtle bg-surface p-8" @submit.prevent="submit">
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="mb-1 block text-sm text-slate-600">First name</label>
+            <label class="mb-1 block text-sm text-foreground-muted">First name</label>
             <input
               v-model="form.firstName"
               type="text"
               required
-              class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+              class="w-full rounded-md border border-border bg-surface-2 px-4 py-3 text-foreground focus:border-accent-border focus:outline-none"
             />
           </div>
           <div>
-            <label class="mb-1 block text-sm text-slate-600">Last name</label>
+            <label class="mb-1 block text-sm text-foreground-muted">Last name</label>
             <input
               v-model="form.lastName"
               type="text"
               required
-              class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+              class="w-full rounded-md border border-border bg-surface-2 px-4 py-3 text-foreground focus:border-accent-border focus:outline-none"
             />
           </div>
         </div>
         <div>
-          <label class="mb-1 block text-sm text-slate-600">Email</label>
+          <label class="mb-1 block text-sm text-foreground-muted">Email</label>
           <input
             v-model="form.email"
             type="email"
             required
-            class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            class="w-full rounded-md border border-border bg-surface-2 px-4 py-3 text-foreground focus:border-accent-border focus:outline-none"
           />
         </div>
         <div>
-          <label class="mb-1 block text-sm text-slate-600">Phone (M-Pesa number)</label>
-          <PhoneInput v-model="form.phoneNumber" required />
+          <label class="mb-1 block text-sm text-foreground-muted">Phone (M-Pesa number)</label>
+          <PhoneInput v-model="form.phoneNumber" required dark />
         </div>
         <div>
-          <label class="mb-1 block text-sm text-slate-600">Password</label>
+          <label class="mb-1 block text-sm text-foreground-muted">Password</label>
           <PasswordInput
             v-model="form.password"
             required
-            input-class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+            input-class="w-full rounded-md border border-border bg-surface-2 px-4 py-3 text-foreground focus:border-accent-border focus:outline-none"
           />
         </div>
         <div>
-          <label class="mb-1 block text-sm text-slate-600">Referral code (optional)</label>
+          <label class="mb-1 block text-sm text-foreground-muted">Referral code (optional)</label>
           <input
             v-model="form.referralCode"
             type="text"
             placeholder="e.g. AB12CD34"
-            class="w-full rounded-md border border-slate-300 bg-white px-4 py-3 uppercase text-navy-900 placeholder:normal-case focus:border-brand-blue-500 focus:outline-none"
+            class="w-full rounded-md border border-border bg-surface-2 px-4 py-3 uppercase text-foreground placeholder:normal-case focus:border-accent-border focus:outline-none"
           />
-          <p class="mt-1 text-xs text-slate-500">
+          <p class="mt-1 text-xs text-foreground-muted">
             Got a code from a friend? Enter it here and they'll earn referral credit.
           </p>
         </div>
         <div
           v-if="error"
-          class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          class="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-danger"
         >
           <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path
@@ -134,23 +134,23 @@ async function submit() {
           </svg>
           <span>{{ error }}</span>
         </div>
-        <label class="flex items-start gap-2.5 text-sm text-slate-600">
+        <label class="flex items-start gap-2.5 text-sm text-foreground-muted">
           <input
             v-model="agreedToTerms"
             type="checkbox"
             required
-            class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-blue-600 focus:ring-brand-blue-500"
+            class="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-accent-strong focus:ring-accent-border-strong"
           />
           <span>
             I agree to the
-            <RouterLink to="/terms" target="_blank" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
+            <RouterLink to="/terms" target="_blank" class="font-semibold text-accent hover:text-accent-strong"
               >Terms of Service</RouterLink
             >
             and
             <RouterLink
               to="/privacy"
               target="_blank"
-              class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
+              class="font-semibold text-accent hover:text-accent-strong"
               >Privacy Policy</RouterLink
             >.
           </span>
@@ -158,13 +158,13 @@ async function submit() {
         <button
           type="submit"
           :disabled="submitting || !agreedToTerms"
-          class="w-full rounded-md bg-gold-500 px-4 py-3 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+          class="w-full rounded-md bg-accent-bg px-4 py-3 font-semibold text-on-accent transition hover:bg-accent-bg-hover disabled:opacity-60"
         >
           {{ submitting ? 'Creating account...' : 'Sign Up' }}
         </button>
-        <p class="text-center text-sm text-slate-500">
+        <p class="text-center text-sm text-foreground-muted">
           Already have an account?
-          <RouterLink to="/login" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
+          <RouterLink to="/login" class="font-semibold text-accent hover:text-accent-strong"
             >Log in</RouterLink
           >
         </p>

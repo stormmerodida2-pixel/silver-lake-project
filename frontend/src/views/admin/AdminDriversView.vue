@@ -260,11 +260,11 @@ onMounted(() => {
   <div>
     <!-- Header -->
     <div class="flex items-center justify-between">
-      <h1 class="font-[Georgia] text-2xl font-bold text-white">Manage Drivers</h1>
+      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Manage Drivers</h1>
       <button
         v-if="auth.user?.is_superuser"
         id="add-driver-btn"
-        class="flex items-center gap-2 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400"
+        class="flex items-center gap-2 rounded-lg bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-bg-hover"
         @click="openModal"
       >
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -274,42 +274,42 @@ onMounted(() => {
       </button>
     </div>
 
-    <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
-    <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="loading" class="mt-10 text-center text-foreground-muted">Loading...</p>
+    <p v-else-if="error" class="mt-4 text-sm text-danger">{{ error }}</p>
 
     <template v-if="!loading">
       <section class="mt-8">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-accent">
           Pending Applications ({{ pendingApplications.length }})
         </h2>
         <div class="mt-3 space-y-4">
           <div
             v-for="application in pendingApplications"
             :key="application.id"
-            class="rounded-xl border border-gold-500 bg-navy-900 p-5"
+            class="rounded-xl border border-accent-border-strong bg-surface p-5"
           >
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 class="font-[Georgia] text-lg font-bold text-white">{{ application.full_name }}</h3>
-                <p class="text-sm text-slate-400">{{ application.email }} - {{ application.phone_number }}</p>
-                <p class="text-sm text-slate-400">
+                <h3 class="font-[Georgia] text-lg font-bold text-foreground">{{ application.full_name }}</h3>
+                <p class="text-sm text-foreground-muted">{{ application.email }} - {{ application.phone_number }}</p>
+                <p class="text-sm text-foreground-muted">
                   {{ application.years_of_experience }} years experience - License #{{ application.license_number }}
                 </p>
-                <p class="mt-1 text-sm text-slate-300">
+                <p class="mt-1 text-sm text-foreground-secondary">
                   Vehicle: {{ application.vehicle_name }} ({{
                     application.vehicle_category_name || application.vehicle_category
                   }}), {{ application.passenger_capacity }} pax, KES
                   {{ Number(application.price_per_day).toLocaleString() }}/day
                 </p>
                 <div class="mt-2 flex flex-wrap gap-3 text-sm">
-                  <a :href="application.license_document" target="_blank" class="text-gold-400 hover:text-gold-300">
+                  <a :href="application.license_document" target="_blank" class="text-accent hover:text-accent-strong">
                     License Document
                   </a>
                   <a
                     v-if="application.vehicle_photo"
                     :href="application.vehicle_photo"
                     target="_blank"
-                    class="text-gold-400 hover:text-gold-300"
+                    class="text-accent hover:text-accent-strong"
                   >
                     Vehicle Photo
                   </a>
@@ -317,7 +317,7 @@ onMounted(() => {
                     v-if="application.vehicle_logbook_document"
                     :href="application.vehicle_logbook_document"
                     target="_blank"
-                    class="text-gold-400 hover:text-gold-300"
+                    class="text-accent hover:text-accent-strong"
                   >
                     Logbook
                   </a>
@@ -326,14 +326,14 @@ onMounted(() => {
               <div class="flex gap-2">
                 <button
                   :disabled="busyId === application.id"
-                  class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                  class="rounded-md bg-accent-bg px-3 py-1.5 text-sm font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
                   @click="approveApplication(application)"
                 >
                   Approve
                 </button>
                 <button
                   :disabled="busyId === application.id"
-                  class="rounded-md border border-red-400 px-3 py-1.5 text-sm font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
+                  class="rounded-md border border-danger-border px-3 py-1.5 text-sm font-semibold text-danger hover:bg-red-400 hover:text-on-accent disabled:opacity-50"
                   @click="rejectApplication(application)"
                 >
                   Reject
@@ -341,11 +341,11 @@ onMounted(() => {
               </div>
             </div>
           </div>
-          <p v-if="!pendingApplications.length" class="text-sm text-slate-400">No pending applications.</p>
+          <p v-if="!pendingApplications.length" class="text-sm text-foreground-muted">No pending applications.</p>
           <div v-if="applicationsNextUrl" class="text-center">
             <button
               :disabled="applicationsLoadingMore"
-              class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="loadMoreApplications"
             >
               {{ applicationsLoadingMore ? 'Loading...' : 'Load More Applications' }}
@@ -355,31 +355,31 @@ onMounted(() => {
       </section>
 
       <section class="mt-10">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-accent">
           Pending Vehicle Submissions ({{ pendingSubmissions.length }})
         </h2>
-        <p class="mt-1 text-xs text-slate-500">Cars drivers have submitted themselves via the driver portal.</p>
+        <p class="mt-1 text-xs text-foreground-subtle">Cars drivers have submitted themselves via the driver portal.</p>
         <div class="mt-3 space-y-4">
           <div
             v-for="submission in pendingSubmissions"
             :key="submission.id"
-            class="rounded-xl border border-gold-500 bg-navy-900 p-5"
+            class="rounded-xl border border-accent-border-strong bg-surface p-5"
           >
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 class="font-[Georgia] text-lg font-bold text-white">{{ submission.name }}</h3>
-                <p class="text-sm text-slate-400">Submitted by {{ submission.driver_name }}</p>
-                <p class="mt-1 text-sm text-slate-300">
+                <h3 class="font-[Georgia] text-lg font-bold text-foreground">{{ submission.name }}</h3>
+                <p class="text-sm text-foreground-muted">Submitted by {{ submission.driver_name }}</p>
+                <p class="mt-1 text-sm text-foreground-secondary">
                   {{ submission.category_name || submission.category }}, {{ submission.passenger_capacity }} pax, KES
                   {{ Number(submission.price_per_day).toLocaleString() }}/day
                 </p>
                 <div v-if="submission.photos?.length" class="mt-2 flex flex-wrap gap-2">
                   <a v-for="photo in submission.photos" :key="photo.id" :href="photo.image" target="_blank">
-                    <img :src="photo.image" alt="" class="h-16 w-24 rounded-lg border border-navy-800 object-cover" />
+                    <img :src="photo.image" alt="" class="h-16 w-24 rounded-lg border border-border-subtle object-cover" />
                   </a>
                 </div>
                 <div class="mt-2 flex flex-wrap gap-3 text-sm">
-                  <a :href="submission.logbook_document" target="_blank" class="text-gold-400 hover:text-gold-300">
+                  <a :href="submission.logbook_document" target="_blank" class="text-accent hover:text-accent-strong">
                     Logbook
                   </a>
                 </div>
@@ -387,14 +387,14 @@ onMounted(() => {
               <div class="flex gap-2">
                 <button
                   :disabled="busyId === submission.id"
-                  class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                  class="rounded-md bg-accent-bg px-3 py-1.5 text-sm font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
                   @click="approveSubmission(submission)"
                 >
                   Approve
                 </button>
                 <button
                   :disabled="busyId === submission.id"
-                  class="rounded-md border border-red-400 px-3 py-1.5 text-sm font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
+                  class="rounded-md border border-danger-border px-3 py-1.5 text-sm font-semibold text-danger hover:bg-red-400 hover:text-on-accent disabled:opacity-50"
                   @click="rejectSubmission(submission)"
                 >
                   Reject
@@ -402,11 +402,11 @@ onMounted(() => {
               </div>
             </div>
           </div>
-          <p v-if="!pendingSubmissions.length" class="text-sm text-slate-400">No pending vehicle submissions.</p>
+          <p v-if="!pendingSubmissions.length" class="text-sm text-foreground-muted">No pending vehicle submissions.</p>
           <div v-if="submissionsNextUrl" class="text-center">
             <button
               :disabled="submissionsLoadingMore"
-              class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="loadMoreSubmissions"
             >
               {{ submissionsLoadingMore ? 'Loading...' : 'Load More Submissions' }}
@@ -416,16 +416,16 @@ onMounted(() => {
       </section>
 
       <section class="mt-10">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Live Drivers</h2>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-accent">Live Drivers</h2>
         <input
           v-model="driverFilters.search"
           type="text"
           placeholder="Search by name, email or phone..."
-          class="mt-3 w-full max-w-sm rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-gold-400 focus:outline-none"
+          class="mt-3 w-full max-w-sm rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground placeholder:text-foreground-subtle focus:border-accent-border focus:outline-none"
         />
-        <div class="mt-3 overflow-x-auto rounded-xl border border-navy-800">
+        <div class="mt-3 overflow-x-auto rounded-xl border border-border-subtle">
           <table class="w-full text-left text-sm">
-            <thead class="bg-navy-900 text-slate-400">
+            <thead class="bg-surface text-foreground-muted">
               <tr>
                 <th class="px-4 py-3">Name</th>
                 <th class="px-4 py-3">Email</th>
@@ -436,18 +436,18 @@ onMounted(() => {
                 <th class="px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-navy-800 bg-navy-950">
+            <tbody class="divide-y divide-border-subtle bg-page">
               <tr v-for="driver in drivers" :key="driver.id">
-                <td class="px-4 py-3 text-white">{{ driver.full_name }}</td>
-                <td class="px-4 py-3 text-slate-300">{{ driver.email || '-' }}</td>
-                <td class="px-4 py-3 text-slate-300">{{ driver.phone_number || '-' }}</td>
-                <td class="px-4 py-3 text-slate-300">{{ driver.years_of_experience }} yrs</td>
-                <td class="px-4 py-3 text-slate-300">{{ Number(driver.rating).toFixed(1) }}</td>
+                <td class="px-4 py-3 text-foreground">{{ driver.full_name }}</td>
+                <td class="px-4 py-3 text-foreground-secondary">{{ driver.email || '-' }}</td>
+                <td class="px-4 py-3 text-foreground-secondary">{{ driver.phone_number || '-' }}</td>
+                <td class="px-4 py-3 text-foreground-secondary">{{ driver.years_of_experience }} yrs</td>
+                <td class="px-4 py-3 text-foreground-secondary">{{ Number(driver.rating).toFixed(1) }}</td>
                 <td class="px-4 py-3">
                   <div class="flex flex-col gap-1">
                     <span
                       class="inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                      :class="driver.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'"
+                      :class="driver.is_active ? 'bg-emerald-500/10 text-success' : 'bg-red-500/10 text-danger'"
                     >
                       <span
                         class="h-1.5 w-1.5 rounded-full"
@@ -457,20 +457,20 @@ onMounted(() => {
                     </span>
                     <span
                       v-if="driver.is_active && driver.is_away"
-                      class="inline-flex w-fit items-center gap-1.5 rounded-full bg-navy-800 px-2.5 py-0.5 text-xs font-semibold text-slate-300"
+                      class="inline-flex w-fit items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-foreground-secondary"
                       :title="driver.away_reason"
                     >
                       Away
                     </span>
                     <span
                       v-if="!driver.is_active && driver.suspension_reason"
-                      class="max-w-[180px] text-xs text-slate-500"
+                      class="max-w-[180px] text-xs text-foreground-subtle"
                     >
                       {{ driver.suspension_reason }}
                     </span>
                     <span
                       v-if="!driver.cash_payments_enabled"
-                      class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-red-400"
+                      class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-danger"
                       title="This driver can only be paid via card or bank transfer (M-Pesa's own STK push is temporarily disabled platform-wide) - cash is disabled."
                     >
                       Cash Disabled
@@ -481,7 +481,7 @@ onMounted(() => {
                   <button
                     v-if="driver.is_active"
                     :disabled="busyId === driver.id"
-                    class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                    class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                     @click="openSuspendModal(driver)"
                   >
                     Suspend
@@ -489,7 +489,7 @@ onMounted(() => {
                   <button
                     v-else
                     :disabled="busyId === driver.id"
-                    class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                    class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                     @click="activateDriver(driver)"
                   >
                     Activate
@@ -497,7 +497,7 @@ onMounted(() => {
                   <button
                     v-if="auth.user?.is_superuser"
                     :disabled="busyId === driver.id"
-                    class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                    class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                     @click="toggleCashPayments(driver)"
                   >
                     {{ driver.cash_payments_enabled ? 'Disable Cash' : 'Enable Cash' }}
@@ -505,7 +505,7 @@ onMounted(() => {
                   <button
                     v-if="driver.email && !driver.has_portal_account"
                     :disabled="busyId === driver.id"
-                    class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                    class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                     @click="inviteDriver(driver)"
                   >
                     Send Invite
@@ -514,7 +514,7 @@ onMounted(() => {
                     v-if="auth.user?.is_superuser && !auth.user?.organization_name && driver.has_portal_account"
                     :disabled="busyId === driver.id"
                     title="View the driver portal as this driver, for support/debugging"
-                    class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                    class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                     @click="impersonate(driver)"
                   >
                     Impersonate
@@ -522,7 +522,7 @@ onMounted(() => {
                   <button
                     v-if="auth.user?.is_superuser"
                     :disabled="busyId === driver.id"
-                    class="rounded-md border border-red-400 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
+                    class="rounded-md border border-danger-border px-2 py-1 text-xs font-semibold text-danger hover:bg-red-400 hover:text-on-accent disabled:opacity-50"
                     @click="deleteDriver(driver)"
                   >
                     Delete
@@ -531,11 +531,11 @@ onMounted(() => {
               </tr>
             </tbody>
           </table>
-          <p v-if="!drivers.length" class="p-6 text-center text-slate-400">No drivers yet.</p>
-          <div v-if="driversNextUrl" class="border-t border-navy-800 p-3 text-center">
+          <p v-if="!drivers.length" class="p-6 text-center text-foreground-muted">No drivers yet.</p>
+          <div v-if="driversNextUrl" class="border-t border-border-subtle p-3 text-center">
             <button
               :disabled="driversLoadingMore"
-              class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+              class="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
               @click="loadMoreDrivers"
             >
               {{ driversLoadingMore ? 'Loading...' : 'Load More' }}
@@ -545,15 +545,15 @@ onMounted(() => {
       </section>
 
       <section v-if="reviewedApplications.length" class="mt-10">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Reviewed Applications</h2>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-accent">Reviewed Applications</h2>
         <div class="mt-3 space-y-2">
           <div
             v-for="application in reviewedApplications"
             :key="application.id"
-            class="flex items-center justify-between rounded-md border border-navy-800 bg-navy-900 px-4 py-2 text-sm"
+            class="flex items-center justify-between rounded-md border border-border-subtle bg-surface px-4 py-2 text-sm"
           >
-            <span class="text-slate-300">{{ application.full_name }} - {{ application.vehicle_name }}</span>
-            <span :class="application.status === 'approved' ? 'text-gold-400' : 'text-red-400'">
+            <span class="text-foreground-secondary">{{ application.full_name }} - {{ application.vehicle_name }}</span>
+            <span :class="application.status === 'approved' ? 'text-accent' : 'text-danger'">
               {{ application.status }}
             </span>
           </div>
@@ -561,15 +561,15 @@ onMounted(() => {
       </section>
 
       <section v-if="reviewedSubmissions.length" class="mt-10">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-gold-400">Reviewed Vehicle Submissions</h2>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-accent">Reviewed Vehicle Submissions</h2>
         <div class="mt-3 space-y-2">
           <div
             v-for="submission in reviewedSubmissions"
             :key="submission.id"
-            class="flex items-center justify-between rounded-md border border-navy-800 bg-navy-900 px-4 py-2 text-sm"
+            class="flex items-center justify-between rounded-md border border-border-subtle bg-surface px-4 py-2 text-sm"
           >
-            <span class="text-slate-300">{{ submission.name }} - {{ submission.driver_name }}</span>
-            <span :class="submission.status === 'approved' ? 'text-gold-400' : 'text-red-400'">
+            <span class="text-foreground-secondary">{{ submission.name }} - {{ submission.driver_name }}</span>
+            <span :class="submission.status === 'approved' ? 'text-accent' : 'text-danger'">
               {{ submission.status }}
             </span>
           </div>
@@ -586,11 +586,11 @@ onMounted(() => {
           class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
           @click.self="showModal = false"
         >
-          <div class="w-full max-w-md rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+          <div class="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <!-- Modal header -->
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-white">Add New Driver</h2>
-              <button class="text-slate-400 transition-colors hover:text-white" @click="showModal = false">
+              <h2 class="font-[Georgia] text-xl font-bold text-foreground">Add New Driver</h2>
+              <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -598,42 +598,42 @@ onMounted(() => {
             </div>
 
             <!-- Error -->
-            <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-danger">
               {{ formError }}
             </p>
 
             <!-- Form -->
             <form class="space-y-4" @submit.prevent="createDriver">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Full Name *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Full Name *</label>
                 <input
                   id="new-driver-full-name"
                   v-model="form.full_name"
                   type="text"
                   placeholder="John Kamau"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none focus:ring-1 focus:ring-accent-border-strong"
                   required
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Email</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Email</label>
                 <input
                   id="new-driver-email"
                   v-model="form.email"
                   type="email"
                   placeholder="john@example.com"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none focus:ring-1 focus:ring-accent-border-strong"
                 />
-                <p class="mt-1 text-xs text-slate-500">Used to notify the driver when they're booked.</p>
+                <p class="mt-1 text-xs text-foreground-subtle">Used to notify the driver when they're booked.</p>
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Phone Number</label
                 >
                 <PhoneInput v-model="form.phone_number" dark />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Years of Experience</label
                 >
                 <input
@@ -642,11 +642,11 @@ onMounted(() => {
                   type="number"
                   min="0"
                   max="50"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none focus:ring-1 focus:ring-accent-border-strong"
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Bio / Description</label
                 >
                 <textarea
@@ -654,19 +654,19 @@ onMounted(() => {
                   v-model="form.bio"
                   rows="3"
                   placeholder="Brief driver bio…"
-                  class="w-full resize-none rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  class="w-full resize-none rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none focus:ring-1 focus:ring-accent-border-strong"
                 />
               </div>
 
-              <p class="text-xs text-slate-500">
-                The driver will be set to <span class="text-gold-400">Active</span> immediately and appear in the live
+              <p class="text-xs text-foreground-subtle">
+                The driver will be set to <span class="text-accent">Active</span> immediately and appear in the live
                 drivers list.
               </p>
 
               <div class="flex gap-3 pt-2">
                 <button
                   type="button"
-                  class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                  class="flex-1 rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground-secondary transition-colors hover:border-slate-500 hover:text-foreground"
                   @click="showModal = false"
                 >
                   Cancel
@@ -675,7 +675,7 @@ onMounted(() => {
                   id="create-driver-submit"
                   type="submit"
                   :disabled="saving"
-                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
+                  class="flex-1 rounded-lg bg-accent-bg py-2.5 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-bg-hover disabled:opacity-50"
                 >
                   {{ saving ? 'Creating…' : 'Create Driver' }}
                 </button>
@@ -694,17 +694,17 @@ onMounted(() => {
           class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
           @click.self="showSuspendModal = false"
         >
-          <div class="w-full max-w-md rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+          <div class="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-white">Suspend {{ suspendingDriver?.full_name }}</h2>
-              <button class="text-slate-400 transition-colors hover:text-white" @click="showSuspendModal = false">
+              <h2 class="font-[Georgia] text-xl font-bold text-foreground">Suspend {{ suspendingDriver?.full_name }}</h2>
+              <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showSuspendModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <p class="mb-4 text-sm text-slate-400">
+            <p class="mb-4 text-sm text-foreground-muted">
               This reason will be emailed to the driver and shown here to other admins.
             </p>
 
@@ -714,13 +714,13 @@ onMounted(() => {
                 rows="3"
                 required
                 placeholder="e.g. Repeated customer complaints about late pickups"
-                class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none focus:ring-1 focus:ring-accent-border-strong"
               ></textarea>
 
               <div class="flex gap-3 pt-2">
                 <button
                   type="button"
-                  class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                  class="flex-1 rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground-secondary transition-colors hover:border-slate-500 hover:text-foreground"
                   @click="showSuspendModal = false"
                 >
                   Cancel

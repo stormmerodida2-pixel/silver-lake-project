@@ -1,11 +1,11 @@
 <template>
-  <div class="bg-white">
+  <div class="bg-page">
     <!-- Hero -->
-    <section class="bg-navy-950 py-20">
+    <section class="bg-page py-20">
       <div class="mx-auto max-w-4xl px-4 text-center sm:px-6">
-        <p class="text-sm font-semibold uppercase tracking-widest text-gold-400">Get in Touch</p>
-        <h1 class="mt-3 font-[Georgia] text-4xl font-bold text-white sm:text-5xl">Contact &amp; About Us</h1>
-        <p class="mt-5 text-slate-300">Rooted in Kisumu. Driven across Kenya. We're here whenever you need us.</p>
+        <p class="text-sm font-semibold uppercase tracking-widest text-accent">Get in Touch</p>
+        <h1 class="mt-3 font-[Georgia] text-4xl font-bold text-foreground sm:text-5xl">Contact &amp; About Us</h1>
+        <p class="mt-5 text-foreground-secondary">Rooted in Kisumu. Driven across Kenya. We're here whenever you need us.</p>
       </div>
     </section>
 
@@ -13,10 +13,10 @@
     <section class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
       <div class="grid gap-6 sm:grid-cols-3">
         <div
-          class="group flex flex-col items-center rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center transition hover:border-gold-400 hover:shadow-lg"
+          class="group flex flex-col items-center rounded-2xl border border-border-subtle bg-surface p-8 text-center transition hover:border-accent-border hover:shadow-lg"
         >
           <div
-            class="flex h-14 w-14 items-center justify-center rounded-full bg-gold-500/10 text-gold-600 transition group-hover:bg-gold-500 group-hover:text-navy-950"
+            class="flex h-14 w-14 items-center justify-center rounded-full bg-accent-bg/10 text-accent transition group-hover:bg-accent-bg group-hover:text-on-accent"
           >
             <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
               <path
@@ -26,21 +26,21 @@
               />
             </svg>
           </div>
-          <h2 class="mt-5 font-[Georgia] text-lg font-bold text-navy-900">Call Us</h2>
-          <a href="tel:+254798184193" class="mt-2 block text-base font-semibold text-brand-blue-600 hover:underline">
+          <h2 class="mt-5 font-[Georgia] text-lg font-bold text-foreground">Call Us</h2>
+          <a href="tel:+254798184193" class="mt-2 block text-base font-semibold text-accent hover:underline">
             0798 184 193
           </a>
-          <a href="tel:+254710315345" class="mt-1 block text-base font-semibold text-brand-blue-600 hover:underline">
+          <a href="tel:+254710315345" class="mt-1 block text-base font-semibold text-accent hover:underline">
             0710 315 345
           </a>
-          <p class="mt-1 text-sm text-slate-500">Available 7 days a week</p>
+          <p class="mt-1 text-sm text-foreground-subtle">Available 7 days a week</p>
         </div>
 
         <div
-          class="group flex flex-col items-center rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center transition hover:border-green-500 hover:shadow-lg"
+          class="group flex flex-col items-center rounded-2xl border border-border-subtle bg-surface p-8 text-center transition hover:border-green-500 hover:shadow-lg"
         >
           <div
-            class="flex h-14 w-14 items-center justify-center rounded-full bg-green-500/10 text-green-600 transition group-hover:bg-green-500 group-hover:text-white"
+            class="flex h-14 w-14 items-center justify-center rounded-full bg-green-500/10 text-success transition group-hover:bg-green-500 group-hover:text-white"
           >
             <svg class="h-7 w-7" fill="currentColor" viewBox="0 0 24 24">
               <path
@@ -48,12 +48,12 @@
               />
             </svg>
           </div>
-          <h2 class="mt-5 font-[Georgia] text-lg font-bold text-navy-900">WhatsApp</h2>
+          <h2 class="mt-5 font-[Georgia] text-lg font-bold text-foreground">WhatsApp</h2>
           <a
             href="https://wa.me/254798184193?text=Hello%20SilverLake%20Car%20Rentals%2C%20I%20would%20like%20to%20enquire%20about%20a%20booking."
             target="_blank"
             rel="noopener noreferrer"
-            class="mt-2 block text-base font-semibold text-green-600 hover:underline"
+            class="mt-2 block text-base font-semibold text-success hover:underline"
           >
             0798 184 193
           </a>
@@ -61,19 +61,19 @@
             href="https://wa.me/254710315345?text=Hello%20SilverLake%20Car%20Rentals%2C%20I%20would%20like%20to%20enquire%20about%20a%20booking."
             target="_blank"
             rel="noopener noreferrer"
-            class="mt-1 block text-base font-semibold text-green-600 hover:underline"
+            class="mt-1 block text-base font-semibold text-success hover:underline"
           >
             0710 315 345
           </a>
-          <p class="mt-1 text-sm text-slate-500">Fast replies, 7am–10pm</p>
+          <p class="mt-1 text-sm text-foreground-subtle">Fast replies, 7am–10pm</p>
         </div>
 
         <a
           href="mailto:info@silverlakecarrentals.co.ke"
-          class="group flex flex-col items-center rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center transition hover:border-brand-blue-500 hover:shadow-lg"
+          class="group flex flex-col items-center rounded-2xl border border-border-subtle bg-surface p-8 text-center transition hover:border-accent-border hover:shadow-lg"
         >
           <div
-            class="flex h-14 w-14 items-center justify-center rounded-full bg-brand-blue-500/10 text-brand-blue-600 transition group-hover:bg-brand-blue-600 group-hover:text-white"
+            class="flex h-14 w-14 items-center justify-center rounded-full bg-accent-bg/10 text-accent transition group-hover:bg-accent-bg group-hover:text-on-accent"
           >
             <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
               <path
@@ -83,48 +83,48 @@
               />
             </svg>
           </div>
-          <h2 class="mt-5 font-[Georgia] text-lg font-bold text-navy-900">Email</h2>
-          <p class="mt-2 text-sm font-semibold text-brand-blue-600 break-all">info@silverlakecarrentals.co.ke</p>
-          <p class="mt-1 text-sm text-slate-500">We respond within 24 hours</p>
+          <h2 class="mt-5 font-[Georgia] text-lg font-bold text-foreground">Email</h2>
+          <p class="mt-2 text-sm font-semibold text-accent break-all">info@silverlakecarrentals.co.ke</p>
+          <p class="mt-1 text-sm text-foreground-subtle">We respond within 24 hours</p>
         </a>
       </div>
     </section>
 
     <!-- About section -->
-    <section class="border-y border-slate-100 bg-slate-50">
+    <section class="border-y border-border-subtle bg-surface">
       <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
         <div class="grid gap-12 lg:grid-cols-2 lg:items-center">
           <div>
-            <p class="text-sm font-semibold uppercase tracking-widest text-gold-600">Our Story</p>
-            <h2 class="mt-3 font-[Georgia] text-3xl font-bold text-navy-900">
-              More than a car hire. <span class="text-brand-blue-600">Your travel partner.</span>
+            <p class="text-sm font-semibold uppercase tracking-widest text-accent">Our Story</p>
+            <h2 class="mt-3 font-[Georgia] text-3xl font-bold text-foreground">
+              More than a car hire. <span class="text-accent">Your travel partner.</span>
             </h2>
-            <p class="mt-5 leading-relaxed text-slate-600">
+            <p class="mt-5 leading-relaxed text-foreground-muted">
               SilverLake Car Rentals was founded with a simple vision: to offer Kenyans and visitors alike a premium,
               reliable, and human-centred car rental experience. We started in Kisumu — the heart of the Lake Victoria
               region — and have grown to serve clients across the entire country.
             </p>
-            <p class="mt-4 leading-relaxed text-slate-600">
+            <p class="mt-4 leading-relaxed text-foreground-muted">
               Whether you're heading to a corporate meeting in Nairobi, a safari in the Mara, or a family trip along the
               coast, we match you with the right vehicle and the right driver, every time.
             </p>
           </div>
           <div class="grid grid-cols-2 gap-4">
-            <div class="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-              <p class="font-[Georgia] text-3xl font-bold text-gold-600">5+</p>
-              <p class="mt-2 text-sm text-slate-500">Premium Vehicles</p>
+            <div class="rounded-2xl border border-border-subtle bg-surface-2 p-6 text-center shadow-sm">
+              <p class="font-[Georgia] text-3xl font-bold text-accent">5+</p>
+              <p class="mt-2 text-sm text-foreground-subtle">Premium Vehicles</p>
             </div>
-            <div class="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-              <p class="font-[Georgia] text-3xl font-bold text-gold-600">47</p>
-              <p class="mt-2 text-sm text-slate-500">Counties Served</p>
+            <div class="rounded-2xl border border-border-subtle bg-surface-2 p-6 text-center shadow-sm">
+              <p class="font-[Georgia] text-3xl font-bold text-accent">47</p>
+              <p class="mt-2 text-sm text-foreground-subtle">Counties Served</p>
             </div>
-            <div class="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-              <p class="font-[Georgia] text-3xl font-bold text-gold-600">7 Days</p>
-              <p class="mt-2 text-sm text-slate-500">Always Available</p>
+            <div class="rounded-2xl border border-border-subtle bg-surface-2 p-6 text-center shadow-sm">
+              <p class="font-[Georgia] text-3xl font-bold text-accent">7 Days</p>
+              <p class="mt-2 text-sm text-foreground-subtle">Always Available</p>
             </div>
-            <div class="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-              <p class="font-[Georgia] text-3xl font-bold text-gold-600">100%</p>
-              <p class="mt-2 text-sm text-slate-500">Vetted Drivers</p>
+            <div class="rounded-2xl border border-border-subtle bg-surface-2 p-6 text-center shadow-sm">
+              <p class="font-[Georgia] text-3xl font-bold text-accent">100%</p>
+              <p class="mt-2 text-sm text-foreground-subtle">Vetted Drivers</p>
             </div>
           </div>
         </div>
@@ -133,9 +133,9 @@
 
     <!-- Location -->
     <section class="mx-auto max-w-5xl px-4 py-16 sm:px-6 text-center">
-      <h2 class="font-[Georgia] text-2xl font-bold text-navy-900">Find Us in Kisumu</h2>
-      <p class="mt-3 text-slate-600">SilverLake Car Rentals · Kisumu City, Kenya</p>
-      <div class="mt-6 overflow-hidden rounded-2xl border border-slate-200 shadow-lg">
+      <h2 class="font-[Georgia] text-2xl font-bold text-foreground">Find Us in Kisumu</h2>
+      <p class="mt-3 text-foreground-muted">SilverLake Car Rentals · Kisumu City, Kenya</p>
+      <div class="mt-6 overflow-hidden rounded-2xl border border-border-subtle shadow-lg">
         <iframe
           src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d63765.14789!2d34.7070!3d-0.0917!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182aa6b7f0d31c7b%3A0xf0e3f5d7d3a8a0b4!2sKisumu%2C%20Kenya!5e0!3m2!1sen!2ske!4v1700000000000"
           width="100%"

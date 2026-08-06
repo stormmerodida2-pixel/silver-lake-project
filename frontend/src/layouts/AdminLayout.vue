@@ -7,6 +7,7 @@ import { confirmDialog } from '../utils/dialogs'
 import SilverLakeLogo from '../components/SilverLakeLogo.vue'
 import AnnouncementBanner from '../components/AnnouncementBanner.vue'
 import NotificationBell from '../components/NotificationBell.vue'
+import ThemeToggle from '../components/ThemeToggle.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -191,11 +192,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-navy-950">
-    <aside class="hidden w-56 shrink-0 flex-col border-r border-navy-800 bg-navy-900 md:flex">
-      <RouterLink to="/" class="flex items-center gap-2 border-b border-navy-800 px-5 py-4">
+  <div class="flex min-h-screen bg-page">
+    <aside class="hidden w-56 shrink-0 flex-col border-r border-border-subtle bg-surface md:flex">
+      <RouterLink to="/" class="flex items-center gap-2 border-b border-border-subtle px-5 py-4">
         <SilverLakeLogo :size="26" />
-        <span class="font-[Georgia] text-sm font-bold tracking-wide text-white">SilverLake Admin</span>
+        <span class="font-[Georgia] text-sm font-bold tracking-wide text-foreground">SilverLake Admin</span>
       </RouterLink>
 
       <nav class="flex flex-1 flex-col gap-1 p-3">
@@ -206,8 +207,8 @@ onUnmounted(() => {
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition"
           :class="
             route.path === item.to
-              ? 'bg-gold-500 text-navy-950'
-              : 'text-slate-300 hover:bg-navy-800 hover:text-gold-400'
+              ? 'bg-accent-bg text-on-accent'
+              : 'text-foreground-secondary hover:bg-surface-2 hover:text-accent'
           "
         >
           <svg
@@ -224,10 +225,10 @@ onUnmounted(() => {
         </RouterLink>
       </nav>
 
-      <div class="border-t border-navy-800 p-3">
+      <div class="border-t border-border-subtle p-3">
         <RouterLink
           to="/account/profile"
-          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -247,7 +248,7 @@ onUnmounted(() => {
         </RouterLink>
         <RouterLink
           to="/"
-          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -262,7 +263,7 @@ onUnmounted(() => {
           Back to Site
         </RouterLink>
         <button
-          class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+          class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
           @click="handleLogout"
         >
           <svg
@@ -286,18 +287,19 @@ onUnmounted(() => {
 
     <div class="min-w-0 flex-1">
       <header
-        class="flex items-center justify-between border-b border-navy-800 bg-navy-950/95 px-4 py-3 backdrop-blur md:px-8"
+        class="flex items-center justify-between border-b border-border-subtle bg-page/95 px-4 py-3 backdrop-blur md:px-8"
       >
         <div class="flex items-center gap-2 md:hidden">
           <SilverLakeLogo :size="24" />
-          <span class="font-[Georgia] text-sm font-bold text-white">Admin</span>
+          <span class="font-[Georgia] text-sm font-bold text-foreground">Admin</span>
         </div>
-        <div class="hidden text-sm text-slate-400 md:block">{{ route.meta.pageTitle || 'Admin Panel' }}</div>
-        <div class="flex items-center gap-2 text-sm text-slate-300 sm:gap-3">
+        <div class="hidden text-sm text-foreground-muted md:block">{{ route.meta.pageTitle || 'Admin Panel' }}</div>
+        <div class="flex items-center gap-2 text-sm text-foreground-secondary sm:gap-3">
+          <ThemeToggle />
           <NotificationBell base-path="/admin/notifications" />
           <button
             ref="mobileMenuButton"
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-navy-800 hover:text-white md:hidden"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground-secondary hover:bg-surface-2 hover:text-foreground md:hidden"
             :aria-expanded="mobileMenuOpen"
             aria-label="Toggle menu"
             @click.stop="mobileMenuOpen = !mobileMenuOpen"
@@ -324,7 +326,7 @@ onUnmounted(() => {
           </span>
           <span
             class="hidden rounded-full px-2 py-0.5 text-xs font-semibold sm:inline-block"
-            :class="auth.user?.is_superuser ? 'bg-gold-500/10 text-gold-400' : 'bg-navy-800 text-slate-400'"
+            :class="auth.user?.is_superuser ? 'bg-accent-bg/10 text-accent' : 'bg-surface-2 text-foreground-muted'"
           >
             {{
               auth.user?.is_superuser ? (auth.user?.organization_name ? 'Org Admin' : 'Super Admin') : 'Support Staff'
@@ -332,14 +334,14 @@ onUnmounted(() => {
           </span>
           <RouterLink
             to="/account/profile"
-            class="hidden whitespace-nowrap font-[Georgia] text-sm tracking-wide transition hover:text-gold-400 sm:inline-block sm:text-base"
+            class="hidden whitespace-nowrap font-[Georgia] text-sm tracking-wide transition hover:text-accent sm:inline-block sm:text-base"
           >
             Hi, {{ auth.user?.first_name || 'Admin' }}
           </RouterLink>
         </div>
       </header>
 
-      <div v-if="mobileMenuOpen" ref="mobileMenuPanel" class="border-b border-navy-800 bg-navy-900 md:hidden">
+      <div v-if="mobileMenuOpen" ref="mobileMenuPanel" class="border-b border-border-subtle bg-surface md:hidden">
         <nav class="flex max-h-[60vh] flex-col gap-1 overflow-y-auto p-3">
           <RouterLink
             v-for="item in navItems"
@@ -348,8 +350,8 @@ onUnmounted(() => {
             class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition"
             :class="
               route.path === item.to
-                ? 'bg-gold-500 text-navy-950'
-                : 'text-slate-300 hover:bg-navy-800 hover:text-gold-400'
+                ? 'bg-accent-bg text-on-accent'
+                : 'text-foreground-secondary hover:bg-surface-2 hover:text-accent'
             "
             @click="mobileMenuOpen = false"
           >
@@ -366,10 +368,10 @@ onUnmounted(() => {
             {{ item.label }}
           </RouterLink>
         </nav>
-        <div class="border-t border-navy-800 p-3">
+        <div class="border-t border-border-subtle p-3">
           <RouterLink
             to="/account/profile"
-            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
             @click="mobileMenuOpen = false"
           >
             <svg
@@ -390,7 +392,7 @@ onUnmounted(() => {
           </RouterLink>
           <RouterLink
             to="/"
-            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
             @click="mobileMenuOpen = false"
           >
             <svg
@@ -406,7 +408,7 @@ onUnmounted(() => {
             Back to Site
           </RouterLink>
           <button
-            class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+            class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
             @click="handleLogout"
           >
             <svg

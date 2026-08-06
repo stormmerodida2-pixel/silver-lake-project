@@ -120,23 +120,23 @@ onMounted(load)
 <template>
   <div>
     <div class="flex items-center justify-between">
-      <h1 class="font-[Georgia] text-2xl font-bold text-white">Payouts</h1>
+      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Payouts</h1>
       <div class="flex items-center gap-4">
         <button
           :disabled="exportingCsv"
-          class="rounded-md border border-navy-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+          class="rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground-secondary transition hover:border-accent-border hover:text-accent disabled:opacity-50"
           @click="exportCsv"
         >
           {{ exportingCsv ? 'Exporting...' : 'Export CSV' }}
         </button>
-        <RouterLink to="/admin" class="text-sm font-semibold text-gold-400 hover:text-gold-300">
+        <RouterLink to="/admin" class="text-sm font-semibold text-accent hover:text-accent-strong">
           See totals on Dashboard &rarr;
         </RouterLink>
       </div>
     </div>
 
-    <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
-    <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="loading" class="mt-10 text-center text-foreground-muted">Loading...</p>
+    <p v-else-if="error" class="mt-4 text-sm text-danger">{{ error }}</p>
 
     <template v-if="!loading">
       <div class="mt-4 flex flex-wrap items-center gap-4">
@@ -147,16 +147,16 @@ onMounted(load)
             class="rounded-md border px-3 py-1.5 text-sm font-medium transition"
             :class="
               filter === option
-                ? 'border-gold-500 bg-gold-500 text-navy-950'
-                : 'border-navy-700 text-slate-300 hover:border-gold-400 hover:text-gold-400'
+                ? 'border-accent-border-strong bg-accent-bg text-on-accent'
+                : 'border-border text-foreground-secondary hover:border-accent-border hover:text-accent'
             "
             @click="filter = option"
           >
             {{ option.charAt(0).toUpperCase() + option.slice(1) }}
           </button>
         </div>
-        <div class="flex items-center gap-2 border-l border-navy-800 pl-4">
-          <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Recipient</span>
+        <div class="flex items-center gap-2 border-l border-border-subtle pl-4">
+          <span class="text-xs font-semibold uppercase tracking-wide text-foreground-subtle">Recipient</span>
           <button
             v-for="option in [
               { value: 'all', label: 'All' },
@@ -168,7 +168,7 @@ onMounted(load)
             :class="
               recipientFilter === option.value
                 ? 'border-brand-blue-500 bg-brand-blue-500 text-white'
-                : 'border-navy-700 text-slate-300 hover:border-brand-blue-400 hover:text-brand-blue-400'
+                : 'border-border text-foreground-secondary hover:border-brand-blue-400 hover:text-brand-blue-400'
             "
             @click="recipientFilter = option.value"
           >
@@ -177,9 +177,9 @@ onMounted(load)
         </div>
       </div>
 
-      <div class="mt-4 overflow-x-auto rounded-xl border border-navy-800">
+      <div class="mt-4 overflow-x-auto rounded-xl border border-border-subtle">
         <table class="w-full text-left text-sm">
-          <thead class="bg-navy-900 text-slate-400">
+          <thead class="bg-surface text-foreground-muted">
             <tr>
               <th class="px-4 py-3">Recipient</th>
               <th class="px-4 py-3">Booking</th>
@@ -190,9 +190,9 @@ onMounted(load)
               <th class="px-4 py-3"></th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-navy-800 bg-navy-950">
+          <tbody class="divide-y divide-border-subtle bg-page">
             <tr v-for="payout in filteredPayouts" :key="payout.id">
-              <td class="px-4 py-3 text-white">
+              <td class="px-4 py-3 text-foreground">
                 {{ payout.driver_name || payout.organization_name }}
                 <span
                   v-if="payout.organization_name"
@@ -201,23 +201,23 @@ onMounted(load)
                   Org
                 </span>
               </td>
-              <td class="px-4 py-3 text-slate-300">
+              <td class="px-4 py-3 text-foreground-secondary">
                 #{{ payout.booking_id }}
-                <div class="text-xs text-slate-500">{{ payout.customer_name }}</div>
+                <div class="text-xs text-foreground-subtle">{{ payout.customer_name }}</div>
               </td>
-              <td class="px-4 py-3 text-slate-300">KES {{ Number(payout.amount).toLocaleString() }}</td>
+              <td class="px-4 py-3 text-foreground-secondary">KES {{ Number(payout.amount).toLocaleString() }}</td>
               <td class="px-4 py-3">
-                <span class="text-slate-300">
+                <span class="text-foreground-secondary">
                   KES {{ Number(payout.booking_amount_paid).toLocaleString() }} /
                   {{ Number(payout.booking_total_amount).toLocaleString() }}
                 </span>
-                <div v-if="Number(payout.booking_balance_due) > 0" class="text-xs font-semibold text-red-400">
+                <div v-if="Number(payout.booking_balance_due) > 0" class="text-xs font-semibold text-danger">
                   KES {{ Number(payout.booking_balance_due).toLocaleString() }} still owed
                 </div>
               </td>
               <td class="px-4 py-3">
                 <div class="flex flex-col gap-1">
-                  <span :class="payout.is_paid ? 'text-gold-400' : 'text-red-400'">
+                  <span :class="payout.is_paid ? 'text-accent' : 'text-danger'">
                     {{ payout.is_paid ? 'Paid' : 'Pending' }}
                   </span>
                   <span
@@ -229,7 +229,7 @@ onMounted(load)
                   </span>
                   <span
                     v-else-if="payout.b2c_failed_at"
-                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-400"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-danger"
                     :title="payout.notes"
                   >
                     ⚠ M-Pesa Disbursement Failed
@@ -237,7 +237,7 @@ onMounted(load)
                   <span
                     v-if="payout.needs_verification"
                     class="inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold"
-                    :class="payout.is_verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gold-500/10 text-gold-400'"
+                    :class="payout.is_verified ? 'bg-emerald-500/10 text-success' : 'bg-accent-bg/10 text-accent'"
                     :title="
                       payout.is_verified
                         ? payout.verification_note
@@ -248,25 +248,25 @@ onMounted(load)
                   </span>
                   <span
                     v-if="payout.has_disputed_payment"
-                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-400"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-danger"
                     title="A customer has disputed a cash payment on this booking - resolve before verifying or paying."
                   >
                     ⚠ Disputed
                   </span>
                   <span
                     v-if="payout.has_undeposited_cash"
-                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-gold-500/10 px-2 py-0.5 text-xs font-semibold text-gold-400"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-accent-bg/10 px-2 py-0.5 text-xs font-semibold text-accent"
                     title="The driver hasn't logged a matching Paybill deposit for a cash payment on this booking yet - required before this can be verified."
                   >
                     ⚠ Not Deposited
                   </span>
                 </div>
               </td>
-              <td class="px-4 py-3 text-slate-400">
+              <td class="px-4 py-3 text-foreground-muted">
                 {{ payout.payout_reference || '-' }}
                 <span
                   v-if="payout.reference_reused"
-                  class="ml-1 cursor-help text-gold-400"
+                  class="ml-1 cursor-help text-accent"
                   title="This reference has been used on another payout too - could be a coincidental match or a real duplicate (e.g. an accidentally reused reference). Double-check before relying on it."
                 >
                   ⚠
@@ -280,7 +280,7 @@ onMounted(load)
                     :title="
                       payout.has_undeposited_cash ? 'Waiting on the driver to log a matching Paybill deposit first' : ''
                     "
-                    class="rounded-md border border-gold-500 px-2 py-1 text-xs font-semibold text-gold-400 hover:bg-gold-500 hover:text-navy-950 disabled:cursor-not-allowed disabled:opacity-50"
+                    class="rounded-md border border-accent-border-strong px-2 py-1 text-xs font-semibold text-accent hover:bg-accent-bg hover:text-on-accent disabled:cursor-not-allowed disabled:opacity-50"
                     @click="verifyPayout(payout)"
                   >
                     Verify
@@ -288,7 +288,7 @@ onMounted(load)
                   <div v-else-if="auth.user?.is_superuser" class="flex flex-col items-start gap-1.5">
                     <button
                       :disabled="busyId === payout.id"
-                      class="rounded-md bg-gold-500 px-2 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                      class="rounded-md bg-accent-bg px-2 py-1 text-xs font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
                       @click="markPaid(payout)"
                     >
                       Mark Paid
@@ -302,17 +302,17 @@ onMounted(load)
                       {{ payout.b2c_failed_at ? 'Retry via M-Pesa' : 'Disburse via M-Pesa' }}
                     </button>
                   </div>
-                  <span v-else class="text-xs text-slate-500">Superadmin only</span>
+                  <span v-else class="text-xs text-foreground-subtle">Superadmin only</span>
                 </template>
               </td>
             </tr>
           </tbody>
         </table>
-        <p v-if="!filteredPayouts.length" class="p-6 text-center text-slate-400">No payouts in this view.</p>
-        <div v-if="nextUrl" class="border-t border-navy-800 p-3 text-center">
+        <p v-if="!filteredPayouts.length" class="p-6 text-center text-foreground-muted">No payouts in this view.</p>
+        <div v-if="nextUrl" class="border-t border-border-subtle p-3 text-center">
           <button
             :disabled="loadingMore"
-            class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+            class="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
             @click="loadMore"
           >
             {{ loadingMore ? 'Loading...' : 'Load More' }}

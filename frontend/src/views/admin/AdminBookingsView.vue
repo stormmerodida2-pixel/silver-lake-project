@@ -224,18 +224,18 @@ onMounted(() => {
 
 <template>
   <div>
-    <h1 class="font-[Georgia] text-2xl font-bold text-white">Manage Bookings</h1>
+    <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Manage Bookings</h1>
 
     <div class="mt-4 flex flex-wrap gap-3">
       <input
         v-model="filters.search"
         type="text"
         placeholder="Search by customer name, phone or email..."
-        class="min-w-64 flex-1 rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-gold-400 focus:outline-none"
+        class="min-w-64 flex-1 rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground placeholder:text-foreground-subtle focus:border-accent-border focus:outline-none"
       />
       <select
         v-model="filters.status"
-        class="rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white focus:border-gold-400 focus:outline-none"
+        class="rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground focus:border-accent-border focus:outline-none"
       >
         <option value="active">Active (needs attention)</option>
         <option value="">All statuses</option>
@@ -245,14 +245,14 @@ onMounted(() => {
       </select>
       <select
         v-model="filters.service_type"
-        class="rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white focus:border-gold-400 focus:outline-none"
+        class="rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground focus:border-accent-border focus:outline-none"
       >
         <option value="">All service types</option>
         <option value="with_driver">With Driver</option>
         <option value="self_drive">Self Drive</option>
       </select>
       <button
-        class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+        class="rounded-md bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover"
         @click="openCorpModal"
       >
         + Corporate Booking
@@ -260,13 +260,13 @@ onMounted(() => {
       <RouterLink
         v-if="canManageCorporateAccounts"
         to="/admin/corporate-accounts"
-        class="rounded-md border border-navy-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-gold-400 hover:text-gold-400"
+        class="rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground-secondary transition hover:border-accent-border hover:text-accent"
       >
         Manage Corporate Accounts
       </RouterLink>
       <button
         :disabled="exportingCsv"
-        class="rounded-md border border-navy-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+        class="rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground-secondary transition hover:border-accent-border hover:text-accent disabled:opacity-50"
         @click="exportCsv"
       >
         {{ exportingCsv ? 'Exporting...' : 'Export CSV' }}
@@ -286,12 +286,12 @@ onMounted(() => {
       :report-type="conditionReportType"
     />
 
-    <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
-    <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="loading" class="mt-10 text-center text-foreground-muted">Loading...</p>
+    <p v-else-if="error" class="mt-4 text-sm text-danger">{{ error }}</p>
 
-    <div v-if="!loading" class="mt-6 overflow-x-auto rounded-xl border border-navy-800">
+    <div v-if="!loading" class="mt-6 overflow-x-auto rounded-xl border border-border-subtle">
       <table class="w-full text-left text-sm">
-        <thead class="bg-navy-900 text-slate-400">
+        <thead class="bg-surface text-foreground-muted">
           <tr>
             <th class="px-4 py-3">Customer</th>
             <th class="px-4 py-3">Vehicle</th>
@@ -303,14 +303,14 @@ onMounted(() => {
             <th class="px-4 py-3">Trip</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-navy-800 bg-navy-950">
+        <tbody class="divide-y divide-border-subtle bg-page">
           <tr v-for="booking in bookings" :key="booking.id" :class="booking.needs_attention ? 'bg-red-500/5' : ''">
-            <td class="px-4 py-3 text-white">
+            <td class="px-4 py-3 text-foreground">
               {{ booking.customer_name }}
-              <div class="text-xs text-slate-500">{{ booking.customer_phone }}</div>
+              <div class="text-xs text-foreground-subtle">{{ booking.customer_phone }}</div>
               <span
                 v-if="booking.source === 'driver_onsite'"
-                class="mt-1 inline-block rounded-full bg-navy-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-400"
+                class="mt-1 inline-block rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent"
               >
                 Walk-in
               </span>
@@ -322,36 +322,36 @@ onMounted(() => {
                 Corporate: {{ booking.corporate_account_name }}
               </span>
             </td>
-            <td class="px-4 py-3 text-slate-300">
+            <td class="px-4 py-3 text-foreground-secondary">
               {{ booking.vehicle_name }}
             </td>
-            <td class="px-4 py-3 text-slate-300">
+            <td class="px-4 py-3 text-foreground-secondary">
               {{ booking.service_type === 'with_driver' ? 'With Driver' : 'Self Drive' }}
               <select
                 v-if="booking.service_type === 'with_driver' && auth.user?.is_superuser"
                 :value="booking.driver || ''"
                 :disabled="busyId === booking.id"
-                class="mt-1 block rounded-md border border-navy-700 bg-navy-950 px-2 py-1 text-xs text-white focus:border-gold-400 focus:outline-none disabled:opacity-50"
+                class="mt-1 block rounded-md border border-border bg-page px-2 py-1 text-xs text-foreground focus:border-accent-border focus:outline-none disabled:opacity-50"
                 @change="changeDriver(booking, $event.target.value ? Number($event.target.value) : null)"
               >
                 <option value="">No driver assigned</option>
                 <option v-for="d in driverOptions" :key="d.id" :value="d.id">{{ d.full_name }}</option>
               </select>
-              <div v-else-if="booking.driver_name" class="text-xs text-slate-500">{{ booking.driver_name }}</div>
+              <div v-else-if="booking.driver_name" class="text-xs text-foreground-subtle">{{ booking.driver_name }}</div>
             </td>
-            <td class="px-4 py-3 text-slate-400">{{ booking.start_date }} to {{ booking.end_date }}</td>
-            <td class="px-4 py-3 text-slate-300">KES {{ Number(booking.total_amount).toLocaleString() }}</td>
-            <td class="px-4 py-3 text-slate-300">
+            <td class="px-4 py-3 text-foreground-muted">{{ booking.start_date }} to {{ booking.end_date }}</td>
+            <td class="px-4 py-3 text-foreground-secondary">KES {{ Number(booking.total_amount).toLocaleString() }}</td>
+            <td class="px-4 py-3 text-foreground-secondary">
               KES {{ Number(booking.amount_paid).toLocaleString() }}
               <div v-if="isUnderpaid(booking)" class="mt-1">
-                <div class="text-xs font-semibold text-red-400">
+                <div class="text-xs font-semibold text-danger">
                   Balance due: KES {{ Number(booking.balance_due).toLocaleString() }}
                 </div>
                 <button
                   v-if="canRemindBalance(booking)"
                   :disabled="busyId === booking.id || !!balanceRemindDisabledReason(booking)"
                   :title="balanceRemindDisabledReason(booking) || ''"
-                  class="mt-1 rounded-md border border-navy-700 px-2 py-0.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                  class="mt-1 rounded-md border border-border px-2 py-0.5 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                   @click="remindBalance(booking)"
                 >
                   {{
@@ -362,41 +362,41 @@ onMounted(() => {
                         : 'Remind Driver'
                   }}
                 </button>
-                <p v-else-if="!booking.driver_name" class="text-xs text-slate-600">No driver to remind</p>
+                <p v-else-if="!booking.driver_name" class="text-xs text-foreground-subtle">No driver to remind</p>
 
                 <div v-if="booking.corporate_account" class="mt-2">
                   <button
                     v-if="recordingInvoiceId !== booking.id"
-                    class="rounded-md border border-brand-blue-500 px-2 py-0.5 text-xs font-semibold text-brand-blue-400 hover:bg-brand-blue-500 hover:text-white"
+                    class="rounded-md border border-brand-blue-500 px-2 py-0.5 text-xs font-semibold text-brand-blue-400 hover:bg-brand-blue-500 hover:text-foreground"
                     @click="openInvoiceForm(booking)"
                   >
                     Record Invoice Payment
                   </button>
-                  <div v-else class="space-y-1.5 rounded-md border border-navy-700 bg-navy-900 p-2">
+                  <div v-else class="space-y-1.5 rounded-md border border-border bg-surface p-2">
                     <input
                       v-model="invoiceForm.amount"
                       type="number"
                       step="0.01"
                       placeholder="Amount (KES)"
-                      class="w-full rounded border border-navy-700 bg-navy-950 px-2 py-1 text-xs text-white focus:border-gold-400 focus:outline-none"
+                      class="w-full rounded border border-border bg-page px-2 py-1 text-xs text-foreground focus:border-accent-border focus:outline-none"
                     />
                     <input
                       v-model="invoiceForm.reference"
                       type="text"
                       placeholder="Reference (optional)"
-                      class="w-full rounded border border-navy-700 bg-navy-950 px-2 py-1 text-xs text-white focus:border-gold-400 focus:outline-none"
+                      class="w-full rounded border border-border bg-page px-2 py-1 text-xs text-foreground focus:border-accent-border focus:outline-none"
                     />
-                    <p v-if="invoiceError" class="text-xs text-red-400">{{ invoiceError }}</p>
+                    <p v-if="invoiceError" class="text-xs text-danger">{{ invoiceError }}</p>
                     <div class="flex gap-1.5">
                       <button
-                        class="flex-1 rounded border border-navy-700 px-2 py-1 text-xs text-slate-300 hover:border-slate-500"
+                        class="flex-1 rounded border border-border px-2 py-1 text-xs text-foreground-secondary hover:border-slate-500"
                         @click="recordingInvoiceId = null"
                       >
                         Cancel
                       </button>
                       <button
                         :disabled="busyId === booking.id"
-                        class="flex-1 rounded bg-gold-500 px-2 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                        class="flex-1 rounded bg-accent-bg px-2 py-1 text-xs font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
                         @click="submitInvoicePayment(booking)"
                       >
                         {{ busyId === booking.id ? 'Saving...' : 'Save' }}
@@ -408,7 +408,7 @@ onMounted(() => {
               <button
                 v-if="Number(booking.amount_paid) > 0"
                 :disabled="downloadingId === booking.id"
-                class="mt-1 rounded-md border border-navy-700 px-2 py-0.5 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                class="mt-1 rounded-md border border-border px-2 py-0.5 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                 @click="downloadReceipt(booking)"
               >
                 {{ downloadingId === booking.id ? 'Downloading...' : 'Receipt' }}
@@ -418,7 +418,7 @@ onMounted(() => {
               <select
                 :value="booking.status"
                 :disabled="busyId === booking.id"
-                class="rounded-md border border-navy-700 bg-navy-950 px-2 py-1 text-xs text-white focus:border-gold-400 focus:outline-none disabled:opacity-50"
+                class="rounded-md border border-border bg-page px-2 py-1 text-xs text-foreground focus:border-accent-border focus:outline-none disabled:opacity-50"
                 @change="changeStatus(booking, $event.target.value)"
               >
                 <option v-for="option in statusOptions" :key="option" :value="option">
@@ -429,26 +429,26 @@ onMounted(() => {
             <td class="px-4 py-3 text-xs">
               <span
                 v-if="booking.needs_attention"
-                class="mb-1 inline-block rounded-full bg-red-500/10 px-2 py-0.5 font-semibold text-red-400"
+                class="mb-1 inline-block rounded-full bg-red-500/10 px-2 py-0.5 font-semibold text-danger"
               >
                 Needs Attention
               </span>
               <div v-if="booking.service_type === 'with_driver' && booking.driver_name">
-                <div v-if="booking.driver_acknowledged_at" class="text-slate-500">
+                <div v-if="booking.driver_acknowledged_at" class="text-foreground-subtle">
                   Acknowledged {{ new Date(booking.driver_acknowledged_at).toLocaleString() }}
                 </div>
                 <span
                   v-else-if="isAwaitingAcknowledgment(booking)"
-                  class="inline-block rounded-full bg-gold-500/10 px-2 py-0.5 font-semibold text-gold-400"
+                  class="inline-block rounded-full bg-accent-bg/10 px-2 py-0.5 font-semibold text-accent"
                   title="The driver hasn't opened/acknowledged this booking on their dashboard yet"
                 >
                   Awaiting Acknowledgment
                 </span>
               </div>
-              <div v-if="booking.trip_started_at" class="text-slate-500">
+              <div v-if="booking.trip_started_at" class="text-foreground-subtle">
                 Started {{ new Date(booking.trip_started_at).toLocaleDateString() }}
               </div>
-              <div v-if="booking.trip_ended_at" class="text-slate-500">
+              <div v-if="booking.trip_ended_at" class="text-foreground-subtle">
                 Ended {{ new Date(booking.trip_ended_at).toLocaleDateString() }}
               </div>
               <div
@@ -459,19 +459,19 @@ onMounted(() => {
                   !booking.driver_acknowledged_at &&
                   !isAwaitingAcknowledgment(booking)
                 "
-                class="text-slate-600"
+                class="text-foreground-subtle"
               >
                 —
               </div>
               <div v-if="['confirmed', 'ongoing', 'completed'].includes(booking.status)" class="mt-1.5 flex gap-1">
                 <button
-                  class="rounded border border-navy-800 px-1.5 py-0.5 text-slate-500 hover:border-gold-400 hover:text-gold-400"
+                  class="rounded border border-border-subtle px-1.5 py-0.5 text-foreground-subtle hover:border-accent-border hover:text-accent"
                   @click="openConditionModal(booking, 'pickup')"
                 >
                   + Pickup
                 </button>
                 <button
-                  class="rounded border border-navy-800 px-1.5 py-0.5 text-slate-500 hover:border-gold-400 hover:text-gold-400"
+                  class="rounded border border-border-subtle px-1.5 py-0.5 text-foreground-subtle hover:border-accent-border hover:text-accent"
                   @click="openConditionModal(booking, 'return')"
                 >
                   + Return
@@ -481,11 +481,11 @@ onMounted(() => {
           </tr>
         </tbody>
       </table>
-      <p v-if="!bookings.length" class="p-6 text-center text-slate-400">No bookings yet.</p>
-      <div v-if="nextUrl" class="border-t border-navy-800 p-3 text-center">
+      <p v-if="!bookings.length" class="p-6 text-center text-foreground-muted">No bookings yet.</p>
+      <div v-if="nextUrl" class="border-t border-border-subtle p-3 text-center">
         <button
           :disabled="loadingMore"
-          class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+          class="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
           @click="loadMore"
         >
           {{ loadingMore ? 'Loading...' : 'Load More' }}

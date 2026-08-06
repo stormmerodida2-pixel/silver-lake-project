@@ -30,7 +30,7 @@ const visible = ref(false)
     />
     <button
       type="button"
-      class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 transition hover:text-slate-600"
+      class="absolute inset-y-0 right-0 flex items-center px-3 text-foreground-muted transition hover:text-foreground-subtle"
       :aria-label="visible ? 'Hide password' : 'Show password'"
       tabindex="-1"
       @click="visible = !visible"

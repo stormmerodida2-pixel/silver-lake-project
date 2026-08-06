@@ -68,17 +68,17 @@ onMounted(load)
 <template>
   <div>
     <div class="flex items-center justify-between">
-      <h1 class="font-[Georgia] text-2xl font-bold text-white">Refunds</h1>
-      <RouterLink to="/admin/bookings" class="text-sm font-semibold text-gold-400 hover:text-gold-300">
+      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Refunds</h1>
+      <RouterLink to="/admin/bookings" class="text-sm font-semibold text-accent hover:text-accent-strong">
         View bookings &rarr;
       </RouterLink>
     </div>
-    <p class="mt-1 text-sm text-slate-400">
+    <p class="mt-1 text-sm text-foreground-muted">
       Created automatically whenever a booking with money already paid against it gets cancelled.
     </p>
 
-    <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
-    <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="loading" class="mt-10 text-center text-foreground-muted">Loading...</p>
+    <p v-else-if="error" class="mt-4 text-sm text-danger">{{ error }}</p>
 
     <template v-if="!loading">
       <div class="mt-4 flex gap-2">
@@ -88,8 +88,8 @@ onMounted(load)
           class="rounded-md border px-3 py-1.5 text-sm font-medium transition"
           :class="
             filter === option
-              ? 'border-gold-500 bg-gold-500 text-navy-950'
-              : 'border-navy-700 text-slate-300 hover:border-gold-400 hover:text-gold-400'
+              ? 'border-accent-border-strong bg-accent-bg text-on-accent'
+              : 'border-border text-foreground-secondary hover:border-accent-border hover:text-accent'
           "
           @click="filter = option"
         >
@@ -97,9 +97,9 @@ onMounted(load)
         </button>
       </div>
 
-      <div class="mt-4 overflow-x-auto rounded-xl border border-navy-800">
+      <div class="mt-4 overflow-x-auto rounded-xl border border-border-subtle">
         <table class="w-full text-left text-sm">
-          <thead class="bg-navy-900 text-slate-400">
+          <thead class="bg-surface text-foreground-muted">
             <tr>
               <th class="px-4 py-3">Booking</th>
               <th class="px-4 py-3">Customer</th>
@@ -109,14 +109,14 @@ onMounted(load)
               <th class="px-4 py-3"></th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-navy-800 bg-navy-950">
+          <tbody class="divide-y divide-border-subtle bg-page">
             <tr v-for="refund in filteredRefunds" :key="refund.id">
-              <td class="px-4 py-3 text-white">#{{ refund.booking_id }}</td>
-              <td class="px-4 py-3 text-slate-300">{{ refund.customer_name }}</td>
-              <td class="px-4 py-3 text-slate-300">KES {{ Number(refund.amount).toLocaleString() }}</td>
+              <td class="px-4 py-3 text-foreground">#{{ refund.booking_id }}</td>
+              <td class="px-4 py-3 text-foreground-secondary">{{ refund.customer_name }}</td>
+              <td class="px-4 py-3 text-foreground-secondary">KES {{ Number(refund.amount).toLocaleString() }}</td>
               <td class="px-4 py-3">
                 <div class="flex flex-col gap-1">
-                  <span :class="refund.status === 'issued' ? 'text-gold-400' : 'text-red-400'">
+                  <span :class="refund.status === 'issued' ? 'text-accent' : 'text-danger'">
                     {{ refund.status === 'issued' ? 'Issued' : 'Pending' }}
                   </span>
                   <span
@@ -128,18 +128,18 @@ onMounted(load)
                   </span>
                   <span
                     v-else-if="refund.b2c_failed_at"
-                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-400"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-danger"
                     :title="refund.notes"
                   >
                     ⚠ M-Pesa Disbursement Failed
                   </span>
                 </div>
               </td>
-              <td class="px-4 py-3 text-slate-400">
+              <td class="px-4 py-3 text-foreground-muted">
                 {{ refund.reference || '-' }}
                 <span
                   v-if="refund.reference_reused"
-                  class="ml-1 cursor-help text-gold-400"
+                  class="ml-1 cursor-help text-accent"
                   title="This reference has been used on another refund too - could be a coincidental match or a real duplicate (e.g. an accidentally reused reference). Double-check before relying on it."
                 >
                   ⚠
@@ -152,7 +152,7 @@ onMounted(load)
                 >
                   <button
                     :disabled="busyId === refund.id"
-                    class="rounded-md bg-gold-500 px-2 py-1 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+                    class="rounded-md bg-accent-bg px-2 py-1 text-xs font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
                     @click="markIssued(refund)"
                   >
                     Mark Issued
@@ -160,22 +160,22 @@ onMounted(load)
                   <button
                     v-if="refund.recipient_phone_number && !isB2cPending(refund)"
                     :disabled="busyId === refund.id"
-                    class="rounded-md border border-brand-blue-500 px-2 py-1 text-xs font-semibold text-brand-blue-400 hover:bg-brand-blue-500 hover:text-white disabled:opacity-50"
+                    class="rounded-md border border-brand-blue-500 px-2 py-1 text-xs font-semibold text-brand-blue-400 hover:bg-brand-blue-500 hover:text-foreground disabled:opacity-50"
                     @click="disburseRefund(refund)"
                   >
                     {{ refund.b2c_failed_at ? 'Retry via M-Pesa' : 'Disburse via M-Pesa' }}
                   </button>
                 </div>
-                <span v-else-if="refund.status !== 'issued'" class="text-xs text-slate-500">Superadmin only</span>
+                <span v-else-if="refund.status !== 'issued'" class="text-xs text-foreground-subtle">Superadmin only</span>
               </td>
             </tr>
           </tbody>
         </table>
-        <p v-if="!filteredRefunds.length" class="p-6 text-center text-slate-400">No refunds in this view.</p>
-        <div v-if="nextUrl" class="border-t border-navy-800 p-3 text-center">
+        <p v-if="!filteredRefunds.length" class="p-6 text-center text-foreground-muted">No refunds in this view.</p>
+        <div v-if="nextUrl" class="border-t border-border-subtle p-3 text-center">
           <button
             :disabled="loadingMore"
-            class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+            class="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
             @click="loadMore"
           >
             {{ loadingMore ? 'Loading...' : 'Load More' }}

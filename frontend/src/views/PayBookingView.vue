@@ -175,101 +175,109 @@ onMounted(loadBooking)
 </script>
 
 <template>
-  <div class="min-h-screen bg-white">
+  <div class="min-h-screen bg-page">
     <div class="mx-auto max-w-lg px-4 py-16 sm:px-6">
       <div class="text-center">
-        <h1 class="font-[Georgia] text-2xl font-bold text-navy-900">Pay for Your Trip</h1>
-        <p class="mt-2 text-sm text-slate-500">SilverLake Car Rentals</p>
+        <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Pay for Your Trip</h1>
+        <p class="mt-2 text-sm text-foreground-subtle">SilverLake Car Rentals</p>
       </div>
 
-      <p v-if="loading" class="mt-10 text-center text-slate-500">Loading...</p>
-      <div v-else-if="loadError" class="mt-10 rounded-xl border border-red-200 bg-red-50 p-6 text-center text-red-700">
+      <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>
+      <div
+        v-else-if="loadError"
+        class="mt-10 rounded-xl border border-red-500/20 bg-red-500/10 p-6 text-center text-danger"
+      >
         {{ loadError }}
       </div>
 
       <template v-else-if="booking">
-        <div class="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-6">
-          <p class="text-sm text-slate-500">Booking for</p>
-          <h2 class="font-[Georgia] text-lg font-bold text-navy-900">{{ booking.customer_name }}</h2>
-          <p class="mt-1 text-sm text-slate-600">
+        <div class="mt-8 rounded-2xl border border-border-subtle bg-surface p-6">
+          <p class="text-sm text-foreground-subtle">Booking for</p>
+          <h2 class="font-[Georgia] text-lg font-bold text-foreground">{{ booking.customer_name }}</h2>
+          <p class="mt-1 text-sm text-foreground-muted">
             {{ booking.vehicle_name
             }}<span v-if="booking.driver_name"> &middot; Driver: {{ booking.driver_name }}</span>
           </p>
-          <p class="text-sm text-slate-500">{{ booking.start_date }} to {{ booking.end_date }}</p>
+          <p class="text-sm text-foreground-subtle">{{ booking.start_date }} to {{ booking.end_date }}</p>
 
-          <div class="mt-4 space-y-1 border-t border-slate-200 pt-4 text-sm">
-            <div class="flex justify-between text-slate-600">
+          <div class="mt-4 space-y-1 border-t border-border-subtle pt-4 text-sm">
+            <div class="flex justify-between text-foreground-muted">
               <span>Total</span>
               <span>KES {{ Number(booking.total_amount).toLocaleString() }}</span>
             </div>
-            <div class="flex justify-between text-slate-600">
+            <div class="flex justify-between text-foreground-muted">
               <span>Paid so far</span>
               <span>KES {{ Number(booking.amount_paid).toLocaleString() }}</span>
             </div>
-            <div class="flex justify-between text-base font-bold text-navy-900">
+            <div class="flex justify-between text-base font-bold text-foreground">
               <span>Balance Due</span>
-              <span class="text-gold-500">KES {{ Number(booking.balance_due).toLocaleString() }}</span>
+              <span class="text-accent-strong">KES {{ Number(booking.balance_due).toLocaleString() }}</span>
             </div>
           </div>
         </div>
 
         <div
           v-if="booking.status === 'cancelled'"
-          class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500"
+          class="mt-6 rounded-xl border border-border-subtle bg-surface p-6 text-center text-sm text-foreground-subtle"
         >
           This booking has been cancelled.
         </div>
         <div
           v-else-if="Number(booking.balance_due) <= 0"
-          class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center text-emerald-700"
+          class="mt-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-6 text-center text-success"
         >
           This booking is fully paid. Thank you!
         </div>
 
         <div
           v-else-if="pendingOfflinePayment"
-          class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm"
+          class="mt-6 rounded-2xl border border-border-subtle bg-surface p-6 text-center shadow-sm"
         >
-          <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold-500/10 text-gold-500">
+          <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-accent-bg/10 text-accent-strong">
             <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
             </svg>
           </div>
-          <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Awaiting Confirmation</h2>
-          <p v-if="pendingOfflinePayment.method === 'cash'" class="mt-2 text-sm text-slate-600">
+          <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Awaiting Confirmation</h2>
+          <p v-if="pendingOfflinePayment.method === 'cash'" class="mt-2 text-sm text-foreground-muted">
             You've recorded a cash payment of KES {{ Number(pendingOfflinePayment.amount).toLocaleString() }} to
             {{ booking.driver_name }}. Once your driver confirms receiving it, your balance will be updated.
           </p>
-          <p v-else class="mt-2 text-sm text-slate-600">
+          <p v-else class="mt-2 text-sm text-foreground-muted">
             You've declared a bank transfer of KES {{ Number(pendingOfflinePayment.amount).toLocaleString() }}
             <span v-if="pendingOfflinePayment.note">(ref. {{ pendingOfflinePayment.note }})</span>. Once our team
             confirms it's been received, your balance will be updated.
           </p>
         </div>
 
-        <div v-else-if="requested" class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+        <div
+          v-else-if="requested"
+          class="mt-6 rounded-2xl border border-border-subtle bg-surface p-6 text-center shadow-sm"
+        >
           <template v-if="paymentOutcome === 'successful'">
-            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+            <div
+              class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-success"
+            >
               <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Payment Received</h2>
-            <p class="mt-2 text-sm text-slate-600">Thank you - your payment has been confirmed.</p>
+            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Payment Received</h2>
+            <p class="mt-2 text-sm text-foreground-muted">Thank you - your payment has been confirmed.</p>
           </template>
 
           <template v-else-if="paymentOutcome === 'failed'">
-            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-danger">
               <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Payment Didn't Go Through</h2>
-            <p class="mt-2 text-sm text-slate-600">
+            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Payment Didn't Go Through</h2>
+            <p class="mt-2 text-sm text-foreground-muted">
               The M-Pesa prompt was cancelled, timed out, or declined. No money has left your account.
             </p>
             <button
-              class="mt-5 rounded-md bg-gold-500 px-5 py-2.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+              class="mt-5 rounded-md bg-accent-bg px-5 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover"
               @click="retryPayment"
             >
               Try Again
@@ -277,7 +285,7 @@ onMounted(loadBooking)
           </template>
 
           <template v-else-if="paymentOutcome === 'timeout'">
-            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold-500/10 text-gold-500">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-accent-bg/10 text-accent-strong">
               <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path
                   stroke-linecap="round"
@@ -286,13 +294,13 @@ onMounted(loadBooking)
                 />
               </svg>
             </div>
-            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Still Waiting on M-Pesa</h2>
-            <p class="mt-2 text-sm text-slate-600">
+            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Still Waiting on M-Pesa</h2>
+            <p class="mt-2 text-sm text-foreground-muted">
               This is taking longer than usual. If you already entered your PIN, refresh this page in a moment.
               Otherwise, you can try again.
             </p>
             <button
-              class="mt-5 rounded-md bg-gold-500 px-5 py-2.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+              class="mt-5 rounded-md bg-accent-bg px-5 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover"
               @click="retryPayment"
             >
               Try Again
@@ -301,34 +309,34 @@ onMounted(loadBooking)
 
           <template v-else>
             <div
-              class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-blue-50 text-brand-blue-600"
+              class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-accent-bg/10 text-accent-strong"
             >
               <svg class="h-7 w-7 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" />
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
               </svg>
             </div>
-            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-navy-900">Check Your Phone</h2>
-            <p class="mt-2 text-sm text-slate-600">
+            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Check Your Phone</h2>
+            <p class="mt-2 text-sm text-foreground-muted">
               We've sent an M-Pesa prompt to {{ phoneNumber }}. Enter your PIN to complete payment.
             </p>
           </template>
         </div>
 
-        <div v-else class="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-6">
-          <div v-if="isWalkIn" class="text-sm text-slate-600">
+        <div v-else class="mt-6 space-y-4 rounded-2xl border border-border-subtle bg-surface p-6">
+          <div v-if="isWalkIn" class="text-sm text-foreground-muted">
             Paying in full: KES {{ Number(booking.balance_due).toLocaleString() }}.
           </div>
           <div v-else-if="!booking.is_deposit_paid">
-            <label class="mb-1 block text-sm text-slate-600">How much would you like to pay now?</label>
+            <label class="mb-1 block text-sm text-foreground-muted">How much would you like to pay now?</label>
             <div class="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 class="rounded-md border px-3 py-2 text-sm font-semibold"
                 :class="
                   payOption === 'deposit'
-                    ? 'border-brand-blue-600 bg-brand-blue-600 text-white'
-                    : 'border-slate-300 text-slate-600'
+                    ? 'border-accent-border-strong bg-accent-bg text-on-accent'
+                    : 'border-border text-foreground-secondary'
                 "
                 @click="payOption = 'deposit'"
               >
@@ -340,8 +348,8 @@ onMounted(loadBooking)
                 class="rounded-md border px-3 py-2 text-sm font-semibold"
                 :class="
                   payOption === 'full'
-                    ? 'border-brand-blue-600 bg-brand-blue-600 text-white'
-                    : 'border-slate-300 text-slate-600'
+                    ? 'border-accent-border-strong bg-accent-bg text-on-accent'
+                    : 'border-border text-foreground-secondary'
                 "
                 @click="payOption = 'full'"
               >
@@ -350,21 +358,21 @@ onMounted(loadBooking)
               </button>
             </div>
           </div>
-          <div v-else class="text-sm text-slate-600">
+          <div v-else class="text-sm text-foreground-muted">
             Deposit already paid - paying the remaining balance of KES
             {{ Number(booking.balance_due).toLocaleString() }}.
           </div>
 
           <div v-if="booking.driver_name">
-            <label class="mb-1 block text-sm text-slate-600">How would you like to pay?</label>
+            <label class="mb-1 block text-sm text-foreground-muted">How would you like to pay?</label>
             <div class="grid gap-3" :class="booking.driver_cash_enabled ? 'grid-cols-2' : 'grid-cols-1'">
               <button
                 type="button"
                 class="rounded-md border px-3 py-2 text-sm font-semibold"
                 :class="
                   paymentMethod === primaryMethod
-                    ? 'border-brand-blue-600 bg-brand-blue-600 text-white'
-                    : 'border-slate-300 text-slate-600'
+                    ? 'border-accent-border-strong bg-accent-bg text-on-accent'
+                    : 'border-border text-foreground-secondary'
                 "
                 @click="paymentMethod = primaryMethod"
               >
@@ -376,8 +384,8 @@ onMounted(loadBooking)
                 class="rounded-md border px-3 py-2 text-sm font-semibold"
                 :class="
                   paymentMethod === 'cash'
-                    ? 'border-brand-blue-600 bg-brand-blue-600 text-white'
-                    : 'border-slate-300 text-slate-600'
+                    ? 'border-accent-border-strong bg-accent-bg text-on-accent'
+                    : 'border-border text-foreground-secondary'
                 "
                 @click="paymentMethod = 'cash'"
               >
@@ -387,7 +395,7 @@ onMounted(loadBooking)
           </div>
 
           <template v-if="paymentMethod === 'cash' && booking.driver_name">
-            <div class="rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">
+            <div class="rounded-md border border-border bg-surface-2 p-3 text-sm text-foreground-secondary">
               <label class="flex items-start gap-2">
                 <input v-model="cashAcknowledged" type="checkbox" class="mt-0.5" />
                 <span>
@@ -397,11 +405,11 @@ onMounted(loadBooking)
               </label>
             </div>
 
-            <p v-if="cashError" class="text-sm text-red-600">{{ cashError }}</p>
+            <p v-if="cashError" class="text-sm text-danger">{{ cashError }}</p>
 
             <button
               :disabled="declaringCash || !cashAcknowledged"
-              class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+              class="w-full rounded-md bg-accent-bg px-4 py-2.5 font-semibold text-on-accent transition hover:bg-accent-bg-hover disabled:opacity-60"
               @click="declareCash"
             >
               {{ declaringCash ? 'Recording...' : `Record KES ${amountToPay.toLocaleString()} Cash Payment` }}
@@ -409,30 +417,30 @@ onMounted(loadBooking)
           </template>
 
           <template v-else-if="paymentMethod === 'bank_transfer'">
-            <div class="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600">
-              <p class="font-semibold text-navy-900">Pay via Bank Transfer</p>
+            <div class="rounded-md border border-border bg-surface-2 p-4 text-sm text-foreground-secondary">
+              <p class="font-semibold text-foreground">Pay via Bank Transfer</p>
               <p class="mt-2">Co-operative Bank of Kenya</p>
-              <p>Paybill <span class="font-semibold text-navy-900">400200</span></p>
-              <p>Account No: <span class="font-semibold text-navy-900">01101465587001</span></p>
-              <p class="mt-2 text-xs text-slate-500">
+              <p>Paybill <span class="font-semibold text-foreground">400200</span></p>
+              <p>Account No: <span class="font-semibold text-foreground">01101465587001</span></p>
+              <p class="mt-2 text-xs text-foreground-subtle">
                 Use your name and booking #{{ booking.id }} as the transfer reference, so we can match your payment.
               </p>
             </div>
 
             <div>
-              <label class="mb-1 block text-sm text-slate-600">Transaction reference</label>
+              <label class="mb-1 block text-sm text-foreground-muted">Transaction reference</label>
               <input
                 v-model="bankTransferReference"
                 type="text"
                 placeholder="e.g. last 4 digits of the M-Pesa/bank code"
-                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-foreground focus:border-accent-border focus:outline-none"
               />
-              <p class="mt-1 text-xs text-slate-500">
+              <p class="mt-1 text-xs text-foreground-subtle">
                 Check the confirmation SMS from your bank/M-Pesa - at least the last 4 digits/characters are enough.
               </p>
             </div>
 
-            <div class="rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">
+            <div class="rounded-md border border-border bg-surface-2 p-3 text-sm text-foreground-secondary">
               <label class="flex items-start gap-2">
                 <input v-model="bankTransferAcknowledged" type="checkbox" class="mt-0.5" />
                 <span>
@@ -441,11 +449,11 @@ onMounted(loadBooking)
               </label>
             </div>
 
-            <p v-if="bankTransferError" class="text-sm text-red-600">{{ bankTransferError }}</p>
+            <p v-if="bankTransferError" class="text-sm text-danger">{{ bankTransferError }}</p>
 
             <button
               :disabled="declaringBankTransfer || !bankTransferAcknowledged || bankTransferReference.trim().length < 4"
-              class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+              class="w-full rounded-md bg-accent-bg px-4 py-2.5 font-semibold text-on-accent transition hover:bg-accent-bg-hover disabled:opacity-60"
               @click="declareBankTransfer"
             >
               {{
@@ -458,15 +466,15 @@ onMounted(loadBooking)
 
           <template v-else>
             <div>
-              <label class="mb-1 block text-sm text-slate-600">M-Pesa Phone Number</label>
-              <PhoneInput v-model="phoneNumber" required />
+              <label class="mb-1 block text-sm text-foreground-muted">M-Pesa Phone Number</label>
+              <PhoneInput v-model="phoneNumber" required dark />
             </div>
 
-            <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+            <p v-if="error" class="text-sm text-danger">{{ error }}</p>
 
             <button
               :disabled="submitting || !phoneNumber"
-              class="w-full rounded-md bg-gold-500 px-4 py-2.5 font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+              class="w-full rounded-md bg-accent-bg px-4 py-2.5 font-semibold text-on-accent transition hover:bg-accent-bg-hover disabled:opacity-60"
               @click="payWithMpesa"
             >
               {{ submitting ? 'Sending prompt...' : `Pay KES ${amountToPay.toLocaleString()} via M-Pesa` }}

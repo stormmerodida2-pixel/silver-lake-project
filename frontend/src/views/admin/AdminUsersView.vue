@@ -192,14 +192,14 @@ onMounted(load)
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="font-[Georgia] text-2xl font-bold text-white">Manage Users</h1>
-        <p v-if="auth.user?.organization_name" class="mt-1 text-sm text-slate-400">
+        <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Manage Users</h1>
+        <p v-if="auth.user?.organization_name" class="mt-1 text-sm text-foreground-muted">
           Showing {{ auth.user.organization_name }}'s own staff only.
         </p>
       </div>
       <div v-if="auth.user?.is_superuser" class="flex gap-2">
         <button
-          class="flex items-center gap-2 rounded-lg border border-navy-700 px-4 py-2 text-sm font-semibold text-slate-300 transition-colors hover:border-gold-400 hover:text-gold-400"
+          class="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground-secondary transition-colors hover:border-accent-border hover:text-accent"
           @click="openInviteModal"
         >
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -213,7 +213,7 @@ onMounted(load)
         </button>
         <button
           id="add-user-btn"
-          class="flex items-center gap-2 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400"
+          class="flex items-center gap-2 rounded-lg bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-bg-hover"
           @click="openModal"
         >
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -229,11 +229,11 @@ onMounted(load)
         v-model="filters.search"
         type="text"
         placeholder="Search by name or email..."
-        class="min-w-64 flex-1 rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-gold-400 focus:outline-none"
+        class="min-w-64 flex-1 rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground placeholder:text-foreground-subtle focus:border-accent-border focus:outline-none"
       />
       <select
         v-model="filters.role"
-        class="rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white focus:border-gold-400 focus:outline-none"
+        class="rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground focus:border-accent-border focus:outline-none"
       >
         <option value="">All roles</option>
         <option value="customer">Customer</option>
@@ -242,12 +242,12 @@ onMounted(load)
       </select>
     </div>
 
-    <p v-if="loading" class="mt-10 text-center text-slate-400">Loading...</p>
-    <p v-else-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="loading" class="mt-10 text-center text-foreground-muted">Loading...</p>
+    <p v-else-if="error" class="mt-4 text-sm text-danger">{{ error }}</p>
 
-    <div v-if="!loading" class="mt-6 overflow-x-auto rounded-xl border border-navy-800">
+    <div v-if="!loading" class="mt-6 overflow-x-auto rounded-xl border border-border-subtle">
       <table class="w-full text-left text-sm">
-        <thead class="bg-navy-900 text-slate-400">
+        <thead class="bg-surface text-foreground-muted">
           <tr>
             <th class="px-4 py-3">Name</th>
             <th class="px-4 py-3">Email</th>
@@ -259,41 +259,41 @@ onMounted(load)
             <th class="px-4 py-3"></th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-navy-800 bg-navy-950">
+        <tbody class="divide-y divide-border-subtle bg-page">
           <tr v-for="user in users" :key="user.id">
-            <td class="px-4 py-3 text-white">{{ user.first_name }} {{ user.last_name }}</td>
-            <td class="px-4 py-3 text-slate-300">{{ user.email }}</td>
-            <td class="px-4 py-3 text-slate-300">{{ user.phone_number || '-' }}</td>
-            <td class="px-4 py-3 text-slate-300">{{ user.bookings_count }}</td>
-            <td class="px-4 py-3 text-slate-300">
-              <span v-if="user.is_superuser" class="text-gold-400">{{
+            <td class="px-4 py-3 text-foreground">{{ user.first_name }} {{ user.last_name }}</td>
+            <td class="px-4 py-3 text-foreground-secondary">{{ user.email }}</td>
+            <td class="px-4 py-3 text-foreground-secondary">{{ user.phone_number || '-' }}</td>
+            <td class="px-4 py-3 text-foreground-secondary">{{ user.bookings_count }}</td>
+            <td class="px-4 py-3 text-foreground-secondary">
+              <span v-if="user.is_superuser" class="text-accent">{{
                 user.organization_name ? 'Org Admin' : 'Super Admin'
               }}</span>
               <span v-else-if="user.is_staff">Support Staff</span>
               <span v-else>Customer</span>
-              <div v-if="user.organization_name" class="text-xs text-slate-500">{{ user.organization_name }}</div>
+              <div v-if="user.organization_name" class="text-xs text-foreground-subtle">{{ user.organization_name }}</div>
             </td>
             <td class="px-4 py-3">
               <span
                 class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                :class="user.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'"
+                :class="user.is_active ? 'bg-emerald-500/10 text-success' : 'bg-red-500/10 text-danger'"
               >
                 <span class="h-1.5 w-1.5 rounded-full" :class="user.is_active ? 'bg-emerald-400' : 'bg-red-400'" />
                 {{ user.is_active ? 'Active' : 'Inactive' }}
               </span>
             </td>
-            <td class="px-4 py-3 text-slate-400">{{ new Date(user.date_joined).toLocaleDateString() }}</td>
+            <td class="px-4 py-3 text-foreground-muted">{{ new Date(user.date_joined).toLocaleDateString() }}</td>
             <td class="space-x-2 whitespace-nowrap px-4 py-3">
               <button
                 v-if="auth.user?.is_superuser"
-                class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400"
+                class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent"
                 @click="openEditModal(user)"
               >
                 Edit
               </button>
               <button
                 :disabled="busyId === user.id"
-                class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                 @click="toggleActive(user)"
               >
                 {{ user.is_active ? 'Suspend' : 'Activate' }}
@@ -302,7 +302,7 @@ onMounted(load)
                 v-if="auth.user?.is_superuser && !auth.user?.organization_name && !user.is_staff"
                 :disabled="busyId === user.id"
                 title="View the app as this customer, for support/debugging"
-                class="rounded-md border border-navy-700 px-2 py-1 text-xs font-semibold text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+                class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
                 @click="impersonate(user)"
               >
                 Impersonate
@@ -310,7 +310,7 @@ onMounted(load)
               <button
                 v-if="auth.user?.is_superuser"
                 :disabled="busyId === user.id"
-                class="rounded-md border border-red-400 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-400 hover:text-navy-950 disabled:opacity-50"
+                class="rounded-md border border-danger-border px-2 py-1 text-xs font-semibold text-danger hover:bg-red-400 hover:text-on-accent disabled:opacity-50"
                 @click="deleteUser(user)"
               >
                 Delete
@@ -319,11 +319,11 @@ onMounted(load)
           </tr>
         </tbody>
       </table>
-      <p v-if="!users.length" class="p-6 text-center text-slate-400">No customer accounts yet.</p>
-      <div v-if="nextUrl" class="border-t border-navy-800 p-3 text-center">
+      <p v-if="!users.length" class="p-6 text-center text-foreground-muted">No customer accounts yet.</p>
+      <div v-if="nextUrl" class="border-t border-border-subtle p-3 text-center">
         <button
           :disabled="loadingMore"
-          class="rounded-md border border-navy-700 px-4 py-1.5 text-sm font-medium text-slate-300 hover:border-gold-400 hover:text-gold-400 disabled:opacity-50"
+          class="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
           @click="loadMore"
         >
           {{ loadingMore ? 'Loading...' : 'Load More' }}
@@ -340,11 +340,11 @@ onMounted(load)
           class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
           @click.self="showModal = false"
         >
-          <div class="w-full max-w-md rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+          <div class="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <!-- Modal header -->
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-white">Add New User</h2>
-              <button class="text-slate-400 transition-colors hover:text-white" @click="showModal = false">
+              <h2 class="font-[Georgia] text-xl font-bold text-foreground">Add New User</h2>
+              <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -352,25 +352,25 @@ onMounted(load)
             </div>
 
             <!-- Error -->
-            <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <p v-if="formError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-danger">
               {{ formError }}
             </p>
 
             <!-- Form -->
             <form class="space-y-4" @submit.prevent="createUser">
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Full Name *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Full Name *</label>
                 <input
                   id="new-user-full-name"
                   v-model="form.full_name"
                   type="text"
                   placeholder="Jane Doe"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none focus:ring-1 focus:ring-accent-border-strong"
                   required
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Email Address *</label
                 >
                 <input
@@ -378,45 +378,45 @@ onMounted(load)
                   v-model="form.email"
                   type="email"
                   placeholder="jane@example.com"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none focus:ring-1 focus:ring-accent-border-strong"
                   required
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Phone Number</label
                 >
                 <PhoneInput v-model="form.phone_number" dark />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Password *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Password *</label>
                 <PasswordInput
                   v-model="form.password"
                   required
                   placeholder="Minimum 8 characters"
-                  input-class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  input-class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none focus:ring-1 focus:ring-accent-border-strong"
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Confirm Password *</label
                 >
                 <PasswordInput
                   v-model="form.confirm_password"
                   required
                   placeholder="Repeat password"
-                  input-class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  input-class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none focus:ring-1 focus:ring-accent-border-strong"
                 />
               </div>
 
-              <p class="text-xs text-slate-500">
-                The account will be created as <span class="text-gold-400">Active</span> — no email verification needed.
+              <p class="text-xs text-foreground-subtle">
+                The account will be created as <span class="text-accent">Active</span> — no email verification needed.
               </p>
 
               <div class="flex gap-3 pt-2">
                 <button
                   type="button"
-                  class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                  class="flex-1 rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground-secondary transition-colors hover:border-slate-500 hover:text-foreground"
                   @click="showModal = false"
                 >
                   Cancel
@@ -425,7 +425,7 @@ onMounted(load)
                   id="create-user-submit"
                   type="submit"
                   :disabled="saving"
-                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
+                  class="flex-1 rounded-lg bg-accent-bg py-2.5 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-bg-hover disabled:opacity-50"
                 >
                   {{ saving ? 'Creating…' : 'Create User' }}
                 </button>
@@ -444,81 +444,81 @@ onMounted(load)
           class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
           @click.self="showEditModal = false"
         >
-          <div class="w-full max-w-md rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+          <div class="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-white">Edit User</h2>
-              <button class="text-slate-400 transition-colors hover:text-white" @click="showEditModal = false">
+              <h2 class="font-[Georgia] text-xl font-bold text-foreground">Edit User</h2>
+              <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showEditModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <p v-if="editError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <p v-if="editError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-danger">
               {{ editError }}
             </p>
 
             <form class="space-y-4" @submit.prevent="saveUser">
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                     >First Name</label
                   >
                   <input
                     v-model="editForm.first_name"
                     type="text"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none focus:ring-1 focus:ring-accent-border-strong"
                   />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Last Name</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Last Name</label>
                   <input
                     v-model="editForm.last_name"
                     type="text"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none focus:ring-1 focus:ring-accent-border-strong"
                   />
                 </div>
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Email</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Email</label>
                 <input
                   :value="editingUser?.email"
                   type="email"
                   disabled
-                  class="w-full cursor-not-allowed rounded-lg border border-navy-700 bg-navy-800/50 px-4 py-2.5 text-sm text-slate-500"
+                  class="w-full cursor-not-allowed rounded-lg border border-border bg-surface-2/50 px-4 py-2.5 text-sm text-foreground-subtle"
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Phone Number</label
                 >
                 <PhoneInput v-model="editForm.phone_number" dark />
               </div>
 
-              <label class="flex items-center gap-2 text-sm text-slate-300">
+              <label class="flex items-center gap-2 text-sm text-foreground-secondary">
                 <input
                   v-model="editForm.is_active"
                   type="checkbox"
-                  class="h-4 w-4 rounded border-navy-700 bg-navy-800"
+                  class="h-4 w-4 rounded border-border bg-surface-2"
                 />
                 Active
               </label>
 
-              <div class="rounded-lg border border-navy-700 bg-navy-800/50 p-4">
-                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gold-400">Admin Role</p>
-                <label class="flex items-center gap-2 text-sm text-slate-300">
+              <div class="rounded-lg border border-border bg-surface-2/50 p-4">
+                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-accent">Admin Role</p>
+                <label class="flex items-center gap-2 text-sm text-foreground-secondary">
                   <input
                     v-model="editForm.is_staff"
                     type="checkbox"
-                    class="h-4 w-4 rounded border-navy-700 bg-navy-800"
+                    class="h-4 w-4 rounded border-border bg-surface-2"
                   />
                   Support Staff (dashboard access)
                 </label>
-                <label class="mt-2 flex items-center gap-2 text-sm text-slate-300">
+                <label class="mt-2 flex items-center gap-2 text-sm text-foreground-secondary">
                   <input
                     v-model="editForm.is_superuser"
                     type="checkbox"
-                    class="h-4 w-4 rounded border-navy-700 bg-navy-800"
+                    class="h-4 w-4 rounded border-border bg-surface-2"
                   />
                   Super Admin (full access, incl. destructive actions)
                 </label>
@@ -527,7 +527,7 @@ onMounted(load)
               <div class="flex gap-3 pt-2">
                 <button
                   type="button"
-                  class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                  class="flex-1 rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground-secondary transition-colors hover:border-slate-500 hover:text-foreground"
                   @click="showEditModal = false"
                 >
                   Cancel
@@ -535,7 +535,7 @@ onMounted(load)
                 <button
                   type="submit"
                   :disabled="editSaving"
-                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
+                  class="flex-1 rounded-lg bg-accent-bg py-2.5 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-bg-hover disabled:opacity-50"
                 >
                   {{ editSaving ? 'Saving…' : 'Save Changes' }}
                 </button>
@@ -554,56 +554,56 @@ onMounted(load)
           class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
           @click.self="showInviteModal = false"
         >
-          <div class="w-full max-w-md rounded-2xl border border-navy-700 bg-navy-900 p-8 shadow-2xl">
+          <div class="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-white">Invite Staff</h2>
-              <button class="text-slate-400 transition-colors hover:text-white" @click="showInviteModal = false">
+              <h2 class="font-[Georgia] text-xl font-bold text-foreground">Invite Staff</h2>
+              <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showInviteModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <p v-if="inviteError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <p v-if="inviteError" class="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-danger">
               {{ inviteError }}
             </p>
 
             <form class="space-y-4" @submit.prevent="inviteStaff">
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                     >First Name</label
                   >
                   <input
                     v-model="inviteForm.first_name"
                     type="text"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Last Name</label>
+                  <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Last Name</label>
                   <input
                     v-model="inviteForm.last_name"
                     type="text"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white focus:border-gold-500 focus:outline-none"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                   />
                 </div>
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">Email *</label>
+                <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Email *</label>
                 <input
                   v-model="inviteForm.email"
                   type="email"
                   placeholder="jane@example.com"
                   required
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                 />
               </div>
-              <label class="flex items-center gap-2 text-sm text-slate-300">
+              <label class="flex items-center gap-2 text-sm text-foreground-secondary">
                 <input
                   v-model="inviteForm.is_superuser"
                   type="checkbox"
-                  class="h-4 w-4 rounded border-navy-700 bg-navy-800"
+                  class="h-4 w-4 rounded border-border bg-surface-2"
                 />
                 {{
                   auth.user?.organization_name
@@ -611,7 +611,7 @@ onMounted(load)
                     : 'Super Admin (full platform access)'
                 }}
               </label>
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-foreground-subtle">
                 They'll get an email with a link to set their own password - nothing is emailed in plain text.
                 <template v-if="auth.user?.organization_name"
                   >Scoped to {{ auth.user.organization_name }} only.</template
@@ -621,7 +621,7 @@ onMounted(load)
               <div class="flex gap-3 pt-2">
                 <button
                   type="button"
-                  class="flex-1 rounded-lg border border-navy-700 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                  class="flex-1 rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground-secondary transition-colors hover:border-slate-500 hover:text-foreground"
                   @click="showInviteModal = false"
                 >
                   Cancel
@@ -629,7 +629,7 @@ onMounted(load)
                 <button
                   type="submit"
                   :disabled="inviting"
-                  class="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
+                  class="flex-1 rounded-lg bg-accent-bg py-2.5 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-bg-hover disabled:opacity-50"
                 >
                   {{ inviting ? 'Sending…' : 'Send Invite' }}
                 </button>

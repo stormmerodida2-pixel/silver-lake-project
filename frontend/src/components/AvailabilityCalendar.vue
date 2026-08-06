@@ -89,11 +89,11 @@ watch(() => props.vehicleId, load)
 </script>
 
 <template>
-  <div class="rounded-xl border border-slate-200 bg-white p-4">
+  <div class="rounded-xl border border-border-subtle bg-surface p-4">
     <div class="flex items-center justify-between">
       <button
         type="button"
-        class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-navy-900 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+        class="flex h-7 w-7 items-center justify-center rounded-md text-foreground-subtle transition hover:bg-surface-2 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
         :disabled="isCurrentMonth"
         aria-label="Previous month"
         @click="prevMonth"
@@ -102,10 +102,10 @@ watch(() => props.vehicleId, load)
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
       </button>
-      <p class="text-sm font-semibold text-navy-900">{{ monthLabel }}</p>
+      <p class="text-sm font-semibold text-foreground">{{ monthLabel }}</p>
       <button
         type="button"
-        class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-navy-900"
+        class="flex h-7 w-7 items-center justify-center rounded-md text-foreground-subtle transition hover:bg-surface-2 hover:text-foreground"
         aria-label="Next month"
         @click="nextMonth"
       >
@@ -115,10 +115,10 @@ watch(() => props.vehicleId, load)
       </button>
     </div>
 
-    <p v-if="error" class="mt-3 text-xs text-red-600">{{ error }}</p>
+    <p v-if="error" class="mt-3 text-xs text-danger">{{ error }}</p>
 
     <template v-else>
-      <div class="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase text-slate-400">
+      <div class="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase text-foreground-subtle">
         <span v-for="(label, i) in WEEKDAY_LABELS" :key="i">{{ label }}</span>
       </div>
       <div class="mt-1 grid grid-cols-7 gap-1">
@@ -127,19 +127,19 @@ watch(() => props.vehicleId, load)
           :key="i"
           class="flex aspect-square items-center justify-center rounded-md text-xs"
           :class="{
-            'text-slate-200': cell?.isPast,
-            'bg-red-50 text-red-400 line-through': cell && !cell.isPast && cell.isBooked,
-            'text-slate-700': cell && !cell.isPast && !cell.isBooked,
+            'text-navy-700': cell?.isPast,
+            'bg-red-500/10 text-danger line-through': cell && !cell.isPast && cell.isBooked,
+            'text-foreground-secondary': cell && !cell.isPast && !cell.isBooked,
           }"
         >
           {{ cell?.day ?? '' }}
         </div>
       </div>
 
-      <div class="mt-3 flex items-center gap-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
-        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-red-100" /> Booked</span>
+      <div class="mt-3 flex items-center gap-4 border-t border-border-subtle pt-3 text-xs text-foreground-subtle">
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-red-500/20" /> Booked</span>
         <span class="flex items-center gap-1.5"
-          ><span class="h-2.5 w-2.5 rounded-full border border-slate-300" /> Available</span
+          ><span class="h-2.5 w-2.5 rounded-full border border-border" /> Available</span
         >
       </div>
     </template>

@@ -122,7 +122,7 @@ async function logCashDeposit(payment) {
       v-if="
         booking.trip_ended_at && !['completed', 'cancelled'].includes(booking.status) && Number(booking.balance_due) > 0
       "
-      class="mt-2 text-xs font-semibold text-amber-400"
+      class="mt-2 text-xs font-semibold text-warning"
     >
       Vehicle returned - awaiting final payment (KES {{ Number(booking.balance_due).toLocaleString() }}) to complete.
     </p>
@@ -132,7 +132,7 @@ async function logCashDeposit(payment) {
         !['completed', 'cancelled'].includes(booking.status) &&
         booking.pending_cash_deposits?.length
       "
-      class="mt-2 text-xs font-semibold text-amber-400"
+      class="mt-2 text-xs font-semibold text-warning"
     >
       Vehicle returned and fully paid - deposit the cash you collected below to complete this trip.
     </p>
@@ -140,15 +140,15 @@ async function logCashDeposit(payment) {
     <!-- Collect payment: declare (client's chosen method + exact amount), then confirm once actually received -->
     <div
       v-if="booking.status !== 'cancelled' && (booking.pending_payments?.length || Number(booking.balance_due) > 0)"
-      class="mt-3 border-t border-navy-800 pt-3"
+      class="mt-3 border-t border-border-subtle pt-3"
     >
       <div v-if="booking.pending_payments?.length" class="space-y-2">
         <div
           v-for="payment in booking.pending_payments"
           :key="payment.id"
-          class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gold-500/10 p-3"
+          class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-accent-bg/10 p-3"
         >
-          <p class="text-xs font-semibold text-gold-400">
+          <p class="text-xs font-semibold text-accent">
             KES {{ Number(payment.amount).toLocaleString() }} declared via
             {{
               payment.method === 'mpesa'
@@ -170,32 +170,32 @@ async function logCashDeposit(payment) {
           <button
             v-if="payment.method !== 'bank_transfer'"
             :disabled="confirmingPaymentId === payment.id"
-            class="shrink-0 rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+            class="shrink-0 rounded-md bg-accent-bg px-3 py-1.5 text-xs font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
             @click="confirmPayment(payment)"
           >
             {{ confirmingPaymentId === payment.id ? 'Confirming...' : 'Confirm Received' }}
           </button>
         </div>
-        <p v-if="confirmError" class="text-xs text-red-400">{{ confirmError }}</p>
+        <p v-if="confirmError" class="text-xs text-danger">{{ confirmError }}</p>
       </div>
 
       <div v-if="Number(booking.balance_due) > 0" class="mt-2">
         <button
           v-if="!showForm"
-          class="text-xs font-semibold text-gold-400 hover:text-gold-300"
+          class="text-xs font-semibold text-accent hover:text-accent-strong"
           @click="openPaymentForm"
         >
           + Collect Payment (KES {{ Number(booking.balance_due).toLocaleString() }} owed)
         </button>
         <template v-else>
           <div class="flex items-center justify-between">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Collect Payment</p>
-            <button class="text-xs font-semibold text-slate-400 hover:text-white" @click="showForm = false">
+            <p class="text-xs font-semibold uppercase tracking-wide text-foreground-subtle">Collect Payment</p>
+            <button class="text-xs font-semibold text-foreground-muted hover:text-foreground" @click="showForm = false">
               Cancel
             </button>
           </div>
           <form class="mt-2 space-y-2" @submit.prevent="declarePayment">
-            <p v-if="declareError" class="text-xs text-red-400">{{ declareError }}</p>
+            <p v-if="declareError" class="text-xs text-danger">{{ declareError }}</p>
             <div class="grid grid-cols-3 gap-2">
               <button
                 v-for="opt in paymentMethodOptions"
@@ -204,15 +204,15 @@ async function logCashDeposit(payment) {
                 class="rounded-md border px-2 py-1.5 text-xs font-semibold capitalize"
                 :class="
                   paymentMethodDraft === opt
-                    ? 'border-gold-500 bg-gold-500 text-navy-950'
-                    : 'border-navy-700 text-slate-300'
+                    ? 'border-accent-border-strong bg-accent-bg text-on-accent'
+                    : 'border-border text-foreground-secondary'
                 "
                 @click="paymentMethodDraft = opt"
               >
                 {{ opt === 'mpesa' ? 'M-Pesa' : opt === 'bank_transfer' ? 'Bank Transfer' : opt }}
               </button>
             </div>
-            <p v-if="!cashEnabled" class="text-[11px] text-slate-500">
+            <p v-if="!cashEnabled" class="text-[11px] text-foreground-subtle">
               Cash payments are disabled for your account - use card or
               {{ MPESA_ENABLED ? 'M-Pesa' : 'bank transfer' }} instead.
             </p>
@@ -223,7 +223,7 @@ async function logCashDeposit(payment) {
               step="0.01"
               :placeholder="`Amount (deposit: KES ${Number(booking.deposit_amount).toLocaleString()})`"
               required
-              class="w-full rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+              class="w-full rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
             />
             <input
               v-if="paymentMethodDraft === 'bank_transfer'"
@@ -231,14 +231,14 @@ async function logCashDeposit(payment) {
               type="text"
               placeholder="Transaction reference (at least last 4 digits/characters)"
               required
-              class="w-full rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+              class="w-full rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
             />
             <button
               type="submit"
               :disabled="
                 declaring || (paymentMethodDraft === 'bank_transfer' && bankTransferReferenceDraft.trim().length < 4)
               "
-              class="w-full rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+              class="w-full rounded-md bg-accent-bg px-3 py-1.5 text-xs font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
             >
               {{ declaring ? 'Saving...' : paymentMethodDraft === 'mpesa' ? 'Send M-Pesa Prompt' : 'Declare Payment' }}
             </button>
@@ -248,23 +248,23 @@ async function logCashDeposit(payment) {
     </div>
 
     <!-- Cash deposits owed to the Paybill -->
-    <div v-if="booking.pending_cash_deposits?.length" class="mt-3 space-y-2 border-t border-navy-800 pt-3">
-      <div v-for="payment in booking.pending_cash_deposits" :key="payment.id" class="rounded-lg bg-gold-500/10 p-3">
+    <div v-if="booking.pending_cash_deposits?.length" class="mt-3 space-y-2 border-t border-border-subtle pt-3">
+      <div v-for="payment in booking.pending_cash_deposits" :key="payment.id" class="rounded-lg bg-accent-bg/10 p-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <p class="text-xs font-semibold text-gold-400">
+          <p class="text-xs font-semibold text-accent">
             KES {{ Number(payment.amount).toLocaleString() }} collected in cash - deposit this to Paybill 400400 (Acc:
             SILVERLAKE) and log it below.
           </p>
           <button
             v-if="depositFormPaymentId !== payment.id"
-            class="shrink-0 text-xs font-semibold text-gold-400 hover:text-gold-300"
+            class="shrink-0 text-xs font-semibold text-accent hover:text-accent-strong"
             @click="openDepositForm(payment)"
           >
             Log Deposit
           </button>
           <button
             v-else
-            class="shrink-0 text-xs font-semibold text-slate-400 hover:text-white"
+            class="shrink-0 text-xs font-semibold text-foreground-muted hover:text-foreground"
             @click="depositFormPaymentId = null"
           >
             Cancel
@@ -275,7 +275,7 @@ async function logCashDeposit(payment) {
           class="mt-2 space-y-2"
           @submit.prevent="logCashDeposit(payment)"
         >
-          <p v-if="depositError" class="text-xs text-red-400">{{ depositError }}</p>
+          <p v-if="depositError" class="text-xs text-danger">{{ depositError }}</p>
           <div class="flex flex-wrap gap-2">
             <input
               v-model="depositAmountDraft"
@@ -284,20 +284,20 @@ async function logCashDeposit(payment) {
               step="0.01"
               placeholder="Amount deposited"
               required
-              class="w-36 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white focus:border-gold-500 focus:outline-none"
+              class="w-36 rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-foreground focus:border-accent-border-strong focus:outline-none"
             />
             <input
               v-model="depositReferenceDraft"
               type="text"
               placeholder="M-Pesa reference (e.g. QWE123RTY)"
               required
-              class="flex-1 rounded-md border border-navy-700 bg-navy-800 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+              class="flex-1 rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
             />
           </div>
           <button
             type="submit"
             :disabled="loggingDepositId === payment.id"
-            class="rounded-md bg-gold-500 px-3 py-1.5 text-xs font-semibold text-navy-950 hover:bg-gold-400 disabled:opacity-50"
+            class="rounded-md bg-accent-bg px-3 py-1.5 text-xs font-semibold text-on-accent hover:bg-accent-bg-hover disabled:opacity-50"
           >
             {{ loggingDepositId === payment.id ? 'Saving...' : 'Confirm Deposit' }}
           </button>

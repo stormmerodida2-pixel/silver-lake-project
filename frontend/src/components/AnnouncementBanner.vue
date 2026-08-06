@@ -34,9 +34,9 @@ onMounted(load)
     <div
       v-for="announcement in unread"
       :key="announcement.id"
-      class="flex items-start gap-3 rounded-xl border-l-4 border-gold-500 bg-white p-4 shadow-lg shadow-black/10"
+      class="flex items-start gap-3 rounded-xl border-l-4 border-accent-border-strong bg-surface p-4 shadow-lg shadow-black/20"
     >
-      <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-500/15 text-gold-600">
+      <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-bg/15 text-accent">
         <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
@@ -46,12 +46,12 @@ onMounted(load)
         </svg>
       </div>
       <div class="min-w-0 flex-1">
-        <p class="text-xs font-semibold uppercase tracking-wide text-gold-600">Announcement</p>
-        <p class="mt-0.5 font-semibold text-navy-900">{{ announcement.title }}</p>
-        <p class="mt-1 whitespace-pre-line text-sm text-slate-600">{{ announcement.body }}</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-accent">Announcement</p>
+        <p class="mt-0.5 font-semibold text-foreground">{{ announcement.title }}</p>
+        <p class="mt-1 whitespace-pre-line text-sm text-foreground-muted">{{ announcement.body }}</p>
       </div>
       <button
-        class="shrink-0 text-slate-400 transition-colors hover:text-navy-900"
+        class="shrink-0 text-foreground-subtle transition-colors hover:text-foreground"
         aria-label="Dismiss"
         @click="dismiss(announcement)"
       >

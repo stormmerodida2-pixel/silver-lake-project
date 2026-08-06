@@ -64,13 +64,13 @@ async function setLink() {
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-lg border border-navy-700 bg-navy-800">
-    <div v-if="editor" class="flex flex-wrap gap-1 border-b border-navy-700 bg-navy-900 p-2">
+  <div class="overflow-hidden rounded-lg border border-border bg-surface-2">
+    <div v-if="editor" class="flex flex-wrap gap-1 border-b border-border bg-surface p-2">
       <button
         type="button"
         title="Bold"
         class="rounded px-2 py-1 text-xs font-semibold"
-        :class="editor.isActive('bold') ? 'bg-gold-500 text-navy-950' : 'text-slate-300 hover:bg-navy-800'"
+        :class="editor.isActive('bold') ? 'bg-accent-bg text-on-accent' : 'text-foreground-secondary hover:bg-surface-2'"
         @mousedown.prevent
         @click="editor.chain().focus().toggleBold().run()"
       >
@@ -80,7 +80,7 @@ async function setLink() {
         type="button"
         title="Italic"
         class="rounded px-2 py-1 text-xs italic"
-        :class="editor.isActive('italic') ? 'bg-gold-500 text-navy-950' : 'text-slate-300 hover:bg-navy-800'"
+        :class="editor.isActive('italic') ? 'bg-accent-bg text-on-accent' : 'text-foreground-secondary hover:bg-surface-2'"
         @mousedown.prevent
         @click="editor.chain().focus().toggleItalic().run()"
       >
@@ -91,7 +91,7 @@ async function setLink() {
         title="Heading 2"
         class="rounded px-2 py-1 text-xs font-semibold"
         :class="
-          editor.isActive('heading', { level: 2 }) ? 'bg-gold-500 text-navy-950' : 'text-slate-300 hover:bg-navy-800'
+          editor.isActive('heading', { level: 2 }) ? 'bg-accent-bg text-on-accent' : 'text-foreground-secondary hover:bg-surface-2'
         "
         @mousedown.prevent
         @click="editor.chain().focus().toggleHeading({ level: 2 }).run()"
@@ -103,7 +103,7 @@ async function setLink() {
         title="Heading 3"
         class="rounded px-2 py-1 text-xs font-semibold"
         :class="
-          editor.isActive('heading', { level: 3 }) ? 'bg-gold-500 text-navy-950' : 'text-slate-300 hover:bg-navy-800'
+          editor.isActive('heading', { level: 3 }) ? 'bg-accent-bg text-on-accent' : 'text-foreground-secondary hover:bg-surface-2'
         "
         @mousedown.prevent
         @click="editor.chain().focus().toggleHeading({ level: 3 }).run()"
@@ -114,7 +114,7 @@ async function setLink() {
         type="button"
         title="Bullet list"
         class="rounded px-2 py-1 text-xs"
-        :class="editor.isActive('bulletList') ? 'bg-gold-500 text-navy-950' : 'text-slate-300 hover:bg-navy-800'"
+        :class="editor.isActive('bulletList') ? 'bg-accent-bg text-on-accent' : 'text-foreground-secondary hover:bg-surface-2'"
         @mousedown.prevent
         @click="editor.chain().focus().toggleBulletList().run()"
       >
@@ -124,7 +124,7 @@ async function setLink() {
         type="button"
         title="Numbered list"
         class="rounded px-2 py-1 text-xs"
-        :class="editor.isActive('orderedList') ? 'bg-gold-500 text-navy-950' : 'text-slate-300 hover:bg-navy-800'"
+        :class="editor.isActive('orderedList') ? 'bg-accent-bg text-on-accent' : 'text-foreground-secondary hover:bg-surface-2'"
         @mousedown.prevent
         @click="editor.chain().focus().toggleOrderedList().run()"
       >
@@ -134,7 +134,7 @@ async function setLink() {
         type="button"
         title="Quote"
         class="rounded px-2 py-1 text-xs"
-        :class="editor.isActive('blockquote') ? 'bg-gold-500 text-navy-950' : 'text-slate-300 hover:bg-navy-800'"
+        :class="editor.isActive('blockquote') ? 'bg-accent-bg text-on-accent' : 'text-foreground-secondary hover:bg-surface-2'"
         @mousedown.prevent
         @click="editor.chain().focus().toggleBlockquote().run()"
       >
@@ -143,15 +143,15 @@ async function setLink() {
       <button
         type="button"
         title="Link"
-        class="rounded px-2 py-1 text-xs text-slate-300 hover:bg-navy-800"
-        :class="{ 'bg-gold-500 text-navy-950': editor.isActive('link') }"
+        class="rounded px-2 py-1 text-xs text-foreground-secondary hover:bg-surface-2"
+        :class="{ 'bg-accent-bg text-on-accent': editor.isActive('link') }"
         @mousedown.prevent
         @click="setLink"
       >
         Link
       </button>
       <label
-        class="cursor-pointer rounded px-2 py-1 text-xs text-slate-300 hover:bg-navy-800"
+        class="cursor-pointer rounded px-2 py-1 text-xs text-foreground-secondary hover:bg-surface-2"
         :class="{ 'pointer-events-none opacity-50': uploading }"
       >
         {{ uploading ? 'Uploading…' : 'Image' }}
@@ -160,7 +160,7 @@ async function setLink() {
       <button
         type="button"
         title="Undo"
-        class="rounded px-2 py-1 text-xs text-slate-300 hover:bg-navy-800"
+        class="rounded px-2 py-1 text-xs text-foreground-secondary hover:bg-surface-2"
         @mousedown.prevent
         @click="editor.chain().focus().undo().run()"
       >
@@ -169,13 +169,13 @@ async function setLink() {
       <button
         type="button"
         title="Redo"
-        class="rounded px-2 py-1 text-xs text-slate-300 hover:bg-navy-800"
+        class="rounded px-2 py-1 text-xs text-foreground-secondary hover:bg-surface-2"
         @mousedown.prevent
         @click="editor.chain().focus().redo().run()"
       >
         Redo
       </button>
     </div>
-    <EditorContent :editor="editor" class="bg-navy-800" />
+    <EditorContent :editor="editor" class="bg-surface-2" />
   </div>
 </template>

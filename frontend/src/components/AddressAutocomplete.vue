@@ -168,25 +168,25 @@ onBeforeUnmount(removeMap)
       type="text"
       :value="modelValue"
       autocomplete="off"
-      class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+      class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-foreground focus:border-accent-border focus:outline-none"
       @input="onInput"
       @focus="showDropdown = suggestions.length > 0"
       @blur="blurSoon"
     />
     <ul
       v-if="showDropdown"
-      class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-slate-200 bg-white shadow-lg"
+      class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-surface-2 shadow-lg"
     >
       <li
         v-for="(suggestion, index) in suggestions"
         :key="index"
-        class="cursor-pointer px-3 py-2 text-sm text-navy-900 hover:bg-slate-100"
+        class="cursor-pointer px-3 py-2 text-sm text-foreground hover:bg-navy-700"
         @mousedown.prevent="choose(suggestion)"
       >
         {{ suggestion.label }}
       </li>
     </ul>
-    <div v-if="selected" class="mt-2 overflow-hidden rounded-md border border-slate-200">
+    <div v-if="selected" class="mt-2 overflow-hidden rounded-md border border-border">
       <div ref="mapEl" class="h-40 w-full"></div>
     </div>
   </div>

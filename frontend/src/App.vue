@@ -10,7 +10,7 @@ const route = useRoute()
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-white">
+  <div class="flex min-h-screen flex-col bg-navy-950">
     <!-- Outside the hideChrome gate on purpose - a superadmin impersonating a customer sees the
     public site (hideChrome false), but impersonating a driver lands them in the driver portal
     (hideChrome true), so this needs to stay visible in every layout regardless. -->

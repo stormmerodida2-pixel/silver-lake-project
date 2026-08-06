@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AnnouncementBanner from '../components/AnnouncementBanner.vue'
 import NotificationBell from '../components/NotificationBell.vue'
 import SilverLakeLogo from '../components/SilverLakeLogo.vue'
+import ThemeToggle from '../components/ThemeToggle.vue'
 import { useAuthStore } from '../stores/auth'
 import { useDriverPortalStore } from '../stores/driverPortal'
 import { confirmDialog } from '../utils/dialogs'
@@ -115,11 +116,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-navy-950">
-    <aside class="hidden w-56 shrink-0 flex-col border-r border-navy-800 bg-navy-900 md:flex">
-      <RouterLink to="/" class="flex items-center gap-2 border-b border-navy-800 px-5 py-4">
+  <div class="flex min-h-screen bg-page">
+    <aside class="hidden w-56 shrink-0 flex-col border-r border-border-subtle bg-surface md:flex">
+      <RouterLink to="/" class="flex items-center gap-2 border-b border-border-subtle px-5 py-4">
         <SilverLakeLogo :size="26" />
-        <span class="font-[Georgia] text-sm font-bold tracking-wide text-white">Driver Portal</span>
+        <span class="font-[Georgia] text-sm font-bold tracking-wide text-foreground">Driver Portal</span>
       </RouterLink>
 
       <nav class="flex flex-1 flex-col gap-1 p-3">
@@ -130,8 +131,8 @@ onMounted(() => {
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition"
           :class="
             route.path === item.to
-              ? 'bg-gold-500 text-navy-950'
-              : 'text-slate-300 hover:bg-navy-800 hover:text-gold-400'
+              ? 'bg-accent-bg text-on-accent'
+              : 'text-foreground-secondary hover:bg-surface-2 hover:text-accent'
           "
         >
           <svg
@@ -148,10 +149,10 @@ onMounted(() => {
         </RouterLink>
       </nav>
 
-      <div class="border-t border-navy-800 p-3">
+      <div class="border-t border-border-subtle p-3">
         <RouterLink
           to="/account/profile"
-          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -171,7 +172,7 @@ onMounted(() => {
         </RouterLink>
         <RouterLink
           to="/"
-          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -186,7 +187,7 @@ onMounted(() => {
           Back to Site
         </RouterLink>
         <button
-          class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+          class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
           @click="handleLogout"
         >
           <svg
@@ -210,18 +211,19 @@ onMounted(() => {
 
     <div class="min-w-0 flex-1">
       <header
-        class="flex items-center justify-between border-b border-navy-800 bg-navy-950/95 px-4 py-3 backdrop-blur md:px-8"
+        class="flex items-center justify-between border-b border-border-subtle bg-page/95 px-4 py-3 backdrop-blur md:px-8"
       >
         <div class="flex items-center gap-2 md:hidden">
           <SilverLakeLogo :size="24" />
-          <span class="font-[Georgia] text-sm font-bold text-white">Driver</span>
+          <span class="font-[Georgia] text-sm font-bold text-foreground">Driver</span>
         </div>
-        <div class="hidden text-sm text-slate-400 md:block">{{ route.meta.pageTitle || 'Driver Portal' }}</div>
-        <div class="flex items-center gap-2 text-sm text-slate-300 sm:gap-3">
+        <div class="hidden text-sm text-foreground-muted md:block">{{ route.meta.pageTitle || 'Driver Portal' }}</div>
+        <div class="flex items-center gap-2 text-sm text-foreground-secondary sm:gap-3">
+          <ThemeToggle />
           <NotificationBell base-path="/driver/notifications" />
           <button
             ref="mobileMenuButton"
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-navy-800 hover:text-white md:hidden"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground-secondary hover:bg-surface-2 hover:text-foreground md:hidden"
             :aria-expanded="mobileMenuOpen"
             aria-label="Toggle menu"
             @click.stop="mobileMenuOpen = !mobileMenuOpen"
@@ -241,14 +243,14 @@ onMounted(() => {
           </button>
           <RouterLink
             to="/account/profile"
-            class="hidden whitespace-nowrap font-[Georgia] text-sm tracking-wide transition hover:text-gold-400 sm:inline-block sm:text-base"
+            class="hidden whitespace-nowrap font-[Georgia] text-sm tracking-wide transition hover:text-accent sm:inline-block sm:text-base"
           >
             Hi, {{ auth.user?.first_name || 'Driver' }}
           </RouterLink>
         </div>
       </header>
 
-      <div v-if="mobileMenuOpen" ref="mobileMenuPanel" class="border-b border-navy-800 bg-navy-900 md:hidden">
+      <div v-if="mobileMenuOpen" ref="mobileMenuPanel" class="border-b border-border-subtle bg-surface md:hidden">
         <nav class="flex max-h-[60vh] flex-col gap-1 overflow-y-auto p-3">
           <RouterLink
             v-for="item in navItems"
@@ -257,8 +259,8 @@ onMounted(() => {
             class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition"
             :class="
               route.path === item.to
-                ? 'bg-gold-500 text-navy-950'
-                : 'text-slate-300 hover:bg-navy-800 hover:text-gold-400'
+                ? 'bg-accent-bg text-on-accent'
+                : 'text-foreground-secondary hover:bg-surface-2 hover:text-accent'
             "
             @click="mobileMenuOpen = false"
           >
@@ -275,10 +277,10 @@ onMounted(() => {
             {{ item.label }}
           </RouterLink>
         </nav>
-        <div class="border-t border-navy-800 p-3">
+        <div class="border-t border-border-subtle p-3">
           <RouterLink
             to="/account/profile"
-            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
             @click="mobileMenuOpen = false"
           >
             <svg
@@ -299,7 +301,7 @@ onMounted(() => {
           </RouterLink>
           <RouterLink
             to="/"
-            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
             @click="mobileMenuOpen = false"
           >
             <svg
@@ -315,7 +317,7 @@ onMounted(() => {
             Back to Site
           </RouterLink>
           <button
-            class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-300 transition hover:bg-navy-800 hover:text-gold-400"
+            class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-foreground-secondary transition hover:bg-surface-2 hover:text-accent"
             @click="handleLogout"
           >
             <svg
@@ -340,33 +342,33 @@ onMounted(() => {
       <main class="px-4 py-8 md:px-8">
         <AnnouncementBanner class="mb-6" />
 
-        <p v-if="driverPortal.profileLoading" class="text-center text-slate-400">Loading...</p>
-        <p v-else-if="driverPortal.profileError" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <p v-if="driverPortal.profileLoading" class="text-center text-foreground-muted">Loading...</p>
+        <p v-else-if="driverPortal.profileError" class="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-danger">
           {{ driverPortal.profileError }}
         </p>
 
         <template v-else-if="driverPortal.profile">
           <!-- Profile hero - persistent across every driver page -->
           <section
-            class="overflow-hidden rounded-2xl border border-gold-500/40 bg-gradient-to-br from-navy-900 to-navy-950 p-6 sm:p-8"
+            class="overflow-hidden rounded-2xl border border-accent-border-strong/40 bg-gradient-to-br from-surface to-page p-6 sm:p-8"
           >
             <div class="flex flex-wrap items-start justify-between gap-4">
               <div class="flex items-center gap-4">
                 <div
-                  class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/10 font-[Georgia] text-2xl font-bold text-gold-400"
+                  class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-accent-border-strong/40 bg-accent-bg/10 font-[Georgia] text-2xl font-bold text-accent"
                 >
                   {{ driverPortal.initials || '—' }}
                 </div>
                 <div>
-                  <h2 class="font-[Georgia] text-2xl font-bold text-white">{{ driverPortal.profile.full_name }}</h2>
-                  <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-400">
-                    <span class="inline-flex items-center gap-1 text-gold-400">
+                  <h2 class="font-[Georgia] text-2xl font-bold text-foreground">{{ driverPortal.profile.full_name }}</h2>
+                  <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-foreground-muted">
+                    <span class="inline-flex items-center gap-1 text-accent">
                       <span v-for="n in 5" :key="n" class="text-sm leading-none">{{
                         n <= Math.round(driverPortal.profile.rating) ? '★' : '☆'
                       }}</span>
-                      <span class="ml-1 text-slate-300">{{ Number(driverPortal.profile.rating).toFixed(1) }}</span>
+                      <span class="ml-1 text-foreground-secondary">{{ Number(driverPortal.profile.rating).toFixed(1) }}</span>
                     </span>
-                    <span class="text-slate-600">&middot;</span>
+                    <span class="text-foreground-subtle">&middot;</span>
                     <span>{{ driverPortal.profile.years_of_experience }} years experience</span>
                   </div>
                 </div>
@@ -374,7 +376,7 @@ onMounted(() => {
               <span
                 class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
                 :class="
-                  driverPortal.profile.is_away ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'
+                  driverPortal.profile.is_away ? 'bg-red-500/10 text-danger' : 'bg-emerald-500/10 text-success'
                 "
               >
                 <span
@@ -387,20 +389,20 @@ onMounted(() => {
 
             <p
               v-if="driverPortal.profile.is_away && driverPortal.profile.away_reason"
-              class="mt-4 rounded-lg bg-navy-800 px-4 py-3 text-sm text-slate-300"
+              class="mt-4 rounded-lg bg-surface-2 px-4 py-3 text-sm text-foreground-secondary"
             >
-              <span class="font-semibold text-slate-400">Your reason: </span>{{ driverPortal.profile.away_reason }}
+              <span class="font-semibold text-foreground-muted">Your reason: </span>{{ driverPortal.profile.away_reason }}
             </p>
-            <p class="mt-4 text-xs text-slate-500">
+            <p class="mt-4 text-xs text-foreground-subtle">
               While marked away, your vehicle(s) won't show up in the public fleet for customers to book. Admins can
               still see your reason.
             </p>
-            <p v-if="awayError" class="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{{ awayError }}</p>
+            <p v-if="awayError" class="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-danger">{{ awayError }}</p>
 
             <div class="mt-4">
               <button
                 v-if="!driverPortal.profile.is_away && !showAwayForm"
-                class="rounded-md border border-red-400 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-400 hover:text-navy-950"
+                class="rounded-md border border-danger-border px-4 py-2 text-sm font-semibold text-danger transition hover:bg-red-400 hover:text-on-accent"
                 @click="openAwayForm"
               >
                 Mark Myself Away
@@ -408,7 +410,7 @@ onMounted(() => {
               <button
                 v-else-if="driverPortal.profile.is_away"
                 :disabled="awaySaving"
-                class="rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-50"
+                class="rounded-md bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover disabled:opacity-50"
                 @click="markAvailable"
               >
                 {{ awaySaving ? 'Updating...' : "I'm Available Again" }}
@@ -419,11 +421,11 @@ onMounted(() => {
                   v-model="awayReasonDraft"
                   rows="2"
                   placeholder="Reason (visible to admins only) - e.g. Sick leave until Friday"
-                  class="w-full rounded-lg border border-navy-700 bg-navy-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
                 ></textarea>
                 <div class="flex gap-3">
                   <button
-                    class="rounded-md border border-navy-700 px-4 py-2 text-sm font-semibold text-slate-300 hover:border-slate-500"
+                    class="rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground-secondary hover:border-slate-500"
                     @click="showAwayForm = false"
                   >
                     Cancel

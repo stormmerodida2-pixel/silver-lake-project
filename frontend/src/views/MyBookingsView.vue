@@ -87,11 +87,11 @@ async function submitReview(booking) {
 }
 
 const statusStyles = {
-  pending: 'text-slate-500',
-  confirmed: 'text-brand-blue-600',
-  ongoing: 'text-brand-blue-600',
-  completed: 'text-slate-500',
-  cancelled: 'text-red-600',
+  pending: 'text-foreground-muted',
+  confirmed: 'text-info',
+  ongoing: 'text-info',
+  completed: 'text-foreground-muted',
+  cancelled: 'text-danger',
 }
 
 async function loadBookings() {
@@ -181,58 +181,58 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="bg-white">
+  <div class="bg-page">
     <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <h1 class="text-center font-[Georgia] text-3xl font-bold text-navy-900">My Bookings</h1>
+      <h1 class="text-center font-[Georgia] text-3xl font-bold text-foreground">My Bookings</h1>
 
-      <p v-if="loading" class="mt-10 text-center text-slate-500">Loading...</p>
-      <p v-else-if="error" class="mt-10 text-center text-red-600">{{ error }}</p>
-      <p v-else-if="!bookings.length" class="mt-10 text-center text-slate-500">
+      <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>
+      <p v-else-if="error" class="mt-10 text-center text-danger">{{ error }}</p>
+      <p v-else-if="!bookings.length" class="mt-10 text-center text-foreground-subtle">
         You haven't made any bookings yet.
-        <RouterLink to="/fleet" class="font-semibold text-brand-blue-600 hover:text-brand-blue-500"
+        <RouterLink to="/fleet" class="font-semibold text-accent hover:text-accent-strong"
           >Browse the fleet</RouterLink
         >
       </p>
 
       <div v-else class="mt-10 space-y-4">
-        <div v-for="booking in bookings" :key="booking.id" class="rounded-xl border border-slate-200 bg-slate-50 p-5">
+        <div v-for="booking in bookings" :key="booking.id" class="rounded-xl border border-border-subtle bg-surface p-5">
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h3 class="font-[Georgia] text-lg font-bold text-navy-900">{{ booking.vehicle_name }}</h3>
-              <p v-if="isBookedForSomeoneElse(booking)" class="text-sm font-semibold text-brand-blue-600">
+              <h3 class="font-[Georgia] text-lg font-bold text-foreground">{{ booking.vehicle_name }}</h3>
+              <p v-if="isBookedForSomeoneElse(booking)" class="text-sm font-semibold text-accent">
                 Booking for {{ booking.customer_name }}
               </p>
-              <p class="text-sm text-slate-500">{{ booking.start_date }} to {{ booking.end_date }}</p>
-              <p class="text-sm text-slate-500">{{ booking.pickup_location }}</p>
+              <p class="text-sm text-foreground-subtle">{{ booking.start_date }} to {{ booking.end_date }}</p>
+              <p class="text-sm text-foreground-subtle">{{ booking.pickup_location }}</p>
             </div>
             <span class="text-sm font-semibold uppercase" :class="statusStyles[booking.status]">
               {{ booking.status }}
             </span>
           </div>
 
-          <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3">
-            <p class="text-sm text-slate-600">
+          <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-3">
+            <p class="text-sm text-foreground-muted">
               Total KES {{ Number(booking.total_amount).toLocaleString() }} - Paid KES
               {{ Number(booking.amount_paid).toLocaleString() }} - Balance KES
               {{ Number(booking.balance_due).toLocaleString() }}
             </p>
             <button
               v-if="canTrack(booking)"
-              class="rounded-md border border-brand-blue-600 px-3 py-1.5 text-sm font-semibold text-brand-blue-600 transition hover:bg-brand-blue-600 hover:text-white"
+              class="rounded-md border border-accent-border-strong px-3 py-1.5 text-sm font-semibold text-accent transition hover:bg-accent-bg hover:text-on-accent"
               @click="toggleTracking(booking)"
             >
               {{ trackingId === booking.id ? 'Hide Map' : 'Track Vehicle' }}
             </button>
             <button
               v-if="canViewConditionReport(booking)"
-              class="rounded-md border border-brand-blue-600 px-3 py-1.5 text-sm font-semibold text-brand-blue-600 transition hover:bg-brand-blue-600 hover:text-white"
+              class="rounded-md border border-accent-border-strong px-3 py-1.5 text-sm font-semibold text-accent transition hover:bg-accent-bg hover:text-on-accent"
               @click="toggleConditionReport(booking)"
             >
               {{ conditionReportId === booking.id ? 'Hide Condition Report' : 'View Vehicle Condition' }}
             </button>
             <button
               v-if="canChangeDates(booking) && changingDatesId !== booking.id"
-              class="rounded-md border border-brand-blue-600 px-3 py-1.5 text-sm font-semibold text-brand-blue-600 transition hover:bg-brand-blue-600 hover:text-white"
+              class="rounded-md border border-accent-border-strong px-3 py-1.5 text-sm font-semibold text-accent transition hover:bg-accent-bg hover:text-on-accent"
               @click="openChangeDatesForm(booking)"
             >
               Change Dates
@@ -240,14 +240,14 @@ onMounted(() => {
             <button
               v-if="canCancel(booking)"
               :disabled="cancellingId === booking.id"
-              class="rounded-md border border-red-400 px-3 py-1.5 text-sm font-semibold text-red-600 transition hover:bg-red-500 hover:text-white disabled:opacity-60"
+              class="rounded-md border border-danger-border px-3 py-1.5 text-sm font-semibold text-danger transition hover:bg-red-500 hover:text-foreground disabled:opacity-60"
               @click="cancelBooking(booking)"
             >
               {{ cancellingId === booking.id ? 'Cancelling...' : 'Cancel Booking' }}
             </button>
             <button
               v-if="booking.status === 'completed' && !booking.review && reviewingId !== booking.id"
-              class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400"
+              class="rounded-md bg-accent-bg px-3 py-1.5 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover"
               @click="openReviewForm(booking)"
             >
               Leave a Review
@@ -255,21 +255,21 @@ onMounted(() => {
             <RouterLink
               v-if="booking.status === 'completed'"
               :to="bookAgainLink(booking)"
-              class="rounded-md border border-brand-blue-600 px-3 py-1.5 text-sm font-semibold text-brand-blue-600 transition hover:bg-brand-blue-600 hover:text-white"
+              class="rounded-md border border-accent-border-strong px-3 py-1.5 text-sm font-semibold text-accent transition hover:bg-accent-bg hover:text-on-accent"
             >
               Book Again
             </RouterLink>
             <button
               v-if="Number(booking.amount_paid) > 0"
               :disabled="downloadingId === booking.id"
-              class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:border-slate-400 disabled:opacity-60"
+              class="rounded-md border border-border px-3 py-1.5 text-sm font-semibold text-foreground transition hover:bg-surface-2 disabled:opacity-60"
               @click="downloadReceipt(booking)"
             >
               {{ downloadingId === booking.id ? 'Downloading...' : 'Download Receipt' }}
             </button>
             <RouterLink
               :to="{ path: '/account/support', query: { booking: booking.id } }"
-              class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:border-slate-400"
+              class="rounded-md border border-border px-3 py-1.5 text-sm font-semibold text-foreground transition hover:bg-surface-2"
             >
               Report an Issue
             </RouterLink>
@@ -281,43 +281,43 @@ onMounted(() => {
           <!-- Change dates form -->
           <div
             v-if="changingDatesId === booking.id"
-            class="mt-3 space-y-3 rounded-lg border border-slate-200 bg-white p-4"
+            class="mt-3 space-y-3 rounded-lg border border-border-subtle bg-surface-2 p-4"
           >
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-sm text-slate-600">New start date</label>
+                <label class="mb-1 block text-sm text-foreground-muted">New start date</label>
                 <input
                   v-model="changeDatesForm.start_date"
                   type="date"
-                  class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                  class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground [color-scheme:dark] focus:border-accent-border focus:outline-none"
                 />
               </div>
               <div>
-                <label class="mb-1 block text-sm text-slate-600">New end date</label>
+                <label class="mb-1 block text-sm text-foreground-muted">New end date</label>
                 <input
                   v-model="changeDatesForm.end_date"
                   type="date"
                   :min="changeDatesForm.start_date"
-                  class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+                  class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground [color-scheme:dark] focus:border-accent-border focus:outline-none"
                 />
               </div>
             </div>
-            <p class="text-xs text-slate-500">
+            <p class="text-xs text-foreground-subtle">
               The trip total is recalculated for the new dates - if it's now lower than what you've already paid, we'll
               refund the difference.
             </p>
-            <p v-if="changeDatesError" class="text-sm text-red-600">{{ changeDatesError }}</p>
+            <p v-if="changeDatesError" class="text-sm text-danger">{{ changeDatesError }}</p>
             <div class="flex gap-3">
               <button
                 type="button"
-                class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:border-slate-400"
+                class="rounded-md border border-border px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-surface-2"
                 @click="changingDatesId = null"
               >
                 Cancel
               </button>
               <button
                 :disabled="changeDatesSaving"
-                class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+                class="rounded-md bg-accent-bg px-3 py-1.5 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover disabled:opacity-60"
                 @click="submitChangeDates(booking)"
               >
                 {{ changeDatesSaving ? 'Saving...' : 'Save New Dates' }}
@@ -326,24 +326,24 @@ onMounted(() => {
           </div>
 
           <!-- Submitted review -->
-          <div v-if="booking.review" class="mt-3 rounded-lg border border-slate-200 bg-white p-4">
-            <p class="text-gold-500">
+          <div v-if="booking.review" class="mt-3 rounded-lg border border-border-subtle bg-surface-2 p-4">
+            <p class="text-accent-strong">
               <span v-for="n in 5" :key="n">{{ n <= booking.review.rating ? '★' : '☆' }}</span>
             </p>
-            <p class="mt-1 text-sm text-slate-600">&ldquo;{{ booking.review.comment }}&rdquo;</p>
-            <p class="mt-1 text-xs text-slate-400">Awaiting approval before it shows publicly.</p>
+            <p class="mt-1 text-sm text-foreground-muted">&ldquo;{{ booking.review.comment }}&rdquo;</p>
+            <p class="mt-1 text-xs text-foreground-muted">Awaiting approval before it shows publicly.</p>
           </div>
 
           <!-- Review form -->
           <div
             v-else-if="reviewingId === booking.id"
-            class="mt-3 space-y-3 rounded-lg border border-slate-200 bg-white p-4"
+            class="mt-3 space-y-3 rounded-lg border border-border-subtle bg-surface-2 p-4"
           >
             <div>
-              <label class="mb-1 block text-sm text-slate-600">
+              <label class="mb-1 block text-sm text-foreground-muted">
                 Rating{{ booking.driver_name ? ` for ${booking.driver_name}` : '' }}
               </label>
-              <div class="flex gap-1 text-2xl text-gold-500">
+              <div class="flex gap-1 text-2xl text-accent-strong">
                 <button v-for="n in 5" :key="n" type="button" class="leading-none" @click="reviewForm.rating = n">
                   {{ n <= reviewForm.rating ? '★' : '☆' }}
                 </button>
@@ -353,20 +353,20 @@ onMounted(() => {
               v-model="reviewForm.comment"
               rows="3"
               placeholder="How was your trip?"
-              class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-navy-900 focus:border-brand-blue-500 focus:outline-none"
+              class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-accent-border focus:outline-none"
             ></textarea>
-            <p v-if="reviewError" class="text-sm text-red-600">{{ reviewError }}</p>
+            <p v-if="reviewError" class="text-sm text-danger">{{ reviewError }}</p>
             <div class="flex gap-3">
               <button
                 type="button"
-                class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:border-slate-400"
+                class="rounded-md border border-border px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-surface-2"
                 @click="reviewingId = null"
               >
                 Cancel
               </button>
               <button
                 :disabled="reviewSaving"
-                class="rounded-md bg-gold-500 px-3 py-1.5 text-sm font-semibold text-navy-950 transition hover:bg-gold-400 disabled:opacity-60"
+                class="rounded-md bg-accent-bg px-3 py-1.5 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover disabled:opacity-60"
                 @click="submitReview(booking)"
               >
                 {{ reviewSaving ? 'Submitting...' : 'Submit Review' }}

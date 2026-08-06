@@ -145,58 +145,58 @@ onBeforeUnmount(() => {
   <div>
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="font-[Georgia] text-2xl font-bold text-white">Fleet Map</h1>
-        <p class="mt-1 text-sm text-slate-400">
+        <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Fleet Map</h1>
+        <p class="mt-1 text-sm text-foreground-muted">
           Live position reported by whichever driver has an active trip in a vehicle right now - only works while they
           have the Driver Portal open in their browser, so gaps are expected. Refreshes automatically every 30 seconds.
         </p>
       </div>
       <button
         type="button"
-        class="shrink-0 rounded-md border border-navy-700 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-gold-400 hover:text-gold-400"
+        class="shrink-0 rounded-md border border-border px-3 py-2 text-sm font-semibold text-foreground transition hover:border-accent-border hover:text-accent"
         @click="load({ fitBounds: true })"
       >
         Refresh &amp; recenter
       </button>
     </div>
 
-    <p v-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="error" class="mt-4 text-sm text-danger">{{ error }}</p>
 
     <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <div class="overflow-hidden rounded-xl border border-navy-800 lg:col-span-2">
+      <div class="overflow-hidden rounded-xl border border-border-subtle lg:col-span-2">
         <div ref="mapEl" class="h-[560px] w-full"></div>
       </div>
 
-      <div class="flex flex-col overflow-hidden rounded-xl border border-navy-800">
-        <div class="border-b border-navy-800 px-4 py-3">
+      <div class="flex flex-col overflow-hidden rounded-xl border border-border-subtle">
+        <div class="border-b border-border-subtle px-4 py-3">
           <input
             v-model="search"
             type="text"
             placeholder="Search by vehicle or driver..."
-            class="w-full rounded-md border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-gold-400 focus:outline-none"
+            class="w-full rounded-md border border-border bg-page px-3 py-2 text-sm text-foreground placeholder:text-foreground-subtle focus:border-accent-border focus:outline-none"
           />
         </div>
-        <p v-if="loading" class="p-4 text-sm text-slate-400">Loading...</p>
-        <ul v-else class="max-h-[500px] divide-y divide-navy-800 overflow-y-auto">
+        <p v-if="loading" class="p-4 text-sm text-foreground-muted">Loading...</p>
+        <ul v-else class="max-h-[500px] divide-y divide-border-subtle overflow-y-auto">
           <li v-for="vehicle in sortedVehicles" :key="vehicle.id">
             <button
               type="button"
-              class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-navy-800 disabled:cursor-default disabled:hover:bg-transparent"
+              class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-surface-2 disabled:cursor-default disabled:hover:bg-transparent"
               :disabled="!vehicle.last_location_lat"
               @click="focusVehicle(vehicle)"
             >
               <span class="min-w-0">
-                <span class="block truncate text-sm font-medium text-slate-200">{{ vehicle.name }}</span>
-                <span class="block truncate text-xs text-slate-500">{{ vehicle.driver_name || 'Company fleet' }}</span>
+                <span class="block truncate text-sm font-medium text-foreground">{{ vehicle.name }}</span>
+                <span class="block truncate text-xs text-foreground-subtle">{{ vehicle.driver_name || 'Company fleet' }}</span>
               </span>
               <span
                 class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
                 :class="
                   isLive(vehicle)
-                    ? 'bg-green-500/10 text-green-400'
+                    ? 'bg-green-500/10 text-success'
                     : vehicle.last_location_at
-                      ? 'bg-navy-800 text-slate-400'
-                      : 'bg-navy-800 text-slate-600'
+                      ? 'bg-surface-2 text-foreground-muted'
+                      : 'bg-surface-2 text-foreground-subtle'
                 "
               >
                 {{
@@ -209,7 +209,7 @@ onBeforeUnmount(() => {
               </span>
             </button>
           </li>
-          <li v-if="!sortedVehicles.length" class="px-4 py-3 text-sm text-slate-500">
+          <li v-if="!sortedVehicles.length" class="px-4 py-3 text-sm text-foreground-subtle">
             No vehicles match "{{ search }}".
           </li>
         </ul>

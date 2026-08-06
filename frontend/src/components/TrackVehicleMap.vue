@@ -99,20 +99,20 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="rounded-lg border border-slate-200 bg-white p-4">
-    <p v-if="loading" class="text-sm text-slate-500">Checking for a live location...</p>
-    <p v-else-if="error" class="text-sm text-red-600">{{ error }}</p>
+  <div class="rounded-lg border border-border-subtle bg-surface p-4">
+    <p v-if="loading" class="text-sm text-foreground-muted">Checking for a live location...</p>
+    <p v-else-if="error" class="text-sm text-danger">{{ error }}</p>
     <template v-else-if="trackingAvailable">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <p class="text-sm font-semibold">
-          <span :class="isLive ? 'text-green-600' : 'text-slate-400'">{{ isLive ? '● Live' : '○ Last seen' }}</span>
-          <span class="text-slate-500"> &middot; {{ timeAgo(lastLocationAt) }}</span>
+          <span :class="isLive ? 'text-success' : 'text-foreground-subtle'">{{ isLive ? '● Live' : '○ Last seen' }}</span>
+          <span class="text-foreground-subtle"> &middot; {{ timeAgo(lastLocationAt) }}</span>
         </p>
-        <p v-if="driverName" class="text-xs text-slate-500">Driver: {{ driverName }}</p>
+        <p v-if="driverName" class="text-xs text-foreground-subtle">Driver: {{ driverName }}</p>
       </div>
       <div ref="mapEl" class="mt-3 h-56 w-full overflow-hidden rounded-md"></div>
     </template>
-    <p v-else class="text-sm text-slate-500">
+    <p v-else class="text-sm text-foreground-muted">
       Live tracking isn't available yet - it turns on once your driver starts reporting their position for this trip.
     </p>
   </div>

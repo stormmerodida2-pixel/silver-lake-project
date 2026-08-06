@@ -85,19 +85,20 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
 </script>
 
 <template>
-  <div class="bg-white">
-    <p v-if="loading" class="py-32 text-center text-slate-500">Loading...</p>
-    <p v-else-if="error" class="py-32 text-center text-red-600">{{ error }}</p>
+  <div class="bg-page">
+    <p v-if="loading" class="py-32 text-center text-foreground-muted">Loading...</p>
+    <p v-else-if="error" class="py-32 text-center text-danger">{{ error }}</p>
 
     <template v-else-if="vehicle">
       <!-- Hero image -->
-      <div class="relative h-72 w-full bg-slate-100 sm:h-96">
+      <div class="relative h-72 w-full bg-surface sm:h-96">
         <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
-        <div v-else class="flex h-full items-center justify-center text-slate-300 text-lg">No photo available</div>
+        <div v-else class="flex h-full items-center justify-center text-foreground-subtle text-lg">No photo available</div>
+        <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-950/10 to-transparent"></div>
         <!-- Back link -->
         <RouterLink
           to="/fleet"
-          class="absolute top-4 left-4 flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-navy-900 shadow backdrop-blur hover:bg-white"
+          class="absolute top-4 left-4 flex items-center gap-1.5 rounded-full bg-page/80 px-4 py-2 text-sm font-semibold text-foreground shadow backdrop-blur hover:bg-page"
         >
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -110,42 +111,42 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
         <div class="grid gap-10 lg:grid-cols-3">
           <!-- Left: details -->
           <div class="lg:col-span-2">
-            <p class="text-sm font-semibold uppercase tracking-widest text-brand-blue-600">
+            <p class="text-sm font-semibold uppercase tracking-widest text-accent">
               {{ vehicle.category_name || vehicle.category }}
             </p>
-            <h1 class="mt-2 font-[Georgia] text-3xl font-bold text-navy-900 sm:text-4xl">
+            <h1 class="mt-2 font-[Georgia] text-3xl font-bold text-foreground sm:text-4xl">
               {{ vehicle.name }}
             </h1>
-            <p v-if="vehicle.tagline" class="mt-2 text-lg text-slate-500 italic">{{ vehicle.tagline }}</p>
+            <p v-if="vehicle.tagline" class="mt-2 text-lg text-foreground-muted italic">{{ vehicle.tagline }}</p>
 
             <!-- Specs grid -->
             <div class="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <p class="text-2xl font-bold text-navy-900">{{ vehicle.passenger_capacity }}</p>
-                <p class="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">Passengers</p>
+              <div class="rounded-xl border border-border-subtle bg-surface p-4 text-center">
+                <p class="text-2xl font-bold text-foreground">{{ vehicle.passenger_capacity }}</p>
+                <p class="mt-1 text-xs font-medium uppercase tracking-wide text-foreground-subtle">Passengers</p>
               </div>
-              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <p class="text-2xl font-bold text-gold-600">KES {{ Number(vehicle.price_per_day).toLocaleString() }}</p>
-                <p class="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">Per Day</p>
+              <div class="rounded-xl border border-border-subtle bg-surface p-4 text-center">
+                <p class="text-2xl font-bold text-accent">KES {{ Number(vehicle.price_per_day).toLocaleString() }}</p>
+                <p class="mt-1 text-xs font-medium uppercase tracking-wide text-foreground-subtle">Per Day</p>
               </div>
-              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center col-span-2 sm:col-span-1">
-                <p class="text-sm font-semibold text-navy-900 mt-1">
+              <div class="rounded-xl border border-border-subtle bg-surface p-4 text-center col-span-2 sm:col-span-1">
+                <p class="text-sm font-semibold text-foreground mt-1">
                   <span v-if="vehicle.allow_with_driver && vehicle.allow_self_drive">With Driver &amp; Self Drive</span>
                   <span v-else-if="vehicle.allow_with_driver">With Driver Only</span>
                   <span v-else>Self Drive Only</span>
                 </p>
-                <p class="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">Service Type</p>
+                <p class="mt-1 text-xs font-medium uppercase tracking-wide text-foreground-subtle">Service Type</p>
               </div>
             </div>
 
             <div v-if="vehicle.description" class="mt-8">
-              <h2 class="font-[Georgia] text-xl font-bold text-navy-900">About This Vehicle</h2>
-              <p class="mt-3 leading-relaxed text-slate-600">{{ vehicle.description }}</p>
+              <h2 class="font-[Georgia] text-xl font-bold text-foreground">About This Vehicle</h2>
+              <p class="mt-3 leading-relaxed text-foreground-muted">{{ vehicle.description }}</p>
             </div>
 
             <!-- Gallery -->
             <div v-if="vehicle.gallery_images?.length" class="mt-8">
-              <h2 class="font-[Georgia] text-xl font-bold text-navy-900">Gallery</h2>
+              <h2 class="font-[Georgia] text-xl font-bold text-foreground">Gallery</h2>
               <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <img
                   v-for="img in vehicle.gallery_images"
@@ -160,18 +161,18 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
 
           <!-- Right: booking CTA -->
           <div class="lg:col-span-1">
-            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-lg lg:sticky lg:top-6">
-              <p class="text-center text-2xl font-bold text-navy-900">
+            <div class="rounded-2xl border border-border-subtle bg-surface p-6 shadow-lg lg:sticky lg:top-6">
+              <p class="text-center text-2xl font-bold text-foreground">
                 KES {{ Number(vehicle.price_per_day).toLocaleString() }}
-                <span class="text-sm font-normal text-slate-500">/day</span>
+                <span class="text-sm font-normal text-foreground-muted">/day</span>
               </p>
-              <p class="mt-1 text-center text-xs text-slate-500">30% deposit required to confirm</p>
+              <p class="mt-1 text-center text-xs text-foreground-subtle">30% deposit required to confirm</p>
 
               <div class="mt-6 space-y-3">
                 <RouterLink
                   v-if="vehicle.allow_with_driver"
                   :to="withDriverUrl"
-                  class="flex w-full items-center justify-center rounded-xl bg-gold-500 py-3 font-semibold text-navy-950 transition hover:bg-gold-400"
+                  class="flex w-full items-center justify-center rounded-xl bg-accent-bg py-3 font-semibold text-on-accent transition hover:bg-accent-bg-hover"
                   @click="
                     trackEvent('select_item', {
                       items: [{ item_id: String(vehicle.id), item_name: vehicle.name }],
@@ -184,7 +185,7 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
                 <RouterLink
                   v-if="vehicle.allow_self_drive"
                   :to="selfDriveUrl"
-                  class="flex w-full items-center justify-center rounded-xl border border-navy-900 py-3 font-semibold text-navy-900 transition hover:bg-navy-900 hover:text-white"
+                  class="flex w-full items-center justify-center rounded-xl border border-border py-3 font-semibold text-foreground transition hover:bg-surface-2"
                   @click="
                     trackEvent('select_item', {
                       items: [{ item_id: String(vehicle.id), item_name: vehicle.name }],
@@ -196,9 +197,9 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
                 </RouterLink>
               </div>
 
-              <p class="mt-5 text-center text-xs text-slate-500">
+              <p class="mt-5 text-center text-xs text-foreground-subtle">
                 Need help?
-                <a href="tel:+254798184193" class="font-semibold text-brand-blue-600 hover:underline">
+                <a href="tel:+254798184193" class="font-semibold text-accent hover:underline">
                   Call 0798 184 193
                 </a>
               </p>

@@ -155,11 +155,11 @@ const tooltipStyle = computed(() => {
 
     <div
       v-if="hoverIndex !== null"
-      class="pointer-events-none absolute top-2 -translate-x-1/2 rounded-lg border border-navy-700 bg-navy-950 px-3 py-2 text-xs shadow-lg"
+      class="pointer-events-none absolute top-2 -translate-x-1/2 rounded-lg border border-border bg-page px-3 py-2 text-xs shadow-lg"
       :style="tooltipStyle"
     >
-      <p class="font-semibold text-white">{{ monthLabel(data[hoverIndex].month) }}</p>
-      <p class="mt-0.5 font-bold text-gold-400">KES {{ Number(data[hoverIndex].revenue).toLocaleString() }}</p>
+      <p class="font-semibold text-foreground">{{ monthLabel(data[hoverIndex].month) }}</p>
+      <p class="mt-0.5 font-bold text-accent">KES {{ Number(data[hoverIndex].revenue).toLocaleString() }}</p>
     </div>
   </div>
 </template>
