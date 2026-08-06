@@ -9,7 +9,10 @@ from .models import Driver, DriverApplication
 class DriverSerializer(serializers.ModelSerializer):
     class Meta:
         model = Driver
-        fields = ['id', 'full_name', 'photo', 'years_of_experience', 'bio', 'rating']
+        # is_away is included (unlike is_active, which the queryset already filters on) so
+        # customers can tell a currently-active driver is temporarily unavailable - e.g. for
+        # the "Book Again with <driver>" rebooking prompt in MyBookingsView.vue.
+        fields = ['id', 'full_name', 'photo', 'years_of_experience', 'bio', 'rating', 'is_away']
 
 
 class DriverVehicleSerializer(VehicleSerializer):

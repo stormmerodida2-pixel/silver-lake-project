@@ -3,6 +3,7 @@ import { defineAsyncComponent, onMounted, reactive, ref } from 'vue'
 
 import apiClient from '../api/client'
 import { useAuthStore } from '../stores/auth'
+import { useCatalogStore } from '../stores/catalog'
 
 // Async, not a static import - Leaflet (~150KB) is only actually needed once someone clicks
 // "Track" on an active booking, which most visits to this page never do. A static import would
@@ -11,6 +12,7 @@ const TrackVehicleMap = defineAsyncComponent(() => import('../components/TrackVe
 const ConditionReportViewer = defineAsyncComponent(() => import('../components/ConditionReportViewer.vue'))
 
 const auth = useAuthStore()
+const catalog = useCatalogStore()
 const bookings = ref([])
 const loading = ref(true)
 const cancellingId = ref(null)
@@ -34,6 +36,16 @@ function bookAgainLink(booking) {
       dropoff: booking.dropoff_location || undefined,
     },
   }
+}
+
+// Rebooking the same vehicle already rebooks the same driver (Booking._apply_default_driver
+// copies vehicle.driver whenever a booking's own driver isn't set) - this just tells the
+// customer that's what will happen, gated on the driver still being around to honor it. Presence
+// in catalog.drivers alone confirms is_active (the /drivers/ list already excludes inactive
+// ones); is_away is the one status that list wouldn't otherwise surface.
+function isDriverStillAvailable(driverId) {
+  const driver = catalog.drivers.find((d) => d.id === driverId)
+  return Boolean(driver && !driver.is_away)
 }
 
 // ── Track vehicle ────────────────────────────────────────────────────────
@@ -177,6 +189,7 @@ async function downloadReceipt(booking) {
 
 onMounted(() => {
   loadBookings()
+  catalog.fetchDrivers()
 })
 </script>
 
@@ -257,7 +270,11 @@ onMounted(() => {
               :to="bookAgainLink(booking)"
               class="rounded-md border border-accent-border-strong px-3 py-1.5 text-sm font-semibold text-accent transition hover:bg-accent-bg hover:text-on-accent"
             >
-              Book Again
+              {{
+                booking.service_type === 'with_driver' && booking.driver && isDriverStillAvailable(booking.driver)
+                  ? `Book Again with ${booking.driver_name}`
+                  : 'Book Again'
+              }}
             </RouterLink>
             <button
               v-if="Number(booking.amount_paid) > 0"
