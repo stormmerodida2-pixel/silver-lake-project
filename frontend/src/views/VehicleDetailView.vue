@@ -1,12 +1,15 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import apiClient from '../api/client'
 import AvailabilityCalendar from '../components/AvailabilityCalendar.vue'
+import StickyMobileCTA from '../components/StickyMobileCTA.vue'
 import { useCatalogStore } from '../stores/catalog'
 import { trackEvent } from '../utils/analytics'
+import { calculateEstimatedCost, calculateTotalDays, SELF_DRIVE_SURCHARGE_PERCENT } from '../utils/pricing'
 import { setPageMeta, setStructuredData } from '../utils/seo'
+import { buildWhatsAppLink } from '../utils/whatsapp'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,6 +18,28 @@ const catalog = useCatalogStore()
 const vehicle = ref(null)
 const loading = ref(true)
 const error = ref('')
+
+// Real, computed social proof - never a fabricated number. Mirrors HomeView.vue's own
+// averageRating computed; hidden entirely until there's something genuine to show.
+const averageRating = computed(() => {
+  if (!catalog.reviews.length) return null
+  const total = catalog.reviews.reduce((sum, review) => sum + review.rating, 0)
+  return (total / catalog.reviews.length).toFixed(1)
+})
+
+// Pre-fills from a date search already run on the Fleet listing (see VehicleCard.vue's
+// detailHref) - the customer can still adjust them here before continuing to /book.
+const startDate = ref(typeof route.query.start_date === 'string' ? route.query.start_date : '')
+const endDate = ref(typeof route.query.end_date === 'string' ? route.query.end_date : '')
+const todayString = new Date().toISOString().split('T')[0]
+
+const estimatedDays = computed(() => calculateTotalDays(startDate.value, endDate.value))
+// Assumes with-driver pricing (the default/primary service for any vehicle offering both) -
+// the self-drive surcharge is called out as a caption instead of adding a second selector here,
+// since the exact service type is chosen on the booking form itself.
+const estimatedTotal = computed(() =>
+  vehicle.value ? calculateEstimatedCost(vehicle.value.price_per_day, estimatedDays.value, 'with_driver') : 0,
+)
 
 function trackVehicleView(v) {
   trackEvent('view_item', {
@@ -54,6 +79,7 @@ function applySeo(v) {
 }
 
 onMounted(async () => {
+  catalog.fetchReviews()
   // Try catalog cache first, fall back to direct API call
   await catalog.fetchVehicles()
   const cached = catalog.vehicles.find((v) => v.id === Number(route.params.id))
@@ -80,8 +106,31 @@ onMounted(async () => {
   }
 })
 
-const selfDriveUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service=self_drive`)
-const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service=with_driver`)
+const dateQuery = computed(() =>
+  startDate.value && endDate.value ? `&start_date=${startDate.value}&end_date=${endDate.value}` : '',
+)
+const selfDriveUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service=self_drive${dateQuery.value}`)
+const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service=with_driver${dateQuery.value}`)
+
+const whatsappHref = computed(() =>
+  buildWhatsAppLink(`Hello SilverLake Car Rentals, I'm interested in the ${vehicle.value?.name}.`),
+)
+
+// Sticky mobile CTA only once the desktop-sticky price card (only sticky at lg: and up) has
+// scrolled out of view, so mobile visitors always have a booking affordance reachable without
+// scrolling back up.
+const priceCardRef = ref(null)
+const showStickyCta = ref(false)
+let priceCardObserver = null
+watch(priceCardRef, (el) => {
+  priceCardObserver?.disconnect()
+  if (!el) return
+  priceCardObserver = new IntersectionObserver(([entry]) => {
+    showStickyCta.value = !entry.isIntersecting
+  })
+  priceCardObserver.observe(el)
+})
+onBeforeUnmount(() => priceCardObserver?.disconnect())
 </script>
 
 <template>
@@ -118,6 +167,17 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
               {{ vehicle.name }}
             </h1>
             <p v-if="vehicle.tagline" class="mt-2 text-lg text-foreground-muted italic">{{ vehicle.tagline }}</p>
+
+            <!-- Site-wide rating, not fabricated per-vehicle - VehicleCard.vue's own
+                 trips_completed badge already covers a genuine per-vehicle popularity signal. -->
+            <RouterLink
+              v-if="averageRating"
+              to="/reviews"
+              class="mt-2 inline-flex items-center gap-1.5 text-sm text-foreground-secondary hover:text-accent"
+            >
+              <span class="font-semibold text-foreground">{{ averageRating }}<span class="text-accent">&#9733;</span></span>
+              <span>SilverLake rating &middot; {{ catalog.reviews.length }} reviews</span>
+            </RouterLink>
 
             <!-- Specs grid -->
             <div class="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -161,12 +221,38 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
 
           <!-- Right: booking CTA -->
           <div class="lg:col-span-1">
-            <div class="rounded-2xl border border-border-subtle bg-surface p-6 shadow-lg lg:sticky lg:top-6">
+            <div ref="priceCardRef" class="rounded-2xl border border-border-subtle bg-surface p-6 shadow-lg lg:sticky lg:top-6">
               <p class="text-center text-2xl font-bold text-foreground">
                 KES {{ Number(vehicle.price_per_day).toLocaleString() }}
                 <span class="text-sm font-normal text-foreground-muted">/day</span>
               </p>
               <p class="mt-1 text-center text-xs text-foreground-subtle">30% deposit required to confirm</p>
+
+              <div class="mt-4 grid grid-cols-2 gap-2">
+                <div>
+                  <label class="mb-1 block text-xs font-medium text-foreground-muted">Pickup date</label>
+                  <input
+                    v-model="startDate"
+                    type="date"
+                    :min="todayString"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-foreground [color-scheme:dark] focus:border-accent-border focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs font-medium text-foreground-muted">Return date</label>
+                  <input
+                    v-model="endDate"
+                    type="date"
+                    :min="startDate || todayString"
+                    class="w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-foreground [color-scheme:dark] focus:border-accent-border focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div v-if="estimatedDays" class="mt-3 rounded-md bg-surface-2 px-3 py-2 text-center text-sm text-foreground-muted">
+                {{ estimatedDays }} day{{ estimatedDays > 1 ? 's' : '' }} &middot;
+                <span class="font-semibold text-foreground">KES {{ estimatedTotal.toLocaleString() }}</span> estimated
+                <span class="block text-xs text-foreground-subtle">Self-drive adds a {{ SELF_DRIVE_SURCHARGE_PERCENT }}% surcharge</span>
+              </div>
 
               <div class="mt-6 space-y-3">
                 <RouterLink
@@ -209,6 +295,12 @@ const withDriverUrl = computed(() => `/book?vehicle=${vehicle.value?.id}&service
           </div>
         </div>
       </div>
+
+      <StickyMobileCTA
+        :visible="showStickyCta"
+        :book-href="vehicle.allow_with_driver ? withDriverUrl : selfDriveUrl"
+        :whatsapp-href="whatsappHref"
+      />
     </template>
   </div>
 </template>
