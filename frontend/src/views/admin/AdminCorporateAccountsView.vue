@@ -211,7 +211,7 @@ onMounted(() => {
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Contact Phone</label
                 >
-                <PhoneInput v-model="form.contact_phone" dark />
+                <PhoneInput v-model="form.contact_phone" />
               </div>
               <label class="flex items-center gap-2 text-sm text-foreground-secondary">
                 <input v-model="form.is_active" type="checkbox" class="rounded border-border bg-surface-2" />

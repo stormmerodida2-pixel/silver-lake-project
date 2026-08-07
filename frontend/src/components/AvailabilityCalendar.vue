@@ -127,7 +127,7 @@ watch(() => props.vehicleId, load)
           :key="i"
           class="flex aspect-square items-center justify-center rounded-md text-xs"
           :class="{
-            'text-navy-700': cell?.isPast,
+            'text-foreground-subtle': cell?.isPast,
             'bg-red-500/10 text-danger line-through': cell && !cell.isPast && cell.isBooked,
             'text-foreground-secondary': cell && !cell.isPast && !cell.isBooked,
           }"

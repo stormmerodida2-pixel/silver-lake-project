@@ -386,7 +386,7 @@ onMounted(load)
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Phone Number</label
                 >
-                <PhoneInput v-model="form.phone_number" dark />
+                <PhoneInput v-model="form.phone_number" />
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted">Password *</label>
@@ -492,7 +492,7 @@ onMounted(load)
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Phone Number</label
                 >
-                <PhoneInput v-model="editForm.phone_number" dark />
+                <PhoneInput v-model="editForm.phone_number" />
               </div>
 
               <label class="flex items-center gap-2 text-sm text-foreground-secondary">

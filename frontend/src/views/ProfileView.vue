@@ -365,7 +365,7 @@ onMounted(loadProfile)
 
           <div>
             <label class="mb-1.5 block text-sm font-medium text-foreground-muted">Phone number</label>
-            <PhoneInput v-model="form.phone_number" dark />
+            <PhoneInput v-model="form.phone_number" />
           </div>
 
           <div>

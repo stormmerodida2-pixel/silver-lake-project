@@ -228,7 +228,7 @@ const howItWorks = [
       </div>
 
       <svg
-        class="absolute inset-x-0 -bottom-1 h-10 w-full text-navy-900"
+        class="absolute inset-x-0 -bottom-1 h-10 w-full text-surface"
         viewBox="0 0 1440 60"
         preserveAspectRatio="none"
         fill="currentColor"
