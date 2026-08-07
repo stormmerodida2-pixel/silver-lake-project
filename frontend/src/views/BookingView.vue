@@ -710,7 +710,7 @@ async function declareBankTransfer() {
                 <label class="mb-1 block text-sm text-foreground-muted">{{
                   bookingFor === 'someone_else' ? "Rider's phone" : 'Your phone'
                 }}</label>
-                <PhoneInput v-model="form.customer_phone" required dark />
+                <PhoneInput v-model="form.customer_phone" required />
               </div>
             </div>
 
@@ -772,7 +772,7 @@ async function declareBankTransfer() {
                   :class="
                     !form.protection_plan
                       ? 'border-accent-border bg-accent-bg/10'
-                      : 'border-border hover:border-navy-600'
+                      : 'border-border hover:border-accent-border/50'
                   "
                   @click="form.protection_plan = ''"
                 >
@@ -786,7 +786,7 @@ async function declareBankTransfer() {
                   :class="
                     Number(form.protection_plan) === plan.id
                       ? 'border-accent-border bg-accent-bg/10'
-                      : 'border-border hover:border-navy-600'
+                      : 'border-border hover:border-accent-border/50'
                   "
                   @click="form.protection_plan = plan.id"
                 >
@@ -907,7 +907,7 @@ async function declareBankTransfer() {
                   :class="
                     payOption === 'deposit'
                       ? 'border-accent-border bg-accent-bg/10'
-                      : 'border-border hover:border-navy-600'
+                      : 'border-border hover:border-accent-border/50'
                   "
                   @click="payOption = 'deposit'"
                 >
@@ -930,7 +930,7 @@ async function declareBankTransfer() {
                   :class="
                     payOption === 'full'
                       ? 'border-accent-border bg-accent-bg/10'
-                      : 'border-border hover:border-navy-600'
+                      : 'border-border hover:border-accent-border/50'
                   "
                   @click="payOption = 'full'"
                 >
@@ -994,7 +994,7 @@ async function declareBankTransfer() {
 
               <div v-if="paymentMethod === 'mpesa'" class="mt-5">
                 <label class="mb-1 block text-sm text-foreground-muted">M-Pesa number to charge</label>
-                <PhoneInput v-model="paymentPhone" required dark />
+                <PhoneInput v-model="paymentPhone" required />
                 <p class="mt-1 text-xs text-foreground-subtle">
                   This is charged to you, the account holder - it doesn't need to match the rider's own phone above.
                 </p>

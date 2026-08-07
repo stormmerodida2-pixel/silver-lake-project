@@ -7,9 +7,6 @@ const props = defineProps({
   // This component only ever DISPLAYS a fixed "+254" prefix; modelValue itself never has one.
   modelValue: { type: String, default: '' },
   required: { type: Boolean, default: false },
-  // Admin forms are dark-themed, public-facing ones are light - everything else about sizing is
-  // kept consistent across call sites rather than trying to match each one's exact prior look.
-  dark: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -31,14 +28,8 @@ const localDigits = computed({
 </script>
 
 <template>
-  <div
-    class="flex overflow-hidden rounded-md border"
-    :class="dark ? 'border-navy-700 bg-navy-800 focus-within:border-gold-400' : 'border-slate-300 bg-white focus-within:border-brand-blue-500'"
-  >
-    <span
-      class="flex select-none items-center px-3 text-sm font-medium"
-      :class="dark ? 'bg-navy-700 text-slate-300' : 'bg-slate-100 text-slate-500'"
-    >
+  <div class="flex overflow-hidden rounded-md border border-border bg-surface-2 focus-within:border-accent-border">
+    <span class="flex select-none items-center bg-surface px-3 text-sm font-medium text-foreground-subtle">
       +254
     </span>
     <input
@@ -51,8 +42,7 @@ const localDigits = computed({
       minlength="9"
       maxlength="9"
       title="A real Kenyan mobile number: 9 digits, starting with 7 or 1 (e.g. 712345678)"
-      class="w-full min-w-0 border-0 bg-transparent px-3 py-2.5 focus:outline-none focus:ring-0"
-      :class="dark ? 'text-white placeholder-slate-500' : 'text-navy-900 placeholder-slate-400'"
+      class="w-full min-w-0 border-0 bg-transparent px-3 py-2.5 text-foreground placeholder-foreground-subtle focus:outline-none focus:ring-0"
     />
   </div>
 </template>

@@ -134,7 +134,7 @@ async function submit() {
             </div>
             <div>
               <label class="mb-1 block text-sm text-foreground-muted">Phone number</label>
-              <PhoneInput v-model="form.phone_number" required dark />
+              <PhoneInput v-model="form.phone_number" required />
             </div>
             <div>
               <label class="mb-1 block text-sm text-foreground-muted">Email</label>

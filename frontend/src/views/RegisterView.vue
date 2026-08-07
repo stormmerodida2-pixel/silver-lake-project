@@ -99,7 +99,7 @@ async function submit() {
         </div>
         <div>
           <label class="mb-1 block text-sm text-foreground-muted">Phone (M-Pesa number)</label>
-          <PhoneInput v-model="form.phoneNumber" required dark />
+          <PhoneInput v-model="form.phoneNumber" required />
         </div>
         <div>
           <label class="mb-1 block text-sm text-foreground-muted">Password</label>

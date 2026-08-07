@@ -17,7 +17,7 @@ const filteredReviews = computed(() => {
   return reviews.value.filter((r) => !r.is_approved)
 })
 
-const starFill = (rating, i) => (i <= rating ? 'text-accent' : 'text-navy-700')
+const starFill = (rating, i) => (i <= rating ? 'text-accent' : 'text-foreground-subtle')
 
 async function approve(review) {
   busyId.value = review.id

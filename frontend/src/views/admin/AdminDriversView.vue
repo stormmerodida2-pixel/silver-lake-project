@@ -630,7 +630,7 @@ onMounted(() => {
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Phone Number</label
                 >
-                <PhoneInput v-model="form.phone_number" dark />
+                <PhoneInput v-model="form.phone_number" />
               </div>
               <div>
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"

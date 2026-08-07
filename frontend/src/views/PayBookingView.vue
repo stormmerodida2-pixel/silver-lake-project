@@ -467,7 +467,7 @@ onMounted(loadBooking)
           <template v-else>
             <div>
               <label class="mb-1 block text-sm text-foreground-muted">M-Pesa Phone Number</label>
-              <PhoneInput v-model="phoneNumber" required dark />
+              <PhoneInput v-model="phoneNumber" required />
             </div>
 
             <p v-if="error" class="text-sm text-danger">{{ error }}</p>

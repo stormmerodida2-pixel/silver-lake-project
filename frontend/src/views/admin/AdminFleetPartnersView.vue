@@ -293,7 +293,7 @@ onMounted(load)
                   <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                     >Contact Phone</label
                   >
-                  <PhoneInput v-model="form.contact_phone" dark />
+                  <PhoneInput v-model="form.contact_phone" />
                 </div>
               </div>
 
@@ -301,7 +301,7 @@ onMounted(load)
                 <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-foreground-muted"
                   >Payout Phone Number</label
                 >
-                <PhoneInput v-model="form.payout_phone_number" dark />
+                <PhoneInput v-model="form.payout_phone_number" />
                 <p class="mt-1 text-xs text-foreground-subtle">
                   Where this partner's own share of a payout is sent - kept separate from their contact phone.
                 </p>

@@ -180,7 +180,7 @@ onBeforeUnmount(removeMap)
       <li
         v-for="(suggestion, index) in suggestions"
         :key="index"
-        class="cursor-pointer px-3 py-2 text-sm text-foreground hover:bg-navy-700"
+        class="cursor-pointer px-3 py-2 text-sm text-foreground hover:bg-border"
         @mousedown.prevent="choose(suggestion)"
       >
         {{ suggestion.label }}

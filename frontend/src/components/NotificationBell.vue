@@ -275,7 +275,7 @@ onUnmounted(() => {
               :aria-checked="pushStatus === 'subscribed'"
               :disabled="pushBusy"
               class="relative h-5 w-9 shrink-0 rounded-full transition disabled:opacity-50"
-              :class="pushStatus === 'subscribed' ? 'bg-accent-bg' : 'bg-navy-700'"
+              :class="pushStatus === 'subscribed' ? 'bg-accent-bg' : 'bg-border'"
               @click="togglePush"
             >
               <span
@@ -304,7 +304,7 @@ onUnmounted(() => {
             role="switch"
             :aria-checked="!mutedEvents.includes(event)"
             class="relative h-5 w-9 shrink-0 rounded-full transition"
-            :class="mutedEvents.includes(event) ? 'bg-navy-700' : 'bg-accent-bg'"
+            :class="mutedEvents.includes(event) ? 'bg-border' : 'bg-accent-bg'"
             @click="toggleMute(event)"
           >
             <span
