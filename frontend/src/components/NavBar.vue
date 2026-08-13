@@ -121,12 +121,6 @@ async function handleLogout() {
             >
               Log In
             </RouterLink>
-            <RouterLink
-              to="/register"
-              class="whitespace-nowrap rounded-md bg-accent-bg px-3 py-1.5 font-[Georgia] text-base font-semibold tracking-wide text-on-accent transition hover:bg-accent-bg-hover"
-            >
-              Sign Up
-            </RouterLink>
           </template>
         </div>
 
@@ -218,13 +212,6 @@ async function handleLogout() {
             @click="isOpen = false"
           >
             Log In
-          </RouterLink>
-          <RouterLink
-            to="/register"
-            class="block rounded px-2 py-2 text-sm font-medium text-foreground hover:bg-surface-2 hover:text-accent"
-            @click="isOpen = false"
-          >
-            Sign Up
           </RouterLink>
         </template>
       </div>
