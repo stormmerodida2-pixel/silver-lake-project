@@ -1,6 +1,4 @@
 <script setup>
-import SilverLakeLogo from './SilverLakeLogo.vue'
-
 // Reuses the Home hero's gradient/glow treatment and tagline rather than a live vehicle photo -
 // a real photo panel would be empty on any deployment with patchy fleet-photo coverage (see
 // VehiclePhotoPlaceholder.vue), which is exactly the "feels unfinished" problem this is meant
@@ -16,32 +14,20 @@ const trustPoints = [
   <div class="flex flex-col bg-page lg:min-h-screen lg:flex-row">
     <!-- Brand panel - desktop only; mobile gets the compact logo lockup below instead. -->
     <div
-      class="relative hidden w-[42%] shrink-0 overflow-hidden border-r border-border-subtle bg-linear-to-b from-surface to-page lg:flex lg:flex-col lg:justify-between"
+      class="relative hidden w-[42%] shrink-0 overflow-hidden border-r border-border-subtle bg-linear-to-b from-surface to-page lg:flex lg:flex-col lg:justify-center"
     >
       <div class="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-accent-bg/10 blur-3xl"></div>
       <div
         class="pointer-events-none absolute -left-24 bottom-10 h-72 w-72 rounded-full bg-brand-blue-500/10 blur-3xl"
       ></div>
 
-      <div class="relative px-12 pt-16">
-        <RouterLink to="/" class="flex items-center gap-3">
-          <SilverLakeLogo :size="44" />
-          <span class="flex flex-col items-start leading-none">
-            <span class="font-[Georgia] text-lg font-bold uppercase tracking-wide text-foreground">SilverLake</span>
-            <span
-              class="mt-1 border-b-2 border-accent-border-strong pb-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-foreground-muted"
-            >
-              Car Rentals
-            </span>
-          </span>
-        </RouterLink>
-
-        <h1 class="mt-14 max-w-sm font-[Georgia] text-3xl font-bold leading-tight text-foreground">
+      <div class="relative px-12">
+        <h1 class="max-w-sm font-[Georgia] text-3xl font-bold leading-tight text-foreground">
           We don't just move you, <span class="text-accent">we elevate your journey.</span>
         </h1>
       </div>
 
-      <ul class="relative flex flex-col gap-5 px-12 pb-16 text-sm text-foreground-secondary">
+      <ul class="relative mt-12 flex flex-col gap-5 px-12 text-sm text-foreground-secondary">
         <li v-for="point in trustPoints" :key="point.text" class="flex items-center gap-3">
           <span
             class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-accent-border/40 bg-page text-accent"
@@ -85,18 +71,6 @@ const trustPoints = [
 
     <!-- Form panel -->
     <div class="flex flex-1 flex-col px-4 py-12 sm:px-6 lg:justify-center lg:px-16">
-      <RouterLink to="/" class="mb-8 flex items-center justify-center gap-2 lg:hidden">
-        <SilverLakeLogo :size="40" />
-        <span class="flex flex-col items-start leading-none">
-          <span class="font-[Georgia] text-lg font-bold uppercase tracking-wide text-foreground">SilverLake</span>
-          <span
-            class="mt-1 border-b-2 border-accent-border-strong pb-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-foreground-muted"
-          >
-            Car Rentals
-          </span>
-        </span>
-      </RouterLink>
-
       <div class="mx-auto w-full max-w-md">
         <slot />
       </div>
