@@ -141,16 +141,10 @@ const howItWorks = [
 
           <div class="mt-8 flex flex-wrap gap-4">
             <RouterLink
-              to="/book?service=with_driver"
+              to="/book"
               class="rounded-md bg-accent-bg px-6 py-3 font-semibold text-on-accent shadow-lg shadow-gold-500/20 transition hover:-translate-y-0.5 hover:bg-accent-bg-hover hover:shadow-gold-500/30"
             >
-              Book with Driver
-            </RouterLink>
-            <RouterLink
-              to="/book?service=self_drive"
-              class="rounded-md border border-accent-border px-6 py-3 font-semibold text-accent transition hover:-translate-y-0.5 hover:bg-surface-2"
-            >
-              Self Drive
+              Make Your Booking
             </RouterLink>
           </div>
 
