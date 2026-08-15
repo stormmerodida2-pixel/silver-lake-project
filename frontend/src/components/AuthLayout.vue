@@ -13,7 +13,7 @@ const trustPoints = [
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-page">
+  <div class="flex flex-col bg-page lg:min-h-screen lg:flex-row">
     <!-- Brand panel - desktop only; mobile gets the compact logo lockup below instead. -->
     <div
       class="relative hidden w-[42%] shrink-0 overflow-hidden border-r border-border-subtle bg-linear-to-b from-surface to-page lg:flex lg:flex-col lg:justify-between"
@@ -84,7 +84,7 @@ const trustPoints = [
     </div>
 
     <!-- Form panel -->
-    <div class="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:px-16">
+    <div class="flex flex-1 flex-col px-4 py-12 sm:px-6 lg:justify-center lg:px-16">
       <RouterLink to="/" class="mb-8 flex items-center justify-center gap-2 lg:hidden">
         <SilverLakeLogo :size="40" />
         <span class="flex flex-col items-start leading-none">
