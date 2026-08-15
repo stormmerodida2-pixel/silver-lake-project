@@ -354,7 +354,7 @@ const howItWorks = [
     </section>
 
     <!-- Fleet preview -->
-    <section class="bg-page">
+    <section class="border-t border-border-subtle bg-page">
       <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <p v-reveal class="text-center text-sm font-semibold uppercase tracking-widest text-accent">
           Handpicked &amp; well maintained
@@ -388,16 +388,15 @@ const howItWorks = [
         <h2 v-reveal class="text-center font-[Georgia] text-2xl font-bold text-foreground">
           It's not just a journey, <span class="text-accent">it's an experience.</span>
         </h2>
-        <div class="mt-8 grid grid-cols-2 gap-x-6 gap-y-8 sm:mt-10 sm:grid-cols-3 sm:gap-8 lg:grid-cols-5">
+        <div class="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 lg:grid-cols-5">
           <div
-            v-for="(badge, index) in trustBadges"
+            v-for="badge in trustBadges"
             :key="badge.title"
             v-reveal
-            class="flex flex-col items-center text-center transition duration-300 hover:-translate-y-1"
-            :class="{ 'col-span-2 sm:col-span-1': index === trustBadges.length - 1 && trustBadges.length % 2 !== 0 }"
+            class="flex items-start gap-3 rounded-xl border border-border-subtle bg-page/50 p-4 text-left transition hover:border-accent-border/50"
           >
-            <div
-              class="flex h-14 w-14 items-center justify-center rounded-full border border-accent-border/40 bg-page text-accent"
+            <span
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-accent-border/40 bg-page text-accent"
             >
               <svg
                 v-if="badge.icon === 'shield'"
@@ -457,9 +456,11 @@ const howItWorks = [
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l2 2 4-4" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 13.8L7.5 21l4.5-2.5 4.5 2.5-1.5-7.2" />
               </svg>
+            </span>
+            <div>
+              <p class="font-semibold text-accent">{{ badge.title }}</p>
+              <p class="mt-0.5 text-sm text-foreground-secondary">{{ badge.text }}</p>
             </div>
-            <p class="mt-3 font-semibold text-accent">{{ badge.title }}</p>
-            <p class="mt-1 text-sm text-foreground-secondary">{{ badge.text }}</p>
           </div>
         </div>
 
@@ -512,7 +513,7 @@ const howItWorks = [
     </section>
 
     <!-- Reviews preview -->
-    <section class="bg-page">
+    <section class="border-t border-border-subtle bg-page">
       <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <p
           v-if="averageRating"
