@@ -2,8 +2,8 @@
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import AuthLayout from '../components/AuthLayout.vue'
 import PasswordInput from '../components/PasswordInput.vue'
-import SilverLakeLogo from '../components/SilverLakeLogo.vue'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -83,25 +83,12 @@ function backToLogin() {
 </script>
 
 <template>
-  <div class="bg-page">
-    <div class="mx-auto max-w-lg px-4 py-16 sm:px-6">
-      <RouterLink to="/" class="flex items-center justify-center gap-2">
-        <SilverLakeLogo :size="48" />
-        <span class="flex flex-col items-start leading-none">
-          <span class="font-[Georgia] text-xl font-bold uppercase tracking-wide text-foreground">SilverLake</span>
-          <span
-            class="mt-1 border-b-2 border-accent-border-strong pb-0.5 text-[11px] font-bold uppercase tracking-[0.2em] text-foreground-muted"
-          >
-            Car Rentals
-          </span>
-        </span>
-      </RouterLink>
+  <AuthLayout>
+    <template v-if="!twoFactorUserId">
+      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Welcome back</h1>
+      <p class="mt-1 text-sm text-foreground-muted">Log in to book your next ride.</p>
 
-      <form
-        v-if="!twoFactorUserId"
-        class="mt-8 space-y-5 rounded-xl border border-border-subtle bg-surface p-8"
-        @submit.prevent="submit"
-      >
+      <form class="mt-6 space-y-5 rounded-xl border border-border-subtle bg-surface p-8" @submit.prevent="submit">
         <div>
           <label class="mb-1 block text-sm text-foreground-muted">Email</label>
           <input
@@ -165,17 +152,15 @@ function backToLogin() {
           >
         </p>
       </form>
+    </template>
 
-      <form
-        v-else
-        class="mt-8 space-y-5 rounded-xl border border-border-subtle bg-surface p-8"
-        @submit.prevent="submitCode"
-      >
+    <template v-else>
+      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Verification code</h1>
+      <p class="mt-1 text-sm text-foreground-muted">We've emailed a 6-digit code to your address.</p>
+
+      <form class="mt-6 space-y-5 rounded-xl border border-border-subtle bg-surface p-8" @submit.prevent="submitCode">
         <div>
-          <p class="text-sm text-foreground-muted">
-            We've emailed a 6-digit code to your address. Enter it below to finish logging in.
-          </p>
-          <label class="mb-1 mt-4 block text-sm text-foreground-muted">Verification code</label>
+          <label class="mb-1 block text-sm text-foreground-muted">Verification code</label>
           <input
             v-model="otpCode"
             type="text"
@@ -215,6 +200,6 @@ function backToLogin() {
           Back to login
         </button>
       </form>
-    </div>
-  </div>
+    </template>
+  </AuthLayout>
 </template>
