@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import apiClient from '../api/client'
 import { useAuthStore } from '../stores/auth'
+import VehiclePhotoPlaceholder from './VehiclePhotoPlaceholder.vue'
 
 const props = defineProps({
   vehicle: {
@@ -83,7 +84,7 @@ async function toggleFavorite(event) {
         :alt="vehicle.name"
         class="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
       />
-      <div v-else class="flex h-full items-center justify-center text-foreground-subtle">No photo yet</div>
+      <VehiclePhotoPlaceholder v-else size="sm" />
 
       <!-- Real social proof - a genuine completed-trip count, never a fabricated "X viewing now". -->
       <span

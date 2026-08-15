@@ -6,6 +6,7 @@ import apiClient from '../api/client'
 import AddressAutocomplete from '../components/AddressAutocomplete.vue'
 import AvailabilityCalendar from '../components/AvailabilityCalendar.vue'
 import PhoneInput from '../components/PhoneInput.vue'
+import VehiclePhotoPlaceholder from '../components/VehiclePhotoPlaceholder.vue'
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
 import { trackEvent } from '../utils/analytics'
@@ -1274,9 +1275,7 @@ async function declareBankTransfer() {
                   class="absolute inset-0 h-full w-full object-cover"
                 />
               </Transition>
-              <div v-if="!vehiclePhotos.length" class="flex h-full items-center justify-center text-sm text-foreground-subtle">
-                No photo yet
-              </div>
+              <VehiclePhotoPlaceholder v-if="!vehiclePhotos.length" />
 
               <template v-if="vehiclePhotos.length > 1">
                 <button
