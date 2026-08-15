@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import apiClient from '../api/client'
 import AvailabilityCalendar from '../components/AvailabilityCalendar.vue'
 import StickyMobileCTA from '../components/StickyMobileCTA.vue'
+import VehiclePhotoPlaceholder from '../components/VehiclePhotoPlaceholder.vue'
 import { useCatalogStore } from '../stores/catalog'
 import { trackEvent } from '../utils/analytics'
 import { calculateEstimatedCost, calculateTotalDays, SELF_DRIVE_SURCHARGE_PERCENT } from '../utils/pricing'
@@ -142,7 +143,7 @@ onBeforeUnmount(() => priceCardObserver?.disconnect())
       <!-- Hero image -->
       <div class="relative h-72 w-full bg-surface sm:h-96">
         <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
-        <div v-else class="flex h-full items-center justify-center text-foreground-subtle text-lg">No photo available</div>
+        <VehiclePhotoPlaceholder v-else size="lg">No photo available</VehiclePhotoPlaceholder>
         <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-950/10 to-transparent"></div>
         <!-- Back link -->
         <RouterLink
