@@ -2,9 +2,9 @@
 import { reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import AuthLayout from '../components/AuthLayout.vue'
 import PasswordInput from '../components/PasswordInput.vue'
 import PhoneInput from '../components/PhoneInput.vue'
-import SilverLakeLogo from '../components/SilverLakeLogo.vue'
 import { useAuthStore } from '../stores/auth'
 import { trackEvent } from '../utils/analytics'
 
@@ -43,31 +43,22 @@ async function submit() {
 </script>
 
 <template>
-  <div class="bg-page">
-    <div class="mx-auto max-w-lg px-4 py-16 sm:px-6">
-      <RouterLink to="/" class="flex items-center justify-center gap-2">
-        <SilverLakeLogo :size="48" />
-        <span class="flex flex-col items-start leading-none">
-          <span class="font-[Georgia] text-xl font-bold uppercase tracking-wide text-foreground">SilverLake</span>
-          <span
-            class="mt-1 border-b-2 border-accent-border-strong pb-0.5 text-[11px] font-bold uppercase tracking-[0.2em] text-foreground-muted"
-          >
-            Car Rentals
-          </span>
-        </span>
+  <AuthLayout>
+    <div v-if="submitted" class="rounded-xl border border-border-subtle bg-surface p-8 text-center">
+      <h2 class="font-[Georgia] text-xl font-bold text-success">Check your email</h2>
+      <p class="mt-2 text-sm text-foreground-muted">
+        We've sent an activation link to {{ form.email }}. Click it to activate your account, then log in.
+      </p>
+      <RouterLink to="/login" class="mt-4 inline-block font-semibold text-accent hover:text-accent-strong">
+        Go to Log In
       </RouterLink>
+    </div>
 
-      <div v-if="submitted" class="mt-8 rounded-xl border border-border-subtle bg-surface p-8 text-center">
-        <h2 class="font-[Georgia] text-xl font-bold text-success">Check your email</h2>
-        <p class="mt-2 text-sm text-foreground-muted">
-          We've sent an activation link to {{ form.email }}. Click it to activate your account, then log in.
-        </p>
-        <RouterLink to="/login" class="mt-4 inline-block font-semibold text-accent hover:text-accent-strong">
-          Go to Log In
-        </RouterLink>
-      </div>
+    <template v-else>
+      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Create your account</h1>
+      <p class="mt-1 text-sm text-foreground-muted">Book with a driver or self-drive, your way.</p>
 
-      <form v-else class="mt-8 space-y-5 rounded-xl border border-border-subtle bg-surface p-8" @submit.prevent="submit">
+      <form class="mt-6 space-y-5 rounded-xl border border-border-subtle bg-surface p-8" @submit.prevent="submit">
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="mb-1 block text-sm text-foreground-muted">First name</label>
@@ -169,6 +160,6 @@ async function submit() {
           >
         </p>
       </form>
-    </div>
-  </div>
+    </template>
+  </AuthLayout>
 </template>
