@@ -152,7 +152,6 @@ function submitCardPayment() {
 
 onMounted(() => {
   catalog.fetchVehicles()
-  catalog.fetchProtectionPlans()
   trackEvent('begin_checkout', {
     currency: 'KES',
     items: form.vehicle ? [{ item_id: String(form.vehicle) }] : [],
@@ -764,44 +763,6 @@ async function declareBankTransfer() {
               </div>
             </div>
 
-            <div v-if="form.service_type === 'self_drive' && catalog.protectionPlans.length">
-              <label class="mb-1 block text-sm text-foreground-muted">Protection plan (optional)</label>
-              <div class="space-y-2">
-                <button
-                  type="button"
-                  class="w-full rounded-md border px-3 py-2 text-left text-sm transition"
-                  :class="
-                    !form.protection_plan
-                      ? 'border-accent-border bg-accent-bg/10'
-                      : 'border-border hover:border-accent-border/50'
-                  "
-                  @click="form.protection_plan = ''"
-                >
-                  <span class="font-semibold text-foreground">No protection plan</span>
-                </button>
-                <button
-                  v-for="plan in catalog.protectionPlans"
-                  :key="plan.id"
-                  type="button"
-                  class="w-full rounded-md border px-3 py-2 text-left text-sm transition"
-                  :class="
-                    Number(form.protection_plan) === plan.id
-                      ? 'border-accent-border bg-accent-bg/10'
-                      : 'border-border hover:border-accent-border/50'
-                  "
-                  @click="form.protection_plan = plan.id"
-                >
-                  <span class="flex items-center justify-between">
-                    <span class="font-semibold text-foreground">{{ plan.name }}</span>
-                    <span class="text-foreground-subtle">KES {{ Number(plan.price_per_day).toLocaleString() }}/day</span>
-                  </span>
-                  <span v-if="plan.excess_reduction_description" class="mt-0.5 block text-xs text-foreground-subtle">
-                    {{ plan.excess_reduction_description }}
-                  </span>
-                </button>
-              </div>
-            </div>
-
             <div>
               <label class="mb-1 block text-sm text-foreground-muted">Discount Code (optional)</label>
               <input
@@ -1335,10 +1296,6 @@ async function declareBankTransfer() {
                 <div v-if="totalDays && form.service_type === 'self_drive'" class="flex justify-between text-foreground-muted">
                   <span>Self-drive surcharge ({{ SELF_DRIVE_SURCHARGE_PERCENT }}%)</span>
                   <span>+ KES {{ (surchargedCost - baseCost).toLocaleString() }}</span>
-                </div>
-                <div v-if="totalDays && protectionPlanCost" class="flex justify-between text-foreground-muted">
-                  <span>{{ selectedProtectionPlan?.name }} protection</span>
-                  <span>+ KES {{ protectionPlanCost.toLocaleString() }}</span>
                 </div>
                 <div
                   v-if="totalDays"
