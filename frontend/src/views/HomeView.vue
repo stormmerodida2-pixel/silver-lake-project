@@ -174,7 +174,7 @@ const howItWorks = [
                  would vanish against the navy page) sitting close behind the card and bleeding
                  past its edges, so the white product photo reads as backlit rather than boxed. -->
             <div
-              class="pointer-events-none absolute -inset-10 -z-10 rounded-full bg-radial from-gold-500/90 via-gold-500/40 to-transparent blur-lg sm:-inset-16"
+              class="pointer-events-none absolute -inset-12 -z-10 rounded-full bg-radial from-gold-500/35 via-gold-500/10 to-transparent blur-2xl sm:-inset-20"
             ></div>
 
             <!-- Thin corner brackets frame the card like a showcase spotlight - a small,
