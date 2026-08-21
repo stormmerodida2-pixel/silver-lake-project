@@ -169,33 +169,26 @@ const howItWorks = [
         </div>
 
         <div v-if="heroVehicle" v-reveal class="relative mx-auto w-full max-w-xs sm:max-w-sm lg:max-w-lg">
-          <!-- Stands in for the flyer's Lake Victoria sunset backdrop - a warm gradient glow,
-               not a fabricated photo, sitting behind the real fleet photography. -->
-          <div
-            class="pointer-events-none absolute inset-0 -z-10 rounded-full bg-radial from-gold-500/25 via-brand-blue-500/10 to-transparent blur-3xl"
-          ></div>
-
           <div class="relative">
-            <!-- Thin corner brackets frame the card like a showcase spotlight - a small,
-                 deliberate accent rather than a plain rectangle floating on the page. -->
-            <span
-              class="pointer-events-none absolute -left-3 -top-3 h-8 w-8 rounded-tl-xl border-l-2 border-t-2 border-accent-border/70 sm:h-10 sm:w-10"
-            ></span>
-            <span
-              class="pointer-events-none absolute -bottom-3 -right-3 h-8 w-8 rounded-br-xl border-b-2 border-r-2 border-accent-border/70 sm:h-10 sm:w-10"
-            ></span>
+            <!-- Stands in for the flyer's Lake Victoria sunset backdrop - a warm gold glow (blue
+                 would vanish against the navy page) sitting close behind the card and bleeding
+                 past its edges, so the white product photo reads as backlit rather than boxed. -->
+            <div
+              class="pointer-events-none absolute -inset-12 -z-10 rounded-full bg-radial from-gold-500/35 via-gold-500/10 to-transparent blur-2xl sm:-inset-20"
+            ></div>
 
-            <!-- Fleet photography is studio-shot on a white background, so it's set on its own
-                 white card rather than cropped/blended into the navy hero - object-contain keeps
-                 the whole vehicle visible (no cropped wheels/roof) and the white backdrop reads
-                 as an intentional plinth instead of a leftover product-photo edge. -->
-            <div class="relative overflow-hidden rounded-2xl bg-white shadow-2xl shadow-black/50 ring-1 ring-black/5">
-              <span
-                v-if="heroVehicle.trips_completed > 0"
-                class="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-page/90 px-3 py-1.5 text-xs font-semibold text-accent shadow-lg backdrop-blur"
-              >
-                &#9733; Most popular ride
-              </span>
+            <span
+              v-if="heroVehicle.trips_completed > 0"
+              class="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-page/90 px-3 py-1.5 text-xs font-semibold text-accent shadow-lg backdrop-blur"
+            >
+              &#9733; Most popular ride
+            </span>
+
+            <!-- Fleet photography is studio-shot on a white background. Rather than boxing it in
+                 a hard-edged card, the whole plinth is alpha-masked so its white backdrop feathers
+                 out into the navy hero at the edges - no visible rectangle, no border, just the
+                 vehicle and a soft fade into the gold glow behind it. -->
+            <div class="hero-vehicle-card relative overflow-hidden bg-white">
               <Transition name="hero-fade" mode="out-in">
                 <img
                   :key="heroVehicle.id"
@@ -540,5 +533,10 @@ const howItWorks = [
 .hero-fade-enter-from,
 .hero-fade-leave-to {
   opacity: 0;
+}
+
+.hero-vehicle-card {
+  -webkit-mask-image: radial-gradient(ellipse 88% 86% at 50% 48%, black 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse 88% 86% at 50% 48%, black 55%, transparent 100%);
 }
 </style>
