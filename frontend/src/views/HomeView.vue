@@ -177,27 +177,18 @@ const howItWorks = [
               class="pointer-events-none absolute -inset-12 -z-10 rounded-full bg-radial from-gold-500/35 via-gold-500/10 to-transparent blur-2xl sm:-inset-20"
             ></div>
 
-            <!-- Thin corner brackets frame the card like a showcase spotlight - a small,
-                 deliberate accent rather than a plain rectangle floating on the page. -->
             <span
-              class="pointer-events-none absolute -left-3 -top-3 h-8 w-8 rounded-tl-xl border-l-2 border-t-2 border-accent-border/70 sm:h-10 sm:w-10"
-            ></span>
-            <span
-              class="pointer-events-none absolute -bottom-3 -right-3 h-8 w-8 rounded-br-xl border-b-2 border-r-2 border-accent-border/70 sm:h-10 sm:w-10"
-            ></span>
+              v-if="heroVehicle.trips_completed > 0"
+              class="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-page/90 px-3 py-1.5 text-xs font-semibold text-accent shadow-lg backdrop-blur"
+            >
+              &#9733; Most popular ride
+            </span>
 
-            <!-- Fleet photography is studio-shot on a white background, so it's set on its own
-                 white plinth rather than cropped (object-contain keeps the whole vehicle visible -
-                 no cropped wheels/roof). The gold glow behind it stands in for the studio lighting
-                 the flyer's photo was composited into, so the card reads as showcased rather than
-                 pasted on a hard-edged box. -->
-            <div class="hero-vehicle-card relative overflow-hidden rounded-2xl bg-white">
-              <span
-                v-if="heroVehicle.trips_completed > 0"
-                class="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-page/90 px-3 py-1.5 text-xs font-semibold text-accent shadow-lg backdrop-blur"
-              >
-                &#9733; Most popular ride
-              </span>
+            <!-- Fleet photography is studio-shot on a white background. Rather than boxing it in
+                 a hard-edged card, the whole plinth is alpha-masked so its white backdrop feathers
+                 out into the navy hero at the edges - no visible rectangle, no border, just the
+                 vehicle and a soft fade into the gold glow behind it. -->
+            <div class="hero-vehicle-card relative overflow-hidden bg-white">
               <Transition name="hero-fade" mode="out-in">
                 <img
                   :key="heroVehicle.id"
@@ -545,8 +536,7 @@ const howItWorks = [
 }
 
 .hero-vehicle-card {
-  box-shadow:
-    0 30px 70px -20px rgb(201 162 39 / 0.35),
-    0 20px 45px -15px rgb(0 0 0 / 0.55);
+  -webkit-mask-image: radial-gradient(ellipse 88% 86% at 50% 48%, black 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse 88% 86% at 50% 48%, black 55%, transparent 100%);
 }
 </style>
