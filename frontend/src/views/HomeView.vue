@@ -541,10 +541,23 @@ const howItWorks = [
 
 .hero-vehicle-wash {
   background: radial-gradient(
-    ellipse 78% 76% at 50% 46%,
-    transparent 25%,
-    color-mix(in oklab, var(--color-gold-500) 20%, var(--color-page)) 62%,
-    var(--color-page) 100%
+    ellipse 82% 80% at 50% 46%,
+    transparent 20%,
+    color-mix(in oklab, var(--color-gold-500) 9%, var(--color-page)) 45%,
+    color-mix(in oklab, var(--color-gold-500) 2%, var(--color-page)) 68%,
+    transparent 100%
   );
+}
+
+/* A flat wash color can only ever approximate the real backdrop (a surface-to-page gradient
+   plus the ambient glow blob behind it), so it alone still leaves a seam. Fading the whole
+   card to transparent past 40% lets the actual pixels behind it show through instead of a
+   guess at what they are - the wash's job is just to keep that hand-off from being a stark
+   white-to-navy jump. Its own mid-tones stay close to --color-page's own darkness (a small
+   gold-mix percentage) rather than a noticeably brighter warm tone, or the ring reappears
+   right where the mask exposes the true - darker - background underneath it. */
+.hero-vehicle-card {
+  -webkit-mask-image: radial-gradient(ellipse 88% 86% at 50% 46%, black 40%, transparent 78%);
+  mask-image: radial-gradient(ellipse 88% 86% at 50% 46%, black 40%, transparent 78%);
 }
 </style>
