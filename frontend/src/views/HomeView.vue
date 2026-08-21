@@ -184,10 +184,13 @@ const howItWorks = [
               &#9733; Most popular ride
             </span>
 
-            <!-- Fleet photography is studio-shot on a white background. Rather than boxing it in
-                 a hard-edged card, the whole plinth is alpha-masked so its white backdrop feathers
-                 out into the navy hero at the edges - no visible rectangle, no border, just the
-                 vehicle and a soft fade into the gold glow behind it. -->
+            <!-- Fleet photography is studio-shot on a white background. A fading transparency
+                 mask alone still shows a visible edge, since white-to-navy is too big a jump in
+                 brightness for a fade to hide - so instead this washes the card's own white
+                 backdrop through a warm tone and back to the page's exact background color before
+                 it's gone, the same way the flyer's sky photo blends by changing color, not by
+                 vanishing. By the true edge the paint matches what's behind it, so there's nothing
+                 left to see a boundary between. -->
             <div class="hero-vehicle-card relative overflow-hidden bg-white">
               <Transition name="hero-fade" mode="out-in">
                 <img
@@ -197,6 +200,7 @@ const howItWorks = [
                   class="h-44 w-full object-contain p-4 sm:h-64 sm:p-6 lg:h-80"
                 />
               </Transition>
+              <div class="hero-vehicle-wash pointer-events-none absolute inset-0"></div>
             </div>
 
             <!-- Soft ground shadow gives the card a floating, podium feel. -->
@@ -535,8 +539,12 @@ const howItWorks = [
   opacity: 0;
 }
 
-.hero-vehicle-card {
-  -webkit-mask-image: radial-gradient(ellipse 88% 86% at 50% 48%, black 55%, transparent 100%);
-  mask-image: radial-gradient(ellipse 88% 86% at 50% 48%, black 55%, transparent 100%);
+.hero-vehicle-wash {
+  background: radial-gradient(
+    ellipse 78% 76% at 50% 46%,
+    transparent 25%,
+    color-mix(in oklab, var(--color-gold-500) 20%, var(--color-page)) 62%,
+    var(--color-page) 100%
+  );
 }
 </style>
