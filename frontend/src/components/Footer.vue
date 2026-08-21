@@ -54,6 +54,13 @@ const featureStrip = [
               </svg>
               Kisumu, Kenya
             </p>
+            <a href="https://silverlakecarentals.com" class="flex items-center gap-2 text-foreground hover:text-accent">
+              <svg class="h-4 w-4 shrink-0 text-accent" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="8.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.5 12h17M12 3.5c2.2 2.3 3.4 5.4 3.4 8.5s-1.2 6.2-3.4 8.5c-2.2-2.3-3.4-5.4-3.4-8.5S9.8 5.8 12 3.5Z" />
+              </svg>
+              www.silverlakecarentals.com
+            </a>
           </div>
         </div>
 
