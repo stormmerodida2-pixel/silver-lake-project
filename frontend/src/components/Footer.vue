@@ -164,8 +164,8 @@ const featureStrip = [
         </div>
 
         <div class="flex flex-wrap gap-x-6 gap-y-2 text-foreground-secondary">
-          <a href="mailto:info@silverlakecarrentals.co.ke" class="hover:text-accent"
-            >info@silverlakecarrentals.co.ke</a
+          <a href="mailto:info@silverlakecarentals.com" class="hover:text-accent"
+            >info@silverlakecarentals.com</a
           >
           <RouterLink to="/contact" class="hover:text-accent">Contact Us</RouterLink>
           <RouterLink to="/drivers" class="hover:text-accent">Meet Our Drivers</RouterLink>

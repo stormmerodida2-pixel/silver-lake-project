@@ -114,7 +114,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER or 'noreply@silverlakecarrentals.co.ke')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER or 'noreply@silverlakecarentals.com')
 
 # Until real Gmail credentials are set, write emails to disk instead of crashing on send
 # (the dev server runs in the background, so console output isn't visible to test against -
@@ -152,7 +152,7 @@ VAPID_PUBLIC_KEY = config('VAPID_PUBLIC_KEY', default='')
 VAPID_PRIVATE_KEY = config('VAPID_PRIVATE_KEY', default='')
 # A real contact address - required by the Web Push protocol (RFC 8292) so a push service can
 # reach the sender if it needs to (e.g. their key is sending abusive volume).
-VAPID_CLAIM_EMAIL = config('VAPID_CLAIM_EMAIL', default='support@silverlakecarrentals.co.ke')
+VAPID_CLAIM_EMAIL = config('VAPID_CLAIM_EMAIL', default='support@silverlakecarentals.com')
 
 ROOT_URLCONF = 'silverlake.urls'
 

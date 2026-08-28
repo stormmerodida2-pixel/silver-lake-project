@@ -103,10 +103,10 @@
           <p class="mt-3 leading-relaxed">
             For any privacy questions or data requests, email
             <a
-              href="mailto:info@silverlakecarrentals.co.ke"
+              href="mailto:info@silverlakecarentals.com"
               class="font-semibold text-accent hover:text-accent-strong"
             >
-              info@silverlakecarrentals.co.ke
+              info@silverlakecarentals.com
             </a>
             or call 0798 184 193.
           </p>
