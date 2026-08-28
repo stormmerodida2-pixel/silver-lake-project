@@ -94,18 +94,38 @@ const pendingBankTransferPayment = computed(() => {
 })
 const today = new Date().toISOString().split('T')[0]
 
-// ── Referral credit ──────────────────────────────────────────────────────────
+// ── Referral credit & loyalty progress ─────────────────────────────────────────
 const referralCreditBalance = ref(0)
 const applyingCredit = ref(false)
 const creditError = ref('')
+
+// Loyalty tier progress, shown on the confirmation screen once a booking is placed - a "3 more
+// trips to Gold" nudge toward the next one. This trip won't count toward it until it's actually
+// completed (see accounts/services.py's get_completed_trip_count), so it's deliberately
+// forward-looking rather than claiming credit for a booking that hasn't happened yet.
+const loyaltyTierName = ref(null)
+const nextLoyaltyTierName = ref(null)
+const completedTripCount = ref(0)
+const tripsToNextLoyaltyTier = ref(null)
+// next tier's own threshold isn't returned directly, but it's recoverable from the two counts
+// the API does return (trips_to_next_loyalty_tier = next tier's threshold - completed_trip_count).
+const loyaltyProgressPercent = computed(() => {
+  if (tripsToNextLoyaltyTier.value == null) return null
+  const tierThreshold = completedTripCount.value + tripsToNextLoyaltyTier.value
+  return tierThreshold > 0 ? Math.min(100, Math.round((completedTripCount.value / tierThreshold) * 100)) : 0
+})
 
 async function refreshReferralCreditBalance() {
   if (!auth.isAuthenticated) return
   try {
     const { data } = await apiClient.get('/auth/me/')
     referralCreditBalance.value = data.referral_credit_balance
+    loyaltyTierName.value = data.loyalty_tier_name
+    nextLoyaltyTierName.value = data.next_loyalty_tier_name
+    completedTripCount.value = data.completed_trip_count
+    tripsToNextLoyaltyTier.value = data.trips_to_next_loyalty_tier
   } catch {
-    // Advisory only - the "Apply Credit" button just won't show if this fails.
+    // Advisory only - the "Apply Credit" button and loyalty widget just won't show if this fails.
   }
 }
 
@@ -839,6 +859,27 @@ async function declareBankTransfer() {
                 <span class="font-[Georgia] text-lg font-bold text-foreground">
                   KES {{ Number(booking.total_amount).toLocaleString() }}
                 </span>
+              </div>
+            </div>
+
+            <!-- Loyalty progress nudge - forward-looking (this trip counts once it's completed,
+                 not yet), so it's framed as "here's what's next" rather than a reward already
+                 earned. Hidden entirely if there's no next tier to reach (either no loyalty
+                 program is configured, or this customer is already at the top tier). -->
+            <div v-if="nextLoyaltyTierName" class="border-b border-border-subtle px-6 py-4 sm:px-8">
+              <div class="flex items-center justify-between text-sm">
+                <p class="text-foreground-secondary">
+                  <span class="font-semibold text-foreground">{{ tripsToNextLoyaltyTier }}</span>
+                  {{ tripsToNextLoyaltyTier === 1 ? 'trip' : 'trips' }} to
+                  <span class="font-semibold text-accent">{{ nextLoyaltyTierName }}</span> status
+                </p>
+                <p v-if="loyaltyTierName" class="text-xs text-foreground-subtle">Currently {{ loyaltyTierName }}</p>
+              </div>
+              <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-2">
+                <div
+                  class="h-full rounded-full bg-accent-bg transition-all duration-700"
+                  :style="{ width: `${loyaltyProgressPercent}%` }"
+                ></div>
               </div>
             </div>
 
