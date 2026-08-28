@@ -114,6 +114,12 @@ onMounted(load)
             </div>
 
             <p class="mt-2 text-sm leading-relaxed text-foreground-secondary">{{ review.comment }}</p>
+            <img
+              v-if="review.photo"
+              :src="review.photo"
+              alt="Customer's trip photo"
+              class="mt-2 h-20 w-20 rounded-md border border-border-subtle object-cover"
+            />
 
             <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-foreground-subtle">
               <span class="font-medium text-foreground">{{ review.customer_name }}</span>

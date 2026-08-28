@@ -69,11 +69,32 @@ const reviewingId = ref(null)
 const reviewSaving = ref(false)
 const reviewError = ref('')
 const reviewForm = reactive({ rating: 5, comment: '' })
+const reviewPhoto = ref(null)
+const reviewPhotoPreviewUrl = ref('')
+// Only one review form is ever open at a time (reviewingId is a single value, not a set), so a
+// single template ref for its file input is enough - no need to key one per booking.
+const reviewPhotoInputEl = ref(null)
 
 function openReviewForm(booking) {
   reviewingId.value = booking.id
   reviewError.value = ''
   Object.assign(reviewForm, { rating: 5, comment: '' })
+  reviewPhoto.value = null
+  reviewPhotoPreviewUrl.value = ''
+}
+
+function onReviewPhotoChange(event) {
+  const file = event.target.files[0]
+  if (reviewPhotoPreviewUrl.value) URL.revokeObjectURL(reviewPhotoPreviewUrl.value)
+  reviewPhoto.value = file || null
+  reviewPhotoPreviewUrl.value = file ? URL.createObjectURL(file) : ''
+}
+
+function clearReviewPhoto() {
+  if (reviewPhotoPreviewUrl.value) URL.revokeObjectURL(reviewPhotoPreviewUrl.value)
+  reviewPhoto.value = null
+  reviewPhotoPreviewUrl.value = ''
+  if (reviewPhotoInputEl.value) reviewPhotoInputEl.value.value = ''
 }
 
 async function submitReview(booking) {
@@ -84,13 +105,17 @@ async function submitReview(booking) {
   }
   reviewSaving.value = true
   try {
-    const { data } = await apiClient.post(`/bookings/${booking.id}/review/`, {
-      rating: reviewForm.rating,
-      comment: reviewForm.comment.trim(),
-    })
+    // A plain object would work for the text fields alone, but the photo (optional) needs
+    // multipart/form-data - same pattern as the license/ID uploads elsewhere in booking flows.
+    const payload = new FormData()
+    payload.append('rating', reviewForm.rating)
+    payload.append('comment', reviewForm.comment.trim())
+    if (reviewPhoto.value) payload.append('photo', reviewPhoto.value)
+    const { data } = await apiClient.post(`/bookings/${booking.id}/review/`, payload)
     const index = bookings.value.findIndex((b) => b.id === booking.id)
     bookings.value[index] = data
     reviewingId.value = null
+    clearReviewPhoto()
   } catch (err) {
     reviewError.value = err.response?.data?.detail || 'Could not submit your review.'
   } finally {
@@ -348,6 +373,12 @@ onMounted(() => {
               <span v-for="n in 5" :key="n">{{ n <= booking.review.rating ? '★' : '☆' }}</span>
             </p>
             <p class="mt-1 text-sm text-foreground-muted">&ldquo;{{ booking.review.comment }}&rdquo;</p>
+            <img
+              v-if="booking.review.photo"
+              :src="booking.review.photo"
+              alt="Your trip photo"
+              class="mt-2 h-24 w-24 rounded-md border border-border-subtle object-cover"
+            />
             <p class="mt-1 text-xs text-foreground-muted">Awaiting approval before it shows publicly.</p>
           </div>
 
@@ -372,6 +403,33 @@ onMounted(() => {
               placeholder="How was your trip?"
               class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-accent-border focus:outline-none"
             ></textarea>
+
+            <div>
+              <label class="mb-1 block text-sm text-foreground-muted">Add a photo (optional)</label>
+              <div v-if="reviewPhotoPreviewUrl" class="flex items-center gap-3">
+                <img
+                  :src="reviewPhotoPreviewUrl"
+                  alt="Selected photo preview"
+                  class="h-16 w-16 rounded-md border border-border object-cover"
+                />
+                <button
+                  type="button"
+                  class="text-sm font-semibold text-foreground-muted hover:text-danger"
+                  @click="clearReviewPhoto"
+                >
+                  Remove
+                </button>
+              </div>
+              <input
+                v-else
+                ref="reviewPhotoInputEl"
+                type="file"
+                accept="image/*"
+                class="w-full text-sm text-foreground-muted file:mr-3 file:rounded-md file:border-0 file:bg-accent-bg file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-on-accent"
+                @change="onReviewPhotoChange"
+              />
+            </div>
+
             <p v-if="reviewError" class="text-sm text-danger">{{ reviewError }}</p>
             <div class="flex gap-3">
               <button

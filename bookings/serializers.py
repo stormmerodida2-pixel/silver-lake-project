@@ -94,7 +94,10 @@ class BookingSerializer(serializers.ModelSerializer):
 
     def get_review(self, obj):
         review = getattr(obj, 'review', None)
-        return ReviewSerializer(review).data if review else None
+        # context must be passed through - without it, ReviewSerializer's photo field (a plain
+        # ImageField) has no request to build an absolute URI from and just returns the raw
+        # relative /media/... path, which 404s from the frontend's own origin.
+        return ReviewSerializer(review, context=self.context).data if review else None
 
     def get_pending_payments(self, obj):
         # Cash/card payments the client has declared but the driver hasn't yet confirmed actually

@@ -301,7 +301,10 @@ class AdminReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ['id', 'customer_name', 'rating', 'comment', 'driver_name', 'booking_id', 'is_approved', 'created_at']
+        fields = [
+            'id', 'customer_name', 'rating', 'comment', 'photo', 'driver_name', 'booking_id', 'is_approved',
+            'created_at',
+        ]
         read_only_fields = ['created_at']
 
     def get_driver_name(self, obj):

@@ -1,6 +1,8 @@
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from .validators import validate_file_size
+
 
 class Review(models.Model):
     # Set when the review comes from a customer reviewing their own completed trip - the
@@ -15,6 +17,10 @@ class Review(models.Model):
     customer_name = models.CharField(max_length=100)
     rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
     comment = models.TextField()
+    # Optional - a customer's own trip photo, shown alongside their review once approved. Same
+    # moderation gate as everything else here (is_approved), so this never needs its own review
+    # step - staff already sees it before a review goes public.
+    photo = models.ImageField(upload_to='reviews/', blank=True, null=True, validators=[validate_file_size])
     is_approved = models.BooleanField(default=False, help_text='Only approved reviews show on the public site')
     created_at = models.DateTimeField(auto_now_add=True)
 
