@@ -1,21 +1,26 @@
 version: 2
 updates:
   # Backend (Django) dependencies - requirements.txt at the repo root.
+  # open-pull-requests-limit: 0 pauses routine version-update PRs (too much noise to triage
+  # weekly) without deleting this config - GitHub's documented way to stop them. This does NOT
+  # affect Dependabot security alerts/updates, which are a separate, always-on feature under
+  # repo Settings > Code security, so known vulnerabilities still get flagged.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
 
   # Frontend (Vue/Vite) dependencies.
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
 
   # The workflow itself pins action versions (actions/checkout@v4, etc.) - keep those current too.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
