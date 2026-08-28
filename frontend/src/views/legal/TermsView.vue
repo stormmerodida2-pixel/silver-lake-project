@@ -117,10 +117,10 @@
           <p class="mt-3 leading-relaxed">
             Questions about these Terms can be sent to
             <a
-              href="mailto:info@silverlakecarrentals.co.ke"
+              href="mailto:info@silverlakecarentals.com"
               class="font-semibold text-accent hover:text-accent-strong"
             >
-              info@silverlakecarrentals.co.ke
+              info@silverlakecarentals.com
             </a>
             or by calling 0798 184 193.
           </p>

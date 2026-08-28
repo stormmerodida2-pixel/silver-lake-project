@@ -69,7 +69,7 @@
         </div>
 
         <a
-          href="mailto:info@silverlakecarrentals.co.ke"
+          href="mailto:info@silverlakecarentals.com"
           class="group flex flex-col items-center rounded-2xl border border-border-subtle bg-surface p-8 text-center transition hover:border-accent-border hover:shadow-lg"
         >
           <div
@@ -84,7 +84,7 @@
             </svg>
           </div>
           <h2 class="mt-5 font-[Georgia] text-lg font-bold text-foreground">Email</h2>
-          <p class="mt-2 text-sm font-semibold text-accent break-all">info@silverlakecarrentals.co.ke</p>
+          <p class="mt-2 text-sm font-semibold text-accent break-all">info@silverlakecarentals.com</p>
           <p class="mt-1 text-sm text-foreground-subtle">We respond within 24 hours</p>
         </a>
       </div>
