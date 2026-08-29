@@ -206,6 +206,14 @@ async function downloadReceipt(booking) {
   }
 }
 
+// Same no-login receipt link the customer-facing My Bookings page offers - useful here for
+// staff sharing a receipt directly with a customer (e.g. re-sending one they lost), not just
+// customers sharing their own.
+function receiptWhatsAppHref(booking) {
+  const url = `${import.meta.env.VITE_API_BASE_URL}/pay/${booking.customer_token}/receipt/`
+  return `https://wa.me/?text=${encodeURIComponent(`Here's your SilverLake booking receipt: ${url}`)}`
+}
+
 const exportingCsv = ref(false)
 async function exportCsv() {
   exportingCsv.value = true
@@ -439,6 +447,15 @@ onMounted(() => {
               >
                 {{ downloadingId === booking.id ? 'Downloading...' : 'Receipt' }}
               </button>
+              <a
+                v-if="Number(booking.amount_paid) > 0"
+                :href="receiptWhatsAppHref(booking)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="mt-1 inline-block rounded-md border border-emerald-500 px-2 py-0.5 text-xs font-semibold text-success hover:bg-emerald-500 hover:text-on-accent"
+              >
+                Share via WhatsApp
+              </a>
             </td>
             <td class="px-4 py-3">
               <select

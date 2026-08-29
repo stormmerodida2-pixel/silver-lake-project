@@ -13,6 +13,7 @@ from .views import (
     token_dispute_payment,
     token_payment_detail,
     token_payment_status,
+    token_receipt,
     token_stk_push,
 )
 
@@ -26,6 +27,7 @@ urlpatterns = router.urls + [
     path('payments/mpesa/callback/<str:secret>/', mpesa_callback, name='mpesa-callback'),
     path('payments/mpesa/b2c-result/<str:secret>/', mpesa_b2c_result, name='mpesa-b2c-result'),
     path('pay/<uuid:token>/', token_payment_detail, name='token-payment-detail'),
+    path('pay/<uuid:token>/receipt/', token_receipt, name='token-receipt'),
     path('pay/<uuid:token>/stk-push/', token_stk_push, name='token-stk-push'),
     path('pay/<uuid:token>/declare-cash/', token_declare_cash_payment, name='token-declare-cash'),
     path(
