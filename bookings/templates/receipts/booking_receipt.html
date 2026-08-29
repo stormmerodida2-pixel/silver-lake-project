@@ -103,6 +103,17 @@
     color: #64748b;
     text-align: center;
   }
+  .milestone-banner {
+    margin-top: 14px;
+    padding: 8px 14px;
+    background-color: #fdf6e3;
+    border: 1px solid #c9a227;
+    border-radius: 4px;
+    font-size: 10.5pt;
+    font-weight: bold;
+    color: #0a1730;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -131,6 +142,10 @@
       </td>
     </tr>
   </table>
+
+  {% if trip_milestone_number %}
+  <div class="milestone-banner">This was your {{ trip_milestone_number|ordinal }} trip with SilverLake &#127881;</div>
+  {% endif %}
 
   <div class="section-title">Billed To</div>
   <table class="meta-table">

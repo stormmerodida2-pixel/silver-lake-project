@@ -29,6 +29,7 @@ def generate_receipt_pdf(booking):
         'payments': payments,
         'issued_at': timezone.now(),
         'logo_uri': LOGO_PATH,
+        'trip_milestone_number': booking.trip_milestone_number,
     })
 
     buffer = BytesIO()
