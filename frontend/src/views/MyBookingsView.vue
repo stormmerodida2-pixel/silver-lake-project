@@ -4,6 +4,7 @@ import { defineAsyncComponent, onMounted, reactive, ref } from 'vue'
 import apiClient from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
+import { ordinal } from '../utils/format'
 
 // Async, not a static import - Leaflet (~150KB) is only actually needed once someone clicks
 // "Track" on an active booking, which most visits to this page never do. A static import would
@@ -247,6 +248,13 @@ onMounted(() => {
               {{ booking.status }}
             </span>
           </div>
+
+          <p
+            v-if="booking.trip_milestone_number"
+            class="mt-3 rounded-lg border border-accent-border-strong/40 bg-accent-bg/10 px-3 py-2 text-sm font-semibold text-accent"
+          >
+            This was your {{ ordinal(booking.trip_milestone_number) }} trip with SilverLake &#127881;
+          </p>
 
           <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-3">
             <p class="text-sm text-foreground-muted">

@@ -58,6 +58,9 @@ class BookingSerializer(serializers.ModelSerializer):
     )
     protection_plan_name = serializers.CharField(source='protection_plan.name', read_only=True, default=None)
     corporate_account_name = serializers.CharField(source='corporate_account.name', read_only=True, default=None)
+    # None until the trip is actually completed (see Booking.trip_milestone_number) - a "this was
+    # your 3rd trip" note on the confirmation screen once it's done.
+    trip_milestone_number = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Booking
@@ -76,6 +79,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'is_acknowledgment_overdue', 'pending_payments',
             'pending_cash_deposits', 'last_balance_reminder_at',
             'corporate_account', 'corporate_account_name', 'corporate_account_reference',
+            'trip_milestone_number',
         ]
         read_only_fields = [
             'status', 'source', 'total_amount', 'discount_amount', 'loyalty_discount_amount', 'created_at',

@@ -502,6 +502,20 @@ class Booking(models.Model):
             method=PaymentMethod.CASH, status=PaymentStatus.SUCCESSFUL, cash_deposit__isnull=True,
         ).exists()
 
+    @property
+    def trip_milestone_number(self):
+        """This booking's own place in the customer's completed-trip history (1st, 2nd, 3rd...) -
+        for a "this is your Nth trip" celebratory note on the receipt. None until the trip has
+        actually completed, since that's the only point this can honestly be counted (matches
+        accounts.services.get_completed_trip_count's own COMPLETED-only definition). Ties on the
+        exact same trip_ended_at share a rank - an acceptable edge case for a purely
+        celebratory number, not something anything financial depends on."""
+        if self.status != BookingStatus.COMPLETED or not self.trip_ended_at:
+            return None
+        return Booking.objects.filter(
+            user_id=self.user_id, status=BookingStatus.COMPLETED, trip_ended_at__lte=self.trip_ended_at,
+        ).count()
+
     def start_trip(self):
         """Driver-confirmed: the vehicle has actually been handed over. Only valid once the
         deposit has landed (CONFIRMED) - a customer can't be mid-trip on a booking that was
