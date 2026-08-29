@@ -1325,6 +1325,36 @@ async function declareBankTransfer() {
                 {{ form.service_type === 'with_driver' ? 'With Driver' : 'Self Drive' }}
               </p>
 
+              <!-- Trip details fill in live as the form does, rather than only appearing in the
+                   receipt at the very end - dates and route are the two things this card was
+                   missing (it already showed vehicle + running total). -->
+              <div
+                v-if="form.start_date || form.end_date || form.pickup_location"
+                class="mt-4 space-y-1.5 border-t border-border-subtle pt-4 text-sm text-foreground-muted"
+              >
+                <p v-if="form.start_date || form.end_date" class="flex items-start gap-2">
+                  <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <rect x="4" y="5" width="16" height="15" rx="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 10h16M8 3v4M16 3v4" />
+                  </svg>
+                  <span>{{ form.start_date || '?' }} <template v-if="form.end_date"> to {{ form.end_date }}</template></span>
+                </p>
+                <p v-if="form.pickup_location" class="flex items-start gap-2">
+                  <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M12 21s6-5.2 6-10.5A6 6 0 0 0 6 10.5C6 15.8 12 21 12 21Z"
+                    />
+                    <circle cx="12" cy="10.5" r="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <span>
+                    {{ form.pickup_location }}
+                    <template v-if="form.dropoff_location"> &rarr; {{ form.dropoff_location }}</template>
+                  </span>
+                </p>
+              </div>
+
               <div class="mt-4 space-y-2 border-t border-border-subtle pt-4 text-sm">
                 <div class="flex justify-between text-foreground-muted">
                   <span>Rate</span>
