@@ -44,6 +44,30 @@ function removeFavorite(vehicleId) {
   favorites.value = favorites.value.filter((v) => v.id !== vehicleId)
 }
 
+// ── Referral nudge ───────────────────────────────────────────────────────────
+// auth.user already carries referral_code/referral_credit_amount straight from login (see
+// UserSerializer, reused by /auth/me/) - no extra fetch needed here, same as how NavBar already
+// reads auth.user?.driver_status without one. The program itself has worked the whole time; it
+// was only ever missing anywhere for a customer to actually notice it (see ProfileView.vue for
+// the full version - balance, redemption, etc.).
+const referralCode = computed(() => auth.user?.referral_code || '')
+const referralCreditAmount = computed(() => auth.user?.referral_credit_amount || 0)
+const referralLink = computed(() => `${window.location.origin}/register?ref=${referralCode.value}`)
+const referralLinkCopied = ref(false)
+async function copyReferralLink() {
+  await navigator.clipboard.writeText(referralLink.value)
+  referralLinkCopied.value = true
+  setTimeout(() => {
+    referralLinkCopied.value = false
+  }, 2000)
+}
+const referralWhatsAppHref = computed(
+  () =>
+    `https://wa.me/?text=${encodeURIComponent(
+      `Book with SilverLake Car Rentals and we both get KES ${Number(referralCreditAmount.value).toLocaleString()} in credit: ${referralLink.value}`,
+    )}`,
+)
+
 const heroSectionRef = ref(null)
 const showStickyCta = ref(false)
 let heroObserver = null
@@ -286,7 +310,7 @@ const howItWorks = [
     </section>
 
     <!-- Recently viewed - every visitor, signed in or not (pure localStorage, see
-         utils/recentlyViewed.js), unlike Favorites/the referral nudge above it. -->
+         utils/recentlyViewed.js), unlike Favorites/the referral nudge below it. -->
     <section v-if="recentlyViewed.length" v-reveal class="border-b border-border-subtle bg-page">
       <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <p class="text-sm font-semibold uppercase tracking-widest text-accent">Pick up where you left off</p>
@@ -294,6 +318,45 @@ const howItWorks = [
 
         <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <VehicleCard v-for="vehicle in recentlyViewed.slice(0, 4)" :key="vehicle.id" v-reveal :vehicle="vehicle" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Referral nudge - signed-in only, same gate as Favorites above it. A compact banner
+         rather than a full section: unlike Favorites/Recently Viewed there's nothing to browse
+         here, just one thing to notice and act on. -->
+    <section v-if="referralCode" v-reveal class="border-b border-border-subtle bg-surface">
+      <div
+        class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6 sm:px-6"
+      >
+        <div>
+          <p class="font-[Georgia] text-lg font-bold text-foreground">
+            Give KES {{ Number(referralCreditAmount).toLocaleString() }}, Get KES
+            {{ Number(referralCreditAmount).toLocaleString() }}
+          </p>
+          <p class="mt-1 text-sm text-foreground-secondary">
+            Share your code - once a friend's first trip is confirmed, you both earn credit.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="rounded-md bg-surface-2 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-accent">
+            {{ referralCode }}
+          </span>
+          <button
+            type="button"
+            class="rounded-md border border-accent-border-strong px-3 py-1.5 text-sm font-semibold text-accent transition hover:bg-accent-bg hover:text-on-accent"
+            @click="copyReferralLink"
+          >
+            {{ referralLinkCopied ? 'Copied!' : 'Copy Link' }}
+          </button>
+          <a
+            :href="referralWhatsAppHref"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-md bg-accent-bg px-3 py-1.5 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover"
+          >
+            Share via WhatsApp
+          </a>
         </div>
       </div>
     </section>
