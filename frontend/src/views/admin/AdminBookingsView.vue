@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import apiClient from '../../api/client'
 import ConditionReportModal from '../../components/ConditionReportModal.vue'
 import CorporateBookingModal from '../../components/admin/CorporateBookingModal.vue'
+import DirectBookingModal from '../../components/admin/DirectBookingModal.vue'
 import { useAdminList } from '../../composables/useAdminList'
 import { useAuthStore } from '../../stores/auth'
 import { confirmDialog } from '../../utils/dialogs'
@@ -127,6 +128,19 @@ function openCorpModal() {
 }
 
 function onCorporateBookingCreated(booking) {
+  bookings.value.unshift(booking)
+}
+
+// ── Direct bookings (phone/WhatsApp leads, no driver or corporate account yet) ──────────────
+const showDirectModal = ref(false)
+const directModal = ref(null)
+
+function openDirectModal() {
+  directModal.value.open()
+  showDirectModal.value = true
+}
+
+function onDirectBookingCreated(booking) {
   bookings.value.unshift(booking)
 }
 
@@ -253,6 +267,12 @@ onMounted(() => {
       </select>
       <button
         class="rounded-md bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover"
+        @click="openDirectModal"
+      >
+        + Direct Booking
+      </button>
+      <button
+        class="rounded-md border border-accent-border-strong px-4 py-2 text-sm font-semibold text-accent transition hover:bg-accent-bg hover:text-on-accent"
         @click="openCorpModal"
       >
         + Corporate Booking
@@ -273,6 +293,12 @@ onMounted(() => {
       </button>
     </div>
 
+    <DirectBookingModal
+      ref="directModal"
+      v-model="showDirectModal"
+      :driver-options="driverOptions"
+      @created="onDirectBookingCreated"
+    />
     <CorporateBookingModal
       ref="corpModal"
       v-model="showCorpModal"
