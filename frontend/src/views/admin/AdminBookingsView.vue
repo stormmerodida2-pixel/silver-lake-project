@@ -92,6 +92,14 @@ function isAwaitingAcknowledgment(booking) {
   )
 }
 
+// A Direct Booking (see DirectBookingModal.vue) hands staff a no-login payment link to share -
+// once shared, there's been no visibility into whether the customer actually followed through
+// until they either pay or someone thinks to go check. Zero payment recorded is the simplest
+// honest signal that the link is still just sitting unopened/unpaid somewhere.
+function isAwaitingDirectBookingPayment(booking) {
+  return booking.source === 'admin' && Number(booking.amount_paid) === 0 && booking.status !== 'cancelled'
+}
+
 function canRemindBalance(booking) {
   return isUnderpaid(booking) && !!booking.driver_name
 }
@@ -459,6 +467,13 @@ onMounted(() => {
               >
                 Needs Attention
               </span>
+              <span
+                v-if="isAwaitingDirectBookingPayment(booking)"
+                class="mb-1 inline-block rounded-full bg-accent-bg/10 px-2 py-0.5 font-semibold text-accent"
+                title="Created via Direct Booking - the customer hasn't paid anything toward their payment link yet"
+              >
+                Link Sent, Awaiting Payment
+              </span>
               <div v-if="booking.service_type === 'with_driver' && booking.driver_name">
                 <div v-if="booking.driver_acknowledged_at" class="text-foreground-subtle">
                   Acknowledged {{ new Date(booking.driver_acknowledged_at).toLocaleString() }}
@@ -483,7 +498,8 @@ onMounted(() => {
                   !booking.trip_ended_at &&
                   !booking.needs_attention &&
                   !booking.driver_acknowledged_at &&
-                  !isAwaitingAcknowledgment(booking)
+                  !isAwaitingAcknowledgment(booking) &&
+                  !isAwaitingDirectBookingPayment(booking)
                 "
                 class="text-foreground-subtle"
               >
