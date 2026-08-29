@@ -8,6 +8,7 @@ import StickyMobileCTA from '../components/StickyMobileCTA.vue'
 import VehiclePhotoPlaceholder from '../components/VehiclePhotoPlaceholder.vue'
 import { useCatalogStore } from '../stores/catalog'
 import { trackEvent } from '../utils/analytics'
+import { recordVehicleView } from '../utils/recentlyViewed'
 import { calculateEstimatedCost, calculateTotalDays, SELF_DRIVE_SURCHARGE_PERCENT } from '../utils/pricing'
 import { setPageMeta, setStructuredData } from '../utils/seo'
 import { buildWhatsAppLink } from '../utils/whatsapp'
@@ -88,6 +89,7 @@ onMounted(async () => {
     vehicle.value = cached
     loading.value = false
     trackVehicleView(cached)
+    recordVehicleView(cached.id)
     applySeo(cached)
     return
   }
@@ -95,6 +97,7 @@ onMounted(async () => {
     const { data } = await apiClient.get(`/vehicles/${route.params.id}/`)
     vehicle.value = data
     trackVehicleView(data)
+    recordVehicleView(data.id)
     applySeo(data)
   } catch (err) {
     if (err.response?.status === 404) {

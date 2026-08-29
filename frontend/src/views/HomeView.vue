@@ -7,11 +7,23 @@ import { useCatalogStore } from '../stores/catalog'
 import StickyMobileCTA from '../components/StickyMobileCTA.vue'
 import VehicleCard from '../components/VehicleCard.vue'
 import ReviewCard from '../components/ReviewCard.vue'
+import { getRecentlyViewedIds } from '../utils/recentlyViewed'
 import { setStructuredData } from '../utils/seo'
 import { buildWhatsAppLink } from '../utils/whatsapp'
 
 const auth = useAuthStore()
 const catalog = useCatalogStore()
+
+// ── Recently viewed ──────────────────────────────────────────────────────────
+// Pure localStorage (see utils/recentlyViewed.js) - works for every visitor, signed in or not,
+// unlike Favorites/the referral nudge above. IDs are read once on mount (a fresh visit is the
+// only time this can meaningfully change) and matched against whatever's already in
+// catalog.vehicles, so no extra request - a vehicle since removed from the fleet just quietly
+// drops out rather than erroring.
+const recentlyViewed = computed(() => {
+  const ids = getRecentlyViewedIds()
+  return ids.map((id) => catalog.vehicles.find((v) => v.id === id)).filter(Boolean)
+})
 
 // ── Favorites ─────────────────────────────────────────────────────────────────
 // Signed-in only, and hidden entirely once empty - a "Your Favorites" section with nothing in
@@ -269,6 +281,19 @@ const howItWorks = [
             :vehicle="vehicle"
             @unfavorited="removeFavorite"
           />
+        </div>
+      </div>
+    </section>
+
+    <!-- Recently viewed - every visitor, signed in or not (pure localStorage, see
+         utils/recentlyViewed.js), unlike Favorites/the referral nudge above it. -->
+    <section v-if="recentlyViewed.length" v-reveal class="border-b border-border-subtle bg-page">
+      <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
+        <p class="text-sm font-semibold uppercase tracking-widest text-accent">Pick up where you left off</p>
+        <h2 class="mt-2 font-[Georgia] text-3xl font-bold text-foreground">Recently Viewed</h2>
+
+        <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <VehicleCard v-for="vehicle in recentlyViewed.slice(0, 4)" :key="vehicle.id" v-reveal :vehicle="vehicle" />
         </div>
       </div>
     </section>
