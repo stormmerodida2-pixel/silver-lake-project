@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue'
 
+import apiClient from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
 import StickyMobileCTA from '../components/StickyMobileCTA.vue'
@@ -11,6 +12,25 @@ import { buildWhatsAppLink } from '../utils/whatsapp'
 
 const auth = useAuthStore()
 const catalog = useCatalogStore()
+
+// ── Favorites ─────────────────────────────────────────────────────────────────
+// Signed-in only, and hidden entirely once empty - a "Your Favorites" section with nothing in
+// it is worse than no section at all. Not part of useCatalogStore's cache-once pattern (unlike
+// vehicles/reviews/drivers) since this is per-user and can change from a single click elsewhere
+// on the same page (the heart toggle on any VehicleCard, including these ones).
+const favorites = ref([])
+async function fetchFavorites() {
+  if (!auth.isAuthenticated) return
+  try {
+    const { data } = await apiClient.get('/vehicles/favorites/')
+    favorites.value = data
+  } catch {
+    // Advisory only - the section just won't show if this fails.
+  }
+}
+function removeFavorite(vehicleId) {
+  favorites.value = favorites.value.filter((v) => v.id !== vehicleId)
+}
 
 const heroSectionRef = ref(null)
 const showStickyCta = ref(false)
@@ -30,6 +50,7 @@ const whatsappHref = buildWhatsAppLink("Hello SilverLake Car Rentals, I'd like t
 onMounted(() => {
   catalog.fetchVehicles()
   catalog.fetchReviews()
+  fetchFavorites()
 })
 
 // Real, computed social proof - never a fabricated number. Hidden entirely until there's
@@ -225,6 +246,31 @@ const howItWorks = [
       >
         <path d="M0,32 C240,60 480,0 720,20 C960,40 1200,10 1440,30 L1440,60 L0,60 Z" />
       </svg>
+    </section>
+
+    <!-- Favorites - signed-in customers only, and only once they've actually saved something. -->
+    <section v-if="favorites.length" v-reveal class="border-b border-border-subtle bg-page">
+      <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p class="text-sm font-semibold uppercase tracking-widest text-accent">Welcome back</p>
+            <h2 class="mt-2 font-[Georgia] text-3xl font-bold text-foreground">Your Favorites</h2>
+          </div>
+          <RouterLink to="/account/favorites" class="font-semibold text-accent hover:text-accent-strong">
+            Manage favorites &rarr;
+          </RouterLink>
+        </div>
+
+        <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <VehicleCard
+            v-for="vehicle in favorites.slice(0, 4)"
+            :key="vehicle.id"
+            v-reveal
+            :vehicle="vehicle"
+            @unfavorited="removeFavorite"
+          />
+        </div>
+      </div>
     </section>
 
     <!-- Rooted in Kisumu banner -->
