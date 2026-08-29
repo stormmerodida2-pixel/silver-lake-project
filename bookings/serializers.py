@@ -256,6 +256,37 @@ class AdminCorporateBookingSerializer(serializers.Serializer):
         return attrs
 
 
+class AdminDirectBookingSerializer(serializers.Serializer):
+    """An admin/support-staff member creating a booking on behalf of a customer they're dealing
+    with directly - e.g. a phone/WhatsApp inquiry that hasn't gone through a specific driver and
+    isn't a registered corporate account either. Same shape as AdminCorporateBookingSerializer
+    minus the corporate_account fields - see AdminBookingViewSet.create_direct for what happens
+    with it (immediate confirmation, no-login payment link, same as the driver on-site flow)."""
+
+    vehicle = serializers.PrimaryKeyRelatedField(queryset=Vehicle.objects.all())
+    driver = serializers.PrimaryKeyRelatedField(queryset=Driver.objects.all(), required=False, allow_null=True)
+    service_type = serializers.ChoiceField(choices=ServiceType.choices, default=ServiceType.WITH_DRIVER)
+    customer_name = serializers.CharField(max_length=100)
+    customer_phone = serializers.CharField(max_length=20, validators=[validate_kenyan_phone_number])
+    customer_email = serializers.EmailField(required=False, allow_blank=True, default='')
+    pickup_location = serializers.CharField(max_length=200)
+    dropoff_location = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+    notes = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate(self, attrs):
+        candidate = Booking(
+            vehicle=attrs['vehicle'], driver=attrs.get('driver'), service_type=attrs['service_type'],
+            start_date=attrs['start_date'], end_date=attrs['end_date'],
+        )
+        try:
+            candidate.clean()
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
+        return attrs
+
+
 class WaitlistEntrySerializer(serializers.ModelSerializer):
     vehicle_name = serializers.CharField(source='vehicle.name', read_only=True)
     vehicle_image = serializers.SerializerMethodField()

@@ -19,7 +19,9 @@ from accounts.models import LoyaltyTier
 from accounts.serializers import UserSerializer
 from accounts.services import get_or_create_customer_account
 from bookings.models import Booking, BookingSource, BookingStatus, ProtectionPlan
-from bookings.serializers import AdminCorporateBookingSerializer, BookingSerializer, VehicleConditionReportSerializer
+from bookings.serializers import (
+    AdminCorporateBookingSerializer, AdminDirectBookingSerializer, BookingSerializer, VehicleConditionReportSerializer,
+)
 from bookings.services import create_condition_report
 from drivers.models import ApplicationStatus, Driver, DriverApplication
 from drivers.serializers import DriverApplicationSerializer
@@ -1020,6 +1022,57 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         log_admin_action(request, 'booking.create_corporate', booking, detail=data['corporate_account'].name)
 
         return Response(BookingSerializer(booking, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path='create-direct')
+    def create_direct(self, request):
+        """Creates a booking on behalf of a customer staff are dealing with directly - a phone or
+        WhatsApp inquiry that isn't tied to a specific driver (see DriverOnsiteBookingCreateView
+        for that case) and isn't a registered corporate account either (see create_corporate
+        above). Confirmed immediately like both of those, for the same reason: a staff member has
+        vouched for this booking in a real conversation, so the deposit's usual purpose - getting
+        some commitment from a customer SilverLake has never dealt with - doesn't apply. Hands
+        back the same no-login payment link as the driver on-site flow, for staff to share
+        directly (WhatsApp, SMS, however the conversation is already happening)."""
+        serializer = AdminDirectBookingSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        organization = get_user_organization(request.user)
+        if organization is not None and data['vehicle'].owner_id != organization.id:
+            return Response({'detail': 'You can only book your own organization\'s vehicles.'}, status=status.HTTP_403_FORBIDDEN)
+
+        customer, _ = get_or_create_customer_account(
+            full_name=data['customer_name'], phone_number=data['customer_phone'], email=data['customer_email'],
+        )
+
+        booking = Booking(
+            user=customer, vehicle=data['vehicle'], driver=data.get('driver'), service_type=data['service_type'],
+            source=BookingSource.ADMIN, status=BookingStatus.CONFIRMED,
+            customer_name=data['customer_name'], customer_phone=data['customer_phone'],
+            customer_email=data['customer_email'], pickup_location=data['pickup_location'],
+            dropoff_location=data['dropoff_location'], start_date=data['start_date'],
+            end_date=data['end_date'], notes=data['notes'],
+        )
+        booking.save()
+        log_admin_action(request, 'booking.create_direct', booking)
+
+        from django.conf import settings
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+
+        notify(
+            NotificationEvent.BOOKING_CREATED,
+            f'{booking.vehicle.name} booked by {booking.customer_name} for {booking.rental_days} day(s)',
+            organization=booking.vehicle.owner, link_path='/admin/bookings',
+        )
+
+        return Response(
+            {
+                'booking': BookingSerializer(booking, context={'request': request}).data,
+                'payment_url': f'{settings.FRONTEND_URL}/pay/{booking.customer_token}',
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=['post'], url_path='record-invoice-payment')
     def record_invoice_payment(self, request, pk=None):
