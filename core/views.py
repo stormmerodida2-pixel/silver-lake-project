@@ -936,14 +936,14 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
                 booking.mark_cancelled(driver_at_fault=driver_at_fault)
             except DjangoValidationError as exc:
                 return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
-            return Response(BookingSerializer(booking).data)
+            return Response(BookingSerializer(booking, context={'request': request}).data)
 
         if new_status == BookingStatus.ONGOING:
             try:
                 booking.start_trip()
             except DjangoValidationError as exc:
                 return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
-            return Response(BookingSerializer(booking).data)
+            return Response(BookingSerializer(booking, context={'request': request}).data)
 
         if new_status == BookingStatus.COMPLETED:
             # balance_due <= 0 is already guaranteed by the guard above, so this always
@@ -953,11 +953,11 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
                 booking.end_trip()
             except DjangoValidationError as exc:
                 return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
-            return Response(BookingSerializer(booking).data)
+            return Response(BookingSerializer(booking, context={'request': request}).data)
 
         booking.status = new_status
         booking.save(update_fields=['status'])
-        return Response(BookingSerializer(booking).data)
+        return Response(BookingSerializer(booking, context={'request': request}).data)
 
     @action(detail=True, methods=['post'])
     def remind_balance(self, request, pk=None):
@@ -982,7 +982,7 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         booking.save(update_fields=['last_balance_reminder_at'])
         send_booking_balance_reminder_email(booking)
         log_admin_action(request, 'booking.remind_balance', booking)
-        return Response(BookingSerializer(booking).data)
+        return Response(BookingSerializer(booking, context={'request': request}).data)
 
     @action(detail=False, methods=['post'], url_path='create-corporate')
     def create_corporate(self, request):
@@ -1019,7 +1019,7 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         booking.confirm_corporate_account()
         log_admin_action(request, 'booking.create_corporate', booking, detail=data['corporate_account'].name)
 
-        return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
+        return Response(BookingSerializer(booking, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='record-invoice-payment')
     def record_invoice_payment(self, request, pk=None):
@@ -1048,7 +1048,7 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
             amount=amount, note=reference,
         )
         log_admin_action(request, 'booking.record_invoice_payment', booking, detail=f'KES {amount}')
-        return Response(BookingSerializer(booking).data)
+        return Response(BookingSerializer(booking, context={'request': request}).data)
 
     @action(detail=True, methods=['get', 'post'], url_path='condition-reports')
     def condition_reports(self, request, pk=None):
@@ -1551,7 +1551,7 @@ class AdminReviewViewSet(
         if review.driver_id:
             review.driver.recalculate_rating()
         log_admin_action(request, 'review.approve', review)
-        return Response(AdminReviewSerializer(review).data)
+        return Response(AdminReviewSerializer(review, context={'request': request}).data)
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
@@ -1562,7 +1562,7 @@ class AdminReviewViewSet(
         if review.driver_id:
             review.driver.recalculate_rating()
         log_admin_action(request, 'review.reject', review)
-        return Response(AdminReviewSerializer(review).data)
+        return Response(AdminReviewSerializer(review, context={'request': request}).data)
 
     def perform_destroy(self, instance):
         driver = instance.driver

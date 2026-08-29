@@ -156,7 +156,7 @@ class BookingViewSet(
             booking.mark_cancelled(driver_at_fault=driver_at_fault)
         except ValidationError as exc:
             return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(BookingSerializer(booking).data)
+        return Response(BookingSerializer(booking, context={'request': request}).data)
 
     @action(detail=True, methods=['post'])
     def change_dates(self, request, pk=None):
@@ -173,7 +173,7 @@ class BookingViewSet(
             booking.change_dates(new_start_date, new_end_date)
         except ValidationError as exc:
             return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(BookingSerializer(booking).data)
+        return Response(BookingSerializer(booking, context={'request': request}).data)
 
     @action(detail=True, methods=['post'])
     def review(self, request, pk=None):
@@ -196,7 +196,7 @@ class BookingViewSet(
             customer_name=booking.customer_name,
             **serializer.validated_data,
         )
-        return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
+        return Response(BookingSerializer(booking, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['get'])
     def receipt(self, request, pk=None):
@@ -303,7 +303,7 @@ class DriverOnsiteBookingCreateView(APIView):
 
         return Response(
             {
-                'booking': BookingSerializer(booking).data,
+                'booking': BookingSerializer(booking, context={'request': request}).data,
                 'payment_url': f'{settings.FRONTEND_URL}/pay/{booking.customer_token}',
             },
             status=status.HTTP_201_CREATED,
@@ -355,7 +355,7 @@ class DriverDeclarePaymentView(APIView):
         except PaymentValidationError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(BookingSerializer(booking).data)
+        return Response(BookingSerializer(booking, context={'request': request}).data)
 
 
 class DriverConfirmPaymentView(APIView):
@@ -465,7 +465,7 @@ class DriverBookingCompleteView(APIView):
 
         send_trip_completed_email(booking)
 
-        return Response(BookingSerializer(booking).data)
+        return Response(BookingSerializer(booking, context={'request': request}).data)
 
 
 class DriverBookingStartTripView(APIView):
@@ -481,7 +481,7 @@ class DriverBookingStartTripView(APIView):
             booking.start_trip()
         except ValidationError as exc:
             return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(BookingSerializer(booking).data)
+        return Response(BookingSerializer(booking, context={'request': request}).data)
 
 
 class DriverBookingEndTripView(APIView):
@@ -498,7 +498,7 @@ class DriverBookingEndTripView(APIView):
             booking.end_trip()
         except ValidationError as exc:
             return Response({'detail': exc.message}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(BookingSerializer(booking).data)
+        return Response(BookingSerializer(booking, context={'request': request}).data)
 
 
 class DriverBookingLocationView(APIView):
@@ -622,7 +622,7 @@ class DriverBookingAcknowledgeView(APIView):
                 f'{driver.full_name} acknowledged booking #{booking.pk} for {booking.customer_name}',
                 organization=booking.vehicle.owner, link_path='/admin/bookings',
             )
-        return Response(BookingSerializer(booking).data)
+        return Response(BookingSerializer(booking, context={'request': request}).data)
 
 
 class DriverConditionReportView(APIView):
