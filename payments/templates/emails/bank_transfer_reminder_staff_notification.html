@@ -1,0 +1,26 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">A customer declared a bank transfer a while ago and it's still
+unconfirmed - unlike cash or M-Pesa, only checking your own bank statement can resolve this.</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px; border-collapse:collapse;">
+  <tr>
+    <td style="padding:6px 0; color:#64748b; width:140px;">Amount</td>
+    <td style="padding:6px 0; font-weight:bold;">KES {{ amount }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Reference</td>
+    <td style="padding:6px 0;">{{ reference }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Booking</td>
+    <td style="padding:6px 0;">#{{ booking_id }} — {{ customer_name }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b; vertical-align:top;">Balance remaining</td>
+    <td style="padding:6px 0;">KES {{ balance_due }}</td>
+  </tr>
+</table>
+
+{% include "emails/_button.html" with url=payments_url label="View Payments" %}
+{% endblock %}

@@ -66,6 +66,14 @@ ESCALATE_AFTER = timedelta(days=3)
 # should be deposited promptly regardless of how much of the rental period is left.
 CASH_DEPOSIT_REMINDER_GRACE_PERIOD = timedelta(hours=2)
 
+# How long a declared bank transfer sits unconfirmed before the first automatic staff reminder
+# fires - longer than cash's grace period, since resolving this means staff checking a bank
+# statement (plausibly only reviewed once or twice a day), not a driver who can act on a nudge
+# within minutes. Like CASH_DEPOSIT_REMINDER_GRACE_PERIOD, not tied to the booking's end date at
+# all (see remind_pending_bank_transfers) - the money either landed or it didn't, regardless of
+# how much of the rental period is left.
+BANK_TRANSFER_REMINDER_GRACE_PERIOD = timedelta(hours=4)
+
 
 def escalate_stuck_bookings():
     """The automated counterpart to the manual Remind Driver/Remind Deposit/Remind Balance
@@ -183,6 +191,46 @@ def remind_undeposited_cash():
         notify(
             NotificationEvent.CASH_DEPOSIT_REMINDER, 'Please redeposit the cash you collected into the Paybill',
             driver=payment.recorded_by_driver, link_path='/driver',
+        )
+
+
+def remind_pending_bank_transfers():
+    """Nudges staff about a declared bank transfer that's still unconfirmed - runs on every
+    scheduler tick (see payments.scheduler), independent of the booking's own end date. The gap
+    this closes: cash gets an automatic driver nudge (see remind_undeposited_cash) and M-Pesa
+    either resolves via callback within seconds or auto-expires (see
+    expire_stale_mpesa_payments) - a bank transfer had neither. Nobody but staff, checking their
+    own bank statement, can ever resolve it, and previously nothing prompted them to until
+    escalate_stuck_bookings kicked in days after the booking's scheduled end date, by which point
+    it may have sat unconfirmed for a very long time regardless of how soon the customer actually
+    paid.
+
+    Waits BANK_TRANSFER_REMINDER_GRACE_PERIOD before the first reminder, so staff aren't paged
+    the instant a customer declares one - they need real time to actually check the statement.
+    Re-reminds on AUTO_REMINDER_COOLDOWN thereafter, the same cooldown field/rate every other
+    automated reminder here uses, so this never duplicates a manual nudge (or vice versa)."""
+    from notifications.models import NotificationEvent
+    from notifications.services import notify
+
+    from .emails import send_bank_transfer_reminder_staff_notification_email
+
+    now = timezone.now()
+    cutoff = now - BANK_TRANSFER_REMINDER_GRACE_PERIOD
+
+    pending = Payment.objects.filter(
+        method=PaymentMethod.BANK_TRANSFER, status=PaymentStatus.PENDING, created_at__lt=cutoff,
+    ).select_related('booking__vehicle__owner')
+
+    for payment in pending:
+        if payment.last_reminded_at and now - payment.last_reminded_at < AUTO_REMINDER_COOLDOWN:
+            continue
+        payment.last_reminded_at = now
+        payment.save(update_fields=['last_reminded_at'])
+        send_bank_transfer_reminder_staff_notification_email(payment)
+        notify(
+            NotificationEvent.BANK_TRANSFER_UNCONFIRMED,
+            f'Bank transfer for booking #{payment.booking_id} still needs confirming',
+            organization=payment.booking.vehicle.owner, link_path='/admin/payments',
         )
 
 
