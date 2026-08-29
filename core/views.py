@@ -20,7 +20,10 @@ from accounts.serializers import UserSerializer
 from accounts.services import get_or_create_customer_account
 from bookings.models import Booking, BookingSource, BookingStatus, ProtectionPlan
 from bookings.serializers import (
-    AdminCorporateBookingSerializer, AdminDirectBookingSerializer, BookingSerializer, VehicleConditionReportSerializer,
+    AdminCorporateBookingSerializer,
+    AdminDirectBookingSerializer,
+    BookingSerializer,
+    VehicleConditionReportSerializer,
 )
 from bookings.services import create_condition_report
 from drivers.models import ApplicationStatus, Driver, DriverApplication
@@ -1057,6 +1060,7 @@ class AdminBookingViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet
         log_admin_action(request, 'booking.create_direct', booking)
 
         from django.conf import settings
+
         from notifications.models import NotificationEvent
         from notifications.services import notify
 
