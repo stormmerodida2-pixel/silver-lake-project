@@ -213,6 +213,17 @@ async function downloadReceipt(booking) {
   }
 }
 
+// The customer_token-based no-login receipt link (see payments.views.token_receipt) - the same
+// token PayBookingView.vue already uses for the payment page itself, just pointed at the API's
+// own /receipt/ endpoint directly rather than a frontend page, since there's no page to render
+// here - just a PDF for whoever opens the link (an employer for reimbursement, etc.) to view.
+function receiptShareUrl(booking) {
+  return `${import.meta.env.VITE_API_BASE_URL}/pay/${booking.customer_token}/receipt/`
+}
+function receiptWhatsAppHref(booking) {
+  return `https://wa.me/?text=${encodeURIComponent(`Here's my SilverLake booking receipt: ${receiptShareUrl(booking)}`)}`
+}
+
 onMounted(() => {
   loadBookings()
   catalog.fetchDrivers()
@@ -317,6 +328,15 @@ onMounted(() => {
             >
               {{ downloadingId === booking.id ? 'Downloading...' : 'Download Receipt' }}
             </button>
+            <a
+              v-if="Number(booking.amount_paid) > 0"
+              :href="receiptWhatsAppHref(booking)"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="rounded-md border border-emerald-500 px-3 py-1.5 text-sm font-semibold text-success transition hover:bg-emerald-500 hover:text-on-accent"
+            >
+              Share Receipt via WhatsApp
+            </a>
             <RouterLink
               :to="{ path: '/account/support', query: { booking: booking.id } }"
               class="rounded-md border border-border px-3 py-1.5 text-sm font-semibold text-foreground transition hover:bg-surface-2"

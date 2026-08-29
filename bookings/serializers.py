@@ -61,6 +61,11 @@ class BookingSerializer(serializers.ModelSerializer):
     # None until the trip is actually completed (see Booking.trip_milestone_number) - a "this was
     # your 3rd trip" note on the confirmation screen once it's done.
     trip_milestone_number = serializers.IntegerField(read_only=True)
+    # Exposed so the customer/staff viewing their own booking can build the same no-login
+    # /pay/<token>/ and /pay/<token>/receipt/ links (see payments.views.token_*) to share
+    # themselves - safe to show here since only the booking's own owner or staff already
+    # scoped to it (see BookingViewSet.get_queryset/AdminBookingViewSet.get_queryset) ever
+    # sees this serializer's output for a given booking in the first place.
 
     class Meta:
         model = Booking
@@ -79,12 +84,12 @@ class BookingSerializer(serializers.ModelSerializer):
             'is_acknowledgment_overdue', 'pending_payments',
             'pending_cash_deposits', 'last_balance_reminder_at',
             'corporate_account', 'corporate_account_name', 'corporate_account_reference',
-            'trip_milestone_number',
+            'trip_milestone_number', 'customer_token',
         ]
         read_only_fields = [
             'status', 'source', 'total_amount', 'discount_amount', 'loyalty_discount_amount', 'created_at',
             'driver_acknowledged_at', 'trip_started_at', 'trip_ended_at', 'protection_plan_amount',
-            'last_balance_reminder_at', 'corporate_account', 'corporate_account_reference',
+            'last_balance_reminder_at', 'corporate_account', 'corporate_account_reference', 'customer_token',
         ]
 
     def get_vehicle_name(self, obj):

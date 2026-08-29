@@ -2,7 +2,7 @@ import hmac
 from datetime import timedelta
 
 from decouple import config
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
@@ -324,6 +324,30 @@ def token_payment_detail(request, token):
 
 
 token_payment_detail.cls.throttle_scope = 'token-payment-view'
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([ScopedRateThrottle])
+def token_receipt(request, token):
+    """No-login receipt PDF for a booking, reached via the same customer_token as the payment
+    page above - lets a customer WhatsApp/forward their own receipt (e.g. to an employer for
+    reimbursement) without needing whoever they're sending it to to log in, and lets staff share
+    it the same way. Same "at least one payment has actually succeeded" gate as the authenticated
+    receipt endpoint (BookingViewSet.receipt) - nothing to receipt otherwise."""
+    booking = _get_booking_by_token(token)
+    if booking.amount_paid <= 0:
+        raise Http404('No payment has been recorded for this booking yet.')
+
+    from bookings.receipts import generate_receipt_pdf
+
+    pdf_bytes = generate_receipt_pdf(booking)
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="SilverLake-Receipt-{booking.id}.pdf"'
+    return response
+
+
+token_receipt.cls.throttle_scope = 'token-receipt-view'
 
 
 @api_view(['POST'])
