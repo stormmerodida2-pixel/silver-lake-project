@@ -9,6 +9,10 @@ class NotificationEvent(models.TextChoices):
     BOOKING_CANCELLED = 'booking_cancelled', 'Booking Cancelled'
     CASH_PAYMENT_RECORDED = 'cash_payment_recorded', 'Cash Payment Recorded'
     CASH_DEPOSIT_LOGGED = 'cash_deposit_logged', 'Cash Deposit Logged'
+    # Fires the moment a Refund record is first created (a cancellation, or a late payment/date
+    # change that leaves a customer owed money) - previously nothing told staff a refund was now
+    # owed at all, only the Admin Refunds page for anyone who happened to check it.
+    REFUND_OWED = 'refund_owed', 'Refund Owed'
     PAYMENT_ESCALATED = 'payment_escalated', 'Payment Needs Attention'
     ACKNOWLEDGMENT_OVERDUE = 'acknowledgment_overdue', 'Driver Acknowledgment Overdue'
     PAYMENT_DISPUTED = 'payment_disputed', 'Payment Disputed'
