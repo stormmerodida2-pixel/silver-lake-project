@@ -22,6 +22,9 @@ class NotificationEvent(models.TextChoices):
     # fleet-adjacent events above; also fires driver-scoped for an individually driver-owned car.
     VEHICLE_DOCUMENT_EXPIRING = 'vehicle_document_expiring', 'Vehicle Document Expiring'
     VEHICLE_DOCUMENT_EXPIRED = 'vehicle_document_expired', 'Vehicle Document Expired'
+    # A DriverPayout has sat unpaid (or unverified) past PAYOUT_REMINDER_GRACE_PERIOD - see
+    # payments.services.remind_aging_unpaid_payouts.
+    PAYOUT_AGING = 'payout_aging', 'Payout Aging'
     PAYMENT_ESCALATED = 'payment_escalated', 'Payment Needs Attention'
     ACKNOWLEDGMENT_OVERDUE = 'acknowledgment_overdue', 'Driver Acknowledgment Overdue'
     PAYMENT_DISPUTED = 'payment_disputed', 'Payment Disputed'

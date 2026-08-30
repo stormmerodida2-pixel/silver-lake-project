@@ -1,12 +1,14 @@
 """In-process background scheduler for periodic cleanup tasks. This project has no Celery/cron
 of its own, so rather than requiring someone to configure an external OS-level Task Scheduler or
 cron entry, a lightweight daemon thread does it automatically for as long as the Django process
-is alive. Runs nine independent sweeps on the same interval:
+is alive. Runs ten independent sweeps on the same interval:
 payments.services.expire_stale_mpesa_payments (abandoned STK pushes),
 payments.services.remind_undeposited_cash (nudging a driver to deposit collected cash, starting
 soon after they confirm receiving it - independent of the booking's own end date),
 payments.services.remind_pending_bank_transfers (nudging staff about a declared bank transfer
 that's still unconfirmed, after a short grace period),
+payments.services.remind_aging_unpaid_payouts (nudging staff about a driver/organization payout
+that's sat unpaid or unverified for a long while),
 payments.services.escalate_stuck_bookings (auto-reminding, then escalating to staff, a booking
 whose payment/deposit has sat unresolved past its scheduled end date),
 bookings.services.escalate_unacknowledged_bookings (alerting staff once an online booking's
@@ -99,6 +101,7 @@ def _sweep_loop():
     from .services import (
         escalate_stuck_bookings,
         expire_stale_mpesa_payments,
+        remind_aging_unpaid_payouts,
         remind_pending_bank_transfers,
         remind_undeposited_cash,
     )
@@ -122,6 +125,11 @@ def _sweep_loop():
             remind_pending_bank_transfers()
         except Exception:
             _record_sweep_failure('Pending-bank-transfer reminder sweep failed')
+
+        try:
+            remind_aging_unpaid_payouts()
+        except Exception:
+            _record_sweep_failure('Aging-payout reminder sweep failed')
 
         try:
             escalate_stuck_bookings()

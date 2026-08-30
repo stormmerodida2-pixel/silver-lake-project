@@ -1402,6 +1402,103 @@ class RemindPendingBankTransfersTests(APITestCase):
         self.assertIsNotNone(payment.last_reminded_at)
 
 
+class RemindAgingUnpaidPayoutsTests(APITestCase):
+    """Once a with-driver booking completes, Booking._ensure_driver_payout creates a
+    DriverPayout - but until this sweep, nothing ever prompted staff to actually verify or pay
+    it. Same shape as RemindPendingBankTransfersTests above, just on a much slower clock (see
+    PAYOUT_REMINDER_GRACE_PERIOD)."""
+
+    def setUp(self):
+        User.objects.create_user(
+            username='payout-reminder-staff@example.com', email='payout-reminder-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        self.driver = Driver.objects.create(full_name='Payout Driver', email='payout-driver@example.com', is_active=True)
+        self.vehicle = make_vehicle(driver=self.driver)
+        self.customer = User.objects.create_user(username='payout-reminder-client@example.com', password='pass12345!')
+        self.booking = make_booking(self.customer, self.vehicle, driver=self.driver, status=BookingStatus.COMPLETED)
+        mail.outbox = []
+
+    def _run(self):
+        from payments.services import remind_aging_unpaid_payouts
+
+        remind_aging_unpaid_payouts()
+
+    def _aging_payout(self, days_old=8, **overrides):
+        defaults = dict(booking=self.booking, driver=self.driver, amount=Decimal('1000'), is_paid=False)
+        defaults.update(overrides)
+        payout = DriverPayout.objects.create(**defaults)
+        DriverPayout.objects.filter(pk=payout.pk).update(created_at=timezone.now() - timedelta(days=days_old))
+        payout.refresh_from_db()
+        return payout
+
+    def test_no_reminder_before_the_grace_period_elapses(self):
+        payout = self._aging_payout(days_old=2)
+        self._run()
+        payout.refresh_from_db()
+        self.assertIsNone(payout.aging_reminder_sent_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_reminder_fires_once_the_grace_period_has_passed(self):
+        payout = self._aging_payout()
+        self._run()
+        payout.refresh_from_db()
+        self.assertIsNotNone(payout.aging_reminder_sent_at)
+        self.assertTrue(any('still unpaid' in m.subject.lower() for m in mail.outbox))
+        self.assertTrue(any('Payout Driver' in m.body for m in mail.outbox))
+
+    def test_cooldown_prevents_an_immediate_second_reminder(self):
+        self._aging_payout(aging_reminder_sent_at=timezone.now())
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_a_paid_payout_is_left_alone(self):
+        payout = self._aging_payout(is_paid=True, paid_at=timezone.now())
+        self._run()
+        payout.refresh_from_db()
+        self.assertIsNone(payout.aging_reminder_sent_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_a_voided_payout_is_left_alone(self):
+        self._aging_payout(is_voided=True, voided_at=timezone.now())
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_needs_verification_wording_when_still_unverified(self):
+        self._aging_payout(needs_verification=True, is_verified=False)
+        self._run()
+        self.assertTrue(any('awaiting verification' in m.body.lower() for m in mail.outbox))
+
+    def test_ready_to_pay_wording_once_already_verified(self):
+        self._aging_payout(needs_verification=True, is_verified=True)
+        self._run()
+        self.assertFalse(any('awaiting verification' in m.body.lower() for m in mail.outbox))
+        self.assertTrue(any('sat unpaid for a while' in m.body.lower() for m in mail.outbox))
+
+    def test_notification_is_platform_wide_for_an_individually_driver_owned_vehicle(self):
+        from notifications.models import Notification, NotificationEvent
+
+        self._aging_payout()
+        self._run()
+        notification = Notification.objects.get(event=NotificationEvent.PAYOUT_AGING)
+        self.assertIsNone(notification.organization)
+
+    def test_notification_is_organization_scoped_for_a_fleet_partner_owned_vehicle(self):
+        from notifications.models import Notification, NotificationEvent
+
+        partner = FleetPartner.objects.create(name='Acme Fleet', contact_email='acme@example.com')
+        partner_vehicle = make_vehicle(owner=partner, is_company_owned=False)
+        partner_booking = make_booking(self.customer, partner_vehicle, status=BookingStatus.COMPLETED)
+        payout = DriverPayout.objects.create(
+            booking=partner_booking, organization=partner, amount=Decimal('500'), is_paid=False,
+        )
+        DriverPayout.objects.filter(pk=payout.pk).update(created_at=timezone.now() - timedelta(days=8))
+        self._run()
+        notification = Notification.objects.get(event=NotificationEvent.PAYOUT_AGING)
+        self.assertEqual(notification.organization, partner)
+        self.assertTrue(any('Acme Fleet' in m.body for m in mail.outbox))
+
+
 class RedeemReferralCreditTests(APITestCase):
     """A customer applying their own referral credit toward their own booking - see
     payments.services.redeem_referral_credit. The driver's own payout is based on total_amount
