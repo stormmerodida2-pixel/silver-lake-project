@@ -421,6 +421,52 @@ class BookingCancelActionTests(APITestCase):
         self.assertEqual(refund.amount, booking.deposit_amount)
         self.assertEqual(refund.status, 'pending')
 
+    def test_cancelling_a_paid_booking_notifies_staff_of_the_refund_owed(self):
+        from notifications.models import Notification, NotificationEvent
+
+        User.objects.create_user(
+            username='refund-notif-staff@example.com', email='refund-notif-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA,
+            amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        mail.outbox = []
+        self.client.post(f'/api/bookings/{booking.id}/cancel/')
+
+        notification = Notification.objects.get(event=NotificationEvent.REFUND_OWED)
+        self.assertIn(str(booking.id), notification.message)
+        self.assertTrue(any('refund owed' in m.subject.lower() for m in mail.outbox))
+
+    def test_a_late_payment_bumping_an_existing_refund_does_not_re_notify_staff(self):
+        from notifications.models import Notification, NotificationEvent
+
+        User.objects.create_user(
+            username='refund-notif-staff2@example.com', email='refund-notif-staff2@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.PENDING)
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA,
+            amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        booking.mark_cancelled()
+        self.assertEqual(Notification.objects.filter(event=NotificationEvent.REFUND_OWED).count(), 1)
+
+        # More money lands after cancellation - bumps the existing refund's amount, but it's the
+        # same already-known refund, not a new one - shouldn't notify staff a second time.
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA,
+            amount=booking.deposit_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        mail.outbox = []
+        booking.confirm_if_deposit_met()
+
+        self.assertEqual(Notification.objects.filter(event=NotificationEvent.REFUND_OWED).count(), 1)
+        self.assertEqual(len(mail.outbox), 0)
+
     def test_cancelling_a_fully_paid_booking_voids_its_unpaid_driver_payout(self):
         driver = Driver.objects.create(full_name='Cancel Driver', is_active=True)
         driver_owned_vehicle = make_vehicle(name='Cancel Driver Car', driver=driver)
@@ -587,6 +633,38 @@ class ChangeDatesActionTests(APITestCase):
         self.assertEqual(Refund.objects.filter(booking=booking).count(), 1)
         refund = Refund.objects.get(booking=booking)
         self.assertEqual(refund.amount, Decimal('6000.00'))
+
+    def test_shortening_a_fully_paid_trip_notifies_staff_of_the_refund_owed(self):
+        from notifications.models import Notification, NotificationEvent
+
+        User.objects.create_user(
+            username='refund-notif-staff3@example.com', email='refund-notif-staff3@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        booking = make_booking(self.user, self.vehicle, status=BookingStatus.CONFIRMED)  # 7000 total
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA, amount=Decimal('7000'), status=PaymentStatus.SUCCESSFUL,
+        )
+        mail.outbox = []
+        self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(TOMORROW), 'end_date': str(TOMORROW + timedelta(days=1))},  # 5000 overpaid
+        )
+        notification = Notification.objects.get(event=NotificationEvent.REFUND_OWED)
+        self.assertIn(str(booking.id), notification.message)
+        self.assertTrue(any('refund owed' in m.subject.lower() for m in mail.outbox))
+
+        # Shortening again bumps the same refund's amount - already known to staff, shouldn't
+        # notify a second time. change_dates always emails the customer about the new dates
+        # regardless (see test_changing_dates_emails_the_customer) - what matters here is that
+        # no *refund* email/notification duplicates alongside it.
+        mail.outbox = []
+        self.client.post(
+            f'/api/bookings/{booking.id}/change_dates/',
+            {'start_date': str(TOMORROW), 'end_date': str(TOMORROW)},  # 6000 overpaid
+        )
+        self.assertEqual(Notification.objects.filter(event=NotificationEvent.REFUND_OWED).count(), 1)
+        self.assertFalse(any('refund owed' in m.subject.lower() for m in mail.outbox))
 
     def test_changing_dates_back_up_removes_a_now_stale_pending_refund(self):
         booking = make_booking(self.user, self.vehicle, status=BookingStatus.CONFIRMED)  # 7000 total

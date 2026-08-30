@@ -641,6 +641,25 @@ class Booking(models.Model):
             return (self.amount_paid / Decimal('2')).quantize(Decimal('0.01'))
         return self.amount_paid
 
+    def _notify_staff_refund_owed(self, refund):
+        """Shared by every place a Refund first gets created (mark_cancelled,
+        _reconcile_refund_after_late_payment, change_dates) - fires once, only when the Refund
+        row is genuinely new, not when an existing PENDING one just has its amount bumped (that
+        refund was already visible/known to staff; only its brand-new existence is worth an
+        alert). Immediate, not on a delay - unlike an unconfirmed bank transfer (fine to sit for a
+        few hours while staff check a statement), a customer being owed money is worth flagging
+        right away, and refunds are manual by design (see Refund's own docstring) so nothing else
+        would ever surface this otherwise."""
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+        from payments.emails import send_refund_owed_staff_notification_email
+
+        send_refund_owed_staff_notification_email(refund)
+        notify(
+            NotificationEvent.REFUND_OWED, f'KES {refund.amount:,.2f} refund owed for booking #{self.pk}',
+            organization=self.vehicle.owner, link_path='/admin/refunds',
+        )
+
     def _reconcile_refund_after_late_payment(self):
         """A payment landing on an already-cancelled booking still needs to be accounted for -
         either bumps an existing pending Refund up to the real amount owed, or creates one if
@@ -652,7 +671,9 @@ class Booking(models.Model):
 
         owed = self._owed_refund_amount()
         refund, created = Refund.objects.get_or_create(booking=self, defaults={'amount': owed})
-        if not created and refund.status == RefundStatus.PENDING and refund.amount != owed:
+        if created:
+            self._notify_staff_refund_owed(refund)
+        elif refund.status == RefundStatus.PENDING and refund.amount != owed:
             refund.amount = owed
             refund.save(update_fields=['amount'])
 
@@ -683,7 +704,9 @@ class Booking(models.Model):
         if self.amount_paid > 0:
             from payments.models import Refund
 
-            Refund.objects.get_or_create(booking=self, defaults={'amount': self._owed_refund_amount()})
+            refund, created = Refund.objects.get_or_create(booking=self, defaults={'amount': self._owed_refund_amount()})
+            if created:
+                self._notify_staff_refund_owed(refund)
 
         if hasattr(self, 'driver_payout') and not self.driver_payout.is_paid:
             self.driver_payout.void()
@@ -775,7 +798,9 @@ class Booking(models.Model):
         excess = self.amount_paid - self.total_amount
         if excess > 0:
             refund, created = Refund.objects.get_or_create(booking=self, defaults={'amount': excess})
-            if not created and refund.status == RefundStatus.PENDING and refund.amount != excess:
+            if created:
+                self._notify_staff_refund_owed(refund)
+            elif refund.status == RefundStatus.PENDING and refund.amount != excess:
                 refund.amount = excess
                 refund.save(update_fields=['amount'])
         elif existing_refund and existing_refund.status == RefundStatus.PENDING:

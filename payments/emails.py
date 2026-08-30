@@ -189,6 +189,38 @@ def send_refund_issued_email(refund):
         pass
 
 
+def send_refund_owed_staff_notification_email(refund):
+    """Notifies every active staff account the moment a Refund record is first created - a
+    cancellation, or a late payment/date change that leaves a customer owed money (see
+    Booking.mark_cancelled, ._reconcile_refund_after_late_payment, .change_dates). Refunds are
+    manual by design (no automated M-Pesa refund API wired up - see Refund's own docstring), so
+    without this, nothing told staff a refund was even owed in the first place; the Admin Refunds
+    page only helps whoever happens to think to check it. This is the one payment-adjacent staff
+    alert here that fires immediately rather than after a grace period (unlike
+    send_bank_transfer_reminder_staff_notification_email) - unlike an unconfirmed bank transfer,
+    which is genuinely fine to sit for a few hours while staff check a statement, a customer being
+    owed money is worth flagging right away."""
+    staff_emails = list(
+        User.objects.filter(is_staff=True, is_active=True).exclude(email='').values_list('email', flat=True)
+    )
+    if not staff_emails:
+        return
+
+    booking = refund.booking
+    send_branded_email(
+        subject=f'Refund owed — SilverLake booking #{booking.pk}',
+        template_name='emails/refund_owed_staff_notification.html',
+        context={
+            'amount': f'{refund.amount:,.2f}',
+            'customer_name': booking.customer_name,
+            'booking_id': booking.pk,
+            'refunds_url': f'{settings.FRONTEND_URL}/admin/refunds',
+        },
+        recipient_list=[settings.DEFAULT_FROM_EMAIL],
+        bcc=staff_emails,
+    )
+
+
 def send_payout_paid_email(payout):
     """Sent when a payout is marked paid - the recipient's one confirmation/receipt that the
     money actually went out, beyond checking their own account. The recipient is either the
