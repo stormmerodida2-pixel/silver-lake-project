@@ -1,0 +1,28 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+{% if needs_verification %}
+<p style="margin:0 0 16px;">A driver payout has sat awaiting verification for a while - it was
+confirmed via a self-reported cash/card payment and can't be paid until someone reconciles and
+verifies it.</p>
+{% else %}
+<p style="margin:0 0 16px;">A driver payout has sat unpaid for a while - worth checking whether
+it's just waiting for the next payment run, or genuinely been missed.</p>
+{% endif %}
+
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px; border-collapse:collapse;">
+  <tr>
+    <td style="padding:6px 0; color:#64748b; width:140px;">Amount</td>
+    <td style="padding:6px 0; font-weight:bold;">KES {{ amount }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Owed to</td>
+    <td style="padding:6px 0;">{{ recipient_name }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Booking</td>
+    <td style="padding:6px 0;">#{{ booking_id }}</td>
+  </tr>
+</table>
+
+{% include "emails/_button.html" with url=payouts_url label="View Payouts" %}
+{% endblock %}

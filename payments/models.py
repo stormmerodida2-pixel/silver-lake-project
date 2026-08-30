@@ -156,6 +156,12 @@ class DriverPayout(models.Model):
     # underlying booking, not the disbursement mechanism.
     b2c_failed_at = models.DateTimeField(null=True, blank=True)
 
+    # Set by payments.services.remind_aging_unpaid_payouts the first (and each subsequent) time
+    # staff get an automated nudge that this payout has sat unpaid too long - see that
+    # function's own docstring for why this uses a much longer grace period/cooldown than every
+    # other reminder field in this file.
+    aging_reminder_sent_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

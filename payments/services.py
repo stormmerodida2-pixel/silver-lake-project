@@ -11,7 +11,7 @@ from django.utils import timezone
 from bookings.models import Booking, BookingStatus
 
 from . import mpesa
-from .models import CashDeposit, Payment, PaymentMethod, PaymentStatus, RefundStatus
+from .models import CashDeposit, DriverPayout, Payment, PaymentMethod, PaymentStatus, RefundStatus
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,17 @@ CASH_DEPOSIT_REMINDER_GRACE_PERIOD = timedelta(hours=2)
 # all (see remind_pending_bank_transfers) - the money either landed or it didn't, regardless of
 # how much of the rental period is left.
 BANK_TRANSFER_REMINDER_GRACE_PERIOD = timedelta(hours=4)
+
+# How long a DriverPayout can sit unpaid before staff get an automated nudge - deliberately far
+# longer than every grace period above. Unlike a bank transfer or a refund, which are urgent the
+# moment they're seen, a payout is routinely settled every few days/weeks as a matter of course
+# (see remind_aging_unpaid_payouts) - this must never fire on a payout that just hasn't reached
+# its normal payment run yet, only one that's genuinely been forgotten.
+PAYOUT_REMINDER_GRACE_PERIOD = timedelta(days=7)
+# Distinct from AUTO_REMINDER_COOLDOWN (1 hour) - re-paging staff about the same unpaid payout
+# every hour would be pure noise at this timescale; every few days keeps it visible without
+# becoming background noise.
+PAYOUT_REMINDER_COOLDOWN = timedelta(days=3)
 
 
 def escalate_stuck_bookings():
@@ -231,6 +242,46 @@ def remind_pending_bank_transfers():
             NotificationEvent.BANK_TRANSFER_UNCONFIRMED,
             f'Bank transfer for booking #{payment.booking_id} still needs confirming',
             organization=payment.booking.vehicle.owner, link_path='/admin/payments',
+        )
+
+
+def remind_aging_unpaid_payouts():
+    """Nudges staff about a DriverPayout that's sat unpaid - or, if it still needs verification,
+    unverified - for PAYOUT_REMINDER_GRACE_PERIOD. Runs on every scheduler tick (see
+    payments.scheduler). The gap this closes: once a with-driver booking completes,
+    Booking._ensure_driver_payout creates the DriverPayout row, but nothing after that ever
+    prompts staff to actually verify or pay it - the only signal was the Admin Payouts page, for
+    whoever happened to check it. Money owed to a driver-partner or FleetPartner sitting
+    unpaid indefinitely is a real relationship/churn risk, the same shape as an unconfirmed bank
+    transfer or an unpaid refund, just on a slower clock (see PAYOUT_REMINDER_GRACE_PERIOD for
+    why the grace period/cooldown here are so much longer than every other reminder in this
+    file).
+
+    A voided payout (the booking behind it was cancelled - see DriverPayout.is_voided) is
+    correctly excluded: there's nothing left to pay."""
+    from notifications.models import NotificationEvent
+    from notifications.services import notify
+
+    from .emails import send_payout_aging_staff_notification_email
+
+    now = timezone.now()
+    cutoff = now - PAYOUT_REMINDER_GRACE_PERIOD
+
+    aging = DriverPayout.objects.filter(
+        is_paid=False, is_voided=False, created_at__lt=cutoff,
+    ).select_related('driver', 'organization', 'booking__vehicle__owner')
+
+    for payout in aging:
+        if payout.aging_reminder_sent_at and now - payout.aging_reminder_sent_at < PAYOUT_REMINDER_COOLDOWN:
+            continue
+        payout.aging_reminder_sent_at = now
+        payout.save(update_fields=['aging_reminder_sent_at'])
+        send_payout_aging_staff_notification_email(payout)
+        recipient_name = payout.driver.full_name if payout.driver_id else payout.organization.name
+        notify(
+            NotificationEvent.PAYOUT_AGING,
+            f'Payout of KES {payout.amount:,.2f} to {recipient_name} still unpaid',
+            organization=payout.booking.vehicle.owner, link_path='/admin/payouts',
         )
 
 

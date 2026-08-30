@@ -254,6 +254,36 @@ def send_refund_owed_staff_notification_email(refund):
     )
 
 
+def send_payout_aging_staff_notification_email(payout):
+    """Notifies every active staff account that a DriverPayout has sat unpaid (or, if it still
+    needs verification, unverified) for a while - see payments.services.remind_aging_unpaid_payouts
+    for the grace period. Staff-only, unlike send_payout_paid_email below: it's the recipient's
+    own money and they'd rather just receive it than be told it's late, so this deliberately
+    doesn't cc the driver/organization - the action needed (verify, then pay) is entirely on
+    staff's side."""
+    staff_emails = list(
+        User.objects.filter(is_staff=True, is_active=True).exclude(email='').values_list('email', flat=True)
+    )
+    if not staff_emails:
+        return
+
+    booking = payout.booking
+    recipient_name = payout.driver.full_name if payout.driver_id else payout.organization.name
+    send_branded_email(
+        subject=f'Payout still unpaid — SilverLake booking #{booking.pk}',
+        template_name='emails/payout_aging_staff_notification.html',
+        context={
+            'amount': f'{payout.amount:,.2f}',
+            'recipient_name': recipient_name,
+            'booking_id': booking.pk,
+            'needs_verification': payout.needs_verification and not payout.is_verified,
+            'payouts_url': f'{settings.FRONTEND_URL}/admin/payouts',
+        },
+        recipient_list=[settings.DEFAULT_FROM_EMAIL],
+        bcc=staff_emails,
+    )
+
+
 def send_payout_paid_email(payout):
     """Sent when a payout is marked paid - the recipient's one confirmation/receipt that the
     money actually went out, beyond checking their own account. The recipient is either the
