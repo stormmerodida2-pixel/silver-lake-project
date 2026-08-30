@@ -1498,6 +1498,63 @@ class BookingReviewActionTests(APITestCase):
         response = self.client.post(f'/api/bookings/{booking.id}/review/', {'rating': 6, 'comment': 'Too high'})
         self.assertEqual(response.status_code, 400)
 
+    def test_submitting_a_review_notifies_staff(self):
+        User.objects.create_user(
+            username='review-staff@example.com', email='review-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        booking = make_booking(self.user, self.vehicle, driver=self.driver, status=BookingStatus.COMPLETED)
+        mail.outbox = []
+        response = self.client.post(f'/api/bookings/{booking.id}/review/', {'rating': 5, 'comment': 'Excellent trip!'})
+        self.assertEqual(response.status_code, 201)
+
+        self.assertTrue(any('review-staff@example.com' in m.bcc for m in mail.outbox))
+        self.assertTrue(any('Excellent trip!' in m.body for m in mail.outbox))
+
+        from notifications.models import Notification, NotificationEvent
+
+        notification = Notification.objects.get(event=NotificationEvent.REVIEW_SUBMITTED)
+        self.assertIn('5/5', notification.message)
+
+    def test_a_low_rating_review_flags_the_subject_line(self):
+        User.objects.create_user(
+            username='review-staff-low@example.com', email='review-staff-low@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        booking = make_booking(self.user, self.vehicle, driver=self.driver, status=BookingStatus.COMPLETED)
+        mail.outbox = []
+        self.client.post(f'/api/bookings/{booking.id}/review/', {'rating': 1, 'comment': 'Terrible experience'})
+        self.assertTrue(any('low rating' in m.subject.lower() for m in mail.outbox))
+
+    def test_a_good_rating_review_does_not_flag_the_subject_line(self):
+        User.objects.create_user(
+            username='review-staff-good@example.com', email='review-staff-good@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        booking = make_booking(self.user, self.vehicle, driver=self.driver, status=BookingStatus.COMPLETED)
+        mail.outbox = []
+        self.client.post(f'/api/bookings/{booking.id}/review/', {'rating': 4, 'comment': 'Pretty good'})
+        self.assertFalse(any('low rating' in m.subject.lower() for m in mail.outbox))
+
+    def test_notification_is_organization_scoped_for_a_fleet_partner_owned_vehicle(self):
+        from notifications.models import Notification, NotificationEvent
+
+        partner = FleetPartner.objects.create(name='Acme Fleet')
+        partner_vehicle = make_vehicle(name='Partner Car', owner=partner, is_company_owned=False)
+        booking = make_booking(self.user, partner_vehicle, status=BookingStatus.COMPLETED)
+        response = self.client.post(f'/api/bookings/{booking.id}/review/', {'rating': 5, 'comment': 'Great!'})
+        self.assertEqual(response.status_code, 201)
+
+        notification = Notification.objects.get(event=NotificationEvent.REVIEW_SUBMITTED)
+        self.assertEqual(notification.organization, partner)
+
+    def test_no_email_sent_when_there_are_no_staff_accounts(self):
+        booking = make_booking(self.user, self.vehicle, driver=self.driver, status=BookingStatus.COMPLETED)
+        mail.outbox = []
+        response = self.client.post(f'/api/bookings/{booking.id}/review/', {'rating': 5, 'comment': 'Great!'})
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(mail.outbox), 0)
+
 
 class DriverOnsiteBookingCreateTests(APITestCase):
     """Covers /api/driver/bookings/create/ - a driver booking a walk-up client on the spot."""

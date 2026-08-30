@@ -1,0 +1,23 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+{% if is_low_rating %}
+<p style="margin:0 0 16px;">A customer just left a <strong>{{ rating }}/5</strong> review - worth
+a prompt look, and possibly a personal follow-up, before it's approved or rejected.</p>
+{% else %}
+<p style="margin:0 0 16px;">A customer just left a <strong>{{ rating }}/5</strong> review,
+awaiting moderation.</p>
+{% endif %}
+
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px; border-collapse:collapse;">
+  <tr>
+    <td style="padding:6px 0; color:#64748b; width:140px;">From</td>
+    <td style="padding:6px 0;">{{ customer_name }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b; vertical-align:top;">Comment</td>
+    <td style="padding:6px 0;">{{ comment }}</td>
+  </tr>
+</table>
+
+{% include "emails/_button.html" with url=reviews_url label="View in Reviews" %}
+{% endblock %}

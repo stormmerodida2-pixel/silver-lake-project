@@ -25,6 +25,10 @@ class NotificationEvent(models.TextChoices):
     # A DriverPayout has sat unpaid (or unverified) past PAYOUT_REMINDER_GRACE_PERIOD - see
     # payments.services.remind_aging_unpaid_payouts.
     PAYOUT_AGING = 'payout_aging', 'Payout Aging'
+    # Fires the moment a customer submits a review (see BookingViewSet.review) - it still needs
+    # admin moderation (Review.is_approved) before going public, but previously nothing told
+    # staff one existed at all, good or bad, until someone happened to open the moderation queue.
+    REVIEW_SUBMITTED = 'review_submitted', 'Review Submitted'
     PAYMENT_ESCALATED = 'payment_escalated', 'Payment Needs Attention'
     ACKNOWLEDGMENT_OVERDUE = 'acknowledgment_overdue', 'Driver Acknowledgment Overdue'
     PAYMENT_DISPUTED = 'payment_disputed', 'Payment Disputed'

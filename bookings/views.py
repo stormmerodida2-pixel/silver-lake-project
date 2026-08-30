@@ -190,11 +190,22 @@ class BookingViewSet(
 
         serializer = BookingReviewCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        Review.objects.create(
+        review = Review.objects.create(
             booking=booking,
             driver=booking.driver,
             customer_name=booking.customer_name,
             **serializer.validated_data,
+        )
+
+        from notifications.models import NotificationEvent
+        from notifications.services import notify
+        from reviews.emails import send_review_submitted_staff_notification_email
+
+        send_review_submitted_staff_notification_email(review)
+        notify(
+            NotificationEvent.REVIEW_SUBMITTED,
+            f'{review.rating}/5 review submitted by {review.customer_name}',
+            organization=booking.vehicle.owner, link_path='/admin/reviews',
         )
         return Response(BookingSerializer(booking, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
