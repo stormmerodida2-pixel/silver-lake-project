@@ -76,6 +76,39 @@ def send_cash_payment_staff_notification_email(payment):
     )
 
 
+def send_bank_transfer_reminder_staff_notification_email(payment):
+    """Notifies every active staff account that a declared bank transfer has sat unconfirmed for
+    a while - unlike cash (an automatic driver nudge, then staff escalation if that doesn't work)
+    or M-Pesa (resolves itself via callback within seconds, or auto-expires), a bank transfer has
+    no driver to nudge and no gateway callback - only staff, checking their own bank statement,
+    can ever resolve it. Without this, an unconfirmed bank transfer had no automated follow-up at
+    all until Booking.needs_attention kicked in days after the trip's own end date, by which point
+    the money may have been sitting unconfirmed for a very long time. Includes the reference the
+    customer gave, since that (plus the amount) is what staff actually need to find it on the
+    real statement."""
+    staff_emails = list(
+        User.objects.filter(is_staff=True, is_active=True).exclude(email='').values_list('email', flat=True)
+    )
+    if not staff_emails:
+        return
+
+    booking = payment.booking
+    send_branded_email(
+        subject=f'Bank transfer awaiting confirmation — SilverLake booking #{booking.pk}',
+        template_name='emails/bank_transfer_reminder_staff_notification.html',
+        context={
+            'amount': f'{payment.amount:,.2f}',
+            'reference': payment.note or 'Not provided',
+            'customer_name': booking.customer_name,
+            'booking_id': booking.pk,
+            'balance_due': f'{booking.balance_due:,.2f}',
+            'payments_url': f'{settings.FRONTEND_URL}/admin/payments',
+        },
+        recipient_list=[settings.DEFAULT_FROM_EMAIL],
+        bcc=staff_emails,
+    )
+
+
 def send_cash_deposit_staff_notification_email(cash_deposit):
     """Notifies every active staff account the moment a driver logs a Paybill deposit for cash
     they collected - the second half of the cash-payment trust chain (see CashDeposit). Unlike

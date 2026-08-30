@@ -1305,6 +1305,103 @@ class RemindUndepositedCashTests(APITestCase):
         self.assertIsNone(payment.last_reminded_at)
 
 
+class RemindPendingBankTransfersTests(APITestCase):
+    """The bank-transfer counterpart to RemindUndepositedCashTests above - the gap this closes:
+    unlike cash (an automatic driver nudge) or M-Pesa (resolves via callback or auto-expires), a
+    declared bank transfer previously had zero automated follow-up until escalate_stuck_bookings
+    kicked in days after the booking's own end date. Only staff, checking their own bank
+    statement, can ever confirm one - no driver involved at all, so this fires regardless of
+    whether the booking even has one assigned."""
+
+    def setUp(self):
+        User.objects.create_user(
+            username='bank-reminder-staff@example.com', email='bank-reminder-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='bank-reminder-client@example.com', password='pass12345!')
+        # Ongoing, nowhere near its end date - escalate_stuck_bookings would ignore this entirely.
+        self.booking = make_booking(
+            self.customer, self.vehicle, status=BookingStatus.CONFIRMED,
+            start_date=timezone.localdate(), end_date=timezone.localdate() + timedelta(days=5),
+        )
+
+    def _run(self):
+        from payments.services import remind_pending_bank_transfers
+
+        remind_pending_bank_transfers()
+
+    def _pending_transfer(self, **overrides):
+        defaults = dict(
+            booking=self.booking, method=PaymentMethod.BANK_TRANSFER, amount=Decimal('1000'),
+            status=PaymentStatus.PENDING, note='REF12345',
+        )
+        defaults.update(overrides)
+        return Payment.objects.create(**defaults)
+
+    def test_no_reminder_before_the_grace_period_elapses(self):
+        payment = self._pending_transfer()
+        mail.outbox = []
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNone(payment.last_reminded_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_reminder_fires_once_the_grace_period_has_passed(self):
+        payment = self._pending_transfer()
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(hours=5))
+        mail.outbox = []
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNotNone(payment.last_reminded_at)
+        self.assertTrue(any('bank transfer awaiting confirmation' in m.subject.lower() for m in mail.outbox))
+        self.assertTrue(any('REF12345' in m.body for m in mail.outbox))
+
+    def test_works_even_though_the_booking_is_nowhere_near_its_end_date(self):
+        # The whole point of this sweep - escalate_stuck_bookings would never touch this booking.
+        payment = self._pending_transfer()
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(hours=5))
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNotNone(payment.last_reminded_at)
+
+    def test_cooldown_prevents_an_immediate_second_reminder(self):
+        payment = self._pending_transfer(last_reminded_at=timezone.now())
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(hours=5))
+        mail.outbox = []
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_a_confirmed_transfer_is_left_alone(self):
+        payment = self._pending_transfer(status=PaymentStatus.SUCCESSFUL)
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(hours=5))
+        mail.outbox = []
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNone(payment.last_reminded_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_a_non_bank_transfer_payment_is_left_alone(self):
+        payment = Payment.objects.create(
+            booking=self.booking, method=PaymentMethod.MPESA, amount=Decimal('1000'), status=PaymentStatus.PENDING,
+        )
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(hours=5))
+        mail.outbox = []
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNone(payment.last_reminded_at)
+
+    def test_works_for_a_self_drive_booking_with_no_driver_at_all(self):
+        # A bank transfer goes straight to SilverLake's own account - unlike cash, there's no
+        # driver involved in the transaction to have made this depend on one being assigned.
+        self.assertIsNone(self.booking.driver_id)
+        payment = self._pending_transfer()
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(hours=5))
+        self._run()
+        payment.refresh_from_db()
+        self.assertIsNotNone(payment.last_reminded_at)
+
+
 class RedeemReferralCreditTests(APITestCase):
     """A customer applying their own referral credit toward their own booking - see
     payments.services.redeem_referral_credit. The driver's own payout is based on total_amount

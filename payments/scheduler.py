@@ -91,7 +91,12 @@ def _sweep_loop():
         send_review_reminders,
     )
 
-    from .services import escalate_stuck_bookings, expire_stale_mpesa_payments, remind_undeposited_cash
+    from .services import (
+        escalate_stuck_bookings,
+        expire_stale_mpesa_payments,
+        remind_pending_bank_transfers,
+        remind_undeposited_cash,
+    )
 
     while True:
         time.sleep(SWEEP_INTERVAL_SECONDS)
@@ -107,6 +112,11 @@ def _sweep_loop():
             remind_undeposited_cash()
         except Exception:
             _record_sweep_failure('Undeposited-cash reminder sweep failed')
+
+        try:
+            remind_pending_bank_transfers()
+        except Exception:
+            _record_sweep_failure('Pending-bank-transfer reminder sweep failed')
 
         try:
             escalate_stuck_bookings()

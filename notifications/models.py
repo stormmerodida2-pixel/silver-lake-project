@@ -13,6 +13,9 @@ class NotificationEvent(models.TextChoices):
     # change that leaves a customer owed money) - previously nothing told staff a refund was now
     # owed at all, only the Admin Refunds page for anyone who happened to check it.
     REFUND_OWED = 'refund_owed', 'Refund Owed'
+    # 'bank_transfer_unconfirmed', not the more obvious *_awaiting_confirmation - the event
+    # field below is CharField(max_length=30), and the longer name doesn't fit.
+    BANK_TRANSFER_UNCONFIRMED = 'bank_transfer_unconfirmed', 'Bank Transfer Unconfirmed'
     PAYMENT_ESCALATED = 'payment_escalated', 'Payment Needs Attention'
     ACKNOWLEDGMENT_OVERDUE = 'acknowledgment_overdue', 'Driver Acknowledgment Overdue'
     PAYMENT_DISPUTED = 'payment_disputed', 'Payment Disputed'
