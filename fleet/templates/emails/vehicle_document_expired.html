@@ -1,0 +1,14 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  <strong>{{ vehicle_name }}</strong>'s {{ doc_label|lower }} expired on
+  <strong>{{ expiry_date }}</strong>, and it has automatically been removed from the public site
+  until it's renewed.
+</p>
+<p style="margin:0 0 16px; font-size:14px; color:#334155;">
+  It won't be bookable again until the renewed {{ doc_label|lower }} and its new expiry date are
+  updated in the fleet dashboard.
+</p>
+{% include "emails/_button.html" with url=fleet_url label="View in Fleet Dashboard" %}
+{% endblock %}

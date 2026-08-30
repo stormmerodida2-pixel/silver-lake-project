@@ -102,6 +102,16 @@ class Vehicle(models.Model):
         null=True, blank=True, help_text='NTSA inspection sticker expiry',
     )
 
+    # Each holds the specific expiry date a warning/lapse email was last sent for - not a
+    # boolean or a plain timestamp - so renewing the document (which changes
+    # insurance_expiry_date/inspection_expiry_date to a new value) automatically makes the
+    # vehicle eligible for a fresh warning again next sweep tick, with no separate reset step
+    # needed. See fleet.services.warn_expiring_vehicle_documents.
+    insurance_expiry_warned_for = models.DateField(null=True, blank=True)
+    insurance_expired_notified_for = models.DateField(null=True, blank=True)
+    inspection_expiry_warned_for = models.DateField(null=True, blank=True)
+    inspection_expired_notified_for = models.DateField(null=True, blank=True)
+
     # The driver-partner who owns/drives this car, if it came from the driver-onboarding
     # or driver-submitted-vehicle flow. Company-owned fleet vehicles leave this blank - but see
     # is_company_owned below, since `driver` alone is also set for a company vehicle that just
@@ -178,6 +188,20 @@ class Vehicle(models.Model):
         records = list(self.service_records.all())  # ordered -service_date, uses prefetch cache if present
         baseline = records[0].service_date if records else self.created_at.date()
         return (timezone.now().date() - baseline).days >= self.SERVICE_DUE_INTERVAL_DAYS
+
+    def _document_responsible_party(self):
+        """Who's actually on the hook for renewing this vehicle's insurance/inspection - mirrors
+        the ownership model documented on is_company_owned/owner above: a FleetPartner-owned
+        vehicle goes to that partner's own contact, an individually driver-owned vehicle goes to
+        that driver, and a company-owned vehicle (SilverLake's own, or just an employee/operator
+        assigned to drive it) has nobody external to notify - it's staff's own responsibility.
+        Returns (email, name, driver-or-None) - the driver is returned separately so a caller can
+        also fire an in-app driver-portal notification, not just an email."""
+        if self.owner_id:
+            return self.owner.contact_email, self.owner.name, None
+        if not self.is_company_owned and self.driver_id:
+            return self.driver.email, self.driver.full_name, self.driver
+        return '', '', None
 
 
 def visible_vehicles():
