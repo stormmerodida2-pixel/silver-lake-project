@@ -16,6 +16,12 @@ class NotificationEvent(models.TextChoices):
     # 'bank_transfer_unconfirmed', not the more obvious *_awaiting_confirmation - the event
     # field below is CharField(max_length=30), and the longer name doesn't fit.
     BANK_TRANSFER_UNCONFIRMED = 'bank_transfer_unconfirmed', 'Bank Transfer Unconfirmed'
+    # A vehicle's insurance or NTSA inspection is due to lapse soon, or already has - see
+    # fleet.services.warn_expiring_vehicle_documents. Fires either organization-scoped (a
+    # FleetPartner-owned vehicle) or platform-wide (a company-owned vehicle), same as the other
+    # fleet-adjacent events above; also fires driver-scoped for an individually driver-owned car.
+    VEHICLE_DOCUMENT_EXPIRING = 'vehicle_document_expiring', 'Vehicle Document Expiring'
+    VEHICLE_DOCUMENT_EXPIRED = 'vehicle_document_expired', 'Vehicle Document Expired'
     PAYMENT_ESCALATED = 'payment_escalated', 'Payment Needs Attention'
     ACKNOWLEDGMENT_OVERDUE = 'acknowledgment_overdue', 'Driver Acknowledgment Overdue'
     PAYMENT_DISPUTED = 'payment_disputed', 'Payment Disputed'

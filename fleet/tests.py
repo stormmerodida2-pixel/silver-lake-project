@@ -2,13 +2,16 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from bookings.models import Booking, BookingStatus, ServiceType, WaitlistEntry
 from drivers.models import Driver
+from notifications.models import Notification, NotificationEvent
 
 from .models import FavoriteVehicle, FleetPartner, Vehicle, VehicleCategory, VehicleServiceRecord
+from .services import EXPIRY_WARNING_DAYS, warn_expiring_vehicle_documents
 
 User = get_user_model()
 
@@ -544,3 +547,143 @@ class AdminFleetPartnerTests(APITestCase):
         self.client.force_authenticate(user=self.superadmin)
         response = self.client.get(f'/api/admin/fleet-partners/{partner.id}/')
         self.assertEqual(response.json()['vehicle_count'], 2)
+
+
+class WarnExpiringVehicleDocumentsTests(APITestCase):
+    """visible_vehicles() silently drops a vehicle the instant its insurance/inspection lapses -
+    before this sweep existed, nothing ever told anyone before or after that happened."""
+
+    def setUp(self):
+        User.objects.create_user(
+            username='fleet-doc-staff@example.com', email='fleet-doc-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        mail.outbox = []
+
+    def test_no_action_when_expiry_is_well_outside_the_warning_window(self):
+        make_vehicle(insurance_expiry_date=date.today() + timedelta(days=EXPIRY_WARNING_DAYS + 10))
+        warn_expiring_vehicle_documents()
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(Notification.objects.exists())
+
+    def test_no_action_when_neither_expiry_date_is_set(self):
+        make_vehicle()
+        warn_expiring_vehicle_documents()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_advance_warning_sent_inside_the_window(self):
+        vehicle = make_vehicle(
+            name='Soon Expiring', insurance_expiry_date=date.today() + timedelta(days=5),
+        )
+        warn_expiring_vehicle_documents()
+        vehicle.refresh_from_db()
+        self.assertEqual(vehicle.insurance_expiry_warned_for, vehicle.insurance_expiry_date)
+        self.assertTrue(any('expiring soon' in m.subject.lower() for m in mail.outbox))
+        notification = Notification.objects.get()
+        self.assertEqual(notification.event, NotificationEvent.VEHICLE_DOCUMENT_EXPIRING)
+
+    def test_advance_warning_is_not_resent_on_a_later_tick(self):
+        make_vehicle(insurance_expiry_date=date.today() + timedelta(days=5))
+        warn_expiring_vehicle_documents()
+        mail.outbox = []
+        warn_expiring_vehicle_documents()
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(Notification.objects.count(), 1)
+
+    def test_expired_notification_sent_the_day_it_lapses(self):
+        vehicle = make_vehicle(
+            name='Just Expired', insurance_expiry_date=date.today() - timedelta(days=1),
+        )
+        warn_expiring_vehicle_documents()
+        vehicle.refresh_from_db()
+        self.assertEqual(vehicle.insurance_expired_notified_for, vehicle.insurance_expiry_date)
+        self.assertTrue(any('expired' in m.subject.lower() for m in mail.outbox))
+        notification = Notification.objects.get()
+        self.assertEqual(notification.event, NotificationEvent.VEHICLE_DOCUMENT_EXPIRED)
+
+    def test_expired_notification_is_not_resent_on_a_later_tick(self):
+        make_vehicle(insurance_expiry_date=date.today() - timedelta(days=1))
+        warn_expiring_vehicle_documents()
+        mail.outbox = []
+        warn_expiring_vehicle_documents()
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(Notification.objects.count(), 1)
+
+    def test_renewing_the_document_makes_it_eligible_for_a_fresh_warning(self):
+        vehicle = make_vehicle(insurance_expiry_date=date.today() + timedelta(days=5))
+        warn_expiring_vehicle_documents()
+        self.assertEqual(len(mail.outbox), 1)
+
+        # Renewed far into the future - no warning should fire again yet.
+        mail.outbox = []
+        vehicle.insurance_expiry_date = date.today() + timedelta(days=200)
+        vehicle.save(update_fields=['insurance_expiry_date'])
+        warn_expiring_vehicle_documents()
+        self.assertEqual(len(mail.outbox), 0)
+
+        # That same renewed date later comes back within the window - fires again, since
+        # insurance_expiry_warned_for still holds the *old* expiry date, not this new one.
+        vehicle.insurance_expiry_date = date.today() + timedelta(days=3)
+        vehicle.save(update_fields=['insurance_expiry_date'])
+        warn_expiring_vehicle_documents()
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_insurance_and_inspection_are_tracked_independently(self):
+        vehicle = make_vehicle(
+            insurance_expiry_date=date.today() + timedelta(days=5),
+            inspection_expiry_date=date.today() + timedelta(days=200),
+        )
+        warn_expiring_vehicle_documents()
+        vehicle.refresh_from_db()
+        self.assertIsNotNone(vehicle.insurance_expiry_warned_for)
+        self.assertIsNone(vehicle.inspection_expiry_warned_for)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_fleet_partner_owned_vehicle_emails_the_partner_and_notifies_their_org(self):
+        partner = FleetPartner.objects.create(name='Acme Fleet', contact_email='acme@example.com')
+        make_vehicle(
+            owner=partner, is_company_owned=False, insurance_expiry_date=date.today() + timedelta(days=5),
+        )
+        warn_expiring_vehicle_documents()
+        sent = mail.outbox[0]
+        self.assertIn('acme@example.com', sent.to)
+        self.assertIn('fleet-doc-staff@example.com', sent.bcc)
+        notification = Notification.objects.get()
+        self.assertEqual(notification.organization, partner)
+        self.assertIsNone(notification.driver)
+
+    def test_individually_driver_owned_vehicle_emails_and_notifies_that_driver(self):
+        driver = Driver.objects.create(full_name='Owner Driver', email='owner-driver@example.com', is_active=True)
+        make_vehicle(
+            driver=driver, is_company_owned=False, insurance_expiry_date=date.today() + timedelta(days=5),
+        )
+        warn_expiring_vehicle_documents()
+        sent = mail.outbox[0]
+        self.assertIn('owner-driver@example.com', sent.to)
+        self.assertIn('fleet-doc-staff@example.com', sent.bcc)
+        notification = Notification.objects.get()
+        self.assertEqual(notification.driver, driver)
+        self.assertIsNone(notification.organization)
+
+    def test_company_owned_vehicle_notifies_staff_only_platform_wide(self):
+        make_vehicle(is_company_owned=True, insurance_expiry_date=date.today() + timedelta(days=5))
+        warn_expiring_vehicle_documents()
+        sent = mail.outbox[0]
+        # No external recipient on file - the staff placeholder address is the To:, with real
+        # staff addresses bcc'd, same fallback pattern every other staff-only email here uses.
+        self.assertIn('fleet-doc-staff@example.com', sent.bcc)
+        notification = Notification.objects.get()
+        self.assertIsNone(notification.organization)
+        self.assertIsNone(notification.driver)
+
+    def test_no_email_sent_when_theres_truly_nobody_to_reach(self):
+        # A driver-owned vehicle whose driver has no email on file, and no staff accounts exist.
+        User.objects.filter(is_staff=True).delete()
+        driver = Driver.objects.create(full_name='No Email Driver', email='', is_active=True)
+        make_vehicle(
+            driver=driver, is_company_owned=False, insurance_expiry_date=date.today() + timedelta(days=5),
+        )
+        warn_expiring_vehicle_documents()
+        self.assertEqual(len(mail.outbox), 0)
+        # The in-app notification still fires regardless - it's not email-dependent.
+        self.assertEqual(Notification.objects.count(), 1)

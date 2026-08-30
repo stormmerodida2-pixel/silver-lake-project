@@ -1,0 +1,14 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  <strong>{{ vehicle_name }}</strong>'s {{ doc_label|lower }} expires on
+  <strong>{{ expiry_date }}</strong> — {{ days_remaining }} day{{ days_remaining|pluralize }} from now.
+</p>
+<p style="margin:0 0 16px; font-size:14px; color:#334155;">
+  Please renew it before then. Once it lapses, {{ vehicle_name }} will automatically stop
+  appearing on the public site until the renewed {{ doc_label|lower }} and its new expiry date
+  are on file.
+</p>
+{% include "emails/_button.html" with url=fleet_url label="View in Fleet Dashboard" %}
+{% endblock %}
