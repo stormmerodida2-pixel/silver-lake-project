@@ -36,6 +36,69 @@ def send_driver_suspended_email(driver, reason):
     )
 
 
+def _driver_license_staff_emails():
+    return list(
+        User.objects.filter(is_staff=True, is_active=True).exclude(email='').values_list('email', flat=True)
+    )
+
+
+def send_driver_license_expiring_email(driver, expiry_date, days_remaining):
+    """Sent EXPIRY_WARNING_DAYS before a driver's license lapses (see
+    drivers.services.warn_expiring_driver_licenses) - real advance notice to renew before their
+    vehicle(s) silently drop out of visible_vehicles() (see fleet.models.visible_vehicles).
+    Addressed to the driver directly (a license is inherently personal, not tied to vehicle
+    ownership the way insurance/inspection are), with staff bcc'd for visibility."""
+    staff_emails = _driver_license_staff_emails()
+    if not driver.email and not staff_emails:
+        return
+
+    context = {
+        'first_name': driver.full_name.split()[0],
+        'driver_name': driver.full_name,
+        'expiry_date': expiry_date.strftime('%d %b %Y'),
+        'days_remaining': days_remaining,
+        'drivers_url': f'{settings.FRONTEND_URL}/admin/drivers',
+    }
+    subject = f'Driving license expiring soon — {driver.full_name}'
+    if driver.email:
+        send_branded_email(
+            subject=subject, template_name='emails/driver_license_expiring.html', context=context,
+            recipient_list=[driver.email], bcc=staff_emails,
+        )
+    else:
+        send_branded_email(
+            subject=subject, template_name='emails/driver_license_expiring.html', context=context,
+            recipient_list=[settings.DEFAULT_FROM_EMAIL], bcc=staff_emails,
+        )
+
+
+def send_driver_license_expired_email(driver, expiry_date):
+    """Sent the day a driver's license actually lapses - by this point visible_vehicles() has
+    already silently pulled their vehicle(s) from public listings, so this is more urgent than
+    the advance warning above."""
+    staff_emails = _driver_license_staff_emails()
+    if not driver.email and not staff_emails:
+        return
+
+    context = {
+        'first_name': driver.full_name.split()[0],
+        'driver_name': driver.full_name,
+        'expiry_date': expiry_date.strftime('%d %b %Y'),
+        'drivers_url': f'{settings.FRONTEND_URL}/admin/drivers',
+    }
+    subject = f'Driving license expired — {driver.full_name}'
+    if driver.email:
+        send_branded_email(
+            subject=subject, template_name='emails/driver_license_expired.html', context=context,
+            recipient_list=[driver.email], bcc=staff_emails,
+        )
+    else:
+        send_branded_email(
+            subject=subject, template_name='emails/driver_license_expired.html', context=context,
+            recipient_list=[settings.DEFAULT_FROM_EMAIL], bcc=staff_emails,
+        )
+
+
 def send_driver_away_notification(driver):
     """Notifies every active staff account that a driver has marked themselves away - their
     vehicle(s) are hidden from the public fleet until they mark themselves available again."""

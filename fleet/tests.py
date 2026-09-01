@@ -112,6 +112,18 @@ class PublicFleetVisibilityTests(APITestCase):
         make_vehicle(name='Suspended Driver Car', driver=driver)
         self.assertNotIn('Suspended Driver Car', self._names_on_public_list())
 
+    def test_vehicle_hidden_while_its_drivers_license_has_expired(self):
+        driver = Driver.objects.create(
+            full_name='Lapsed License Driver', is_active=True, license_expiry_date=TODAY - timedelta(days=1),
+        )
+        make_vehicle(name='Lapsed License Car', driver=driver)
+        self.assertNotIn('Lapsed License Car', self._names_on_public_list())
+
+    def test_vehicle_with_no_license_expiry_date_recorded_is_still_shown(self):
+        driver = Driver.objects.create(full_name='No License Date Driver', is_active=True)
+        make_vehicle(name='No License Date Car', driver=driver)
+        self.assertIn('No License Date Car', self._names_on_public_list())
+
     def test_vehicle_visible_when_its_driver_is_active_and_available(self):
         driver = Driver.objects.create(full_name='Good Driver', is_active=True, is_away=False)
         make_vehicle(name='Good Driver Car', driver=driver)

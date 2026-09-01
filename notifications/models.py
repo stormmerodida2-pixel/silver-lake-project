@@ -32,6 +32,12 @@ class NotificationEvent(models.TextChoices):
     # A corporate-account booking's balance has sat unpaid well past the normal invoice-clears-
     # weeks-later lag - see bookings.services.remind_aging_corporate_invoices.
     CORPORATE_INVOICE_AGING = 'corporate_invoice_aging', 'Corporate Invoice Aging'
+    # A driver's license is due to lapse soon, or already has - see
+    # drivers.services.warn_expiring_driver_licenses. Always platform-wide (organization=None),
+    # same as DRIVER_AWAY - a license isn't tied to vehicle ownership the way insurance/
+    # inspection are, so there's no FleetPartner to scope it to.
+    DRIVER_LICENSE_EXPIRING = 'driver_license_expiring', 'Driver License Expiring'
+    DRIVER_LICENSE_EXPIRED = 'driver_license_expired', 'Driver License Expired'
     PAYMENT_ESCALATED = 'payment_escalated', 'Payment Needs Attention'
     ACKNOWLEDGMENT_OVERDUE = 'acknowledgment_overdue', 'Driver Acknowledgment Overdue'
     PAYMENT_DISPUTED = 'payment_disputed', 'Payment Disputed'
