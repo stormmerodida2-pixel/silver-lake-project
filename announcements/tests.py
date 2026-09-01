@@ -70,6 +70,80 @@ class AdminAnnouncementTests(APITestCase):
         self.assertFalse(Announcement.objects.exists())
 
 
+class AnnouncementAllAudienceTests(APITestCase):
+    """audience='all' is a superadmin-only convenience (see AdminAnnouncementViewSet.create) -
+    not a real stored value, just a single request that expands into one Announcement per real
+    audience."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='super-all@example.com', password='pass12345!')
+        self.staff = User.objects.create_user(username='staff-all@example.com', password='pass12345!', is_staff=True)
+
+    def test_superadmin_sending_to_all_creates_one_announcement_per_real_audience(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.post('/api/admin/announcements/', {
+            'title': 'Platform-wide notice', 'body': 'Everyone should see this.', 'audience': 'all',
+        })
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(response.json()), 3)
+
+        audiences = set(Announcement.objects.values_list('audience', flat=True))
+        self.assertEqual(audiences, {'staff', 'drivers', 'clients'})
+        self.assertEqual(Announcement.objects.count(), 3)
+        for announcement in Announcement.objects.all():
+            self.assertEqual(announcement.title, 'Platform-wide notice')
+            self.assertEqual(announcement.created_by_id, self.superadmin.id)
+
+    def test_all_never_becomes_a_stored_audience_value(self):
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.post('/api/admin/announcements/', {
+            'title': 'X', 'body': 'Y', 'audience': 'all',
+        })
+        self.assertFalse(Announcement.objects.filter(audience='all').exists())
+
+    def test_each_real_audience_actually_sees_the_broadcast(self):
+        self.client.force_authenticate(user=self.superadmin)
+        self.client.post('/api/admin/announcements/', {
+            'title': 'For everyone', 'body': 'Hello all.', 'audience': 'all',
+        })
+
+        self.client.force_authenticate(user=self.staff)
+        staff_titles = [a['title'] for a in self.client.get('/api/announcements/mine/').json()]
+        self.assertIn('For everyone', staff_titles)
+
+        driver_user = User.objects.create_user(username='driver-all@example.com', password='pass12345!')
+        Driver.objects.create(user=driver_user, full_name='Driver All', is_active=True)
+        self.client.force_authenticate(user=driver_user)
+        driver_titles = [a['title'] for a in self.client.get('/api/announcements/mine/').json()]
+        self.assertIn('For everyone', driver_titles)
+
+        client_user = User.objects.create_user(username='client-all@example.com', password='pass12345!')
+        self.client.force_authenticate(user=client_user)
+        client_titles = [a['title'] for a in self.client.get('/api/announcements/mine/').json()]
+        self.assertIn('For everyone', client_titles)
+
+    def test_support_staff_sending_all_is_rejected(self):
+        # The 'all' special-case in create() is gated on is_superuser, so a non-superuser never
+        # triggers it - 'all' just falls through as an ordinary invalid `audience` choice, same
+        # 400 any other bogus value would get. Matches the real app anyway: the "Send To"
+        # dropdown (including "Everyone") is only ever rendered for a superadmin - support staff
+        # can only propose to clients, with no audience picker shown at all.
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.post('/api/admin/announcements/', {
+            'title': 'X', 'body': 'Y', 'audience': 'all',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Announcement.objects.exists())
+
+    def test_expires_at_is_applied_to_every_row(self):
+        self.client.force_authenticate(user=self.superadmin)
+        expires_at = (timezone.now() + timedelta(days=7)).isoformat()
+        self.client.post('/api/admin/announcements/', {
+            'title': 'X', 'body': 'Y', 'audience': 'all', 'expires_at': expires_at,
+        })
+        self.assertEqual(Announcement.objects.filter(expires_at__isnull=False).count(), 3)
+
+
 class AnnouncementApprovalTests(APITestCase):
     """Support staff can propose a client-facing announcement, but it's pending and invisible
     to clients until a superadmin approves it - staff can talk to customers without being able

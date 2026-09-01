@@ -8,6 +8,16 @@ class AnnouncementAudience(models.TextChoices):
     CLIENTS = 'clients', 'Clients'
 
 
+# Not a real stored value, and deliberately not part of AnnouncementAudience itself - a
+# TextChoices member would leak straight into .choices (and so into what the model field
+# actually accepts), which is exactly what this must never become. A superadmin-only
+# convenience the create endpoint recognizes and expands into one Announcement per real
+# audience above - see AdminAnnouncementViewSet.create - so every existing assumption of "one
+# real audience per row" (the per-audience banner, read-receipts, the staff-proposal review
+# queue) never has to account for it.
+ANNOUNCEMENT_ALL_SENTINEL = 'all'
+
+
 class AnnouncementStatus(models.TextChoices):
     # Superadmin-authored announcements skip review entirely - only support-staff proposals
     # (always audience=clients) start out pending.
