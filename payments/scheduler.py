@@ -1,7 +1,7 @@
 """In-process background scheduler for periodic cleanup tasks. This project has no Celery/cron
 of its own, so rather than requiring someone to configure an external OS-level Task Scheduler or
 cron entry, a lightweight daemon thread does it automatically for as long as the Django process
-is alive. Runs thirteen independent sweeps on the same interval:
+is alive. Runs fourteen independent sweeps on the same interval:
 payments.services.expire_stale_mpesa_payments (abandoned STK pushes),
 payments.services.remind_undeposited_cash (nudging a driver to deposit collected cash, starting
 soon after they confirm receiving it - independent of the booking's own end date),
@@ -28,7 +28,8 @@ drivers.services.warn_expiring_driver_licenses (the same warn-before/alert-on-la
 for a driver's own license instead of their vehicle's documents), and
 fleet.services.warn_due_vehicle_service (the same pattern again, for Vehicle.service_due_date -
 purely informational, since an overdue service never hides the vehicle from bookings the way
-the others do).
+the others do), and support.services.escalate_stale_support_tickets (nudging staff about a
+ticket that's sat open, untouched, past a short grace period).
 
 Deliberately not started for management commands (manage.py test/migrate/shell/etc.) - none of
 those keep a process running long enough for this to matter, and starting it during `test` in
@@ -106,6 +107,7 @@ def _sweep_loop():
     )
     from drivers.services import warn_expiring_driver_licenses
     from fleet.services import warn_due_vehicle_service, warn_expiring_vehicle_documents
+    from support.services import escalate_stale_support_tickets
 
     from .services import (
         escalate_stuck_bookings,
@@ -186,6 +188,11 @@ def _sweep_loop():
             warn_due_vehicle_service()
         except Exception:
             _record_sweep_failure('Vehicle service due sweep failed')
+
+        try:
+            escalate_stale_support_tickets()
+        except Exception:
+            _record_sweep_failure('Stale support ticket escalation sweep failed')
 
 
 def start():

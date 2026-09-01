@@ -38,6 +38,34 @@ def send_support_ticket_created_staff_notification_email(ticket):
         pass
 
 
+def send_support_ticket_stale_staff_notification_email(ticket):
+    """Notifies SilverLake's own platform staff that a ticket has sat OPEN - nobody's even
+    started on it - past support.services.TICKET_ESCALATION_GRACE_PERIOD (see
+    support.services.escalate_stale_support_tickets). Same platform-only staff filter as
+    send_support_ticket_created_staff_notification_email, for the same reason."""
+    staff_emails = list(
+        User.objects.filter(
+            is_staff=True, is_active=True, staff_organization__isnull=True,
+        ).exclude(email='').values_list('email', flat=True)
+    )
+    if not staff_emails:
+        return
+
+    send_branded_email(
+        subject=f'Still unaddressed: support ticket #{ticket.pk} — {ticket.subject}',
+        template_name='emails/support_ticket_stale_staff_notification.html',
+        context={
+            'ticket_id': ticket.pk,
+            'customer_name': ticket.user.get_full_name() or ticket.user.email,
+            'category': ticket.get_category_display(),
+            'subject': ticket.subject,
+            'support_url': f'{settings.FRONTEND_URL}/admin/support',
+        },
+        recipient_list=[settings.DEFAULT_FROM_EMAIL],
+        bcc=staff_emails,
+    )
+
+
 def send_support_ticket_in_progress_email(ticket):
     """Sent when staff start looking into a customer's ticket - previously the customer had no
     signal at all between filing it and it eventually being resolved. Swallowed silently on
