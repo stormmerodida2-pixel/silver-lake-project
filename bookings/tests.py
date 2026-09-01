@@ -3539,6 +3539,107 @@ class SendReviewRemindersTests(APITestCase):
         self.assertEqual(len(mail.outbox), 0)
 
 
+class RemindAgingCorporateInvoicesTests(APITestCase):
+    """CorporateAccount is deliberately unbounded credit - nothing blocks a booking from
+    proceeding regardless of how large the unpaid balance grows (see CorporateAccount's own
+    docstring). See bookings.services.remind_aging_corporate_invoices, the one automated
+    backstop against that balance quietly growing unnoticed."""
+
+    def setUp(self):
+        from core.models import CorporateAccount
+
+        User.objects.create_user(
+            username='invoice-reminder-staff@example.com', email='invoice-reminder-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        self.vehicle = make_vehicle(price_per_day=Decimal('1000'))
+        self.customer = User.objects.create_user(username='invoice-reminder-client@example.com', password='pass12345!')
+        self.corporate_account = CorporateAccount.objects.create(name='Acme Ltd')
+        mail.outbox = []
+
+    def _run(self):
+        from bookings.services import remind_aging_corporate_invoices
+
+        remind_aging_corporate_invoices()
+
+    def _corporate_booking(self, days_since_end=50, **kwargs):
+        kwargs.setdefault('status', BookingStatus.COMPLETED)
+        end_date = TODAY - timedelta(days=days_since_end)
+        kwargs.setdefault('start_date', end_date - timedelta(days=2))
+        kwargs.setdefault('end_date', end_date)
+        return make_booking(self.customer, self.vehicle, corporate_account=self.corporate_account, **kwargs)
+
+    def test_no_reminder_before_the_grace_period_elapses(self):
+        booking = self._corporate_booking(days_since_end=10)
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.invoice_reminder_sent_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_reminder_fires_once_the_grace_period_has_passed(self):
+        booking = self._corporate_booking()
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNotNone(booking.invoice_reminder_sent_at)
+        self.assertTrue(any('outstanding' in m.subject.lower() for m in mail.outbox))
+        self.assertTrue(any('Acme Ltd' in m.body for m in mail.outbox))
+
+    def test_cooldown_prevents_an_immediate_second_reminder(self):
+        booking = self._corporate_booking()
+        Booking.objects.filter(pk=booking.pk).update(invoice_reminder_sent_at=timezone.now())
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_a_fully_paid_corporate_booking_is_left_alone(self):
+        booking = self._corporate_booking()
+        Payment.objects.create(
+            booking=booking, method=PaymentMethod.MPESA, amount=booking.total_amount, status=PaymentStatus.SUCCESSFUL,
+        )
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.invoice_reminder_sent_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_a_cancelled_corporate_booking_is_left_alone(self):
+        self._corporate_booking(status=BookingStatus.CANCELLED)
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_a_booking_whose_trip_hasnt_ended_yet_is_left_alone(self):
+        # Anchored on end_date, not created_at - nothing to invoice yet for a future trip.
+        booking = make_booking(
+            self.customer, self.vehicle, corporate_account=self.corporate_account,
+            status=BookingStatus.CONFIRMED, start_date=TODAY + timedelta(days=1), end_date=TODAY + timedelta(days=5),
+        )
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.invoice_reminder_sent_at)
+
+    def test_a_non_corporate_booking_is_left_alone(self):
+        booking = make_booking(
+            self.customer, self.vehicle, status=BookingStatus.COMPLETED,
+            start_date=TODAY - timedelta(days=52), end_date=TODAY - timedelta(days=50),
+        )
+        self._run()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.invoice_reminder_sent_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_notification_is_organization_scoped_for_a_fleet_partner_owned_vehicle(self):
+        from notifications.models import Notification, NotificationEvent
+
+        partner = FleetPartner.objects.create(name='Fleet Partner Co')
+        partner_vehicle = make_vehicle(name='Partner Car', owner=partner, is_company_owned=False)
+        end_date = TODAY - timedelta(days=50)
+        make_booking(
+            self.customer, partner_vehicle, corporate_account=self.corporate_account,
+            status=BookingStatus.COMPLETED, start_date=end_date - timedelta(days=2), end_date=end_date,
+        )
+        self._run()
+        notification = Notification.objects.get(event=NotificationEvent.CORPORATE_INVOICE_AGING)
+        self.assertEqual(notification.organization, partner)
+
+
 class ExpireStalePendingBookingsTests(APITestCase):
     """An abandoned checkout - a PENDING booking nobody ever paid anything toward - shouldn't
     block a vehicle from public visibility or from being booked by someone else forever. See

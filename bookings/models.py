@@ -245,6 +245,13 @@ class Booking(models.Model):
     # left a review by then (see the `review__isnull` check there).
     review_reminder_sent_at = models.DateTimeField(null=True, blank=True)
 
+    # Set (and re-set) by the automated aging-corporate-invoice reminder sweep - see
+    # bookings.services.remind_aging_corporate_invoices. Unlike the mostly one-time reminder
+    # fields above, this one re-fires on a cooldown rather than just once, since an invoice
+    # left unpaid past the first nudge is worth resurfacing periodically, not just flagged and
+    # forgotten.
+    invoice_reminder_sent_at = models.DateTimeField(null=True, blank=True)
+
     # Set once (at mark_cancelled time) to whichever refund rule actually applied to this
     # specific cancellation - never re-derived afterwards, since a staff driver-fault override
     # can't be reconstructed later from driver_acknowledged_at alone. Needed so a late-arriving

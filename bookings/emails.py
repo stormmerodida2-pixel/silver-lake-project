@@ -379,6 +379,36 @@ def send_corporate_account_confirmed_email(booking):
         pass
 
 
+def send_corporate_invoice_aging_staff_notification_email(booking):
+    """Notifies every active staff account that a corporate-account booking's balance has sat
+    unpaid well past the normal invoice-clears-weeks-later lag (see
+    bookings.services.remind_aging_corporate_invoices) - CorporateAccount is deliberately
+    unbounded credit, so without this, a growing unpaid balance has zero automated visibility
+    at all, unlike every other form of money owed in this app."""
+    staff_emails = list(
+        User.objects.filter(is_staff=True, is_active=True).exclude(email='').values_list('email', flat=True)
+    )
+    if not staff_emails:
+        return
+
+    from django.conf import settings
+
+    send_branded_email(
+        subject=f'Corporate invoice still outstanding — SilverLake booking #{booking.pk}',
+        template_name='emails/corporate_invoice_aging_staff_notification.html',
+        context={
+            'booking_id': booking.pk,
+            'corporate_account_name': booking.corporate_account.name,
+            'corporate_account_reference': booking.corporate_account_reference,
+            'balance_due': f'{booking.balance_due:,.2f}',
+            'end_date': booking.end_date.strftime('%d %b %Y'),
+            'bookings_url': f'{settings.FRONTEND_URL}/admin/bookings',
+        },
+        recipient_list=[settings.DEFAULT_FROM_EMAIL],
+        bcc=staff_emails,
+    )
+
+
 def send_pickup_reminder_sms(booking):
     """SMS companion to send_pickup_reminder_email() below - same trigger (see
     bookings.services.send_pickup_reminders), same swallow-on-failure rule, just a different
