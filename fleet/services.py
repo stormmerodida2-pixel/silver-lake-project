@@ -62,7 +62,7 @@ def warn_expiring_vehicle_documents():
                 setattr(vehicle, notified_field, expiry_date)
                 vehicle.save(update_fields=[notified_field])
                 send_vehicle_document_expired_email(vehicle, doc_label, expiry_date)
-                _notify_document_event(
+                _notify_vehicle_event(
                     vehicle, NotificationEvent.VEHICLE_DOCUMENT_EXPIRED,
                     f"{vehicle.name}'s {doc_label.lower()} has expired and it's now hidden from bookings",
                 )
@@ -73,17 +73,18 @@ def warn_expiring_vehicle_documents():
                 vehicle.save(update_fields=[warned_field])
                 days_remaining = (expiry_date - today).days
                 send_vehicle_document_expiring_email(vehicle, doc_label, expiry_date, days_remaining)
-                _notify_document_event(
+                _notify_vehicle_event(
                     vehicle, NotificationEvent.VEHICLE_DOCUMENT_EXPIRING,
                     f"{vehicle.name}'s {doc_label.lower()} expires in {days_remaining} day(s)",
                 )
 
 
-def _notify_document_event(vehicle, event, message):
+def _notify_vehicle_event(vehicle, event, message):
     """Scopes the in-app Notification the same way the email is scoped (see
     Vehicle._document_responsible_party): a FleetPartner-owned vehicle's own org admins, an
     individually driver-owned vehicle's own driver portal, or platform-wide for a company-owned
-    vehicle with nobody external to notify."""
+    vehicle with nobody external to notify. Shared by both warn_expiring_vehicle_documents and
+    warn_due_vehicle_service below - the ownership-based scoping is identical either way."""
     from notifications.services import notify
 
     _email, _name, driver = vehicle._document_responsible_party()
@@ -93,3 +94,53 @@ def _notify_document_event(vehicle, event, message):
         notify(event, message, driver=driver, link_path='/driver/vehicles')
     else:
         notify(event, message, link_path='/admin/fleet')
+
+
+def warn_due_vehicle_service():
+    """Runs on every scheduler tick (see payments.scheduler). Vehicle.is_service_due is fully
+    computed - 90 days since the last logged VehicleServiceRecord, or since the vehicle went
+    live (see Vehicle.service_due_date) - and already surfaced as a badge on Admin Fleet, the
+    driver portal, and a dashboard count, but until this, nothing ever proactively told anyone
+    before or after a vehicle actually became due. Unlike insurance/inspection/license, an
+    overdue service never hides the vehicle from bookings (see fleet.models.visible_vehicles,
+    which never excludes on this) - it's purely informational, so this sweep is the only thing
+    keeping it from being missed entirely.
+
+    Same two-phase warn-before/alert-on-lapse shape as warn_expiring_vehicle_documents, with
+    Vehicle.service_due_date standing in for an explicit expiry_date - self-healing the same
+    way: logging a new VehicleServiceRecord shifts service_due_date forward, so the `*_for`
+    fields below naturally stop matching and the vehicle becomes eligible for a fresh warning
+    again, with no separate reset step needed."""
+    from notifications.models import NotificationEvent
+
+    from .emails import send_vehicle_service_due_soon_email, send_vehicle_service_overdue_email
+
+    today = timezone.localdate()
+    warning_cutoff = today + timedelta(days=EXPIRY_WARNING_DAYS)
+
+    candidates = Vehicle.objects.select_related('owner', 'driver').prefetch_related('service_records')
+
+    for vehicle in candidates:
+        due_date = vehicle.service_due_date
+
+        if due_date < today:
+            if vehicle.service_overdue_notified_for == due_date:
+                continue
+            vehicle.service_overdue_notified_for = due_date
+            vehicle.save(update_fields=['service_overdue_notified_for'])
+            send_vehicle_service_overdue_email(vehicle, due_date)
+            _notify_vehicle_event(
+                vehicle, NotificationEvent.VEHICLE_SERVICE_OVERDUE,
+                f'{vehicle.name} is now overdue for service',
+            )
+        elif due_date <= warning_cutoff:
+            if vehicle.service_due_warned_for == due_date:
+                continue
+            vehicle.service_due_warned_for = due_date
+            vehicle.save(update_fields=['service_due_warned_for'])
+            days_remaining = (due_date - today).days
+            send_vehicle_service_due_soon_email(vehicle, due_date, days_remaining)
+            _notify_vehicle_event(
+                vehicle, NotificationEvent.VEHICLE_SERVICE_DUE_SOON,
+                f'{vehicle.name} is due for service in {days_remaining} day(s)',
+            )

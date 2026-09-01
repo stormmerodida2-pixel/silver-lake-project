@@ -1,0 +1,13 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  <strong>{{ vehicle_name }}</strong> was due for service on
+  <strong>{{ due_date }}</strong>, and is now overdue.
+</p>
+<p style="margin:0 0 16px; font-size:14px; color:#334155;">
+  Please book it in as soon as you can. It stays bookable in the meantime - this doesn't change
+  its listing, it's just a reminder that's easy to miss otherwise.
+</p>
+{% include "emails/_button.html" with url=fleet_url label="View in Fleet Dashboard" %}
+{% endblock %}

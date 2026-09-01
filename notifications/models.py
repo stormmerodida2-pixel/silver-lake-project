@@ -38,6 +38,12 @@ class NotificationEvent(models.TextChoices):
     # inspection are, so there's no FleetPartner to scope it to.
     DRIVER_LICENSE_EXPIRING = 'driver_license_expiring', 'Driver License Expiring'
     DRIVER_LICENSE_EXPIRED = 'driver_license_expired', 'Driver License Expired'
+    # A vehicle's is_service_due (see Vehicle.service_due_date) is coming up soon, or has
+    # already passed - see fleet.services.warn_due_vehicle_service. Purely informational,
+    # unlike insurance/inspection/license above - an overdue service never hides the vehicle
+    # from bookings.
+    VEHICLE_SERVICE_DUE_SOON = 'vehicle_service_due_soon', 'Vehicle Service Due Soon'
+    VEHICLE_SERVICE_OVERDUE = 'vehicle_service_overdue', 'Vehicle Service Overdue'
     PAYMENT_ESCALATED = 'payment_escalated', 'Payment Needs Attention'
     ACKNOWLEDGMENT_OVERDUE = 'acknowledgment_overdue', 'Driver Acknowledgment Overdue'
     PAYMENT_DISPUTED = 'payment_disputed', 'Payment Disputed'

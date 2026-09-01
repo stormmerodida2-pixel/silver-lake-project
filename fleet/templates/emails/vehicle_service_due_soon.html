@@ -1,0 +1,13 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  <strong>{{ vehicle_name }}</strong> is due for service on
+  <strong>{{ due_date }}</strong> — {{ days_remaining }} day{{ days_remaining|pluralize }} from now.
+</p>
+<p style="margin:0 0 16px; font-size:14px; color:#334155;">
+  Please book it in before then. Unlike insurance or inspection, a vehicle stays bookable while
+  overdue for service - this is just a heads-up, not a listing change.
+</p>
+{% include "emails/_button.html" with url=fleet_url label="View in Fleet Dashboard" %}
+{% endblock %}
