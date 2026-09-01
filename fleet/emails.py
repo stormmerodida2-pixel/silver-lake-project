@@ -69,3 +69,36 @@ def send_vehicle_document_expired_email(vehicle, doc_label, expiry_date):
             'fleet_url': f'{settings.FRONTEND_URL}/admin/fleet',
         },
     )
+
+
+def send_vehicle_service_due_soon_email(vehicle, due_date, days_remaining):
+    """Sent EXPIRY_WARNING_DAYS before a vehicle's Vehicle.service_due_date (see
+    fleet.services.warn_due_vehicle_service) - unlike insurance/inspection, an overdue service
+    never hides the vehicle from bookings, so this is the only proactive heads-up that exists at
+    all; previously is_service_due was purely a badge someone had to notice."""
+    _send_document_email(
+        vehicle,
+        subject=f'Service due soon — {vehicle.name}',
+        template_name='emails/vehicle_service_due_soon.html',
+        extra_context={
+            'vehicle_name': vehicle.name,
+            'due_date': due_date.strftime('%d %b %Y'),
+            'days_remaining': days_remaining,
+            'fleet_url': f'{settings.FRONTEND_URL}/admin/fleet',
+        },
+    )
+
+
+def send_vehicle_service_overdue_email(vehicle, due_date):
+    """Sent the day a vehicle actually becomes overdue for service - a missed or ignored
+    advance warning still deserves a second, more urgent nudge."""
+    _send_document_email(
+        vehicle,
+        subject=f'Service overdue — {vehicle.name}',
+        template_name='emails/vehicle_service_overdue.html',
+        extra_context={
+            'vehicle_name': vehicle.name,
+            'due_date': due_date.strftime('%d %b %Y'),
+            'fleet_url': f'{settings.FRONTEND_URL}/admin/fleet',
+        },
+    )

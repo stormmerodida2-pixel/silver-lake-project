@@ -10,8 +10,8 @@ from bookings.models import Booking, BookingStatus, ServiceType, WaitlistEntry
 from drivers.models import Driver
 from notifications.models import Notification, NotificationEvent
 
-from .models import FavoriteVehicle, FleetPartner, Vehicle, VehicleCategory, VehicleServiceRecord
-from .services import EXPIRY_WARNING_DAYS, warn_expiring_vehicle_documents
+from .models import FavoriteVehicle, FleetPartner, Vehicle, VehicleCategory, VehicleServiceRecord, visible_vehicles
+from .services import EXPIRY_WARNING_DAYS, warn_due_vehicle_service, warn_expiring_vehicle_documents
 
 User = get_user_model()
 
@@ -699,3 +699,95 @@ class WarnExpiringVehicleDocumentsTests(APITestCase):
         self.assertEqual(len(mail.outbox), 0)
         # The in-app notification still fires regardless - it's not email-dependent.
         self.assertEqual(Notification.objects.count(), 1)
+
+
+class WarnDueVehicleServiceTests(APITestCase):
+    """is_service_due was purely a badge before this sweep existed - nothing ever proactively
+    told anyone before or after a vehicle became due for service. Unlike insurance/inspection,
+    an overdue service never hides the vehicle from bookings (see visible_vehicles, which never
+    excludes on this)."""
+
+    def setUp(self):
+        User.objects.create_user(
+            username='fleet-service-staff@example.com', email='fleet-service-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        mail.outbox = []
+
+    def _age_by(self, vehicle, days):
+        Vehicle.objects.filter(pk=vehicle.pk).update(created_at=timezone.now() - timedelta(days=days))
+        vehicle.refresh_from_db()
+
+    def test_no_action_when_due_date_is_well_outside_the_warning_window(self):
+        make_vehicle()  # freshly created - due SERVICE_DUE_INTERVAL_DAYS from now
+        warn_due_vehicle_service()
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(Notification.objects.exists())
+
+    def test_advance_warning_sent_inside_the_window(self):
+        vehicle = make_vehicle(name='Soon Due')
+        self._age_by(vehicle, Vehicle.SERVICE_DUE_INTERVAL_DAYS - 5)
+        warn_due_vehicle_service()
+        vehicle.refresh_from_db()
+        self.assertEqual(vehicle.service_due_warned_for, vehicle.service_due_date)
+        self.assertTrue(any('due soon' in m.subject.lower() for m in mail.outbox))
+        notification = Notification.objects.get()
+        self.assertEqual(notification.event, NotificationEvent.VEHICLE_SERVICE_DUE_SOON)
+
+    def test_advance_warning_is_not_resent_on_a_later_tick(self):
+        vehicle = make_vehicle()
+        self._age_by(vehicle, Vehicle.SERVICE_DUE_INTERVAL_DAYS - 5)
+        warn_due_vehicle_service()
+        mail.outbox = []
+        warn_due_vehicle_service()
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(Notification.objects.count(), 1)
+
+    def test_overdue_notification_sent_the_day_it_lapses(self):
+        vehicle = make_vehicle(name='Overdue Car')
+        self._age_by(vehicle, Vehicle.SERVICE_DUE_INTERVAL_DAYS + 1)
+        warn_due_vehicle_service()
+        vehicle.refresh_from_db()
+        self.assertEqual(vehicle.service_overdue_notified_for, vehicle.service_due_date)
+        self.assertTrue(any('overdue' in m.subject.lower() for m in mail.outbox))
+        notification = Notification.objects.get()
+        self.assertEqual(notification.event, NotificationEvent.VEHICLE_SERVICE_OVERDUE)
+
+    def test_overdue_notification_is_not_resent_on_a_later_tick(self):
+        vehicle = make_vehicle()
+        self._age_by(vehicle, Vehicle.SERVICE_DUE_INTERVAL_DAYS + 1)
+        warn_due_vehicle_service()
+        mail.outbox = []
+        warn_due_vehicle_service()
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(Notification.objects.count(), 1)
+
+    def test_logging_a_new_service_record_makes_it_eligible_for_a_fresh_warning(self):
+        vehicle = make_vehicle()
+        self._age_by(vehicle, Vehicle.SERVICE_DUE_INTERVAL_DAYS - 5)
+        warn_due_vehicle_service()
+        self.assertEqual(len(mail.outbox), 1)
+
+        # Logging a new service record shifts service_due_date far into the future - no
+        # warning should fire again yet.
+        mail.outbox = []
+        VehicleServiceRecord.objects.create(vehicle=vehicle, service_date=date.today())
+        warn_due_vehicle_service()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_an_overdue_vehicle_stays_publicly_bookable(self):
+        vehicle = make_vehicle(name='Overdue But Bookable')
+        self._age_by(vehicle, Vehicle.SERVICE_DUE_INTERVAL_DAYS + 1)
+        warn_due_vehicle_service()
+        self.assertIn(vehicle, visible_vehicles())
+
+    def test_fleet_partner_owned_vehicle_emails_the_partner_and_notifies_their_org(self):
+        partner = FleetPartner.objects.create(name='Acme Fleet', contact_email='acme@example.com')
+        vehicle = make_vehicle(owner=partner, is_company_owned=False)
+        self._age_by(vehicle, Vehicle.SERVICE_DUE_INTERVAL_DAYS - 5)
+        warn_due_vehicle_service()
+        sent = mail.outbox[0]
+        self.assertIn('acme@example.com', sent.to)
+        self.assertIn('fleet-service-staff@example.com', sent.bcc)
+        notification = Notification.objects.get()
+        self.assertEqual(notification.organization, partner)

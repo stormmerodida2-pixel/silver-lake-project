@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -183,11 +184,23 @@ class Vehicle(models.Model):
     # serviced at all.
     SERVICE_DUE_INTERVAL_DAYS = 90
 
+    # Same self-healing pattern as insurance/inspection above - holds the specific
+    # service_due_date a warning/overdue email was last sent for, not a boolean or a plain
+    # timestamp. Logging a new VehicleServiceRecord shifts service_due_date forward, so these
+    # naturally stop matching and the vehicle becomes eligible for a fresh warning again, with
+    # no separate reset step needed. See fleet.services.warn_due_vehicle_service.
+    service_due_warned_for = models.DateField(null=True, blank=True)
+    service_overdue_notified_for = models.DateField(null=True, blank=True)
+
     @property
-    def is_service_due(self):
+    def service_due_date(self):
         records = list(self.service_records.all())  # ordered -service_date, uses prefetch cache if present
         baseline = records[0].service_date if records else self.created_at.date()
-        return (timezone.now().date() - baseline).days >= self.SERVICE_DUE_INTERVAL_DAYS
+        return baseline + timedelta(days=self.SERVICE_DUE_INTERVAL_DAYS)
+
+    @property
+    def is_service_due(self):
+        return timezone.now().date() >= self.service_due_date
 
     def _document_responsible_party(self):
         """Who's actually on the hook for renewing this vehicle's insurance/inspection - mirrors
