@@ -29,6 +29,9 @@ class NotificationEvent(models.TextChoices):
     # admin moderation (Review.is_approved) before going public, but previously nothing told
     # staff one existed at all, good or bad, until someone happened to open the moderation queue.
     REVIEW_SUBMITTED = 'review_submitted', 'Review Submitted'
+    # A corporate-account booking's balance has sat unpaid well past the normal invoice-clears-
+    # weeks-later lag - see bookings.services.remind_aging_corporate_invoices.
+    CORPORATE_INVOICE_AGING = 'corporate_invoice_aging', 'Corporate Invoice Aging'
     PAYMENT_ESCALATED = 'payment_escalated', 'Payment Needs Attention'
     ACKNOWLEDGMENT_OVERDUE = 'acknowledgment_overdue', 'Driver Acknowledgment Overdue'
     PAYMENT_DISPUTED = 'payment_disputed', 'Payment Disputed'

@@ -157,6 +157,61 @@ def send_review_reminders():
         send_review_reminder_email(booking)
 
 
+# How long a corporate-account booking's balance can sit unpaid, past its own end_date, before
+# staff get an automated nudge - deliberately generous, since CorporateAccount's own docstring
+# already documents that an invoice clearing "weeks or months" after the trip is the expected,
+# normal case (see Booking.bills_via_invoice), not something to flag on its own. This must only
+# ever catch one that's gone well beyond that normal lag.
+CORPORATE_INVOICE_REMINDER_GRACE_PERIOD = timedelta(days=45)
+# Distinct from AUTO_REMINDER_COOLDOWN (payments.services, 1 hour) - re-paging staff about the
+# same outstanding invoice every hour would be pure noise at this timescale; every couple of
+# weeks is enough to keep it visible without becoming background noise, same reasoning as
+# payments.services.PAYOUT_REMINDER_COOLDOWN.
+CORPORATE_INVOICE_REMINDER_COOLDOWN = timedelta(days=14)
+
+
+def remind_aging_corporate_invoices():
+    """Nudges staff about a corporate-account booking whose balance has sat unpaid well past
+    CORPORATE_INVOICE_REMINDER_GRACE_PERIOD. Runs on every scheduler tick (see
+    payments.scheduler). The gap this closes: CorporateAccount is deliberately unbounded credit
+    (see its own docstring) - nothing blocks a corporate booking from starting, completing, or
+    paying its driver out while balance_due stays nonzero, and record_invoice_payment is a
+    manual, per-booking action with no automated follow-up at all. There isn't even a page
+    listing outstanding corporate balances today, only the ordinary Bookings list for whoever
+    thinks to filter it - a company could accumulate a large, growing unpaid balance across many
+    trips with zero automated visibility, unlike every other form of money owed in this app.
+
+    Anchored on end_date, not created_at - a booking scheduled for next month has nothing to
+    invoice yet, so it must never count as "aging" before the trip has even happened.
+    CANCELLED bookings are excluded outright: a cancelled trip has nothing left to bill for
+    regardless of what balance_due still shows."""
+    from notifications.models import NotificationEvent
+    from notifications.services import notify
+
+    from .emails import send_corporate_invoice_aging_staff_notification_email
+
+    now = timezone.now()
+    cutoff = timezone.localdate() - CORPORATE_INVOICE_REMINDER_GRACE_PERIOD
+
+    candidates = Booking.objects.filter(
+        corporate_account__isnull=False, end_date__lt=cutoff,
+    ).exclude(status=BookingStatus.CANCELLED).select_related('corporate_account', 'vehicle__owner')
+
+    for booking in candidates:
+        if booking.balance_due <= 0:
+            continue
+        if booking.invoice_reminder_sent_at and now - booking.invoice_reminder_sent_at < CORPORATE_INVOICE_REMINDER_COOLDOWN:
+            continue
+        booking.invoice_reminder_sent_at = now
+        booking.save(update_fields=['invoice_reminder_sent_at'])
+        send_corporate_invoice_aging_staff_notification_email(booking)
+        notify(
+            NotificationEvent.CORPORATE_INVOICE_AGING,
+            f'KES {booking.balance_due:,.2f} still owed by {booking.corporate_account.name} — booking #{booking.pk}',
+            organization=booking.vehicle.owner, link_path='/admin/bookings',
+        )
+
+
 def notify_waitlist_for_freed_dates(vehicle, start_date, end_date):
     """Called right after a booking is cancelled (see Booking.mark_cancelled) - tells anyone
     waitlisted for a date range that overlapped it, but only once that range genuinely has no

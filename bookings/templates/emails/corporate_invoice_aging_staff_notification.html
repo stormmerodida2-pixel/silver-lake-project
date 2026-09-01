@@ -1,0 +1,26 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">A corporate-account booking's balance has sat unpaid well past the
+normal invoice turnaround - worth checking whether an invoice was ever actually sent.</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px; border-collapse:collapse;">
+  <tr>
+    <td style="padding:6px 0; color:#64748b; width:140px;">Booking</td>
+    <td style="padding:6px 0;">#{{ booking_id }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Company</td>
+    <td style="padding:6px 0;">{{ corporate_account_name }}{% if corporate_account_reference %} — {{ corporate_account_reference }}{% endif %}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b;">Trip ended</td>
+    <td style="padding:6px 0;">{{ end_date }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#64748b; font-weight:bold;">Still owed</td>
+    <td style="padding:6px 0; font-weight:bold;">KES {{ balance_due }}</td>
+  </tr>
+</table>
+
+{% include "emails/_button.html" with url=bookings_url label="View Booking" %}
+{% endblock %}
