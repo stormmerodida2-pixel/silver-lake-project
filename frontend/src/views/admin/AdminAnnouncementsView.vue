@@ -18,6 +18,10 @@ const audienceLabels = {
   clients: 'Clients',
 }
 
+// Not a real stored audience - see AdminAnnouncementViewSet.create, which expands this into
+// one Announcement per real audience above in a single request.
+const ALL_AUDIENCES = 'all'
+
 const statusLabels = {
   pending: 'Pending review',
   approved: 'Approved',
@@ -73,7 +77,13 @@ async function saveAnnouncement() {
       audience: form.audience,
       expires_at,
     })
-    announcements.value.unshift(data)
+    // audience: 'all' creates one Announcement per real audience, so the response is an array
+    // instead of the usual single object - see AdminAnnouncementViewSet.create.
+    if (Array.isArray(data)) {
+      announcements.value.unshift(...data)
+    } else {
+      announcements.value.unshift(data)
+    }
     showModal.value = false
   } catch (err) {
     const detail = err?.response?.data
@@ -336,6 +346,7 @@ onMounted(() => {
                   v-model="form.audience"
                   class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
                 >
+                  <option :value="ALL_AUDIENCES">Everyone</option>
                   <option value="clients">Clients</option>
                   <option value="drivers">Drivers</option>
                   <option value="staff">Staff</option>

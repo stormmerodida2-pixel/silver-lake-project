@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from core.audit import log_admin_action
 from core.permissions import IsSuperAdmin, IsSupportStaff
 
-from .models import Announcement, AnnouncementAudience, AnnouncementStatus
+from .models import ANNOUNCEMENT_ALL_SENTINEL, Announcement, AnnouncementAudience, AnnouncementStatus
 from .serializers import AdminAnnouncementSerializer, MyAnnouncementSerializer
 
 # Not expired = no expires_at at all, or one that hasn't passed yet.
@@ -52,6 +52,31 @@ class AdminAnnouncementViewSet(viewsets.ModelViewSet):
         if self.action in SUPERADMIN_ONLY_ACTIONS:
             return [IsSuperAdmin()]
         return [IsSupportStaff()]
+
+    def create(self, request, *args, **kwargs):
+        """audience='all' is a superadmin-only convenience, not a real stored value - see
+        AnnouncementAudience, which deliberately stays a plain staff/drivers/clients enum so
+        everything downstream (the per-audience banner, read-receipts, the staff-proposal
+        review queue) keeps assuming a single real audience per row. Picking 'all' just creates
+        one Announcement per real audience in a single request, rather than requiring three
+        separate manual submissions with the same title/body/duration retyped each time."""
+        if request.user.is_superuser and request.data.get('audience') == ANNOUNCEMENT_ALL_SENTINEL:
+            created = []
+            for audience in AnnouncementAudience.values:
+                # .copy() + item assignment, not {**request.data, ...} - request.data can be a
+                # QueryDict (any form/multipart request), whose ** unpacking silently wraps
+                # every value in a single-item list (its internal multi-value storage bleeding
+                # through), which then fails serializer validation with a "Not a valid string"
+                # error on every other field. .copy()/__setitem__ stays QueryDict-safe.
+                data = request.data.copy()
+                data['audience'] = audience
+                serializer = self.get_serializer(data=data)
+                serializer.is_valid(raise_exception=True)
+                announcement = serializer.save(created_by=request.user)
+                log_admin_action(request, 'announcement.create', announcement, detail=announcement.audience)
+                created.append(announcement)
+            return Response(self.get_serializer(created, many=True).data, status=status.HTTP_201_CREATED)
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         user = self.request.user
