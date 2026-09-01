@@ -13,6 +13,7 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from bookings.tests import TODAY, make_vehicle
 from fleet.models import Vehicle, VehicleCategory, VehicleServiceRecord, VehicleSubmission
+from notifications.models import Notification, NotificationEvent
 
 from .models import ApplicationStatus, Driver, DriverApplication
 from .services import create_driver_login
@@ -88,6 +89,14 @@ class DriverApplicationApproveTests(TestCase):
         self.assertEqual(application.created_vehicle.driver_id, application.created_driver.id)
         self.assertIsNotNone(application.created_driver.user_id)
 
+    def test_approve_carries_the_license_number_onto_the_live_driver_record(self):
+        # license_document itself is deliberately NOT carried over - it stays a historical
+        # record on the application; a renewed license goes through Admin -> Drivers instead
+        # (see Driver.license_expiry_date, which is never collected on the application at all).
+        application = self._make_application()
+        application.approve()
+        self.assertEqual(application.created_driver.license_number, 'DL999')
+
     def test_approve_is_idempotent(self):
         application = self._make_application()
         application.approve()
@@ -135,6 +144,15 @@ class DriverPortalAccessTests(APITestCase):
         response = self.client.get('/api/driver/me/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['full_name'], 'Portal Driver')
+
+    def test_driver_sees_their_own_license_expiry_status(self):
+        self.driver.license_number = 'DL777'
+        self.driver.license_expiry_date = TODAY - timedelta(days=1)
+        self.driver.save(update_fields=['license_number', 'license_expiry_date'])
+        self.client.force_authenticate(user=self.driver.user)
+        response = self.client.get('/api/driver/me/')
+        self.assertEqual(response.json()['license_number'], 'DL777')
+        self.assertTrue(response.json()['is_license_expired'])
 
     def test_suspended_driver_loses_portal_access(self):
         self.driver.is_active = False
@@ -391,3 +409,116 @@ class DriverVehicleServiceRecordTests(APITestCase):
         VehicleServiceRecord.objects.create(vehicle=self.vehicle, service_date=TODAY)
         response = self.client.get('/api/driver/me/')
         self.assertFalse(response.json()['vehicles'][0]['is_service_due'])
+
+
+class WarnExpiringDriverLicensesTests(APITestCase):
+    """visible_vehicles() silently drops a vehicle the instant its driver's license lapses -
+    before this sweep existed, nothing ever told anyone before or after that happened. See
+    drivers.services.warn_expiring_driver_licenses."""
+
+    def setUp(self):
+        User.objects.create_user(
+            username='license-staff@example.com', email='license-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        mail.outbox = []
+
+    def _run(self):
+        from .services import warn_expiring_driver_licenses
+
+        warn_expiring_driver_licenses()
+
+    def test_no_action_when_expiry_is_well_outside_the_warning_window(self):
+        Driver.objects.create(
+            full_name='Far Future Driver', email='far-future@example.com', is_active=True,
+            license_expiry_date=TODAY + timedelta(days=200),
+        )
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(Notification.objects.exists())
+
+    def test_no_action_when_no_expiry_date_is_set(self):
+        Driver.objects.create(full_name='No Expiry Driver', email='no-expiry@example.com', is_active=True)
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_advance_warning_sent_inside_the_window(self):
+        driver = Driver.objects.create(
+            full_name='Soon Expiring Driver', email='soon-expiring@example.com', is_active=True,
+            license_expiry_date=TODAY + timedelta(days=5),
+        )
+        self._run()
+        driver.refresh_from_db()
+        self.assertEqual(driver.license_expiry_warned_for, driver.license_expiry_date)
+        self.assertTrue(any('expiring soon' in m.subject.lower() for m in mail.outbox))
+        self.assertTrue(any('soon-expiring@example.com' in m.to for m in mail.outbox))
+        self.assertTrue(any('license-staff@example.com' in m.bcc for m in mail.outbox))
+        self.assertEqual(Notification.objects.filter(event=NotificationEvent.DRIVER_LICENSE_EXPIRING).count(), 2)
+
+    def test_advance_warning_is_not_resent_on_a_later_tick(self):
+        Driver.objects.create(
+            full_name='Repeat Driver', email='repeat@example.com', is_active=True,
+            license_expiry_date=TODAY + timedelta(days=5),
+        )
+        self._run()
+        mail.outbox = []
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_expired_notification_sent_the_day_it_lapses(self):
+        driver = Driver.objects.create(
+            full_name='Lapsed Driver', email='lapsed@example.com', is_active=True,
+            license_expiry_date=TODAY - timedelta(days=1),
+        )
+        self._run()
+        driver.refresh_from_db()
+        self.assertEqual(driver.license_expired_notified_for, driver.license_expiry_date)
+        self.assertTrue(any('expired' in m.subject.lower() for m in mail.outbox))
+        self.assertEqual(Notification.objects.filter(event=NotificationEvent.DRIVER_LICENSE_EXPIRED).count(), 2)
+
+    def test_expired_notification_is_not_resent_on_a_later_tick(self):
+        Driver.objects.create(
+            full_name='Lapsed Repeat Driver', email='lapsed-repeat@example.com', is_active=True,
+            license_expiry_date=TODAY - timedelta(days=1),
+        )
+        self._run()
+        mail.outbox = []
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_renewing_the_license_makes_it_eligible_for_a_fresh_warning(self):
+        driver = Driver.objects.create(
+            full_name='Renewing Driver', email='renewing@example.com', is_active=True,
+            license_expiry_date=TODAY + timedelta(days=5),
+        )
+        self._run()
+        self.assertEqual(len(mail.outbox), 1)
+
+        mail.outbox = []
+        driver.license_expiry_date = TODAY + timedelta(days=200)
+        driver.save(update_fields=['license_expiry_date'])
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+        driver.license_expiry_date = TODAY + timedelta(days=3)
+        driver.save(update_fields=['license_expiry_date'])
+        self._run()
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_a_lapsed_license_hides_the_drivers_vehicle_from_the_public_site(self):
+        from fleet.models import visible_vehicles
+
+        driver = Driver.objects.create(
+            full_name='Hidden Driver', is_active=True, license_expiry_date=TODAY - timedelta(days=1),
+        )
+        vehicle = make_vehicle(name='Hidden Driver Car', driver=driver)
+        self.assertNotIn(vehicle, visible_vehicles())
+
+    def test_a_driver_with_no_email_still_gets_notified_via_staff(self):
+        Driver.objects.create(
+            full_name='No Email Driver', email='', is_active=True,
+            license_expiry_date=TODAY + timedelta(days=5),
+        )
+        self._run()
+        sent = mail.outbox[0]
+        self.assertIn('license-staff@example.com', sent.bcc)

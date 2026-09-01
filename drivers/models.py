@@ -45,6 +45,22 @@ class Driver(models.Model):
     # Set by admin when suspending (is_active=False); emailed to the driver so they know why.
     suspension_reason = models.TextField(blank=True)
 
+    # Carried over from DriverApplication.license_number at approval (see
+    # DriverApplication.approve()) - blank for any driver created before this field existed, or
+    # added directly via Admin -> Drivers rather than through the application flow.
+    # license_expiry_date was never collected on the application itself, so it's always
+    # admin-set after the fact, same as Vehicle.insurance_expiry_date/inspection_expiry_date.
+    license_number = models.CharField(max_length=50, blank=True)
+    license_expiry_date = models.DateField(null=True, blank=True)
+    # Each holds the specific expiry date a warning/lapse email was last sent for - not a
+    # boolean or a plain timestamp - so renewing the license (which changes
+    # license_expiry_date to a new value) automatically makes the driver eligible for a fresh
+    # warning again next sweep tick, with no separate reset step needed. Same self-healing
+    # pattern as Vehicle.insurance_expiry_warned_for - see
+    # drivers.services.warn_expiring_driver_licenses.
+    license_expiry_warned_for = models.DateField(null=True, blank=True)
+    license_expired_notified_for = models.DateField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -57,6 +73,10 @@ class Driver(models.Model):
         if self.photo and not self.photo._committed:
             optimize_image(self.photo, max_dimension=800)
         super().save(*args, **kwargs)
+
+    @property
+    def is_license_expired(self):
+        return bool(self.license_expiry_date and self.license_expiry_date < timezone.now().date())
 
     def recalculate_rating(self):
         """Recomputes this driver's displayed rating from their approved reviews. Called
@@ -145,6 +165,7 @@ class DriverApplication(models.Model):
             phone_number=self.phone_number,
             years_of_experience=self.years_of_experience,
             bio=self.bio,
+            license_number=self.license_number,
             is_active=True,
         )
         self.created_vehicle = Vehicle.objects.create(

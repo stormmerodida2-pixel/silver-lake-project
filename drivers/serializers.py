@@ -63,17 +63,19 @@ class VehicleSubmissionSerializer(serializers.ModelSerializer):
 class DriverPortalSerializer(serializers.ModelSerializer):
     vehicles = DriverVehicleSerializer(many=True, read_only=True)
     vehicle_submissions = VehicleSubmissionSerializer(many=True, read_only=True)
+    is_license_expired = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Driver
         fields = [
             'id', 'full_name', 'email', 'phone_number', 'photo', 'years_of_experience',
             'bio', 'rating', 'is_away', 'away_reason', 'cash_payments_enabled',
+            'license_number', 'license_expiry_date', 'is_license_expired',
             'vehicles', 'vehicle_submissions',
         ]
         read_only_fields = [
             'full_name', 'email', 'phone_number', 'photo', 'years_of_experience', 'bio', 'rating',
-            'cash_payments_enabled',
+            'cash_payments_enabled', 'license_number', 'license_expiry_date',
         ]
 
 

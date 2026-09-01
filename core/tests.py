@@ -16,7 +16,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import CustomerProfile
 from bookings.models import Booking, BookingStatus, ProtectionPlan
-from bookings.tests import NEXT_WEEK, TOMORROW, make_booking, make_vehicle
+from bookings.tests import NEXT_WEEK, TODAY, TOMORROW, make_booking, make_vehicle
 from drivers.models import Driver, DriverApplication
 from fleet.models import FleetPartner, Vehicle, VehicleCategory, VehicleImage, VehicleServiceRecord, VehicleSubmission
 from payments.models import DriverPayout, Payment, PaymentMethod, PaymentStatus, Refund
@@ -355,6 +355,47 @@ class AdminDriverCashToggleTests(APITestCase):
         self.assertEqual(response.status_code, 403)
         self.driver.refresh_from_db()
         self.assertFalse(self.driver.cash_payments_enabled)
+
+
+class AdminDriverLicenseEditTests(APITestCase):
+    """A driver's license_number/license_expiry_date is edited the same way as everything else
+    on AdminDriverViewSet (partial_update is superadmin-only - see Driver.is_license_expired /
+    drivers.services.warn_expiring_driver_licenses)."""
+
+    def setUp(self):
+        self.superadmin = User.objects.create_superuser(username='license-edit-super@example.com', password='pass12345!')
+        self.staff = User.objects.create_user(username='license-edit-staff@example.com', password='pass12345!', is_staff=True)
+        self.driver = Driver.objects.create(full_name='License Edit Driver', is_active=True)
+
+    def test_superadmin_can_set_the_license_number_and_expiry(self):
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.patch(
+            f'/api/admin/drivers/{self.driver.id}/',
+            {'license_number': 'DL555', 'license_expiry_date': '2027-01-01'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.driver.refresh_from_db()
+        self.assertEqual(self.driver.license_number, 'DL555')
+        self.assertEqual(str(self.driver.license_expiry_date), '2027-01-01')
+
+    def test_support_staff_cannot_edit_it(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.patch(
+            f'/api/admin/drivers/{self.driver.id}/', {'license_number': 'DL555'}, format='json',
+        )
+        self.assertEqual(response.status_code, 403)
+        self.driver.refresh_from_db()
+        self.assertEqual(self.driver.license_number, '')
+
+    def test_is_license_expired_is_exposed_on_the_admin_list(self):
+        self.driver.license_expiry_date = TODAY - timedelta(days=1)
+        self.driver.save(update_fields=['license_expiry_date'])
+        self.client.force_authenticate(user=self.superadmin)
+        response = self.client.get('/api/admin/drivers/')
+        results = response.json()['results'] if 'results' in response.json() else response.json()
+        driver_data = next(d for d in results if d['id'] == self.driver.id)
+        self.assertTrue(driver_data['is_license_expired'])
 
 
 class AdminAuditLogTests(APITestCase):

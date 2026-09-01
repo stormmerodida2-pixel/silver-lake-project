@@ -1,0 +1,13 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  Your driving license on file expires on <strong>{{ expiry_date }}</strong> —
+  {{ days_remaining }} day{{ days_remaining|pluralize }} from now.
+</p>
+<p style="margin:0 0 16px; font-size:14px; color:#334155;">
+  Please renew it before then. Once it lapses, your vehicle(s) will automatically stop
+  appearing on the public site until the renewed license and its new expiry date are on file.
+</p>
+{% include "emails/_button.html" with url=drivers_url label="View in Admin" %}
+{% endblock %}

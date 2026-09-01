@@ -1,0 +1,13 @@
+{% extends "emails/base_email.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi {{ first_name|default:"there" }},</p>
+<p style="margin:0 0 16px;">
+  Your driving license on file expired on <strong>{{ expiry_date }}</strong>, and your
+  vehicle(s) have automatically been removed from the public site until it's renewed.
+</p>
+<p style="margin:0 0 16px; font-size:14px; color:#334155;">
+  You won't be bookable again until the renewed license and its new expiry date are updated in
+  the system.
+</p>
+{% include "emails/_button.html" with url=drivers_url label="View in Admin" %}
+{% endblock %}

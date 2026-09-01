@@ -207,9 +207,10 @@ class Vehicle(models.Model):
 def visible_vehicles():
     """Vehicles whose /fleet/<id> detail page actually resolves right now, applying the exact
     same exclusions as VehicleViewSet.get_queryset() (currently booked, lapsed insurance/
-    inspection, driver away/suspended) - shared so the two can never drift apart, since the
-    sitemap in particular must never link to a URL that 404s. Imports bookings.models lazily to
-    avoid a circular import (bookings.models imports fleet.models at module level)."""
+    inspection, driver away/suspended/license-expired) - shared so the two can never drift
+    apart, since the sitemap in particular must never link to a URL that 404s. Imports
+    bookings.models lazily to avoid a circular import (bookings.models imports fleet.models at
+    module level)."""
     from datetime import date
 
     from bookings.models import BLOCKING_BOOKING_STATUSES, Booking
@@ -228,6 +229,10 @@ def visible_vehicles():
         .exclude(inspection_expiry_date__lt=today)
         .exclude(driver__is_away=True)
         .exclude(driver__is_active=False)
+        # A vehicle with no driver assigned has nothing to exclude on here - `lt` against a
+        # NULL license_expiry_date never matches in SQL, so this is a no-op for those rows,
+        # same null-safety as the insurance/inspection excludes above.
+        .exclude(driver__license_expiry_date__lt=today)
     )
 
 

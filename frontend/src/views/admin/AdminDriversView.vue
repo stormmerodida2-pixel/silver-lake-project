@@ -139,6 +139,39 @@ function openSuspendModal(driver) {
   showSuspendModal.value = true
 }
 
+// ── Edit-license modal ───────────────────────────────────────────────────────
+const showLicenseModal = ref(false)
+const editingLicenseDriver = ref(null)
+const licenseForm = reactive({ license_number: '', license_expiry_date: '' })
+const savingLicense = ref(false)
+
+function openLicenseModal(driver) {
+  editingLicenseDriver.value = driver
+  Object.assign(licenseForm, {
+    license_number: driver.license_number || '',
+    license_expiry_date: driver.license_expiry_date || '',
+  })
+  showLicenseModal.value = true
+}
+
+async function saveLicense() {
+  savingLicense.value = true
+  busyId.value = editingLicenseDriver.value.id
+  try {
+    const { data } = await apiClient.patch(`/admin/drivers/${editingLicenseDriver.value.id}/`, {
+      license_number: licenseForm.license_number,
+      license_expiry_date: licenseForm.license_expiry_date || null,
+    })
+    Object.assign(editingLicenseDriver.value, data)
+    showLicenseModal.value = false
+  } catch {
+    driversError.value = 'Could not update this license.'
+  } finally {
+    savingLicense.value = false
+    busyId.value = null
+  }
+}
+
 async function confirmSuspend() {
   if (!suspendReason.value.trim()) return
   suspending.value = true
@@ -432,6 +465,7 @@ onMounted(() => {
                 <th class="px-4 py-3">Phone</th>
                 <th class="px-4 py-3">Experience</th>
                 <th class="px-4 py-3">Rating</th>
+                <th class="px-4 py-3">License</th>
                 <th class="px-4 py-3">Status</th>
                 <th class="px-4 py-3"></th>
               </tr>
@@ -443,6 +477,16 @@ onMounted(() => {
                 <td class="px-4 py-3 text-foreground-secondary">{{ driver.phone_number || '-' }}</td>
                 <td class="px-4 py-3 text-foreground-secondary">{{ driver.years_of_experience }} yrs</td>
                 <td class="px-4 py-3 text-foreground-secondary">{{ Number(driver.rating).toFixed(1) }}</td>
+                <td class="px-4 py-3 text-xs">
+                  <span v-if="!driver.license_expiry_date" class="text-foreground-subtle">Not set</span>
+                  <span
+                    v-else
+                    :class="driver.is_license_expired ? 'font-bold text-danger' : 'text-foreground-secondary'"
+                  >
+                    {{ driver.license_expiry_date }}
+                    <span v-if="driver.is_license_expired" class="ml-1">⚠ Expired</span>
+                  </span>
+                </td>
                 <td class="px-4 py-3">
                   <div class="flex flex-col gap-1">
                     <span
@@ -478,6 +522,14 @@ onMounted(() => {
                   </div>
                 </td>
                 <td class="space-x-2 whitespace-nowrap px-4 py-3">
+                  <button
+                    v-if="auth.user?.is_superuser"
+                    :disabled="busyId === driver.id"
+                    class="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
+                    @click="openLicenseModal(driver)"
+                  >
+                    Edit License
+                  </button>
                   <button
                     v-if="driver.is_active"
                     :disabled="busyId === driver.id"
@@ -731,6 +783,73 @@ onMounted(() => {
                   class="flex-1 rounded-lg bg-red-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-400 disabled:opacity-50"
                 >
                   {{ suspending ? 'Suspending…' : 'Confirm Suspend' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Edit License Modal -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="showLicenseModal"
+          class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
+          @click.self="showLicenseModal = false"
+        >
+          <div class="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-2xl">
+            <div class="mb-6 flex items-center justify-between">
+              <h2 class="font-[Georgia] text-xl font-bold text-foreground">
+                Edit License — {{ editingLicenseDriver?.full_name }}
+              </h2>
+              <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showLicenseModal = false">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p class="mb-4 text-sm text-foreground-muted">
+              Setting an expiry date warns this driver (and staff) before it lapses, and again the
+              day it does - once expired, their vehicle(s) are automatically hidden from the public
+              site until it's renewed here.
+            </p>
+
+            <form class="space-y-4" @submit.prevent="saveLicense">
+              <div>
+                <label class="mb-1 block text-xs text-foreground-muted">License Number</label>
+                <input
+                  v-model="licenseForm.license_number"
+                  type="text"
+                  placeholder="DL123456"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground placeholder-foreground-subtle focus:border-accent-border-strong focus:outline-none"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs text-foreground-muted">License Expiry</label>
+                <input
+                  v-model="licenseForm.license_expiry_date"
+                  type="date"
+                  class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-foreground focus:border-accent-border-strong focus:outline-none"
+                />
+              </div>
+
+              <div class="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  class="flex-1 rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground-secondary transition-colors hover:border-slate-500 hover:text-foreground"
+                  @click="showLicenseModal = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  :disabled="savingLicense"
+                  class="flex-1 rounded-lg bg-accent-bg py-2.5 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-bg-hover disabled:opacity-50"
+                >
+                  {{ savingLicense ? 'Saving…' : 'Save' }}
                 </button>
               </div>
             </form>
