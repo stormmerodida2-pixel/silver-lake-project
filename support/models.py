@@ -51,6 +51,11 @@ class SupportTicket(models.Model):
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
     )
 
+    # Set by support.services.escalate_stale_support_tickets the first (and each subsequent)
+    # time staff get an automated nudge that this ticket has sat OPEN too long with nobody
+    # even starting on it - see that function's own docstring for the grace period/cooldown.
+    escalation_reminded_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

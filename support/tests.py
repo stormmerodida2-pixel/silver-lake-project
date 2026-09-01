@@ -1,8 +1,10 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from bookings.tests import make_booking, make_vehicle
@@ -165,3 +167,81 @@ class AdminSupportTicketTests(APITestCase):
     def test_invalid_status_is_rejected(self):
         response = self.client.post(f'/api/admin/support/{self.ticket.id}/respond/', {'status': 'bogus'})
         self.assertEqual(response.status_code, 400)
+
+
+class EscalateStaleSupportTicketsTests(APITestCase):
+    """SUPPORT_TICKET_CREATED already alerts staff the moment a ticket is filed - this is the
+    follow-up if it then just sits OPEN, untouched. See
+    support.services.escalate_stale_support_tickets."""
+
+    def setUp(self):
+        User.objects.create_user(
+            username='stale-ticket-staff@example.com', email='stale-ticket-staff@example.com',
+            password='pass12345!', is_staff=True,
+        )
+        self.customer = User.objects.create_user(
+            username='stale-ticket-client@example.com', password='pass12345!', email='stale-ticket-client@example.com',
+        )
+        mail.outbox = []
+
+    def _run(self):
+        from .services import escalate_stale_support_tickets
+
+        escalate_stale_support_tickets()
+
+    def _stale_ticket(self, hours_old=50, **overrides):
+        defaults = dict(user=self.customer, subject='Billing question', description='Why was I charged?')
+        defaults.update(overrides)
+        ticket = SupportTicket.objects.create(**defaults)
+        SupportTicket.objects.filter(pk=ticket.pk).update(updated_at=timezone.now() - timedelta(hours=hours_old))
+        ticket.refresh_from_db()
+        return ticket
+
+    def test_no_escalation_before_the_grace_period_elapses(self):
+        ticket = self._stale_ticket(hours_old=10)
+        self._run()
+        ticket.refresh_from_db()
+        self.assertIsNone(ticket.escalation_reminded_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_escalation_fires_once_the_grace_period_has_passed(self):
+        ticket = self._stale_ticket()
+        self._run()
+        ticket.refresh_from_db()
+        self.assertIsNotNone(ticket.escalation_reminded_at)
+        self.assertTrue(any('still unaddressed' in m.subject.lower() for m in mail.outbox))
+        self.assertTrue(any('stale-ticket-staff@example.com' in m.bcc for m in mail.outbox))
+
+    def test_cooldown_prevents_an_immediate_second_escalation(self):
+        ticket = self._stale_ticket()
+        SupportTicket.objects.filter(pk=ticket.pk).update(escalation_reminded_at=timezone.now())
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_an_in_progress_ticket_is_left_alone(self):
+        self._stale_ticket(status=TicketStatus.IN_PROGRESS)
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_a_resolved_ticket_is_left_alone(self):
+        self._stale_ticket(status=TicketStatus.RESOLVED)
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_reopening_a_ticket_restarts_the_grace_period(self):
+        ticket = self._stale_ticket(status=TicketStatus.RESOLVED, hours_old=200)
+        ticket.reopen()  # bumps updated_at to now
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_org_scoped_staff_are_never_emailed(self):
+        org = FleetPartner.objects.create(name='Support Escalation Org', platform_fee_percent=Decimal('10'))
+        org_admin = User.objects.create_user(
+            username='stale-ticket-org-admin@example.com', email='stale-ticket-org-admin@example.com',
+            password='pass12345!', is_staff=True, is_superuser=True,
+        )
+        StaffOrganization.objects.create(user=org_admin, organization=org)
+        self._stale_ticket()
+        self._run()
+        sent = mail.outbox[0]
+        self.assertNotIn('stale-ticket-org-admin@example.com', sent.bcc)

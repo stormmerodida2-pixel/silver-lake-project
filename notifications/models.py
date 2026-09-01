@@ -52,6 +52,10 @@ class NotificationEvent(models.TextChoices):
     VEHICLE_SUBMISSION = 'vehicle_submission', 'New Vehicle Submission'
     DRIVER_APPLICATION = 'driver_application', 'New Driver Application'
     SUPPORT_TICKET_CREATED = 'support_ticket_created', 'New Support Ticket'
+    # A ticket has sat OPEN (nobody's even started on it) past the grace period - see
+    # support.services.escalate_stale_support_tickets. Always platform-wide, matching
+    # SupportTicket's own "never delegated per FleetPartner" design.
+    SUPPORT_TICKET_STALE = 'support_ticket_stale', 'Support Ticket Stale'
     # A superadmin manually messaging a specific organization's own admins directly - the only
     # event here that isn't system-generated (see AdminFleetPartnerViewSet.notify) - everything
     # else in this file fires automatically off some other action.
