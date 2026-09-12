@@ -198,6 +198,23 @@ class BookingSerializer(serializers.ModelSerializer):
         return booking
 
 
+class CustomerBookingSerializer(BookingSerializer):
+    """BookingSerializer, but with `driver` locked read-only - used by the customer-facing
+    BookingViewSet (bookings.views), never by core.views.AdminBookingViewSet (superadmin-only
+    for updates, and where an admin legitimately does need to reassign a driver).
+
+    Booking._apply_default_driver already assigns the vehicle's own driver automatically, and
+    the booking form has no driver field at all (see its docstring: "the public booking flow
+    never lets a customer pick a driver directly"). Without this, that was only a frontend
+    convention, not an API guarantee - a request built by hand could still set/reassign `driver`
+    to any id on a vehicle it has nothing to do with, which would misdirect that driver's
+    notifications and, once the booking is paid out, misdirect the actual payout too (see
+    Booking._ensure_driver_payout, which pays out to whoever `driver` points at)."""
+
+    class Meta(BookingSerializer.Meta):
+        read_only_fields = BookingSerializer.Meta.read_only_fields + ['driver']
+
+
 class DriverOnsiteBookingSerializer(serializers.Serializer):
     """A driver creating a booking on the spot for a walk-up client who won't be registering
     or logging in themselves. Always with_driver (it's the driver's own vehicle, in person),

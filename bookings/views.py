@@ -31,6 +31,7 @@ from reviews.serializers import BookingReviewCreateSerializer
 from .models import Booking, BookingSource, BookingStatus, ProtectionPlan
 from .serializers import (
     BookingSerializer,
+    CustomerBookingSerializer,
     DriverOnsiteBookingSerializer,
     ProtectionPlanSerializer,
     VehicleConditionReportSerializer,
@@ -61,9 +62,15 @@ class BookingViewSet(
 
     Deliberately no destroy - a booking's payments/payouts/refund would cascade-delete with it,
     silently destroying financial history. "Removing" a booking is always cancel(), which keeps
-    the record and its money trail intact."""
+    the record and its money trail intact.
 
-    serializer_class = BookingSerializer
+    Uses CustomerBookingSerializer (driver locked read-only), not the plain BookingSerializer
+    core.views.AdminBookingViewSet uses - driver assignment/reassignment is a staff-only action
+    there (IsSuperAdmin for updates), never something this customer-facing endpoint should accept
+    from request data, even though the create/update actions below are otherwise open to any
+    authenticated user."""
+
+    serializer_class = CustomerBookingSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
