@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import apiClient from '../api/client'
@@ -40,7 +40,9 @@ async function checkAvailability() {
     dateFilteredVehicles.value = data.results ?? data
     // Keeps the URL shareable/bookmarkable, and is what lets a vehicle's detail-page CTA
     // carry these dates forward into the booking form instead of the customer re-typing them.
-    router.replace({ query: { start_date: dateFilter.start_date, end_date: dateFilter.end_date } })
+    // Merges into the current query rather than replacing it outright, so an active search/sort
+    // (see their own watchers below) survives running a date search.
+    router.replace({ query: { ...route.query, start_date: dateFilter.start_date, end_date: dateFilter.end_date } })
   } catch {
     dateFilterError.value = 'Could not check availability for those dates.'
   } finally {
@@ -53,7 +55,10 @@ function clearDateFilter() {
   dateFilter.end_date = ''
   dateFilteredVehicles.value = null
   dateFilterError.value = ''
-  router.replace({ query: {} })
+  const query = { ...route.query }
+  delete query.start_date
+  delete query.end_date
+  router.replace({ query })
 }
 
 const baseVehicles = computed(() => dateFilteredVehicles.value ?? catalog.vehicles)
@@ -65,7 +70,7 @@ const categoryFilteredVehicles = computed(() => {
 // ── Keyword search ───────────────────────────────────────────────────────
 // Client-side over the already-fetched/filtered list, same as category filtering above - the
 // fleet is small enough that a server round-trip per keystroke would only add latency.
-const searchQuery = ref('')
+const searchQuery = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const searchedVehicles = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return categoryFilteredVehicles.value
@@ -81,7 +86,7 @@ const sortOptions = [
   { value: 'price_desc', label: 'Price: High to Low' },
   { value: 'popular', label: 'Most Popular' },
 ]
-const sortBy = ref('featured')
+const sortBy = ref(sortOptions.some((o) => o.value === route.query.sort) ? route.query.sort : 'featured')
 const filteredVehicles = computed(() => {
   const vehicles = searchedVehicles.value
   if (sortBy.value === 'price_asc') {
@@ -94,6 +99,28 @@ const filteredVehicles = computed(() => {
     return [...vehicles].sort((a, b) => (b.trips_completed || 0) - (a.trips_completed || 0))
   }
   return vehicles
+})
+
+// Keeps the search/sort choice shareable/bookmarkable, same reasoning as the date filter's own
+// router.replace above - merges into whatever's already in the query (e.g. start_date/end_date
+// from a date search) rather than overwriting it. Debounced for the search box so typing doesn't
+// rewrite the URL on every keystroke; sort fires immediately since it's a single discrete choice.
+let searchSyncTimer = null
+watch(searchQuery, (value) => {
+  clearTimeout(searchSyncTimer)
+  searchSyncTimer = setTimeout(() => {
+    const query = { ...route.query }
+    if (value.trim()) query.q = value.trim()
+    else delete query.q
+    router.replace({ query })
+  }, 400)
+})
+
+watch(sortBy, (value) => {
+  const query = { ...route.query }
+  if (value !== 'featured') query.sort = value
+  else delete query.sort
+  router.replace({ query })
 })
 
 onMounted(() => {
