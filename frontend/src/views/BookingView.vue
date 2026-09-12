@@ -948,6 +948,28 @@ async function declareBankTransfer() {
               </p>
             </div>
 
+            <!-- Referral credit alone can cover the whole balance (see applyReferralCredit) -
+                 nothing left to pay, so skip straight to a paid-in-full state instead of still
+                 offering M-Pesa/bank transfer/card for a KES 0 balance. -->
+            <div v-else-if="Number(booking.balance_due) <= 0" class="p-6 text-center sm:p-8">
+              <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-success">
+                <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Booking Fully Paid</h2>
+              <p class="mt-2 text-sm text-foreground-muted">
+                Your referral credit covered the full balance - nothing more to pay. We've sent a confirmation to your
+                email if you gave us one.
+              </p>
+              <RouterLink
+                to="/account/bookings"
+                class="mt-5 inline-block rounded-md bg-accent-bg px-5 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover"
+              >
+                View My Bookings
+              </RouterLink>
+            </div>
+
             <div v-else class="p-6 sm:p-8">
               <label class="mb-2 block text-sm font-semibold text-foreground">How much would you like to pay now?</label>
               <div class="grid grid-cols-2 gap-3">
