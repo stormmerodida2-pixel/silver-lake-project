@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import AuthLayout from '../components/AuthLayout.vue'
@@ -25,6 +25,18 @@ const agreedToTerms = ref(false)
 const submitting = ref(false)
 const error = ref('')
 const submitted = ref(false)
+
+// The two rules that are actually checkable client-side, live, as the customer types - mirrors
+// settings.AUTH_PASSWORD_VALIDATORS' MinimumLengthValidator (default min_length=8) and
+// NumericPasswordValidator. The other two validators there (CommonPasswordValidator,
+// UserAttributeSimilarityValidator - not too close to name/email) aren't something a handful of
+// client-side rules can meaningfully check, so they're just called out as a static note instead
+// of a checkbox that would inevitably lie. Shown up front rather than only after a failed
+// submit, so a customer finds out the rules before typing a password that gets rejected.
+const passwordChecks = computed(() => [
+  { label: 'At least 8 characters', met: form.password.length >= 8 },
+  { label: 'Not entirely numbers', met: form.password.length > 0 && !/^\d+$/.test(form.password) },
+])
 
 async function submit() {
   submitting.value = true
@@ -99,6 +111,25 @@ async function submit() {
             required
             input-class="w-full rounded-md border border-border bg-surface-2 px-4 py-3 text-foreground focus:border-accent-border focus:outline-none"
           />
+          <ul class="mt-2 space-y-1">
+            <li
+              v-for="check in passwordChecks"
+              :key="check.label"
+              class="flex items-center gap-1.5 text-xs"
+              :class="check.met ? 'text-success' : 'text-foreground-subtle'"
+            >
+              <svg v-if="check.met" class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <svg v-else class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="8.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              {{ check.label }}
+            </li>
+          </ul>
+          <p class="mt-1 text-xs text-foreground-subtle">
+            Avoid common passwords and anything too close to your name or email.
+          </p>
         </div>
         <div>
           <label class="mb-1 block text-sm text-foreground-muted">Referral code (optional)</label>
