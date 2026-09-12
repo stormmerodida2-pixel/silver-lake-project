@@ -2469,6 +2469,39 @@ class BookingDriverDefaultingTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertIsNone(response.json()['driver'])
 
+    def test_a_client_supplied_driver_is_ignored_on_create(self):
+        """`driver` is read-only on CustomerBookingSerializer - the frontend booking form never
+        sends this field, but nothing stopped a hand-built request from setting it directly
+        before, which would misdirect that driver's notifications and eventually their payout
+        (see Booking._ensure_driver_payout) for a vehicle they have nothing to do with."""
+        rightful_driver = Driver.objects.create(full_name='Rightful Driver', is_active=True)
+        vehicle = make_vehicle(driver=rightful_driver, price_per_day=Decimal('1000'))
+        other_driver = Driver.objects.create(full_name='Unrelated Driver', is_active=True)
+
+        response = self.client.post('/api/bookings/', {
+            'vehicle': vehicle.id,
+            'driver': other_driver.id,
+            'service_type': 'with_driver',
+            'customer_name': 'Jane Doe',
+            'customer_phone': '254700000000',
+            'pickup_location': 'Kisumu',
+            'start_date': str(TOMORROW),
+            'end_date': str(NEXT_WEEK),
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        # Falls back to the vehicle's own driver, exactly as if `driver` had been omitted.
+        self.assertEqual(response.json()['driver'], rightful_driver.id)
+
+    def test_a_client_supplied_driver_is_ignored_on_update(self):
+        rightful_driver = Driver.objects.create(full_name='Rightful Driver 2', is_active=True)
+        vehicle = make_vehicle(driver=rightful_driver, price_per_day=Decimal('1000'))
+        other_driver = Driver.objects.create(full_name='Unrelated Driver 2', is_active=True)
+        booking = make_booking(self.customer, vehicle, driver=rightful_driver)
+
+        response = self.client.patch(f'/api/bookings/{booking.id}/', {'driver': other_driver.id}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['driver'], rightful_driver.id)
+
 
 class DriverBookingCompleteTests(APITestCase):
     """Lets a driver mark their own fully-paid trip complete from the portal - previously the
