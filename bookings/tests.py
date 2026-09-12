@@ -129,6 +129,72 @@ class BookingValidationTests(TestCase):
         )
         non_conflicting.clean()  # should not raise
 
+    def _candidate(self, vehicle, **kwargs):
+        defaults = dict(
+            user=self.user, vehicle=vehicle, service_type=ServiceType.WITH_DRIVER,
+            customer_name='Jane', customer_phone='254700000000', pickup_location='Kisumu',
+            start_date=TOMORROW, end_date=NEXT_WEEK,
+        )
+        defaults.update(kwargs)
+        return Booking(**defaults)
+
+    def test_a_new_booking_cannot_target_an_unavailable_vehicle(self):
+        vehicle = make_vehicle(is_available=False)
+        with self.assertRaises(ValidationError):
+            self._candidate(vehicle).clean()
+
+    def test_a_new_booking_cannot_target_a_vehicle_with_expired_insurance(self):
+        vehicle = make_vehicle(insurance_expiry_date=TODAY - timedelta(days=1))
+        with self.assertRaises(ValidationError):
+            self._candidate(vehicle).clean()
+
+    def test_a_new_booking_cannot_target_a_vehicle_with_expired_inspection(self):
+        vehicle = make_vehicle(inspection_expiry_date=TODAY - timedelta(days=1))
+        with self.assertRaises(ValidationError):
+            self._candidate(vehicle).clean()
+
+    def test_a_vehicle_with_future_insurance_and_inspection_expiry_is_still_bookable(self):
+        vehicle = make_vehicle(
+            insurance_expiry_date=TODAY + timedelta(days=30), inspection_expiry_date=TODAY + timedelta(days=30),
+        )
+        self._candidate(vehicle).clean()  # should not raise
+
+    def test_a_new_with_driver_booking_cannot_default_onto_an_away_driver(self):
+        driver = Driver.objects.create(full_name='Away Driver', is_active=True, is_away=True)
+        vehicle = make_vehicle(driver=driver)
+        with self.assertRaises(ValidationError):
+            self._candidate(vehicle).clean()
+
+    def test_a_new_with_driver_booking_cannot_default_onto_a_suspended_driver(self):
+        driver = Driver.objects.create(full_name='Suspended Driver', is_active=False)
+        vehicle = make_vehicle(driver=driver)
+        with self.assertRaises(ValidationError):
+            self._candidate(vehicle).clean()
+
+    def test_a_new_with_driver_booking_cannot_default_onto_a_driver_with_an_expired_license(self):
+        driver = Driver.objects.create(
+            full_name='Expired License Driver', is_active=True, license_expiry_date=TODAY - timedelta(days=1),
+        )
+        vehicle = make_vehicle(driver=driver)
+        with self.assertRaises(ValidationError):
+            self._candidate(vehicle).clean()
+
+    def test_vehicle_and_driver_eligibility_is_not_revalidated_on_later_edits(self):
+        """Same 'brand-new bookings only' rule as the start-date check above - an already-booked
+        trip doesn't get retroactively invalidated just because its vehicle/driver later goes out
+        of service; that only stops the vehicle accepting *new* bookings from that point on."""
+        driver = Driver.objects.create(full_name='Later Suspended Driver', is_active=True)
+        vehicle = make_vehicle(driver=driver)
+        booking = make_booking(self.user, vehicle, driver=driver, start_date=TOMORROW, end_date=NEXT_WEEK)
+
+        vehicle.is_available = False
+        vehicle.save()
+        driver.is_active = False
+        driver.save()
+
+        booking.notes = 'Updated note'
+        booking.clean()  # should not raise - only new bookings are checked
+
 
 class BookingMoneyMathTests(TestCase):
     def setUp(self):
