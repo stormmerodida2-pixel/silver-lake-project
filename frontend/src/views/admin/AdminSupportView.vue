@@ -67,7 +67,7 @@ onMounted(() => {
 
 <template>
   <div>
-    <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Support Tickets</h1>
+    <h1 class="font-display text-2xl font-bold text-foreground">Support Tickets</h1>
     <p class="mt-1 text-sm text-foreground-muted">
       Billing questions, damage disputes, and other issues customers raise from their own account.
     </p>

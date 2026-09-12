@@ -139,7 +139,7 @@ onMounted(() => {
   <div>
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Blog</h1>
+        <h1 class="font-display text-2xl font-bold text-foreground">Blog</h1>
         <p class="mt-1 text-sm text-foreground-muted">
           Marketing & SEO content - travel tips, destination guides, fleet and driver spotlights.
         </p>
@@ -237,7 +237,7 @@ onMounted(() => {
         >
           <div class="w-full max-w-2xl rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-foreground">
+              <h2 class="font-display text-xl font-bold text-foreground">
                 {{ editingId ? 'Edit Post' : 'New Post' }}
               </h2>
               <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showModal = false">

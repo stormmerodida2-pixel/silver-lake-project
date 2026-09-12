@@ -18,25 +18,50 @@ export const useCatalogStore = defineStore('catalog', {
       protectionPlans: false,
       blogPosts: false,
     },
+    // Tracks in-flight fetches for vehicles/drivers/reviews only - the listing views that show
+    // an explicit "No X yet" empty state, which would otherwise flash true for a moment on every
+    // load before the fetch resolves. `loaded` above answers "do we have data", this answers
+    // "are we currently fetching" - the two are different questions (e.g. a request that legitimately
+    // returns zero results is `loaded` but not `loading`).
+    loading: {
+      vehicles: false,
+      drivers: false,
+      reviews: false,
+    },
   }),
   actions: {
     // Always refetched (unlike drivers/reviews) so vehicles an admin just added or
     // changed show up immediately for users already browsing the site.
     async fetchVehicles() {
-      const { data } = await apiClient.get('/vehicles/')
-      this.vehicles = data.results ?? data
+      this.loading.vehicles = true
+      try {
+        const { data } = await apiClient.get('/vehicles/')
+        this.vehicles = data.results ?? data
+      } finally {
+        this.loading.vehicles = false
+      }
     },
     async fetchDrivers() {
       if (this.loaded.drivers) return
-      const { data } = await apiClient.get('/drivers/')
-      this.drivers = data.results ?? data
-      this.loaded.drivers = true
+      this.loading.drivers = true
+      try {
+        const { data } = await apiClient.get('/drivers/')
+        this.drivers = data.results ?? data
+        this.loaded.drivers = true
+      } finally {
+        this.loading.drivers = false
+      }
     },
     async fetchReviews() {
       if (this.loaded.reviews) return
-      const { data } = await apiClient.get('/reviews/')
-      this.reviews = data.results ?? data
-      this.loaded.reviews = true
+      this.loading.reviews = true
+      try {
+        const { data } = await apiClient.get('/reviews/')
+        this.reviews = data.results ?? data
+        this.loaded.reviews = true
+      } finally {
+        this.loading.reviews = false
+      }
     },
     // Fleet types (e.g. "Executive SUV") - admin-managed, so this isn't cached as
     // aggressively as drivers/reviews; still cheap enough to just fetch once per session.

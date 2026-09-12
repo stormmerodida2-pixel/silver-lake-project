@@ -73,7 +73,7 @@ onMounted(() => {
   <div class="bg-page">
     <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
       <p class="text-center text-sm font-semibold uppercase tracking-widest text-accent">Select Your Car</p>
-      <h1 class="mt-2 text-center font-[Georgia] text-3xl font-bold text-foreground">Our Fleet</h1>
+      <h1 class="mt-2 text-center font-display text-3xl font-bold text-foreground">Our Fleet</h1>
       <p class="mt-2 text-center text-foreground-muted">Comfort for every need, available with a driver or self drive.</p>
 
       <div
@@ -135,7 +135,10 @@ onMounted(() => {
         </button>
       </div>
 
-      <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div v-if="catalog.loading.vehicles" class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-for="n in 6" :key="n" class="h-80 animate-pulse rounded-3xl border border-border-subtle bg-surface" />
+      </div>
+      <div v-else class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <VehicleCard
           v-for="vehicle in filteredVehicles"
           :key="vehicle.id"
@@ -146,7 +149,7 @@ onMounted(() => {
         />
       </div>
 
-      <p v-if="!filteredVehicles.length" class="mt-10 text-center text-foreground-muted">
+      <p v-if="!catalog.loading.vehicles && !filteredVehicles.length" class="mt-10 text-center text-foreground-muted">
         {{ isDateFilterActive ? 'No vehicles are available for those dates.' : 'No vehicles in this category yet.' }}
       </p>
     </div>

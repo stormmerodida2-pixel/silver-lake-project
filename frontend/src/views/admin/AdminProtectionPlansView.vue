@@ -98,7 +98,7 @@ onMounted(() => {
   <div>
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Protection Plans</h1>
+        <h1 class="font-display text-2xl font-bold text-foreground">Protection Plans</h1>
         <p class="mt-1 text-sm text-foreground-muted">
           Optional damage-waiver tiers a customer can add to a self-drive booking, priced per rental day. Only active
           plans are offered at checkout.
@@ -178,7 +178,7 @@ onMounted(() => {
         >
           <div class="w-full max-w-lg rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-foreground">{{ editingId ? 'Edit Plan' : 'Add Plan' }}</h2>
+              <h2 class="font-display text-xl font-bold text-foreground">{{ editingId ? 'Edit Plan' : 'Add Plan' }}</h2>
               <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />

@@ -3,7 +3,7 @@
     <section class="bg-page py-16">
       <div class="mx-auto max-w-3xl px-4 text-center sm:px-6">
         <p class="text-sm font-semibold uppercase tracking-widest text-accent">Legal</p>
-        <h1 class="mt-3 font-[Georgia] text-4xl font-bold text-foreground">Refund &amp; Cancellation Policy</h1>
+        <h1 class="mt-3 font-display text-4xl font-bold text-foreground">Refund &amp; Cancellation Policy</h1>
         <p class="mt-3 text-sm text-foreground-muted">Last updated: 4 July 2026</p>
       </div>
     </section>
@@ -19,7 +19,7 @@
         </p>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">1. Deposit to Confirm</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">1. Deposit to Confirm</h2>
           <p class="mt-3 leading-relaxed">
             A booking is held as "pending" until a deposit of at least 30% of the total cost is paid; the booking is
             only confirmed once that deposit clears. The remaining balance may be paid any time before pickup, or in
@@ -28,7 +28,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">2. Cancelling a With-Driver Booking</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">2. Cancelling a With-Driver Booking</h2>
           <p class="mt-3 leading-relaxed">
             For with-driver bookings, how much of your deposit and service fee is refunded depends on who cancels and
             when:
@@ -72,7 +72,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">3. Cancelling a Self-Drive Booking</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">3. Cancelling a Self-Drive Booking</h2>
           <p class="mt-3 leading-relaxed">If you cancel a confirmed self-drive booking through your account:</p>
           <ul class="mt-3 list-disc space-y-2 pl-5 leading-relaxed">
             <li><strong>More than 48 hours before pickup:</strong> full refund of any amount paid.</li>
@@ -88,7 +88,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">4. Cancellations by SilverLake</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">4. Cancellations by SilverLake</h2>
           <p class="mt-3 leading-relaxed">
             If we cancel your booking - for example, because a vehicle becomes unavailable due to a mechanical issue,
             lapsed insurance, or an inspection failure - you will receive a full refund of everything paid, or the
@@ -97,7 +97,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">5. How Refunds Are Processed</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">5. How Refunds Are Processed</h2>
           <p class="mt-3 leading-relaxed">
             Approved refunds are sent back to the M-Pesa number used for payment (or the original payment method, once
             card payments are available) within 5-7 business days. Contact us if a refund hasn't arrived after that
@@ -106,7 +106,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">6. Mid-Trip Issues</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">6. Mid-Trip Issues</h2>
           <p class="mt-3 leading-relaxed">
             If a vehicle breaks down or a driver is unable to continue a with-driver trip due to a fault on our side, we
             will arrange a replacement vehicle/driver where possible, or refund the unused portion of your trip on a
@@ -115,7 +115,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">7. Disputes</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">7. Disputes</h2>
           <p class="mt-3 leading-relaxed">
             If you believe a cancellation or refund was handled incorrectly, contact us and we'll review it manually -
             most refund questions are resolved within a few business days.
@@ -123,7 +123,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">8. Contact Us</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">8. Contact Us</h2>
           <p class="mt-3 leading-relaxed">
             For cancellations or refund questions, email
             <a

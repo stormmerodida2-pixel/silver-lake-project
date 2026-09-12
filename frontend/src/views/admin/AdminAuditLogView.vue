@@ -16,7 +16,7 @@ onMounted(load)
 
 <template>
   <div>
-    <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Activity Log</h1>
+    <h1 class="font-display text-2xl font-bold text-foreground">Activity Log</h1>
     <p v-if="auth.user?.organization_name" class="mt-1 text-sm text-foreground-muted">
       Who did what within {{ auth.user.organization_name }}: role changes, suspensions, verified/paid payouts, and
       issued refunds.

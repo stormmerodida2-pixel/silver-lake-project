@@ -41,7 +41,7 @@ async function submit() {
       <RouterLink to="/" class="flex items-center justify-center gap-2">
         <SilverLakeLogo :size="48" />
         <span class="flex flex-col items-start leading-none">
-          <span class="font-[Georgia] text-xl font-bold uppercase tracking-wide text-foreground">SilverLake</span>
+          <span class="font-display text-xl font-bold uppercase tracking-wide text-foreground">SilverLake</span>
           <span
             class="mt-1 border-b-2 border-accent-border-strong pb-0.5 text-[11px] font-bold uppercase tracking-[0.2em] text-foreground-muted"
           >
@@ -49,7 +49,7 @@ async function submit() {
           </span>
         </span>
       </RouterLink>
-      <h1 class="mt-4 text-center font-[Georgia] text-3xl font-bold text-foreground">Change Password</h1>
+      <h1 class="mt-4 text-center font-display text-3xl font-bold text-foreground">Change Password</h1>
 
       <form class="mt-8 space-y-4 rounded-xl border border-border-subtle bg-surface p-6" @submit.prevent="submit">
         <div>

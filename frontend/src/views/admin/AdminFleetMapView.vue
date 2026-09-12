@@ -145,7 +145,7 @@ onBeforeUnmount(() => {
   <div>
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Fleet Map</h1>
+        <h1 class="font-display text-2xl font-bold text-foreground">Fleet Map</h1>
         <p class="mt-1 text-sm text-foreground-muted">
           Live position reported by whichever driver has an active trip in a vehicle right now - only works while they
           have the Driver Portal open in their browser, so gaps are expected. Refreshes automatically every 30 seconds.

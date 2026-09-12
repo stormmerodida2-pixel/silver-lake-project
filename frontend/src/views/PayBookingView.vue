@@ -178,7 +178,7 @@ onMounted(loadBooking)
   <div class="min-h-screen bg-page">
     <div class="mx-auto max-w-lg px-4 py-16 sm:px-6">
       <div class="text-center">
-        <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Pay for Your Trip</h1>
+        <h1 class="font-display text-2xl font-bold text-foreground">Pay for Your Trip</h1>
         <p class="mt-2 text-sm text-foreground-subtle">SilverLake Car Rentals</p>
       </div>
 
@@ -193,7 +193,7 @@ onMounted(loadBooking)
       <template v-else-if="booking">
         <div class="mt-8 rounded-2xl border border-border-subtle bg-surface p-6">
           <p class="text-sm text-foreground-subtle">Booking for</p>
-          <h2 class="font-[Georgia] text-lg font-bold text-foreground">{{ booking.customer_name }}</h2>
+          <h2 class="font-display text-lg font-bold text-foreground">{{ booking.customer_name }}</h2>
           <p class="mt-1 text-sm text-foreground-muted">
             {{ booking.vehicle_name
             }}<span v-if="booking.driver_name"> &middot; Driver: {{ booking.driver_name }}</span>
@@ -238,7 +238,7 @@ onMounted(loadBooking)
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
             </svg>
           </div>
-          <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Awaiting Confirmation</h2>
+          <h2 class="mt-4 font-display text-lg font-bold text-foreground">Awaiting Confirmation</h2>
           <p v-if="pendingOfflinePayment.method === 'cash'" class="mt-2 text-sm text-foreground-muted">
             You've recorded a cash payment of KES {{ Number(pendingOfflinePayment.amount).toLocaleString() }} to
             {{ booking.driver_name }}. Once your driver confirms receiving it, your balance will be updated.
@@ -262,7 +262,7 @@ onMounted(loadBooking)
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Payment Received</h2>
+            <h2 class="mt-4 font-display text-lg font-bold text-foreground">Payment Received</h2>
             <p class="mt-2 text-sm text-foreground-muted">Thank you - your payment has been confirmed.</p>
           </template>
 
@@ -272,7 +272,7 @@ onMounted(loadBooking)
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Payment Didn't Go Through</h2>
+            <h2 class="mt-4 font-display text-lg font-bold text-foreground">Payment Didn't Go Through</h2>
             <p class="mt-2 text-sm text-foreground-muted">
               The M-Pesa prompt was cancelled, timed out, or declined. No money has left your account.
             </p>
@@ -294,7 +294,7 @@ onMounted(loadBooking)
                 />
               </svg>
             </div>
-            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Still Waiting on M-Pesa</h2>
+            <h2 class="mt-4 font-display text-lg font-bold text-foreground">Still Waiting on M-Pesa</h2>
             <p class="mt-2 text-sm text-foreground-muted">
               This is taking longer than usual. If you already entered your PIN, refresh this page in a moment.
               Otherwise, you can try again.
@@ -316,7 +316,7 @@ onMounted(loadBooking)
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
               </svg>
             </div>
-            <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Check Your Phone</h2>
+            <h2 class="mt-4 font-display text-lg font-bold text-foreground">Check Your Phone</h2>
             <p class="mt-2 text-sm text-foreground-muted">
               We've sent an M-Pesa prompt to {{ phoneNumber }}. Enter your PIN to complete payment.
             </p>

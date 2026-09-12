@@ -221,7 +221,7 @@ onUnmounted(() => {
       class="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-border bg-surface shadow-2xl shadow-black/40"
     >
       <div class="flex items-center justify-between border-b border-border-subtle px-4 py-3">
-        <span class="font-[Georgia] text-sm font-bold text-foreground">
+        <span class="font-display text-sm font-bold text-foreground">
           {{ showPreferences ? 'Notification Settings' : 'Notifications' }}
         </span>
         <div class="flex items-center gap-3">

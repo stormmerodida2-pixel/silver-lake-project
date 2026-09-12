@@ -38,7 +38,7 @@ async function loadMore() {
 <template>
   <div class="bg-page">
     <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <h1 class="text-center font-[Georgia] text-3xl font-bold text-foreground">Travel Tips & Guides</h1>
+      <h1 class="text-center font-display text-3xl font-bold text-foreground">Travel Tips & Guides</h1>
       <p class="mt-2 text-center text-foreground-muted">
         Destination guides, road-trip tips, and news from the SilverLake fleet.
       </p>

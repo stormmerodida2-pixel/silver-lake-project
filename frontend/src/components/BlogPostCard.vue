@@ -42,7 +42,7 @@ defineProps({
           }}
         </p>
       </div>
-      <h3 class="font-[Georgia] text-lg font-bold text-foreground">{{ post.title }}</h3>
+      <h3 class="font-display text-lg font-bold text-foreground">{{ post.title }}</h3>
       <p class="line-clamp-3 text-sm text-foreground-muted">{{ post.excerpt }}</p>
       <span class="mt-auto pt-3 text-sm font-semibold text-accent group-hover:text-accent-strong"> Read more &rarr; </span>
     </div>

@@ -66,7 +66,7 @@ async function submit() {
 <template>
   <div class="bg-page">
     <div class="mx-auto max-w-2xl px-4 py-16 sm:px-6">
-      <h1 class="text-center font-[Georgia] text-3xl font-bold text-foreground">Become a Driver</h1>
+      <h1 class="text-center font-display text-3xl font-bold text-foreground">Become a Driver</h1>
       <p class="mt-2 text-center text-foreground-muted">
         Drive for SilverLake with your own vehicle. Submit your details below - our team reviews every application
         before you and your car go live on the platform.
@@ -76,7 +76,7 @@ async function submit() {
         v-if="auth.user?.driver_status === 'active'"
         class="mt-10 rounded-xl border border-border-subtle bg-surface p-6 text-center"
       >
-        <h2 class="font-[Georgia] text-xl font-bold text-accent">You're already a driver-partner!</h2>
+        <h2 class="font-display text-xl font-bold text-accent">You're already a driver-partner!</h2>
         <p class="mt-2 text-sm text-foreground-muted">
           Head to your
           <RouterLink to="/driver" class="font-semibold text-accent hover:underline"
@@ -90,14 +90,14 @@ async function submit() {
         v-else-if="auth.user?.driver_status === 'suspended'"
         class="mt-10 rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center"
       >
-        <h2 class="font-[Georgia] text-xl font-bold text-danger">Currently Suspended</h2>
+        <h2 class="font-display text-xl font-bold text-danger">Currently Suspended</h2>
         <p class="mt-2 text-sm text-danger">
           Your driver-partner account is currently suspended. Contact us if you believe this was a mistake.
         </p>
       </div>
 
       <div v-else-if="submitted" class="mt-10 rounded-xl border border-border-subtle bg-surface p-6 text-center">
-        <h2 class="font-[Georgia] text-xl font-bold text-accent">Application received!</h2>
+        <h2 class="font-display text-xl font-bold text-accent">Application received!</h2>
         <p class="mt-2 text-sm text-foreground-muted">
           We'll review your documents and vehicle details, then contact you at {{ form.email }} or
           {{ form.phone_number }}.

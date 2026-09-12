@@ -92,7 +92,7 @@ async function copyPaymentLink() {
       >
         <div class="w-full max-w-lg rounded-2xl border border-border bg-surface p-8 shadow-2xl">
           <div class="mb-6 flex items-center justify-between">
-            <h2 class="font-[Georgia] text-xl font-bold text-foreground">
+            <h2 class="font-display text-xl font-bold text-foreground">
               {{ result ? 'Booking Created' : 'New Direct Booking' }}
             </h2>
             <button class="text-foreground-muted transition-colors hover:text-foreground" @click="close">

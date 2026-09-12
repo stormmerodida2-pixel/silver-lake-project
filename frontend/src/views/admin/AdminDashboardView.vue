@@ -40,7 +40,7 @@ onMounted(async () => {
 
     <div v-else class="space-y-10">
       <!-- Page title -->
-      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Dashboard</h1>
+      <h1 class="font-display text-2xl font-bold text-foreground">Dashboard</h1>
 
       <!-- Prompts a freshly-invited account (see core.services.invite_staff_account) to fill in
            their name - registration only ever collects the organization's own details, never
@@ -51,7 +51,7 @@ onMounted(async () => {
         class="flex items-center justify-between gap-3 rounded-2xl border border-accent-border-strong/40 bg-accent-bg/5 p-5 transition hover:border-accent-border"
       >
         <div>
-          <p class="font-[Georgia] text-lg font-bold text-foreground">
+          <p class="font-display text-lg font-bold text-foreground">
             Welcome{{ auth.user?.organization_name ? ` to ${auth.user.organization_name}'s dashboard` : '' }}!
           </p>
           <p class="mt-1 text-sm text-foreground-muted">
@@ -71,7 +71,7 @@ onMounted(async () => {
         class="flex items-center justify-between gap-3 rounded-2xl border border-accent-border-strong/40 bg-accent-bg/5 p-5 transition hover:border-accent-border"
       >
         <div>
-          <p class="font-[Georgia] text-lg font-bold text-foreground">Add your first vehicle</p>
+          <p class="font-display text-lg font-bold text-foreground">Add your first vehicle</p>
           <p class="mt-1 text-sm text-foreground-muted">
             {{ auth.user?.organization_name ? 'Your fleet' : 'The fleet' }} is empty - add a vehicle to start receiving
             bookings.
@@ -82,7 +82,7 @@ onMounted(async () => {
 
       <section class="rounded-2xl border border-accent-border-strong/40 bg-gradient-to-br from-surface to-page p-6 sm:p-8">
         <p class="text-sm font-semibold uppercase tracking-wide text-accent">Total Revenue Collected</p>
-        <p class="mt-2 font-[Georgia] text-4xl font-bold text-foreground sm:text-5xl">
+        <p class="mt-2 font-display text-4xl font-bold text-foreground sm:text-5xl">
           {{ fmt(stats.revenue.total_collected) }}
         </p>
         <p class="mt-2 text-sm text-foreground-muted">{{ fmt(stats.revenue.collected_this_month) }} collected this month</p>

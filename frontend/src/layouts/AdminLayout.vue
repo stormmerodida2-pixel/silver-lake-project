@@ -196,7 +196,7 @@ onUnmounted(() => {
     <aside class="hidden w-56 shrink-0 flex-col border-r border-border-subtle bg-surface md:flex">
       <RouterLink to="/" class="flex items-center gap-2 border-b border-border-subtle px-5 py-4">
         <SilverLakeLogo :size="26" />
-        <span class="font-[Georgia] text-sm font-bold tracking-wide text-foreground">SilverLake Admin</span>
+        <span class="font-display text-sm font-bold tracking-wide text-foreground">SilverLake Admin</span>
       </RouterLink>
 
       <nav class="flex flex-1 flex-col gap-1 p-3">
@@ -291,7 +291,7 @@ onUnmounted(() => {
       >
         <div class="flex items-center gap-2 md:hidden">
           <SilverLakeLogo :size="24" />
-          <span class="font-[Georgia] text-sm font-bold text-foreground">Admin</span>
+          <span class="font-display text-sm font-bold text-foreground">Admin</span>
         </div>
         <div class="hidden text-sm text-foreground-muted md:block">{{ route.meta.pageTitle || 'Admin Panel' }}</div>
         <div class="flex items-center gap-2 text-sm text-foreground-secondary sm:gap-3">
@@ -334,7 +334,7 @@ onUnmounted(() => {
           </span>
           <RouterLink
             to="/account/profile"
-            class="hidden whitespace-nowrap font-[Georgia] text-sm tracking-wide transition hover:text-accent sm:inline-block sm:text-base"
+            class="hidden whitespace-nowrap font-display text-sm tracking-wide transition hover:text-accent sm:inline-block sm:text-base"
           >
             Hi, {{ auth.user?.first_name || 'Admin' }}
           </RouterLink>

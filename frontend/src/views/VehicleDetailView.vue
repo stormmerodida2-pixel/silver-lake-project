@@ -167,7 +167,7 @@ onBeforeUnmount(() => priceCardObserver?.disconnect())
             <p class="text-sm font-semibold uppercase tracking-widest text-accent">
               {{ vehicle.category_name || vehicle.category }}
             </p>
-            <h1 class="mt-2 font-[Georgia] text-3xl font-bold text-foreground sm:text-4xl">
+            <h1 class="mt-2 font-display text-3xl font-bold text-foreground sm:text-4xl">
               {{ vehicle.name }}
             </h1>
             <p v-if="vehicle.tagline" class="mt-2 text-lg text-foreground-muted italic">{{ vehicle.tagline }}</p>
@@ -204,13 +204,13 @@ onBeforeUnmount(() => priceCardObserver?.disconnect())
             </div>
 
             <div v-if="vehicle.description" class="mt-8">
-              <h2 class="font-[Georgia] text-xl font-bold text-foreground">About This Vehicle</h2>
+              <h2 class="font-display text-xl font-bold text-foreground">About This Vehicle</h2>
               <p class="mt-3 leading-relaxed text-foreground-muted">{{ vehicle.description }}</p>
             </div>
 
             <!-- Gallery -->
             <div v-if="vehicle.gallery_images?.length" class="mt-8">
-              <h2 class="font-[Georgia] text-xl font-bold text-foreground">Gallery</h2>
+              <h2 class="font-display text-xl font-bold text-foreground">Gallery</h2>
               <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <img
                   v-for="img in vehicle.gallery_images"

@@ -109,7 +109,7 @@ onMounted(load)
 
 <template>
   <div>
-    <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Payments</h1>
+    <h1 class="font-display text-2xl font-bold text-foreground">Payments</h1>
     <p class="mt-1 text-sm text-foreground-muted">
       Every payment recorded against a booking - M-Pesa, card, cash a driver reported on-site, or a customer-declared
       bank transfer awaiting confirmation.

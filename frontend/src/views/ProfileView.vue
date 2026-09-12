@@ -184,7 +184,7 @@ onMounted(loadProfile)
 <template>
   <div class="bg-page">
     <div class="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:py-20">
-      <h1 class="text-center font-[Georgia] text-4xl font-bold text-foreground">My Profile</h1>
+      <h1 class="text-center font-display text-4xl font-bold text-foreground">My Profile</h1>
       <p class="mt-3 text-center text-base text-foreground-subtle">Update your name and contact details.</p>
 
       <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>
@@ -198,13 +198,13 @@ onMounted(loadProfile)
             <img v-if="avatarUrl" :src="avatarUrl" alt="Your profile photo" class="h-full w-full object-cover" />
             <div
               v-else
-              class="flex h-full w-full items-center justify-center font-[Georgia] text-2xl font-bold text-accent"
+              class="flex h-full w-full items-center justify-center font-display text-2xl font-bold text-accent"
             >
               {{ initials || '—' }}
             </div>
           </div>
           <div class="flex-1 text-center sm:text-left">
-            <p class="font-[Georgia] text-lg font-bold text-foreground">Profile Photo</p>
+            <p class="font-display text-lg font-bold text-foreground">Profile Photo</p>
             <p class="mt-1 text-sm text-foreground-subtle">JPG or PNG, up to 5MB.</p>
             <p v-if="avatarError" class="mt-2 text-sm text-danger">{{ avatarError }}</p>
             <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarSelected" />
@@ -237,7 +237,7 @@ onMounted(loadProfile)
         >
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="font-[Georgia] text-lg font-bold text-foreground">
+              <p class="font-display text-lg font-bold text-foreground">
                 {{ loyaltyTierName ? `${loyaltyTierName} Member` : 'Loyalty Program' }}
               </p>
               <p class="mt-1 max-w-md text-sm text-foreground-secondary">
@@ -257,7 +257,7 @@ onMounted(loadProfile)
               </p>
             </div>
             <div class="rounded-lg border border-accent-border-strong/40 bg-accent-bg/10 px-4 py-2 text-center">
-              <p class="font-[Georgia] text-2xl font-bold text-accent">{{ completedTripCount }}</p>
+              <p class="font-display text-2xl font-bold text-accent">{{ completedTripCount }}</p>
               <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted">Completed Trips</p>
             </div>
           </div>
@@ -267,7 +267,7 @@ onMounted(loadProfile)
         <div class="mt-6 rounded-2xl border border-border-subtle bg-surface p-8 sm:p-10">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="font-[Georgia] text-lg font-bold text-foreground">
+              <p class="font-display text-lg font-bold text-foreground">
                 Give KES {{ Number(referralCreditAmount).toLocaleString() }}, Get KES
                 {{ Number(referralCreditAmount).toLocaleString() }}
               </p>
@@ -277,7 +277,7 @@ onMounted(loadProfile)
               </p>
             </div>
             <div class="rounded-lg border border-accent-border-strong/40 bg-accent-bg/10 px-4 py-2 text-center">
-              <p class="font-[Georgia] text-2xl font-bold text-accent">
+              <p class="font-display text-2xl font-bold text-accent">
                 KES {{ Number(referralCreditBalance).toLocaleString() }}
               </p>
               <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted">Available Credit</p>
@@ -302,7 +302,7 @@ onMounted(loadProfile)
         <div v-if="auth.user?.is_staff" class="mt-6 rounded-2xl border border-border-subtle bg-surface p-8 sm:p-10">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="font-[Georgia] text-lg font-bold text-foreground">Two-Factor Authentication</p>
+              <p class="font-display text-lg font-bold text-foreground">Two-Factor Authentication</p>
               <p class="mt-1 max-w-md text-sm text-foreground-secondary">
                 <template v-if="twoFactorEnabled"> Enabled - a code is emailed to you every time you log in. </template>
                 <template v-else>

@@ -120,7 +120,7 @@ async function toggleFavorite(event) {
       <p class="text-xs font-semibold uppercase tracking-widest text-accent/90">
         {{ vehicle.category_name || vehicle.category }}
       </p>
-      <h3 class="font-[Georgia] text-lg font-bold text-foreground">
+      <h3 class="font-display text-lg font-bold text-foreground">
         {{ vehicle.name }}
       </h3>
       <p class="flex items-center gap-1.5 text-sm text-foreground-muted">

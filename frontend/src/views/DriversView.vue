@@ -14,14 +14,19 @@ onMounted(() => {
 <template>
   <div class="bg-page">
     <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <h1 class="text-center font-[Georgia] text-3xl font-bold text-foreground">Meet Our Drivers</h1>
+      <h1 class="text-center font-display text-3xl font-bold text-foreground">Meet Our Drivers</h1>
       <p class="mt-2 text-center text-foreground-muted">Professional, friendly chauffeurs who treat you like family.</p>
 
-      <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div v-if="catalog.loading.drivers" class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-for="n in 6" :key="n" class="h-56 animate-pulse rounded-3xl border border-border-subtle bg-surface" />
+      </div>
+      <div v-else class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <DriverCard v-for="driver in catalog.drivers" :key="driver.id" :driver="driver" />
       </div>
 
-      <p v-if="!catalog.drivers.length" class="mt-10 text-center text-foreground-subtle">No drivers listed yet.</p>
+      <p v-if="!catalog.loading.drivers && !catalog.drivers.length" class="mt-10 text-center text-foreground-subtle">
+        No drivers listed yet.
+      </p>
     </div>
   </div>
 </template>

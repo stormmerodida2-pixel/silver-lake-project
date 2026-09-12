@@ -73,7 +73,7 @@ onMounted(() => {
     <section class="bg-page py-16">
       <div class="mx-auto max-w-3xl px-4 text-center sm:px-6">
         <p class="text-sm font-semibold uppercase tracking-widest text-accent">Help</p>
-        <h1 class="mt-3 font-[Georgia] text-4xl font-bold text-foreground">Frequently Asked Questions</h1>
+        <h1 class="mt-3 font-display text-4xl font-bold text-foreground">Frequently Asked Questions</h1>
         <p class="mt-3 text-sm text-foreground-muted">
           Answers to common questions about booking, payment, cancellations and documents.
         </p>
@@ -83,7 +83,7 @@ onMounted(() => {
     <section class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
       <div class="space-y-10 text-foreground-secondary">
         <div v-for="faq in faqs" :key="faq.question">
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">{{ faq.question }}</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">{{ faq.question }}</h2>
           <p class="mt-3 leading-relaxed">{{ faq.answer }}</p>
         </div>
       </div>

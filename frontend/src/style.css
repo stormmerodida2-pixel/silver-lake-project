@@ -26,7 +26,7 @@
   --color-cream-200: #ece0c4;
   --color-cream-300: #ddcba0;
 
-  --font-display: Georgia, 'Times New Roman', serif;
+  --font-display: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
 
   /* Semantic tokens, dark values - also the safe pre-JS/no-JS fallback since the app has
      always looked like this; see the .light override block below for the light-mode swap. */

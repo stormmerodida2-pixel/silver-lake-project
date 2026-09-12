@@ -66,7 +66,7 @@ onMounted(() => {
 <template>
   <div>
     <div class="mb-6 flex items-center justify-between">
-      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">System Health</h1>
+      <h1 class="font-display text-2xl font-bold text-foreground">System Health</h1>
       <button
         :disabled="refreshing"
         class="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground-secondary hover:border-accent-border hover:text-accent disabled:opacity-50"
@@ -103,7 +103,7 @@ onMounted(() => {
     </div>
 
     <div class="mt-10">
-      <h2 class="font-[Georgia] text-xl font-bold text-foreground">Recent Errors</h2>
+      <h2 class="font-display text-xl font-bold text-foreground">Recent Errors</h2>
       <p class="mt-1 text-sm text-foreground-muted">
         Everything worth a superadmin's attention, not just what a visitor happened to hit: frontend JS crashes and
         failed API requests reported by visitors' browsers, plus background sweep failures (stale-payment cleanup,

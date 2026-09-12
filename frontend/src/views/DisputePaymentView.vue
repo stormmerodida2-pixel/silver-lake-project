@@ -52,7 +52,7 @@ onMounted(loadPayment)
   <div class="min-h-screen bg-page">
     <div class="mx-auto max-w-lg px-4 py-16 sm:px-6">
       <div class="text-center">
-        <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Dispute a Cash Payment</h1>
+        <h1 class="font-display text-2xl font-bold text-foreground">Dispute a Cash Payment</h1>
         <p class="mt-2 text-sm text-foreground-subtle">SilverLake Car Rentals</p>
       </div>
 
@@ -67,7 +67,7 @@ onMounted(loadPayment)
       <template v-else-if="payment">
         <div class="mt-8 rounded-2xl border border-border-subtle bg-surface p-6">
           <p class="text-sm text-foreground-subtle">Cash payment on booking #{{ payment.booking_id }}</p>
-          <p class="mt-1 font-[Georgia] text-2xl font-bold text-foreground">
+          <p class="mt-1 font-display text-2xl font-bold text-foreground">
             KES {{ Number(payment.amount).toLocaleString() }}
           </p>
           <p class="mt-1 text-xs text-foreground-subtle">Recorded {{ new Date(payment.created_at).toLocaleString() }}</p>
@@ -84,7 +84,7 @@ onMounted(loadPayment)
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Dispute Recorded</h2>
+          <h2 class="mt-4 font-display text-lg font-bold text-foreground">Dispute Recorded</h2>
           <p class="mt-2 text-sm text-foreground-muted">
             This payment is on hold pending review. Our team will follow up with you directly.
           </p>

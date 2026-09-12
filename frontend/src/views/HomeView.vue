@@ -187,7 +187,7 @@ const howItWorks = [
       >
         <div>
           <p class="text-sm font-semibold uppercase tracking-widest text-accent">Kisumu &bull; Across Kenya</p>
-          <h1 class="mt-3 max-w-2xl font-[Georgia] text-4xl font-bold leading-tight text-foreground sm:text-5xl">
+          <h1 class="mt-3 max-w-2xl font-display text-4xl font-bold leading-tight text-foreground sm:text-5xl">
             We don't just move you,
             <span class="text-accent">we elevate your journey.</span>
           </h1>
@@ -215,11 +215,11 @@ const howItWorks = [
             class="mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-border-subtle pt-6"
           >
             <div v-if="catalog.vehicles.length">
-              <dt class="font-[Georgia] text-2xl font-bold text-foreground">{{ catalog.vehicles.length }}+</dt>
+              <dt class="font-display text-2xl font-bold text-foreground">{{ catalog.vehicles.length }}+</dt>
               <dd class="text-xs uppercase tracking-wide text-foreground-muted">Vehicles in the fleet</dd>
             </div>
             <div v-if="totalTripsCompleted > 0">
-              <dt class="font-[Georgia] text-2xl font-bold text-foreground">{{ totalTripsCompleted }}+</dt>
+              <dt class="font-display text-2xl font-bold text-foreground">{{ totalTripsCompleted }}+</dt>
               <dd class="text-xs uppercase tracking-wide text-foreground-muted">Trips completed</dd>
             </div>
           </dl>
@@ -264,7 +264,7 @@ const howItWorks = [
 
           <Transition name="hero-fade" mode="out-in">
             <p :key="heroVehicle.id" class="mt-5 text-center">
-              <span class="font-[Georgia] text-lg font-bold text-foreground">{{ heroVehicle.name }}</span>
+              <span class="font-display text-lg font-bold text-foreground">{{ heroVehicle.name }}</span>
               <span class="ml-2 text-sm font-semibold text-accent">{{
                 heroVehicle.category_name || heroVehicle.category
               }}</span>
@@ -290,7 +290,7 @@ const howItWorks = [
         <div class="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p class="text-sm font-semibold uppercase tracking-widest text-accent">Welcome back</p>
-            <h2 class="mt-2 font-[Georgia] text-3xl font-bold text-foreground">Your Favorites</h2>
+            <h2 class="mt-2 font-display text-3xl font-bold text-foreground">Your Favorites</h2>
           </div>
           <RouterLink to="/account/favorites" class="font-semibold text-accent hover:text-accent-strong">
             Manage favorites &rarr;
@@ -314,7 +314,7 @@ const howItWorks = [
     <section v-if="recentlyViewed.length" v-reveal class="border-b border-border-subtle bg-page">
       <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <p class="text-sm font-semibold uppercase tracking-widest text-accent">Pick up where you left off</p>
-        <h2 class="mt-2 font-[Georgia] text-3xl font-bold text-foreground">Recently Viewed</h2>
+        <h2 class="mt-2 font-display text-3xl font-bold text-foreground">Recently Viewed</h2>
 
         <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <VehicleCard v-for="vehicle in recentlyViewed.slice(0, 4)" :key="vehicle.id" v-reveal :vehicle="vehicle" />
@@ -330,7 +330,7 @@ const howItWorks = [
         class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6 sm:px-6"
       >
         <div>
-          <p class="font-[Georgia] text-lg font-bold text-foreground">
+          <p class="font-display text-lg font-bold text-foreground">
             Give KES {{ Number(referralCreditAmount).toLocaleString() }}, Get KES
             {{ Number(referralCreditAmount).toLocaleString() }}
           </p>
@@ -365,7 +365,7 @@ const howItWorks = [
     <section v-reveal class="border-b border-border-subtle bg-surface">
       <div class="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-2">
         <div>
-          <h2 class="font-[Georgia] text-2xl font-bold text-foreground">
+          <h2 class="font-display text-2xl font-bold text-foreground">
             Rooted in Kisumu. <span class="text-accent">Driven across Kenya.</span>
           </h2>
           <p class="mt-2 text-sm text-foreground-secondary">
@@ -421,7 +421,7 @@ const howItWorks = [
         <p class="text-center text-sm font-semibold uppercase tracking-widest text-accent">
           Simple, from booking to ride
         </p>
-        <h2 class="mt-2 text-center font-[Georgia] text-3xl font-bold text-foreground">How It Works</h2>
+        <h2 class="mt-2 text-center font-display text-3xl font-bold text-foreground">How It Works</h2>
 
         <div class="relative mt-10 grid gap-8 sm:mt-14 sm:grid-cols-3 sm:gap-10">
           <div class="absolute left-[16.5%] right-[16.5%] top-8 hidden h-px bg-surface-2 sm:block"></div>
@@ -467,7 +467,7 @@ const howItWorks = [
                 />
               </svg>
             </div>
-            <p class="mt-5 font-[Georgia] text-lg font-bold text-foreground">
+            <p class="mt-5 font-display text-lg font-bold text-foreground">
               <span class="text-accent-strong">{{ String(index + 1).padStart(2, '0') }}.</span> {{ step.title }}
             </p>
             <p class="mt-1 max-w-64 text-sm text-foreground-muted">{{ step.text }}</p>
@@ -482,7 +482,7 @@ const howItWorks = [
         <p v-reveal class="text-center text-sm font-semibold uppercase tracking-widest text-accent">
           Handpicked &amp; well maintained
         </p>
-        <h2 v-reveal class="mt-2 text-center font-[Georgia] text-3xl font-bold text-foreground">
+        <h2 v-reveal class="mt-2 text-center font-display text-3xl font-bold text-foreground">
           Our Fleet. <span class="text-accent">Comfort for every need.</span>
         </h2>
 
@@ -508,7 +508,7 @@ const howItWorks = [
       <div class="pointer-events-none absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-accent-bg/10 blur-3xl"></div>
 
       <div class="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-14">
-        <h2 v-reveal class="text-center font-[Georgia] text-2xl font-bold text-foreground">
+        <h2 v-reveal class="text-center font-display text-2xl font-bold text-foreground">
           It's not just a journey, <span class="text-accent">it's an experience.</span>
         </h2>
         <div class="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 lg:grid-cols-5">
@@ -594,10 +594,10 @@ const howItWorks = [
           <svg class="h-7 w-7 text-accent" fill="currentColor" viewBox="0 0 24 24">
             <path d="M4 18h16v2H4v-2ZM4 8l3.5 2.5L12 5l4.5 5.5L20 8v8H4V8Z" />
           </svg>
-          <p class="font-[Georgia] text-lg font-bold text-foreground">
+          <p class="font-display text-lg font-bold text-foreground">
             Your Comfort. <span class="text-accent">Our Commitment.</span>
           </p>
-          <p class="font-[Georgia] text-base italic text-foreground-secondary">Karibu sana!</p>
+          <p class="font-display text-base italic text-foreground-secondary">Karibu sana!</p>
         </div>
       </div>
     </section>
@@ -610,7 +610,7 @@ const howItWorks = [
           class="flex flex-col items-center justify-between gap-6 rounded-2xl border border-border-subtle bg-surface px-6 py-10 text-center sm:px-12 md:flex-row md:text-left"
         >
           <div>
-            <h2 class="font-[Georgia] text-2xl font-bold text-foreground">
+            <h2 class="font-display text-2xl font-bold text-foreground">
               Own a car? <span class="text-accent">Partner with SilverLake.</span>
             </h2>
             <p class="mt-2 max-w-xl text-sm text-foreground-secondary">
@@ -645,7 +645,7 @@ const howItWorks = [
         >
           {{ averageRating }}&#9733; average &middot; real reviews from real trips
         </p>
-        <h2 v-reveal class="mt-2 text-center font-[Georgia] text-3xl font-bold text-foreground">What our clients say</h2>
+        <h2 v-reveal class="mt-2 text-center font-display text-3xl font-bold text-foreground">What our clients say</h2>
         <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <ReviewCard v-for="review in catalog.reviews.slice(0, 3)" :key="review.id" v-reveal :review="review" />
         </div>

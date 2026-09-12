@@ -94,7 +94,7 @@ onMounted(async () => {
             }}
           </p>
         </div>
-        <h1 class="mt-2 font-[Georgia] text-3xl font-bold text-foreground sm:text-4xl">{{ post.title }}</h1>
+        <h1 class="mt-2 font-display text-3xl font-bold text-foreground sm:text-4xl">{{ post.title }}</h1>
         <p class="mt-2 text-sm text-foreground-subtle">By SilverLake Car Rentals Team</p>
 
         <!-- post.body is server-sanitized (blog.sanitize.sanitize_body, an nh3 allowlist) before it's

@@ -135,7 +135,7 @@ onMounted(() => {
   <div class="bg-page">
     <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
       <div class="flex items-center justify-between">
-        <h1 class="font-[Georgia] text-3xl font-bold text-foreground">Support</h1>
+        <h1 class="font-display text-3xl font-bold text-foreground">Support</h1>
         <button
           class="rounded-md bg-accent-bg px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-accent-bg-hover"
           @click="openForm"
@@ -246,7 +246,7 @@ onMounted(() => {
         <div v-for="ticket in tickets" :key="ticket.id" class="rounded-xl border border-border-subtle bg-surface p-5">
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h3 class="font-[Georgia] text-lg font-bold text-foreground">{{ ticket.subject }}</h3>
+              <h3 class="font-display text-lg font-bold text-foreground">{{ ticket.subject }}</h3>
               <p class="text-sm text-foreground-subtle">
                 {{ categoryLabels[ticket.category] }}
                 <template v-if="ticket.booking_label"> &middot; {{ ticket.booking_label }}</template>
