@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import apiClient from '../api/client'
 import { useAuthStore } from '../stores/auth'
+import { showToast } from '../utils/dialogs'
 import VehiclePhotoPlaceholder from './VehiclePhotoPlaceholder.vue'
 
 const props = defineProps({
@@ -63,9 +64,11 @@ async function toggleFavorite(event) {
   try {
     const { data } = await apiClient.post(`/vehicles/${props.vehicle.id}/toggle_favorite/`)
     isFavorited.value = data.is_favorited
+    showToast(data.is_favorited ? 'Added to favorites' : 'Removed from favorites')
     if (wasFavorited && !data.is_favorited) emit('unfavorited', props.vehicle.id)
   } catch {
     isFavorited.value = wasFavorited // revert on failure
+    showToast('Could not update favorites', { icon: 'error' })
   } finally {
     togglingFavorite.value = false
   }

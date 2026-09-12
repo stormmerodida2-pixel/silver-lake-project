@@ -42,3 +42,24 @@ export async function promptDialog(text, { title, defaultValue = '', placeholder
   })
   return result.isConfirmed ? result.value : null
 }
+
+// A brief, non-blocking corner notification - for confirming an action succeeded (favorited,
+// booking cancelled, review submitted...) without interrupting the page the way confirmDialog's
+// modal does. Built on the same Swal instance/palette as the dialogs above so it still looks
+// like part of this app, not a generic toast library bolted on.
+const toastMixin = Swal.mixin({
+  toast: true,
+  position: 'top-end',
+  showConfirmButton: false,
+  timer: 2800,
+  timerProgressBar: true,
+  ...BRAND,
+  didOpen: (el) => {
+    el.onmouseenter = Swal.stopTimer
+    el.onmouseleave = Swal.resumeTimer
+  },
+})
+
+export function showToast(title, { icon = 'success' } = {}) {
+  toastMixin.fire({ icon, title })
+}

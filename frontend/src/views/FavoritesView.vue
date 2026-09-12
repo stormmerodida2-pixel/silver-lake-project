@@ -34,7 +34,9 @@ onMounted(loadFavorites)
       <h1 class="text-center font-display text-3xl font-bold text-foreground">My Favorites</h1>
       <p class="mt-2 text-center text-foreground-muted">Vehicles you've saved for later.</p>
 
-      <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>
+      <div v-if="loading" class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-for="n in 3" :key="n" class="h-80 animate-pulse rounded-3xl border border-border-subtle bg-surface" />
+      </div>
       <p v-else-if="error" class="mt-10 text-center text-danger">{{ error }}</p>
       <p v-else-if="!vehicles.length" class="mt-10 text-center text-foreground-subtle">
         No favorites yet - tap the heart on any vehicle to save it here.

@@ -135,6 +135,40 @@ watch(priceCardRef, (el) => {
   priceCardObserver.observe(el)
 })
 onBeforeUnmount(() => priceCardObserver?.disconnect())
+
+// ── Photo lightbox ───────────────────────────────────────────────────────────
+// Hero image + gallery, in one flat list so the hero opens the same viewer at slide 0 instead
+// of only the gallery thumbnails being enlargeable.
+const lightboxSlides = computed(() => {
+  const slides = []
+  if (vehicle.value?.image) slides.push({ src: vehicle.value.image, alt: vehicle.value.name })
+  for (const img of vehicle.value?.gallery_images || []) {
+    slides.push({ src: img.image, alt: img.caption || vehicle.value.name })
+  }
+  return slides
+})
+const lightboxIndex = ref(null)
+const lightboxOpen = computed(() => lightboxIndex.value !== null)
+function openLightbox(index) {
+  lightboxIndex.value = index
+}
+function closeLightbox() {
+  lightboxIndex.value = null
+}
+function nextSlide() {
+  lightboxIndex.value = (lightboxIndex.value + 1) % lightboxSlides.value.length
+}
+function prevSlide() {
+  lightboxIndex.value = (lightboxIndex.value - 1 + lightboxSlides.value.length) % lightboxSlides.value.length
+}
+function onLightboxKeydown(event) {
+  if (!lightboxOpen.value) return
+  if (event.key === 'Escape') closeLightbox()
+  else if (event.key === 'ArrowRight') nextSlide()
+  else if (event.key === 'ArrowLeft') prevSlide()
+}
+onMounted(() => window.addEventListener('keydown', onLightboxKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onLightboxKeydown))
 </script>
 
 <template>
@@ -145,7 +179,15 @@ onBeforeUnmount(() => priceCardObserver?.disconnect())
     <template v-else-if="vehicle">
       <!-- Hero image -->
       <div class="relative h-72 w-full bg-surface sm:h-96">
-        <img v-if="vehicle.image" :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
+        <button
+          v-if="vehicle.image"
+          type="button"
+          class="block h-full w-full cursor-zoom-in"
+          aria-label="View full-size photo"
+          @click="openLightbox(0)"
+        >
+          <img :src="vehicle.image" :alt="vehicle.name" class="h-full w-full object-cover" />
+        </button>
         <VehiclePhotoPlaceholder v-else size="lg">No photo available</VehiclePhotoPlaceholder>
         <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-950/10 to-transparent"></div>
         <!-- Back link -->
@@ -212,13 +254,20 @@ onBeforeUnmount(() => priceCardObserver?.disconnect())
             <div v-if="vehicle.gallery_images?.length" class="mt-8">
               <h2 class="font-display text-xl font-bold text-foreground">Gallery</h2>
               <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <img
-                  v-for="img in vehicle.gallery_images"
+                <button
+                  v-for="(img, i) in vehicle.gallery_images"
                   :key="img.id"
-                  :src="img.image"
-                  :alt="img.caption || vehicle.name"
-                  class="aspect-[4/3] w-full rounded-lg object-cover"
-                />
+                  type="button"
+                  class="cursor-zoom-in overflow-hidden rounded-lg"
+                  aria-label="View full-size photo"
+                  @click="openLightbox(i + (vehicle.image ? 1 : 0))"
+                >
+                  <img
+                    :src="img.image"
+                    :alt="img.caption || vehicle.name"
+                    class="aspect-[4/3] w-full object-cover transition duration-300 hover:scale-105"
+                  />
+                </button>
               </div>
             </div>
           </div>
@@ -305,6 +354,64 @@ onBeforeUnmount(() => priceCardObserver?.disconnect())
         :book-href="vehicle.allow_with_driver ? withDriverUrl : selfDriveUrl"
         :whatsapp-href="whatsappHref"
       />
+
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0"
+        leave-active-class="transition duration-150 ease-in"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="lightboxOpen"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          @click.self="closeLightbox"
+        >
+          <button
+            type="button"
+            class="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+            aria-label="Close"
+            @click="closeLightbox"
+          >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+
+          <button
+            v-if="lightboxSlides.length > 1"
+            type="button"
+            class="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 sm:left-4"
+            aria-label="Previous photo"
+            @click="prevSlide"
+          >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            v-if="lightboxSlides.length > 1"
+            type="button"
+            class="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 sm:right-4"
+            aria-label="Next photo"
+            @click="nextSlide"
+          >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          <img
+            v-if="lightboxSlides[lightboxIndex]"
+            :src="lightboxSlides[lightboxIndex].src"
+            :alt="lightboxSlides[lightboxIndex].alt"
+            class="max-h-[85vh] max-w-full rounded-lg object-contain"
+          />
+
+          <p v-if="lightboxSlides.length > 1" class="absolute bottom-4 text-sm font-medium text-white/80">
+            {{ lightboxIndex + 1 }} / {{ lightboxSlides.length }}
+          </p>
+        </div>
+      </Transition>
     </template>
   </div>
 </template>
