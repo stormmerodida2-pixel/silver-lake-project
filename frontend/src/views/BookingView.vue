@@ -10,6 +10,7 @@ import VehiclePhotoPlaceholder from '../components/VehiclePhotoPlaceholder.vue'
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
 import { trackEvent } from '../utils/analytics'
+import { showToast } from '../utils/dialogs'
 import { calculateEstimatedCost, calculateTotalDays, SELF_DRIVE_SURCHARGE_PERCENT } from '../utils/pricing'
 
 const route = useRoute()
@@ -281,6 +282,17 @@ const showSidebarContent = computed(() => !!selectedVehicle.value)
 // placeholder box while the form step is still waiting on a vehicle pick.
 const showSidebar = computed(() => showTwoColumn.value && showSidebarContent.value)
 
+// ── Step indicator ───────────────────────────────────────────────────────────
+// A 3-step flow (form -> confirmed -> paying), but "paying" only ever follows an M-Pesa
+// attempt - bank transfer/card payers never leave the "confirmed" step, so it's marked
+// complete rather than current once a payment method other than M-Pesa is underway.
+const bookingSteps = [
+  { key: 'form', label: 'Details' },
+  { key: 'confirmed', label: 'Confirm & Pay' },
+  { key: 'paying', label: 'Payment' },
+]
+const currentStepIndex = computed(() => bookingSteps.findIndex((s) => s.key === step.value))
+
 // Combine the cover photo with any gallery images so the sidebar can flip through all of them.
 const vehiclePhotos = computed(() => {
   const vehicle = selectedVehicle.value
@@ -518,6 +530,7 @@ async function declareBankTransfer() {
     booking.value = data
     bankTransferAcknowledged.value = false
     bankTransferReference.value = ''
+    showToast('Bank transfer recorded - awaiting verification')
   } catch (err) {
     const data = err.response?.data
     bankTransferError.value =
@@ -535,6 +548,40 @@ async function declareBankTransfer() {
         <h1 class="font-[Georgia] text-3xl font-bold text-foreground sm:text-4xl">Book Your Ride</h1>
         <p class="mt-2 text-foreground-muted">Choose your vehicle, dates, and how you'd like to travel.</p>
       </div>
+
+      <!-- Step indicator -->
+      <ol class="mx-auto mt-8 flex max-w-md items-start">
+        <li v-for="(s, i) in bookingSteps" :key="s.key" class="flex flex-1 items-start last:flex-none">
+          <div class="flex flex-col items-center gap-1.5">
+            <span
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition"
+              :class="
+                i < currentStepIndex
+                  ? 'bg-accent-bg text-on-accent'
+                  : i === currentStepIndex
+                    ? 'border-2 border-accent-border bg-page text-accent'
+                    : 'border border-border text-foreground-subtle'
+              "
+            >
+              <svg v-if="i < currentStepIndex" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <span v-else>{{ i + 1 }}</span>
+            </span>
+            <span
+              class="text-xs font-medium whitespace-nowrap"
+              :class="i <= currentStepIndex ? 'text-foreground' : 'text-foreground-subtle'"
+            >
+              {{ s.label }}
+            </span>
+          </div>
+          <span
+            v-if="i < bookingSteps.length - 1"
+            class="mx-2 mt-4 h-0.5 flex-1 rounded-full transition"
+            :class="i < currentStepIndex ? 'bg-accent-bg' : 'bg-border'"
+          />
+        </li>
+      </ol>
 
       <div class="mt-10 grid gap-8" :class="showSidebar ? 'lg:grid-cols-3' : 'mx-auto max-w-2xl'">
         <!-- Main column: form / confirmation / payment -->

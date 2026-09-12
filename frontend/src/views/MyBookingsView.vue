@@ -4,6 +4,7 @@ import { defineAsyncComponent, onMounted, reactive, ref } from 'vue'
 import apiClient from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { useCatalogStore } from '../stores/catalog'
+import { showToast } from '../utils/dialogs'
 import { ordinal } from '../utils/format'
 
 // Async, not a static import - Leaflet (~150KB) is only actually needed once someone clicks
@@ -117,6 +118,7 @@ async function submitReview(booking) {
     bookings.value[index] = data
     reviewingId.value = null
     clearReviewPhoto()
+    showToast('Review submitted - thank you!')
   } catch (err) {
     reviewError.value = err.response?.data?.detail || 'Could not submit your review.'
   } finally {
@@ -151,6 +153,7 @@ async function cancelBooking(booking) {
     const { data } = await apiClient.post(`/bookings/${booking.id}/cancel/`)
     const index = bookings.value.findIndex((b) => b.id === booking.id)
     bookings.value[index] = data
+    showToast('Booking cancelled')
   } catch (err) {
     error.value = err.response?.data?.detail || 'Could not cancel this booking.'
   } finally {
@@ -186,6 +189,7 @@ async function submitChangeDates(booking) {
     const index = bookings.value.findIndex((b) => b.id === booking.id)
     bookings.value[index] = data
     changingDatesId.value = null
+    showToast('Booking dates updated')
   } catch (err) {
     changeDatesError.value = err.response?.data?.detail || 'Could not change these dates.'
   } finally {
@@ -235,7 +239,9 @@ onMounted(() => {
     <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
       <h1 class="text-center font-[Georgia] text-3xl font-bold text-foreground">My Bookings</h1>
 
-      <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>
+      <div v-if="loading" class="mt-10 space-y-4">
+        <div v-for="n in 3" :key="n" class="h-40 animate-pulse rounded-xl border border-border-subtle bg-surface" />
+      </div>
       <p v-else-if="error" class="mt-10 text-center text-danger">{{ error }}</p>
       <p v-else-if="!bookings.length" class="mt-10 text-center text-foreground-subtle">
         You haven't made any bookings yet.

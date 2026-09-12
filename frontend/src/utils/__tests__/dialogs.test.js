@@ -1,11 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+// toastFire is the mixin instance's own fire, kept distinct from Swal.fire itself so
+// showToast's assertions can't accidentally pass by checking the wrong mock.
+const { toastFire, mixinFn } = vi.hoisted(() => {
+  const toastFire = vi.fn()
+  return { toastFire, mixinFn: vi.fn(() => ({ fire: toastFire })) }
+})
+
 vi.mock('sweetalert2', () => ({
-  default: { fire: vi.fn() },
+  default: { fire: vi.fn(), mixin: mixinFn, stopTimer: vi.fn(), resumeTimer: vi.fn() },
 }))
 
 import Swal from 'sweetalert2'
-import { confirmDialog, promptDialog } from '../dialogs'
+import { confirmDialog, promptDialog, showToast } from '../dialogs'
 
 describe('confirmDialog', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -48,5 +55,19 @@ describe('promptDialog', () => {
     Swal.fire.mockResolvedValue({ isConfirmed: true, value: 'secret' })
     await promptDialog('Confirm your password', { inputType: 'password' })
     expect(Swal.fire.mock.calls[0][0].input).toBe('password')
+  })
+})
+
+describe('showToast', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('fires a success toast by default', () => {
+    showToast('Added to favorites')
+    expect(toastFire).toHaveBeenCalledWith({ icon: 'success', title: 'Added to favorites' })
+  })
+
+  it('supports overriding the icon', () => {
+    showToast('Could not update favorites', { icon: 'error' })
+    expect(toastFire).toHaveBeenCalledWith({ icon: 'error', title: 'Could not update favorites' })
   })
 })
