@@ -57,9 +57,43 @@ function clearDateFilter() {
 }
 
 const baseVehicles = computed(() => dateFilteredVehicles.value ?? catalog.vehicles)
-const filteredVehicles = computed(() => {
+const categoryFilteredVehicles = computed(() => {
   if (activeCategory.value === 'all') return baseVehicles.value
   return baseVehicles.value.filter((v) => v.category === activeCategory.value)
+})
+
+// ── Keyword search ───────────────────────────────────────────────────────
+// Client-side over the already-fetched/filtered list, same as category filtering above - the
+// fleet is small enough that a server round-trip per keystroke would only add latency.
+const searchQuery = ref('')
+const searchedVehicles = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return categoryFilteredVehicles.value
+  return categoryFilteredVehicles.value.filter((v) =>
+    [v.name, v.tagline, v.category_name].some((field) => field?.toLowerCase().includes(q)),
+  )
+})
+
+// ── Sort ──────────────────────────────────────────────────────────────────
+const sortOptions = [
+  { value: 'featured', label: 'Featured' },
+  { value: 'price_asc', label: 'Price: Low to High' },
+  { value: 'price_desc', label: 'Price: High to Low' },
+  { value: 'popular', label: 'Most Popular' },
+]
+const sortBy = ref('featured')
+const filteredVehicles = computed(() => {
+  const vehicles = searchedVehicles.value
+  if (sortBy.value === 'price_asc') {
+    return [...vehicles].sort((a, b) => Number(a.price_per_day) - Number(b.price_per_day))
+  }
+  if (sortBy.value === 'price_desc') {
+    return [...vehicles].sort((a, b) => Number(b.price_per_day) - Number(a.price_per_day))
+  }
+  if (sortBy.value === 'popular') {
+    return [...vehicles].sort((a, b) => (b.trips_completed || 0) - (a.trips_completed || 0))
+  }
+  return vehicles
 })
 
 onMounted(() => {
@@ -135,6 +169,35 @@ onMounted(() => {
         </button>
       </div>
 
+      <div class="mx-auto mt-6 flex max-w-2xl flex-wrap items-center justify-center gap-3">
+        <div class="relative flex-1 min-w-[220px]">
+          <svg
+            class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-subtle"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="11" cy="11" r="7" stroke-linecap="round" stroke-linejoin="round" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20 20l-3.5-3.5" />
+          </svg>
+          <input
+            v-model="searchQuery"
+            type="search"
+            placeholder="Search by name, e.g. 'Prado'"
+            class="w-full rounded-full border border-border bg-surface py-2.5 pl-9 pr-4 text-sm text-foreground placeholder:text-foreground-subtle focus:border-accent-border focus:outline-none"
+          />
+        </div>
+        <select
+          v-model="sortBy"
+          class="rounded-full border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-foreground-secondary focus:border-accent-border focus:outline-none"
+        >
+          <option v-for="option in sortOptions" :key="option.value" :value="option.value">
+            Sort: {{ option.label }}
+          </option>
+        </select>
+      </div>
+
       <div v-if="catalog.loading.vehicles" class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <div v-for="n in 6" :key="n" class="h-80 animate-pulse rounded-3xl border border-border-subtle bg-surface" />
       </div>
@@ -150,7 +213,13 @@ onMounted(() => {
       </div>
 
       <p v-if="!catalog.loading.vehicles && !filteredVehicles.length" class="mt-10 text-center text-foreground-muted">
-        {{ isDateFilterActive ? 'No vehicles are available for those dates.' : 'No vehicles in this category yet.' }}
+        {{
+          searchQuery.trim()
+            ? `No vehicles match "${searchQuery.trim()}".`
+            : isDateFilterActive
+              ? 'No vehicles are available for those dates.'
+              : 'No vehicles in this category yet.'
+        }}
       </p>
     </div>
   </div>
