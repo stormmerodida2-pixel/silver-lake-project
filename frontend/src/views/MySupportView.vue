@@ -238,7 +238,10 @@ onMounted(() => {
         </form>
       </div>
 
-      <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>
+      <div v-if="loading" class="mt-10 space-y-4">
+        <div class="h-28 animate-pulse rounded-xl border border-border-subtle bg-surface" />
+        <div class="h-28 animate-pulse rounded-xl border border-border-subtle bg-surface" />
+      </div>
       <p v-else-if="error" class="mt-10 text-center text-danger">{{ error }}</p>
       <p v-else-if="!tickets.length" class="mt-10 text-center text-foreground-subtle">You haven't filed any support tickets.</p>
 
@@ -266,6 +269,7 @@ onMounted(() => {
               <img
                 :src="photo.image"
                 alt="Attached photo"
+                loading="lazy"
                 class="h-16 w-16 rounded-lg border border-border-subtle object-cover"
               />
             </a>

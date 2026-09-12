@@ -281,6 +281,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onLightboxKeydown))
                   <img
                     :src="img.image"
                     :alt="img.caption || vehicle.name"
+                    loading="lazy"
                     class="aspect-[4/3] w-full object-cover transition duration-300 hover:scale-105"
                   />
                 </button>

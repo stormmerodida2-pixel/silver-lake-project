@@ -17,6 +17,7 @@ defineProps({
         v-if="post.cover_image"
         :src="post.cover_image"
         :alt="post.title"
+        loading="lazy"
         class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
       />
       <div v-else class="flex h-full items-center justify-center text-foreground-subtle">SilverLake Car Rentals</div>
