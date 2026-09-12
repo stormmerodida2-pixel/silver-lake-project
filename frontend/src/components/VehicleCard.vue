@@ -85,6 +85,7 @@ async function toggleFavorite(event) {
         v-if="vehicle.image"
         :src="vehicle.image"
         :alt="vehicle.name"
+        loading="lazy"
         class="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
       />
       <VehiclePhotoPlaceholder v-else size="sm" />

@@ -12,7 +12,13 @@ defineProps({
     class="flex flex-col items-center rounded-xl border border-border-subtle bg-surface p-6 text-center shadow-lg shadow-black/20"
   >
     <div class="h-24 w-24 overflow-hidden rounded-full bg-surface-2">
-      <img v-if="driver.photo" :src="driver.photo" :alt="driver.full_name" class="h-full w-full object-cover" />
+      <img
+        v-if="driver.photo"
+        :src="driver.photo"
+        :alt="driver.full_name"
+        loading="lazy"
+        class="h-full w-full object-cover"
+      />
       <div v-else class="flex h-full items-center justify-center text-2xl font-bold text-foreground-muted">
         {{ driver.full_name.charAt(0) }}
       </div>

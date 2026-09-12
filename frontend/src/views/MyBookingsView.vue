@@ -411,6 +411,7 @@ onMounted(() => {
               v-if="booking.review.photo"
               :src="booking.review.photo"
               alt="Your trip photo"
+              loading="lazy"
               class="mt-2 h-24 w-24 rounded-md border border-border-subtle object-cover"
             />
             <p class="mt-1 text-xs text-foreground-muted">Awaiting approval before it shows publicly.</p>

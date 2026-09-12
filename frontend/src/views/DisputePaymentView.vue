@@ -56,7 +56,7 @@ onMounted(loadPayment)
         <p class="mt-2 text-sm text-foreground-subtle">SilverLake Car Rentals</p>
       </div>
 
-      <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>
+      <div v-if="loading" class="mt-10 h-56 animate-pulse rounded-2xl border border-border-subtle bg-surface" />
       <div
         v-else-if="loadError"
         class="mt-10 rounded-xl border border-red-500/20 bg-red-500/10 p-6 text-center text-danger"

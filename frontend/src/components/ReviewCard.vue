@@ -17,6 +17,7 @@ defineProps({
       v-if="review.photo"
       :src="review.photo"
       :alt="`Photo from ${review.customer_name}'s trip`"
+      loading="lazy"
       class="mt-3 h-32 w-full rounded-lg object-cover"
     />
     <p class="mt-3 text-sm font-semibold text-foreground">- {{ review.customer_name }}</p>
