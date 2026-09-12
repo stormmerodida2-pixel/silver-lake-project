@@ -52,7 +52,16 @@ onMounted(async () => {
 
 <template>
   <div class="bg-page">
-    <p v-if="loading" class="py-32 text-center text-foreground-subtle">Loading...</p>
+    <div v-if="loading">
+      <div class="h-72 w-full animate-pulse bg-surface sm:h-96" />
+      <div class="mx-auto max-w-3xl space-y-3 px-4 py-12 sm:px-6">
+        <div class="h-4 w-1/3 animate-pulse rounded bg-surface" />
+        <div class="h-8 w-2/3 animate-pulse rounded bg-surface" />
+        <div class="mt-6 h-4 w-full animate-pulse rounded bg-surface" />
+        <div class="h-4 w-full animate-pulse rounded bg-surface" />
+        <div class="h-4 w-5/6 animate-pulse rounded bg-surface" />
+      </div>
+    </div>
     <p v-else-if="error" class="py-32 text-center text-danger">{{ error }}</p>
 
     <template v-else-if="post">

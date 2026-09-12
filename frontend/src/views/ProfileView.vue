@@ -187,7 +187,10 @@ onMounted(loadProfile)
       <h1 class="text-center font-display text-4xl font-bold text-foreground">My Profile</h1>
       <p class="mt-3 text-center text-base text-foreground-subtle">Update your name and contact details.</p>
 
-      <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>
+      <div v-if="loading" class="mt-10 space-y-4">
+        <div class="h-32 animate-pulse rounded-2xl border border-border-subtle bg-surface" />
+        <div class="h-64 animate-pulse rounded-2xl border border-border-subtle bg-surface" />
+      </div>
 
       <template v-else>
         <!-- Profile photo -->
