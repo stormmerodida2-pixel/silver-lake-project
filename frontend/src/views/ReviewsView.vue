@@ -19,10 +19,15 @@ onMounted(() => {
         Shared by customers after their trip - book with us and yours could be next.
       </p>
 
-      <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div v-if="catalog.loading.reviews" class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-for="n in 6" :key="n" class="h-40 animate-pulse rounded-3xl border border-border-subtle bg-surface" />
+      </div>
+      <div v-else class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <ReviewCard v-for="review in catalog.reviews" :key="review.id" :review="review" />
       </div>
-      <p v-if="!catalog.reviews.length" class="mt-10 text-center text-foreground-subtle">No reviews yet.</p>
+      <p v-if="!catalog.loading.reviews && !catalog.reviews.length" class="mt-10 text-center text-foreground-subtle">
+        No reviews yet.
+      </p>
     </div>
   </div>
 </template>

@@ -135,7 +135,10 @@ onMounted(() => {
         </button>
       </div>
 
-      <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div v-if="catalog.loading.vehicles" class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-for="n in 6" :key="n" class="h-80 animate-pulse rounded-3xl border border-border-subtle bg-surface" />
+      </div>
+      <div v-else class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <VehicleCard
           v-for="vehicle in filteredVehicles"
           :key="vehicle.id"
@@ -146,7 +149,7 @@ onMounted(() => {
         />
       </div>
 
-      <p v-if="!filteredVehicles.length" class="mt-10 text-center text-foreground-muted">
+      <p v-if="!catalog.loading.vehicles && !filteredVehicles.length" class="mt-10 text-center text-foreground-muted">
         {{ isDateFilterActive ? 'No vehicles are available for those dates.' : 'No vehicles in this category yet.' }}
       </p>
     </div>
