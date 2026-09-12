@@ -127,8 +127,15 @@ async function load({ fitBounds } = { fitBounds: false }) {
 
 onMounted(() => {
   map = L.map(mapEl.value).setView(KISUMU_CENTER, 12)
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
+  // CARTO's free basemap tiles, not the raw tile.openstreetmap.org endpoint - that one is a
+  // volunteer-run server meant for light testing/evaluation only, and blocks production apps
+  // with a 403 once used past that (see https://operations.osmfoundation.org/policies/tiles/).
+  // CARTO's are OSM-based, free, and don't require an API key/signup, just this attribution.
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ' +
+      '&copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
     maxZoom: 19,
   }).addTo(map)
   load({ fitBounds: true })
