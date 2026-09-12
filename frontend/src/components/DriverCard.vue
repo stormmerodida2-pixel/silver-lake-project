@@ -17,7 +17,7 @@ defineProps({
         {{ driver.full_name.charAt(0) }}
       </div>
     </div>
-    <h3 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">{{ driver.full_name }}</h3>
+    <h3 class="mt-4 font-display text-lg font-bold text-foreground">{{ driver.full_name }}</h3>
     <p class="text-sm text-accent">{{ driver.years_of_experience }}+ years experience</p>
     <p class="mt-2 text-sm text-foreground-muted">{{ driver.bio }}</p>
     <p class="mt-3 text-sm font-semibold text-foreground">★ {{ Number(driver.rating).toFixed(1) }} / 5</p>

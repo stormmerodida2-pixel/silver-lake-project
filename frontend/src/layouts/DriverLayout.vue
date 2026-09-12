@@ -120,7 +120,7 @@ onMounted(() => {
     <aside class="hidden w-56 shrink-0 flex-col border-r border-border-subtle bg-surface md:flex">
       <RouterLink to="/" class="flex items-center gap-2 border-b border-border-subtle px-5 py-4">
         <SilverLakeLogo :size="26" />
-        <span class="font-[Georgia] text-sm font-bold tracking-wide text-foreground">Driver Portal</span>
+        <span class="font-display text-sm font-bold tracking-wide text-foreground">Driver Portal</span>
       </RouterLink>
 
       <nav class="flex flex-1 flex-col gap-1 p-3">
@@ -215,7 +215,7 @@ onMounted(() => {
       >
         <div class="flex items-center gap-2 md:hidden">
           <SilverLakeLogo :size="24" />
-          <span class="font-[Georgia] text-sm font-bold text-foreground">Driver</span>
+          <span class="font-display text-sm font-bold text-foreground">Driver</span>
         </div>
         <div class="hidden text-sm text-foreground-muted md:block">{{ route.meta.pageTitle || 'Driver Portal' }}</div>
         <div class="flex items-center gap-2 text-sm text-foreground-secondary sm:gap-3">
@@ -243,7 +243,7 @@ onMounted(() => {
           </button>
           <RouterLink
             to="/account/profile"
-            class="hidden whitespace-nowrap font-[Georgia] text-sm tracking-wide transition hover:text-accent sm:inline-block sm:text-base"
+            class="hidden whitespace-nowrap font-display text-sm tracking-wide transition hover:text-accent sm:inline-block sm:text-base"
           >
             Hi, {{ auth.user?.first_name || 'Driver' }}
           </RouterLink>
@@ -355,12 +355,12 @@ onMounted(() => {
             <div class="flex flex-wrap items-start justify-between gap-4">
               <div class="flex items-center gap-4">
                 <div
-                  class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-accent-border-strong/40 bg-accent-bg/10 font-[Georgia] text-2xl font-bold text-accent"
+                  class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-accent-border-strong/40 bg-accent-bg/10 font-display text-2xl font-bold text-accent"
                 >
                   {{ driverPortal.initials || '—' }}
                 </div>
                 <div>
-                  <h2 class="font-[Georgia] text-2xl font-bold text-foreground">{{ driverPortal.profile.full_name }}</h2>
+                  <h2 class="font-display text-2xl font-bold text-foreground">{{ driverPortal.profile.full_name }}</h2>
                   <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-foreground-muted">
                     <span class="inline-flex items-center gap-1 text-accent">
                       <span v-for="n in 5" :key="n" class="text-sm leading-none">{{

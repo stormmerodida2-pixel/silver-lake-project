@@ -64,7 +64,7 @@ onMounted(load)
   <div>
     <!-- Header -->
     <div class="flex flex-wrap items-center justify-between gap-4">
-      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Review Moderation</h1>
+      <h1 class="font-display text-2xl font-bold text-foreground">Review Moderation</h1>
 
       <!-- Filter tabs -->
       <div class="flex gap-2">

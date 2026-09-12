@@ -532,7 +532,7 @@ async function declareBankTransfer() {
   <div class="bg-page">
     <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
       <div class="text-center">
-        <h1 class="font-[Georgia] text-3xl font-bold text-foreground sm:text-4xl">Book Your Ride</h1>
+        <h1 class="font-display text-3xl font-bold text-foreground sm:text-4xl">Book Your Ride</h1>
         <p class="mt-2 text-foreground-muted">Choose your vehicle, dates, and how you'd like to travel.</p>
       </div>
 
@@ -818,7 +818,7 @@ async function declareBankTransfer() {
                 </svg>
               </div>
               <div>
-                <h2 class="font-[Georgia] text-xl font-bold text-foreground">Booking Received</h2>
+                <h2 class="font-display text-xl font-bold text-foreground">Booking Received</h2>
                 <p class="mt-1 text-sm text-foreground-subtle">
                   Reference <span class="font-mono text-foreground-secondary">#{{ booking?.id }}</span>
                 </p>
@@ -856,7 +856,7 @@ async function declareBankTransfer() {
               </div>
               <div class="flex items-center justify-between border-t border-dashed border-border-subtle py-1.5 pt-2.5">
                 <span class="font-semibold text-foreground">Trip Total</span>
-                <span class="font-[Georgia] text-lg font-bold text-foreground">
+                <span class="font-display text-lg font-bold text-foreground">
                   KES {{ Number(booking.total_amount).toLocaleString() }}
                 </span>
               </div>
@@ -893,7 +893,7 @@ async function declareBankTransfer() {
                   />
                 </svg>
               </div>
-              <h2 class="mt-4 font-[Georgia] text-lg font-bold text-foreground">Awaiting Confirmation</h2>
+              <h2 class="mt-4 font-display text-lg font-bold text-foreground">Awaiting Confirmation</h2>
               <p class="mt-2 text-sm text-foreground-muted">
                 You've declared a bank transfer of KES {{ Number(pendingBankTransferPayment.amount).toLocaleString() }}
                 <span v-if="pendingBankTransferPayment.note">(ref. {{ pendingBankTransferPayment.note }})</span>. Once
@@ -923,7 +923,7 @@ async function declareBankTransfer() {
                     </span>
                     Deposit (30%)
                   </span>
-                  <span class="mt-1 block font-[Georgia] text-lg font-bold text-foreground">
+                  <span class="mt-1 block font-display text-lg font-bold text-foreground">
                     KES {{ Number(booking.deposit_amount).toLocaleString() }}
                   </span>
                 </button>
@@ -946,7 +946,7 @@ async function declareBankTransfer() {
                     </span>
                     Pay in Full
                   </span>
-                  <span class="mt-1 block font-[Georgia] text-lg font-bold text-foreground">
+                  <span class="mt-1 block font-display text-lg font-bold text-foreground">
                     KES {{ Number(booking.balance_due).toLocaleString() }}
                   </span>
                 </button>
@@ -1184,7 +1184,7 @@ async function declareBankTransfer() {
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 class="mt-4 font-[Georgia] text-xl font-bold text-foreground">Payment Received</h2>
+              <h2 class="mt-4 font-display text-xl font-bold text-foreground">Payment Received</h2>
               <p class="mt-2 text-sm text-foreground-muted">
                 Booking #{{ booking?.id }} is confirmed. We've sent a confirmation to your email if you gave us one.
               </p>
@@ -1202,7 +1202,7 @@ async function declareBankTransfer() {
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
-              <h2 class="mt-4 font-[Georgia] text-xl font-bold text-foreground">Payment Didn't Go Through</h2>
+              <h2 class="mt-4 font-display text-xl font-bold text-foreground">Payment Didn't Go Through</h2>
               <p class="mt-2 text-sm text-foreground-muted">
                 The M-Pesa prompt was cancelled, timed out, or declined. No money has left your account - you can try
                 again whenever you're ready.
@@ -1225,7 +1225,7 @@ async function declareBankTransfer() {
                   />
                 </svg>
               </div>
-              <h2 class="mt-4 font-[Georgia] text-xl font-bold text-foreground">Still Waiting on M-Pesa</h2>
+              <h2 class="mt-4 font-display text-xl font-bold text-foreground">Still Waiting on M-Pesa</h2>
               <p class="mt-2 text-sm text-foreground-muted">
                 This is taking longer than usual. If you already entered your PIN, check
                 <RouterLink to="/account/bookings" class="font-semibold text-accent hover:underline"
@@ -1250,7 +1250,7 @@ async function declareBankTransfer() {
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
                 </svg>
               </div>
-              <h2 class="mt-4 font-[Georgia] text-xl font-bold text-foreground">Check Your Phone</h2>
+              <h2 class="mt-4 font-display text-xl font-bold text-foreground">Check Your Phone</h2>
               <p class="mt-2 text-sm text-foreground-muted">
                 We've sent an M-Pesa prompt to {{ paymentPhone }}. Enter your PIN to complete payment for booking #{{
                   booking?.id
@@ -1314,7 +1314,7 @@ async function declareBankTransfer() {
               </template>
             </div>
             <div class="p-5">
-              <h3 class="font-[Georgia] text-lg font-bold uppercase tracking-wide text-foreground">
+              <h3 class="font-display text-lg font-bold uppercase tracking-wide text-foreground">
                 {{ selectedVehicle.name }}
               </h3>
               <p class="text-sm font-semibold text-accent">

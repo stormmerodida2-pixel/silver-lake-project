@@ -14,7 +14,7 @@ onMounted(() => {
 <template>
   <div class="bg-page">
     <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <h1 class="text-center font-[Georgia] text-3xl font-bold text-foreground">Customer Reviews</h1>
+      <h1 class="text-center font-display text-3xl font-bold text-foreground">Customer Reviews</h1>
       <p class="mt-2 text-center text-sm text-foreground-muted">
         Shared by customers after their trip - book with us and yours could be next.
       </p>

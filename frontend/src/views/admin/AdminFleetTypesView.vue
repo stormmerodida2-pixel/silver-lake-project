@@ -100,7 +100,7 @@ onMounted(() => {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Manage Fleet Types</h1>
+        <h1 class="font-display text-2xl font-bold text-foreground">Manage Fleet Types</h1>
         <p class="mt-1 text-sm text-foreground-muted">
           The vehicle categories shown across the site (e.g. "Executive SUV") - add new ones here instead of editing
           code. Deactivate a type to stop offering it for new vehicles/applications without deleting it or affecting
@@ -194,7 +194,7 @@ onMounted(() => {
         >
           <div class="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-foreground">{{ modalTitle() }}</h2>
+              <h2 class="font-display text-xl font-bold text-foreground">{{ modalTitle() }}</h2>
               <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />

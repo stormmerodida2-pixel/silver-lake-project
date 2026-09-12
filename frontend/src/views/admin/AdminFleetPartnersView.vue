@@ -154,7 +154,7 @@ onMounted(load)
   <div>
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Fleet Partners</h1>
+        <h1 class="font-display text-2xl font-bold text-foreground">Fleet Partners</h1>
         <p class="mt-1 text-sm text-foreground-muted">
           Companies that have registered their own fleet with SilverLake - assign their vehicles to them under Admin →
           Fleet. SilverLake only takes the platform fee below; the rest is the partner's own money.
@@ -254,7 +254,7 @@ onMounted(load)
         >
           <div class="w-full max-w-lg rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-foreground">{{ modalTitle() }}</h2>
+              <h2 class="font-display text-xl font-bold text-foreground">{{ modalTitle() }}</h2>
               <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -358,7 +358,7 @@ onMounted(load)
         >
           <div class="w-full max-w-lg rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-foreground">Notify {{ notifyingPartner?.name }}</h2>
+              <h2 class="font-display text-xl font-bold text-foreground">Notify {{ notifyingPartner?.name }}</h2>
               <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showNotifyModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />

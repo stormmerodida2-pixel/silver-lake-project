@@ -31,7 +31,7 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Analytics</h1>
+    <h1 class="font-display text-2xl font-bold text-foreground">Analytics</h1>
     <p class="mt-1 text-sm text-foreground-muted">Revenue, fleet, and customer trends over the last 12 months.</p>
 
     <p v-if="loading" class="mt-10 text-center text-foreground-muted">Loading...</p>

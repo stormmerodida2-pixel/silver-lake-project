@@ -85,7 +85,7 @@ function backToLogin() {
 <template>
   <AuthLayout>
     <template v-if="!twoFactorUserId">
-      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Welcome back</h1>
+      <h1 class="font-display text-2xl font-bold text-foreground">Welcome back</h1>
       <p class="mt-1 text-sm text-foreground-muted">Log in to book your next ride.</p>
 
       <form class="mt-6 space-y-5 rounded-xl border border-border-subtle bg-surface p-8" @submit.prevent="submit">
@@ -155,7 +155,7 @@ function backToLogin() {
     </template>
 
     <template v-else>
-      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Verification code</h1>
+      <h1 class="font-display text-2xl font-bold text-foreground">Verification code</h1>
       <p class="mt-1 text-sm text-foreground-muted">We've emailed a 6-digit code to your address.</p>
 
       <form class="mt-6 space-y-5 rounded-xl border border-border-subtle bg-surface p-8" @submit.prevent="submitCode">

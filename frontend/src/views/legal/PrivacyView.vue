@@ -3,7 +3,7 @@
     <section class="bg-page py-16">
       <div class="mx-auto max-w-3xl px-4 text-center sm:px-6">
         <p class="text-sm font-semibold uppercase tracking-widest text-accent">Legal</p>
-        <h1 class="mt-3 font-[Georgia] text-4xl font-bold text-foreground">Privacy Policy</h1>
+        <h1 class="mt-3 font-display text-4xl font-bold text-foreground">Privacy Policy</h1>
         <p class="mt-3 text-sm text-foreground-muted">Last updated: 4 July 2026</p>
       </div>
     </section>
@@ -16,7 +16,7 @@
         </p>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">1. Information We Collect</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">1. Information We Collect</h2>
           <ul class="mt-3 list-disc space-y-2 pl-5 leading-relaxed">
             <li><strong>Account details:</strong> name, email address, phone number, password (stored encrypted).</li>
             <li><strong>Booking details:</strong> pickup/drop-off locations, rental dates, and service type.</li>
@@ -36,7 +36,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">2. How We Use Your Information</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">2. How We Use Your Information</h2>
           <p class="mt-3 leading-relaxed">We use your data to:</p>
           <ul class="mt-3 list-disc space-y-2 pl-5 leading-relaxed">
             <li>Create and manage your account and bookings</li>
@@ -48,7 +48,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">3. Who We Share Data With</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">3. Who We Share Data With</h2>
           <p class="mt-3 leading-relaxed">
             We do not sell your personal data. It may be shared with: the driver assigned to your booking (name, phone
             number, pickup details only - never your ID/license documents); Safaricom, to process M-Pesa payments; and
@@ -57,7 +57,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">4. How We Store &amp; Protect Your Data</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">4. How We Store &amp; Protect Your Data</h2>
           <p class="mt-3 leading-relaxed">
             Documents and personal data are stored on secured servers and access is limited to staff who need it to do
             their job (e.g. verifying a driver-partner application). Passwords are never stored in plain text. We retain
@@ -67,7 +67,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">5. Your Rights</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">5. Your Rights</h2>
           <p class="mt-3 leading-relaxed">
             Under the Data Protection Act, 2019, you may request access to, correction of, or deletion of your personal
             data, or object to certain uses of it. To exercise any of these rights, contact us using the details below -
@@ -76,7 +76,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">6. Cookies &amp; Local Storage</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">6. Cookies &amp; Local Storage</h2>
           <p class="mt-3 leading-relaxed">
             We use browser local storage to keep you signed in between visits. We do not use third-party advertising or
             tracking cookies.
@@ -84,14 +84,14 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">7. Children's Privacy</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">7. Children's Privacy</h2>
           <p class="mt-3 leading-relaxed">
             The Service is not directed at, or intended for use by, anyone under 18 years of age.
           </p>
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">8. Changes to This Policy</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">8. Changes to This Policy</h2>
           <p class="mt-3 leading-relaxed">
             We may update this policy from time to time; the "Last updated" date above will reflect any changes.
             Significant changes will be communicated by email where practical.
@@ -99,7 +99,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">9. Contact Us</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">9. Contact Us</h2>
           <p class="mt-3 leading-relaxed">
             For any privacy questions or data requests, email
             <a

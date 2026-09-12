@@ -22,7 +22,7 @@ const trustPoints = [
       ></div>
 
       <div class="relative px-12">
-        <h1 class="max-w-sm font-[Georgia] text-3xl font-bold leading-tight text-foreground">
+        <h1 class="max-w-sm font-display text-3xl font-bold leading-tight text-foreground">
           We don't just move you, <span class="text-accent">we elevate your journey.</span>
         </h1>
       </div>

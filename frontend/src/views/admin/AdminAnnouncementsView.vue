@@ -158,7 +158,7 @@ onMounted(() => {
   <div>
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Announcements</h1>
+        <h1 class="font-display text-2xl font-bold text-foreground">Announcements</h1>
         <p class="mt-1 text-sm text-foreground-muted">
           <template v-if="isSuperAdmin">
             Broadcast an in-app message to staff, drivers, or clients. No email is sent - they'll see it the next time
@@ -324,7 +324,7 @@ onMounted(() => {
         >
           <div class="w-full max-w-lg rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-foreground">
+              <h2 class="font-display text-xl font-bold text-foreground">
                 {{ isSuperAdmin ? 'New Announcement' : 'Propose Announcement to Clients' }}
               </h2>
               <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showModal = false">

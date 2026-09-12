@@ -3,7 +3,7 @@
     <section class="bg-page py-16">
       <div class="mx-auto max-w-3xl px-4 text-center sm:px-6">
         <p class="text-sm font-semibold uppercase tracking-widest text-accent">Legal</p>
-        <h1 class="mt-3 font-[Georgia] text-4xl font-bold text-foreground">Terms of Service</h1>
+        <h1 class="mt-3 font-display text-4xl font-bold text-foreground">Terms of Service</h1>
         <p class="mt-3 text-sm text-foreground-muted">Last updated: 23 July 2026</p>
       </div>
     </section>
@@ -17,7 +17,7 @@
         </p>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">1. Eligibility</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">1. Eligibility</h2>
           <p class="mt-3 leading-relaxed">
             You must be at least 18 years old to book a vehicle. For self-drive bookings, you must hold a valid driving
             license recognised in Kenya and provide a copy of your license and a government-issued ID or passport before
@@ -26,7 +26,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">2. Bookings &amp; Payment</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">2. Bookings &amp; Payment</h2>
           <p class="mt-3 leading-relaxed">
             A booking is only confirmed once a deposit of at least 30% of the total rental cost has been received. The
             remaining balance is due before or at pickup. Payments are currently accepted via bank transfer -
@@ -38,7 +38,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">3. Cancellations &amp; Refunds</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">3. Cancellations &amp; Refunds</h2>
           <p class="mt-3 leading-relaxed">
             Cancellations and refunds are governed by our
             <RouterLink to="/refund-policy" class="font-semibold text-accent hover:text-accent-strong">
@@ -48,7 +48,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">4. Self-Drive Rentals</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">4. Self-Drive Rentals</h2>
           <p class="mt-3 leading-relaxed">
             When renting self-drive, you are responsible for the vehicle from pickup to return, including fuel, traffic
             fines, and any damage not covered by insurance. The vehicle may only be driven by the person named on the
@@ -58,7 +58,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">5. With-Driver Rentals</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">5. With-Driver Rentals</h2>
           <p class="mt-3 leading-relaxed">
             Where you book with a driver, the assigned driver-partner operates the vehicle at all times. You agree to
             treat the driver with respect and to use the vehicle for lawful purposes. Requests that would put the
@@ -67,7 +67,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">6. Damage &amp; Liability</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">6. Damage &amp; Liability</h2>
           <p class="mt-3 leading-relaxed">
             You are liable for any damage to the vehicle caused by negligence, misuse, or a breach of these Terms during
             your rental period. Vehicles are insured in line with the details on file for that vehicle; insurance does
@@ -78,7 +78,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">7. Driver-Partner Program</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">7. Driver-Partner Program</h2>
           <p class="mt-3 leading-relaxed">
             Individuals who list their own vehicle with us as a driver-partner do so subject to our review and approval
             of their documents (license, vehicle logbook, photos) and ongoing compliance with our vehicle safety and
@@ -88,7 +88,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">8. Account Conduct</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">8. Account Conduct</h2>
           <p class="mt-3 leading-relaxed">
             You agree to provide accurate information when registering or booking, and not to use the Service for any
             unlawful purpose. We may suspend or terminate an account that provides false information, abuses the
@@ -97,7 +97,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">9. Changes to These Terms</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">9. Changes to These Terms</h2>
           <p class="mt-3 leading-relaxed">
             We may update these Terms from time to time. Continued use of the Service after an update means you accept
             the revised Terms. Material changes will be reflected in the "Last updated" date above.
@@ -105,7 +105,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">10. Governing Law</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">10. Governing Law</h2>
           <p class="mt-3 leading-relaxed">
             These Terms are governed by the laws of Kenya. Any disputes will be subject to the exclusive jurisdiction of
             the courts of Kenya.
@@ -113,7 +113,7 @@
         </div>
 
         <div>
-          <h2 class="font-[Georgia] text-xl font-bold text-foreground">11. Contact Us</h2>
+          <h2 class="font-display text-xl font-bold text-foreground">11. Contact Us</h2>
           <p class="mt-3 leading-relaxed">
             Questions about these Terms can be sent to
             <a

@@ -45,7 +45,7 @@ async function submit() {
 <template>
   <AuthLayout>
     <div v-if="submitted" class="rounded-xl border border-border-subtle bg-surface p-8 text-center">
-      <h2 class="font-[Georgia] text-xl font-bold text-success">Check your email</h2>
+      <h2 class="font-display text-xl font-bold text-success">Check your email</h2>
       <p class="mt-2 text-sm text-foreground-muted">
         We've sent an activation link to {{ form.email }}. Click it to activate your account, then log in.
       </p>
@@ -55,7 +55,7 @@ async function submit() {
     </div>
 
     <template v-else>
-      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Create your account</h1>
+      <h1 class="font-display text-2xl font-bold text-foreground">Create your account</h1>
       <p class="mt-1 text-sm text-foreground-muted">Book with a driver or self-drive, your way.</p>
 
       <form class="mt-6 space-y-5 rounded-xl border border-border-subtle bg-surface p-8" @submit.prevent="submit">

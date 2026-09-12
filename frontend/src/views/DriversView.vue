@@ -14,7 +14,7 @@ onMounted(() => {
 <template>
   <div class="bg-page">
     <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <h1 class="text-center font-[Georgia] text-3xl font-bold text-foreground">Meet Our Drivers</h1>
+      <h1 class="text-center font-display text-3xl font-bold text-foreground">Meet Our Drivers</h1>
       <p class="mt-2 text-center text-foreground-muted">Professional, friendly chauffeurs who treat you like family.</p>
 
       <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

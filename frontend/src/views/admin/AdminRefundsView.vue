@@ -68,7 +68,7 @@ onMounted(load)
 <template>
   <div>
     <div class="flex items-center justify-between">
-      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Refunds</h1>
+      <h1 class="font-display text-2xl font-bold text-foreground">Refunds</h1>
       <RouterLink to="/admin/bookings" class="text-sm font-semibold text-accent hover:text-accent-strong">
         View bookings &rarr;
       </RouterLink>

@@ -31,7 +31,7 @@ onMounted(loadFavorites)
 <template>
   <div class="bg-page">
     <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <h1 class="text-center font-[Georgia] text-3xl font-bold text-foreground">My Favorites</h1>
+      <h1 class="text-center font-display text-3xl font-bold text-foreground">My Favorites</h1>
       <p class="mt-2 text-center text-foreground-muted">Vehicles you've saved for later.</p>
 
       <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>

@@ -293,7 +293,7 @@ onMounted(() => {
   <div>
     <!-- Header -->
     <div class="flex items-center justify-between">
-      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Manage Drivers</h1>
+      <h1 class="font-display text-2xl font-bold text-foreground">Manage Drivers</h1>
       <button
         v-if="auth.user?.is_superuser"
         id="add-driver-btn"
@@ -323,7 +323,7 @@ onMounted(() => {
           >
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 class="font-[Georgia] text-lg font-bold text-foreground">{{ application.full_name }}</h3>
+                <h3 class="font-display text-lg font-bold text-foreground">{{ application.full_name }}</h3>
                 <p class="text-sm text-foreground-muted">{{ application.email }} - {{ application.phone_number }}</p>
                 <p class="text-sm text-foreground-muted">
                   {{ application.years_of_experience }} years experience - License #{{ application.license_number }}
@@ -400,7 +400,7 @@ onMounted(() => {
           >
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 class="font-[Georgia] text-lg font-bold text-foreground">{{ submission.name }}</h3>
+                <h3 class="font-display text-lg font-bold text-foreground">{{ submission.name }}</h3>
                 <p class="text-sm text-foreground-muted">Submitted by {{ submission.driver_name }}</p>
                 <p class="mt-1 text-sm text-foreground-secondary">
                   {{ submission.category_name || submission.category }}, {{ submission.passenger_capacity }} pax, KES
@@ -641,7 +641,7 @@ onMounted(() => {
           <div class="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <!-- Modal header -->
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-foreground">Add New Driver</h2>
+              <h2 class="font-display text-xl font-bold text-foreground">Add New Driver</h2>
               <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -748,7 +748,7 @@ onMounted(() => {
         >
           <div class="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-foreground">Suspend {{ suspendingDriver?.full_name }}</h2>
+              <h2 class="font-display text-xl font-bold text-foreground">Suspend {{ suspendingDriver?.full_name }}</h2>
               <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showSuspendModal = false">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -801,7 +801,7 @@ onMounted(() => {
         >
           <div class="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-2xl">
             <div class="mb-6 flex items-center justify-between">
-              <h2 class="font-[Georgia] text-xl font-bold text-foreground">
+              <h2 class="font-display text-xl font-bold text-foreground">
                 Edit License — {{ editingLicenseDriver?.full_name }}
               </h2>
               <button class="text-foreground-muted transition-colors hover:text-foreground" @click="showLicenseModal = false">

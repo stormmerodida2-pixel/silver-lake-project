@@ -120,7 +120,7 @@ onMounted(load)
 <template>
   <div>
     <div class="flex items-center justify-between">
-      <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Payouts</h1>
+      <h1 class="font-display text-2xl font-bold text-foreground">Payouts</h1>
       <div class="flex items-center gap-4">
         <button
           :disabled="exportingCsv"

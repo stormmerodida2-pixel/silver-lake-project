@@ -233,7 +233,7 @@ onMounted(() => {
 <template>
   <div class="bg-page">
     <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <h1 class="text-center font-[Georgia] text-3xl font-bold text-foreground">My Bookings</h1>
+      <h1 class="text-center font-display text-3xl font-bold text-foreground">My Bookings</h1>
 
       <p v-if="loading" class="mt-10 text-center text-foreground-subtle">Loading...</p>
       <p v-else-if="error" class="mt-10 text-center text-danger">{{ error }}</p>
@@ -248,7 +248,7 @@ onMounted(() => {
         <div v-for="booking in bookings" :key="booking.id" class="rounded-xl border border-border-subtle bg-surface p-5">
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h3 class="font-[Georgia] text-lg font-bold text-foreground">{{ booking.vehicle_name }}</h3>
+              <h3 class="font-display text-lg font-bold text-foreground">{{ booking.vehicle_name }}</h3>
               <p v-if="isBookedForSomeoneElse(booking)" class="text-sm font-semibold text-accent">
                 Booking for {{ booking.customer_name }}
               </p>

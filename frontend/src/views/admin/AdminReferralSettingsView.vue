@@ -49,7 +49,7 @@ onMounted(load)
 
 <template>
   <div>
-    <h1 class="font-[Georgia] text-2xl font-bold text-foreground">Referral Program</h1>
+    <h1 class="font-display text-2xl font-bold text-foreground">Referral Program</h1>
     <p class="mt-1 text-sm text-foreground-muted">
       Set the KES amount a customer earns once a friend they referred completes their first confirmed booking. Changing
       it only affects credits awarded from that point on.
@@ -83,7 +83,7 @@ onMounted(load)
       <div class="mt-6 grid gap-4 sm:grid-cols-3">
         <div class="rounded-xl border border-border-subtle p-5">
           <p class="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Credits Awarded</p>
-          <p class="mt-1 font-[Georgia] text-2xl font-bold text-foreground">
+          <p class="mt-1 font-display text-2xl font-bold text-foreground">
             KES {{ Number(stats.credits_awarded_total).toLocaleString() }}
           </p>
           <p class="mt-1 text-xs text-foreground-subtle">
@@ -92,7 +92,7 @@ onMounted(load)
         </div>
         <div class="rounded-xl border border-border-subtle p-5">
           <p class="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Redeemed</p>
-          <p class="mt-1 font-[Georgia] text-2xl font-bold text-success">
+          <p class="mt-1 font-display text-2xl font-bold text-success">
             KES {{ Number(stats.credits_redeemed_total).toLocaleString() }}
           </p>
           <p class="mt-1 text-xs text-foreground-subtle">
@@ -101,7 +101,7 @@ onMounted(load)
         </div>
         <div class="rounded-xl border border-border-subtle p-5">
           <p class="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Outstanding</p>
-          <p class="mt-1 font-[Georgia] text-2xl font-bold text-accent">
+          <p class="mt-1 font-display text-2xl font-bold text-accent">
             KES {{ Number(stats.credits_outstanding_total).toLocaleString() }}
           </p>
           <p class="mt-1 text-xs text-foreground-subtle">Not yet redeemed</p>

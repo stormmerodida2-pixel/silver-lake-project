@@ -73,7 +73,7 @@ onMounted(() => {
   <div class="bg-page">
     <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
       <p class="text-center text-sm font-semibold uppercase tracking-widest text-accent">Select Your Car</p>
-      <h1 class="mt-2 text-center font-[Georgia] text-3xl font-bold text-foreground">Our Fleet</h1>
+      <h1 class="mt-2 text-center font-display text-3xl font-bold text-foreground">Our Fleet</h1>
       <p class="mt-2 text-center text-foreground-muted">Comfort for every need, available with a driver or self drive.</p>
 
       <div

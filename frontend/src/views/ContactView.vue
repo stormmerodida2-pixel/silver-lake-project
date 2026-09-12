@@ -4,7 +4,7 @@
     <section class="bg-page py-20">
       <div class="mx-auto max-w-4xl px-4 text-center sm:px-6">
         <p class="text-sm font-semibold uppercase tracking-widest text-accent">Get in Touch</p>
-        <h1 class="mt-3 font-[Georgia] text-4xl font-bold text-foreground sm:text-5xl">Contact &amp; About Us</h1>
+        <h1 class="mt-3 font-display text-4xl font-bold text-foreground sm:text-5xl">Contact &amp; About Us</h1>
         <p class="mt-5 text-foreground-secondary">Rooted in Kisumu. Driven across Kenya. We're here whenever you need us.</p>
       </div>
     </section>
@@ -26,7 +26,7 @@
               />
             </svg>
           </div>
-          <h2 class="mt-5 font-[Georgia] text-lg font-bold text-foreground">Call Us</h2>
+          <h2 class="mt-5 font-display text-lg font-bold text-foreground">Call Us</h2>
           <a href="tel:+254798184193" class="mt-2 block text-base font-semibold text-accent hover:underline">
             0798 184 193
           </a>
@@ -48,7 +48,7 @@
               />
             </svg>
           </div>
-          <h2 class="mt-5 font-[Georgia] text-lg font-bold text-foreground">WhatsApp</h2>
+          <h2 class="mt-5 font-display text-lg font-bold text-foreground">WhatsApp</h2>
           <a
             href="https://wa.me/254798184193?text=Hello%20SilverLake%20Car%20Rentals%2C%20I%20would%20like%20to%20enquire%20about%20a%20booking."
             target="_blank"
@@ -83,7 +83,7 @@
               />
             </svg>
           </div>
-          <h2 class="mt-5 font-[Georgia] text-lg font-bold text-foreground">Email</h2>
+          <h2 class="mt-5 font-display text-lg font-bold text-foreground">Email</h2>
           <p class="mt-2 text-sm font-semibold text-accent break-all">info@silverlakecarentals.com</p>
           <p class="mt-1 text-sm text-foreground-subtle">We respond within 24 hours</p>
         </a>
@@ -96,7 +96,7 @@
         <div class="grid gap-12 lg:grid-cols-2 lg:items-center">
           <div>
             <p class="text-sm font-semibold uppercase tracking-widest text-accent">Our Story</p>
-            <h2 class="mt-3 font-[Georgia] text-3xl font-bold text-foreground">
+            <h2 class="mt-3 font-display text-3xl font-bold text-foreground">
               More than a car hire. <span class="text-accent">Your travel partner.</span>
             </h2>
             <p class="mt-5 leading-relaxed text-foreground-muted">
@@ -111,19 +111,19 @@
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="rounded-2xl border border-border-subtle bg-surface-2 p-6 text-center shadow-sm">
-              <p class="font-[Georgia] text-3xl font-bold text-accent">5+</p>
+              <p class="font-display text-3xl font-bold text-accent">5+</p>
               <p class="mt-2 text-sm text-foreground-subtle">Premium Vehicles</p>
             </div>
             <div class="rounded-2xl border border-border-subtle bg-surface-2 p-6 text-center shadow-sm">
-              <p class="font-[Georgia] text-3xl font-bold text-accent">47</p>
+              <p class="font-display text-3xl font-bold text-accent">47</p>
               <p class="mt-2 text-sm text-foreground-subtle">Counties Served</p>
             </div>
             <div class="rounded-2xl border border-border-subtle bg-surface-2 p-6 text-center shadow-sm">
-              <p class="font-[Georgia] text-3xl font-bold text-accent">7 Days</p>
+              <p class="font-display text-3xl font-bold text-accent">7 Days</p>
               <p class="mt-2 text-sm text-foreground-subtle">Always Available</p>
             </div>
             <div class="rounded-2xl border border-border-subtle bg-surface-2 p-6 text-center shadow-sm">
-              <p class="font-[Georgia] text-3xl font-bold text-accent">100%</p>
+              <p class="font-display text-3xl font-bold text-accent">100%</p>
               <p class="mt-2 text-sm text-foreground-subtle">Vetted Drivers</p>
             </div>
           </div>
@@ -133,7 +133,7 @@
 
     <!-- Location -->
     <section class="mx-auto max-w-5xl px-4 py-16 sm:px-6 text-center">
-      <h2 class="font-[Georgia] text-2xl font-bold text-foreground">Find Us in Kisumu</h2>
+      <h2 class="font-display text-2xl font-bold text-foreground">Find Us in Kisumu</h2>
       <p class="mt-3 text-foreground-muted">SilverLake Car Rentals · Kisumu City, Kenya</p>
       <div class="mt-6 overflow-hidden rounded-2xl border border-border-subtle shadow-lg">
         <iframe

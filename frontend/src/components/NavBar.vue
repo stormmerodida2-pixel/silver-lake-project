@@ -77,7 +77,7 @@ async function handleLogout() {
       <RouterLink to="/" class="flex shrink-0 items-center gap-2">
         <SilverLakeLogo :size="32" />
         <span class="hidden flex-col items-start leading-none sm:flex">
-          <span class="font-[Georgia] text-sm font-bold uppercase tracking-wide text-foreground">SilverLake</span>
+          <span class="font-display text-sm font-bold uppercase tracking-wide text-foreground">SilverLake</span>
           <span
             class="mt-0.5 border-b border-accent-border-strong pb-0.5 text-[8px] font-bold uppercase tracking-[0.2em] text-foreground-muted"
           >
@@ -91,7 +91,7 @@ async function handleLogout() {
           v-for="link in links"
           :key="link.to"
           :to="link.to"
-          class="whitespace-nowrap font-[Georgia] text-base font-semibold tracking-wide text-foreground transition hover:text-accent"
+          class="whitespace-nowrap font-display text-base font-semibold tracking-wide text-foreground transition hover:text-accent"
           active-class="text-accent"
         >
           {{ link.label }}
@@ -103,7 +103,7 @@ async function handleLogout() {
           <template v-if="auth.isAuthenticated">
             <RouterLink
               to="/account/profile"
-              class="flex items-center gap-2 whitespace-nowrap font-[Georgia] text-base tracking-wide text-foreground-muted transition hover:text-accent"
+              class="flex items-center gap-2 whitespace-nowrap font-display text-base tracking-wide text-foreground-muted transition hover:text-accent"
             >
               <span class="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-border bg-surface-2">
                 <img v-if="auth.user?.avatar" :src="auth.user.avatar" alt="" class="h-full w-full object-cover" />
@@ -117,13 +117,13 @@ async function handleLogout() {
           <template v-else>
             <RouterLink
               to="/login"
-              class="whitespace-nowrap font-[Georgia] text-base font-semibold tracking-wide text-foreground transition hover:text-accent"
+              class="whitespace-nowrap font-display text-base font-semibold tracking-wide text-foreground transition hover:text-accent"
             >
               Log In
             </RouterLink>
             <RouterLink
               to="/register"
-              class="whitespace-nowrap rounded-md bg-accent-bg px-4 py-2 font-[Georgia] text-sm font-semibold tracking-wide text-on-accent transition hover:bg-accent-bg-hover"
+              class="whitespace-nowrap rounded-md bg-accent-bg px-4 py-2 font-display text-sm font-semibold tracking-wide text-on-accent transition hover:bg-accent-bg-hover"
             >
               Register
             </RouterLink>
@@ -136,7 +136,7 @@ async function handleLogout() {
 
         <button
           v-if="auth.isAuthenticated"
-          class="hidden whitespace-nowrap font-[Georgia] text-base font-semibold tracking-wide text-foreground transition hover:text-accent md:block"
+          class="hidden whitespace-nowrap font-display text-base font-semibold tracking-wide text-foreground transition hover:text-accent md:block"
           @click="handleLogout"
         >
           Log Out

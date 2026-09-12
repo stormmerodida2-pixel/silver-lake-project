@@ -160,7 +160,7 @@ const featureStrip = [
       >
         <div class="flex items-center gap-2">
           <SilverLakeLogo :size="22" />
-          <span class="font-[Georgia] font-bold text-foreground">SilverLake Car Rentals</span>
+          <span class="font-display font-bold text-foreground">SilverLake Car Rentals</span>
         </div>
 
         <div class="flex flex-wrap gap-x-6 gap-y-2 text-foreground-secondary">
