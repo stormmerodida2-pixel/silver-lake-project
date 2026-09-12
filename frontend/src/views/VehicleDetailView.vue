@@ -173,7 +173,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onLightboxKeydown))
 
 <template>
   <div class="bg-page">
-    <p v-if="loading" class="py-32 text-center text-foreground-muted">Loading...</p>
+    <div v-if="loading">
+      <div class="h-72 w-full animate-pulse bg-surface sm:h-96" />
+      <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
+        <div class="grid gap-10 lg:grid-cols-3">
+          <div class="space-y-3 lg:col-span-2">
+            <div class="h-4 w-1/4 animate-pulse rounded bg-surface" />
+            <div class="h-8 w-1/2 animate-pulse rounded bg-surface" />
+            <div class="mt-6 grid grid-cols-3 gap-4">
+              <div class="h-20 animate-pulse rounded-xl bg-surface" />
+              <div class="h-20 animate-pulse rounded-xl bg-surface" />
+              <div class="h-20 animate-pulse rounded-xl bg-surface" />
+            </div>
+          </div>
+          <div class="h-80 animate-pulse rounded-2xl bg-surface lg:col-span-1" />
+        </div>
+      </div>
+    </div>
     <p v-else-if="error" class="py-32 text-center text-danger">{{ error }}</p>
 
     <template v-else-if="vehicle">
