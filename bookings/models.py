@@ -291,6 +291,27 @@ class Booking(models.Model):
         if self.pk is None and self.start_date and self.start_date < timezone.localdate():
             raise ValidationError('Start date cannot be in the past.')
 
+        # Same "brand-new bookings only" reasoning as the start-date check above - a vehicle or
+        # driver that was fine when a booking was created shouldn't retroactively invalidate that
+        # booking just because either later goes out of service; it only stops accepting *new*
+        # bookings from that point on. fleet.models.currently_free_vehicles/visible_vehicles
+        # already exclude exactly this (is_available, lapsed insurance/inspection, driver away/
+        # suspended/license-expired) from the public listing/sitemap - but that was a display-only
+        # filter, never re-enforced here. Without this, a stale /fleet tab, a bookmarked vehicle
+        # link, or a direct API request with a known vehicle id could still book (and get
+        # confirmed, paid, and dispatched for) a vehicle with lapsed insurance or a failed
+        # inspection, or default onto a driver who's away, suspended, or driving on an expired
+        # license.
+        if self.pk is None and self.vehicle_id:
+            if not self.vehicle.is_available:
+                raise ValidationError(f'{self.vehicle.name} is not currently available for booking.')
+            if self.vehicle.is_insurance_expired:
+                raise ValidationError(f"{self.vehicle.name} can't be booked - its insurance has expired.")
+            if self.vehicle.is_inspection_expired:
+                raise ValidationError(f"{self.vehicle.name} can't be booked - its inspection has expired.")
+            if self.driver_id and (self.driver.is_away or not self.driver.is_active or self.driver.is_license_expired):
+                raise ValidationError(f'{self.driver.full_name} is not currently available to be assigned a booking.')
+
         if self.start_date and self.end_date and self.end_date < self.start_date:
             raise ValidationError('End date cannot be before start date.')
 
