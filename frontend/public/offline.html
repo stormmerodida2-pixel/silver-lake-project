@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a1730" />
+    <meta name="robots" content="noindex" />
+    <title>You're offline · SilverLake Car Rentals</title>
+    <link rel="icon" href="/favicon.png" />
+    <!-- Served by public/sw.js when a page load fails with no network. No scripts on purpose: the
+    site's CSP forbids inline script, and nothing here needs one - "Try again" is a plain link. -->
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px;
+        background: #050d1f;
+        color: #e6ebf3;
+        font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+        text-align: center;
+      }
+      main {
+        max-width: 420px;
+      }
+      img {
+        width: 88px;
+        height: 88px;
+        border-radius: 20px;
+      }
+      h1 {
+        margin: 20px 0 8px;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+        font-size: 28px;
+        color: #e8cf7d;
+      }
+      p {
+        margin: 0 0 24px;
+        line-height: 1.6;
+        color: #a9b6cc;
+      }
+      a.button {
+        display: inline-block;
+        padding: 12px 28px;
+        border-radius: 12px;
+        background: #c9a227;
+        color: #050d1f;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .contact {
+        margin-top: 28px;
+        font-size: 14px;
+      }
+      .contact a {
+        color: #d9b94d;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/icon-192.png" alt="SilverLake Car Rentals" />
+      <h1>You're offline</h1>
+      <p>We can't reach SilverLake right now. Check your data or Wi-Fi connection, then try again.</p>
+      <a class="button" href="/">Try again</a>
+      <p class="contact">Need a car urgently? Call <a href="tel:+254710315345">+254 710 315 345</a></p>
+    </main>
+  </body>
+</html>

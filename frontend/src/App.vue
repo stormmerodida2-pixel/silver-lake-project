@@ -5,6 +5,7 @@ import NavBar from './components/NavBar.vue'
 import Footer from './components/Footer.vue'
 import AnnouncementBanner from './components/AnnouncementBanner.vue'
 import ImpersonationBanner from './components/ImpersonationBanner.vue'
+import InstallAppBanner from './components/InstallAppBanner.vue'
 
 const route = useRoute()
 </script>
@@ -26,6 +27,8 @@ const route = useRoute()
     <ImpersonationBanner />
     <NavBar v-if="!route.meta.hideChrome" />
     <AnnouncementBanner v-if="!route.meta.hideChrome" />
+    <!-- Not behind hideChrome: the driver portal is where an installed app helps most. -->
+    <InstallAppBanner />
     <main id="main-content" class="flex-1">
       <RouterView />
     </main>

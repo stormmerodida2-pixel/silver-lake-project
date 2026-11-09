@@ -10,6 +10,7 @@ import { initAnalytics } from './utils/analytics'
 import { initClientErrorReporting } from './utils/clientErrorReporting'
 import { initErrorTracking } from './utils/errorTracking'
 import { registerServiceWorker } from './utils/pushNotifications'
+import { initInstallPrompt } from './utils/pwaInstall'
 
 const app = createApp(App)
 // Skipped when the build-time prerender script (scripts/prerender.mjs) is visiting this page -
@@ -21,6 +22,7 @@ if (!window.__PRERENDERING__) {
   initAnalytics()
   initClientErrorReporting()
   registerServiceWorker()
+  initInstallPrompt()
   initErrorTracking(app, router)
 }
 app.use(createPinia()).use(router).directive('reveal', reveal).mount('#app')

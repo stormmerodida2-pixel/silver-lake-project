@@ -14,9 +14,12 @@ export function isPushSupported() {
 }
 
 // Registering alone never prompts anything - safe to call unconditionally on every page load
-// (see main.js) so the worker is already active by the time someone actually opts in.
+// (see main.js) so the worker is already active by the time someone actually opts in. Gated only
+// on service-worker support, not push support: the same worker also provides the offline page and
+// installable-app behaviour, which iOS Safari supports in a normal tab even though it only
+// exposes PushManager once the site is installed to the home screen.
 export async function registerServiceWorker() {
-  if (!isPushSupported()) return null
+  if (!('serviceWorker' in navigator)) return null
   try {
     return await navigator.serviceWorker.register('/sw.js')
   } catch {
