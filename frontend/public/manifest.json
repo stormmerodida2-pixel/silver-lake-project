@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "SilverLake Car Rentals",
   "short_name": "SilverLake",
   "description": "Premium car hire in Kisumu with drivers or self-drive. Book instantly via M-Pesa or bank transfer.",
@@ -7,6 +8,24 @@
   "display": "standalone",
   "background_color": "#050d1f",
   "theme_color": "#0a1730",
+  "lang": "en-KE",
+  "dir": "ltr",
+  "orientation": "any",
+  "categories": ["travel", "business"],
+  "shortcuts": [
+    {
+      "name": "Browse the fleet",
+      "short_name": "Fleet",
+      "url": "/fleet",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "My bookings",
+      "short_name": "Bookings",
+      "url": "/account/bookings",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
